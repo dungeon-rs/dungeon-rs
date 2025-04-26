@@ -4,3 +4,46 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+bevy = { version = "0.16.0", default-features = false, features = [
+    "async_executor",
+    "bevy_asset",
+    "bevy_render",
+    "bevy_core_pipeline",
+    "bevy_sprite",
+    "bevy_text",
+    "bevy_ui",
+    "bevy_window",
+    "bevy_winit",
+    "png",
+    "bevy_log",
+    "default_font",
+    "multi_threaded"
+] }
+log = { version = "*", features = ["max_level_debug", "release_max_level_warn"] }
+
+[features]
+default = ["dev"]
+
+dev = [
+    "bevy/dynamic_linking",
+    "bevy/bevy_dev_tools",
+    "bevy/bevy_ui_debug",
+    "bevy/bevy_gizmos"
+]
+
+# Enable a small amount of optimization in the dev profile.
+[profile.dev]
+opt-level = 1
+
+# Enable a large amount of optimization in the dev profile for dependencies.
+[profile.dev.package."*"]
+opt-level = 3
+
+# Enable more optimization in the release profile at the cost of compile time.
+[profile.release]
+# Compile the entire crate as one unit.
+# Slows compile times, marginal improvements.
+codegen-units = 1
+# Do a second optimization pass over the entire program, including dependencies.
+# Slows compile times, marginal improvements.
+lto = "thin"
