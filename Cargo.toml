@@ -12,6 +12,7 @@ bevy = { version = "0.16.0", default-features = false, features = [
     "bevy_sprite",
     "bevy_text",
     "bevy_ui",
+    "bevy_state",
     "bevy_window",
     "bevy_winit",
     "png",
@@ -20,7 +21,6 @@ bevy = { version = "0.16.0", default-features = false, features = [
     "multi_threaded",
     "hdr"
 ] }
-log = { version = "*", features = ["max_level_debug", "release_max_level_warn"] }
 
 [features]
 default = ["dev"]
