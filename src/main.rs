@@ -1,6 +1,9 @@
-use bevy::dev_tools::fps_overlay::{FpsOverlayConfig, FpsOverlayPlugin};
 use bevy::prelude::*;
-use bevy::text::FontSmoothing;
+#[cfg(feature = "dev")]
+use bevy::{
+    dev_tools::fps_overlay::{FpsOverlayConfig, FpsOverlayPlugin},
+    text::FontSmoothing,
+};
 use dungeon_rs::DungeonRsPlugin;
 
 fn main() {
