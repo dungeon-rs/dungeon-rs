@@ -2,6 +2,7 @@ use bevy::app::App;
 use bevy::input_focus::InputFocus;
 use bevy::prelude::Plugin;
 
+mod button;
 mod toolbar;
 
 pub use toolbar::ToolbarAction;
