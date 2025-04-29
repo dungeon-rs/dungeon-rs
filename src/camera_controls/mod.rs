@@ -1,12 +1,12 @@
 mod state;
 
 use crate::camera_controls::state::CameraControlsState;
-use bevy::app::{App, FixedUpdate, Plugin};
+use bevy::app::{App, Plugin};
 use bevy::input::ButtonInput;
 use bevy::math::Vec2;
 use bevy::prelude::{
     Camera, Commands, CursorMoved, EventReader, Local, MouseButton, Node, Projection, Query, Res,
-    Startup, Text, Transform, Val, default,
+    Startup, Text, Transform, Update, Val, default,
 };
 use bevy::ui::PositionType;
 
@@ -17,7 +17,7 @@ pub struct CameraControlsPlugin;
 impl Plugin for CameraControlsPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(Startup, setup);
-        app.add_systems(FixedUpdate, camera_controls);
+        app.add_systems(Update, camera_controls);
     }
 }
 

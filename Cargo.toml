@@ -4,9 +4,12 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+accesskit = "0.18.0"
 bevy = { version = "0.16.0", default-features = false, features = [
     "async_executor",
     "bevy_asset",
+    "bevy_input_focus",
+    "bevy_ui_picking_backend",
     "bevy_render",
     "bevy_core_pipeline",
     "bevy_sprite",
