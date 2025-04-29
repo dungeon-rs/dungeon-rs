@@ -1,7 +1,23 @@
-use bevy::prelude::{AssetServer, Color, Font, Handle};
+use bevy::app::{App, Plugin};
+use bevy::input_focus::InputFocus;
+use bevy::prelude::{AssetServer, Font, Handle};
+use widgets::toolbar;
 
-/// The background colour for buttons in the user interface.
-pub const BUTTON_COLOR: Color = Color::srgb(0.18, 0.18, 0.18);
+mod colors;
+mod widgets;
+
+pub use widgets::toolbar::ToolbarAction;
+
+#[derive(Default)]
+pub struct ThemePlugin;
+
+impl Plugin for ThemePlugin {
+    fn build(&self, app: &mut App) {
+        app.init_resource::<InputFocus>();
+
+        app.add_plugins(toolbar::Toolbar);
+    }
+}
 
 /// Get the font for the user interface of DungeonRS.
 pub fn font(assets: &AssetServer) -> Handle<Font> {

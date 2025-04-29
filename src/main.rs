@@ -1,6 +1,5 @@
 use bevy::prelude::*;
-use dungeon_rs::DungeonRsPlugin;
-use dungeon_rs::ui::ToolbarAction;
+use dungeon_rs::{DungeonRsPlugin, ToolbarAction};
 
 fn main() {
     App::new()

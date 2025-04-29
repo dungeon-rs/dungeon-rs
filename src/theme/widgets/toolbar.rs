@@ -1,4 +1,4 @@
-use crate::ui::button::button;
+use crate::theme::widgets::button::button;
 use bevy::app::App;
 use bevy::asset::AssetServer;
 use bevy::prelude::SpawnRelated;
@@ -9,7 +9,7 @@ use bevy::prelude::{
     children, default,
 };
 
-pub(super) struct Toolbar;
+pub(in crate::theme) struct Toolbar;
 
 /// The buttons on the toolbar, dispatched as events when clicked.
 #[derive(Component, Event, Clone, Copy, Debug)]
