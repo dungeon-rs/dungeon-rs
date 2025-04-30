@@ -14,7 +14,6 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn(Camera2d);
 
     commands.spawn(Sprite::from_image(asset_server.load("branding.png")));
-    commands.spawn(dialog(children![]));
 }
 
 fn handle_file_cmds(mut reader: EventReader<ToolbarAction>) {

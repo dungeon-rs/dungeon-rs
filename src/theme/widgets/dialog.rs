@@ -2,9 +2,10 @@ use bevy::app::App;
 use bevy::prelude::Val::{Percent, Px};
 use bevy::prelude::{
     AlignItems, BackgroundColor, Bundle, Changed, Color, Component, Display, Entity, FlexDirection,
-    Interaction, JustifyContent, Query, SpawnRelated, Text, UiRect, Update, With,
+    Interaction, JustifyContent, JustifySelf, Query, SpawnRelated, Text, TextLayout, UiRect,
+    Update, With,
 };
-use bevy::prelude::{Commands, Node, Plugin, PositionType, children, default};
+use bevy::prelude::{Commands, JustifyText, Node, Plugin, PositionType, children, default};
 use bevy::ui::FocusPolicy;
 
 pub struct DialogPlugin;
@@ -24,7 +25,7 @@ impl Plugin for DialogPlugin {
     }
 }
 
-pub fn dialog(children: impl Bundle) -> impl Bundle {
+pub fn dialog(title: impl Into<String>, children: impl Bundle) -> impl Bundle {
     (
         DialogWindow,
         Node {
@@ -51,11 +52,20 @@ pub fn dialog(children: impl Bundle) -> impl Bundle {
                         position_type: PositionType::Relative,
                         width: Percent(100.),
                         display: Display::Flex,
-                        justify_content: JustifyContent::End,
+                        justify_content: JustifyContent::Center,
                         ..default()
                     },
                     BackgroundColor(Color::srgb(0.1, 0.1, 0.1)),
                     children![
+                        (
+                            Node {
+                                justify_self: JustifySelf::Center,
+                                flex_grow: 1.,
+                                ..default()
+                            },
+                            Text::new(title),
+                            TextLayout::new_with_justify(JustifyText::Center),
+                        ),
                         // Close button
                         (
                             DialogCloseButton,
@@ -94,7 +104,7 @@ fn on_close_button_click(
 ) {
     for (_button, &interaction) in &mut query {
         if interaction == Interaction::Pressed {
-            if let Ok(dialog) = dialogs.single_mut() {
+            for dialog in &mut dialogs {
                 commands.entity(dialog).despawn();
             }
         }
