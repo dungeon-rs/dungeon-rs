@@ -4,10 +4,10 @@ mod debug;
 mod theme;
 mod ui;
 
-use crate::{camera_controls::CameraControlsPlugin, theme::ThemePlugin, ui::UiPlugin};
+use crate::{camera_controls::CameraControlsPlugin, ui::UiPlugin};
 use bevy::app::plugin_group;
 
-pub use crate::theme::ToolbarAction;
+pub use crate::theme::*;
 
 #[cfg(feature = "dev")]
 use debug::DebugPlugin;

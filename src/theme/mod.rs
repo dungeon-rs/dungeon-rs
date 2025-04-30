@@ -6,7 +6,9 @@ use widgets::toolbar;
 mod colors;
 mod widgets;
 
-use crate::theme::widgets::dialog;
+use widgets::dialog::*;
+
+pub use widgets::dialog::dialog;
 pub use widgets::toolbar::ToolbarAction;
 
 #[derive(Default)]
@@ -16,7 +18,7 @@ impl Plugin for ThemePlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<InputFocus>();
 
-        app.add_plugins((toolbar::Toolbar, dialog::DialogPlugin));
+        app.add_plugins((toolbar::Toolbar, DialogPlugin));
     }
 }
 
