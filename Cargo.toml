@@ -1,40 +1,17 @@
-[package]
-name = "dungeon_rs"
-version = "0.1.0"
+[workspace]
+resolver = "3"
+members = ["packages/core", "packages/editor"]
+
+[workspace.package]
 edition = "2024"
+repository = "https://github.com/dealloc/dungeon_rs"
+version = "0.0.1"
+readme = "README.md"
+authors = ["Wannes Gennar <info@dealloc.be>"]
+license = "MIT"
 
-[dependencies]
-accesskit = "0.18.0"
-bevy = { version = "0.16.0", default-features = false, features = [
-    "async_executor",
-    "bevy_asset",
-    "bevy_input_focus",
-    "bevy_ui_picking_backend",
-    "bevy_render",
-    "bevy_core_pipeline",
-    "bevy_sprite",
-    "bevy_text",
-    "bevy_ui",
-    "bevy_state",
-    "bevy_window",
-    "bevy_winit",
-    "png",
-    "bevy_log",
-    "default_font",
-    "multi_threaded",
-    "hdr"
-] }
-
-[features]
-default = ["dev"]
-
-dev = [
-    "bevy/dynamic_linking",
-    "bevy/bevy_dev_tools",
-    "bevy/bevy_ui_debug",
-    "bevy/bevy_gizmos",
-    "bevy/file_watcher"
-]
+[workspace.dependencies]
+log = { version = "*", features = ["max_level_debug", "release_max_level_warn"] }
 
 # Enable a small amount of optimization in the dev profile.
 [profile.dev]

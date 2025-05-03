@@ -1,0 +1,10 @@
+[package]
+name = "dungeonrs_core"
+edition = "2024"
+repository.workspace = true
+version.workspace = true
+readme.workspace = true
+authors.workspace = true
+license.workspace = true
+
+[dependencies]

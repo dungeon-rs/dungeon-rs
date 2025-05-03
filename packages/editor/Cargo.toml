@@ -1,0 +1,32 @@
+[package]
+name = "dungeonrs_editor"
+edition = "2024"
+repository.workspace = true
+version.workspace = true
+readme.workspace = true
+authors.workspace = true
+license.workspace = true
+
+[dependencies]
+bevy = { version = "0.16.0", default-features = false, features = [
+    "multi_threaded",
+    "bevy_window",
+    "bevy_winit",
+    "bevy_render",
+    "bevy_core_pipeline",
+    "bevy_sprite",
+    "bevy_log"
+]}
+
+[features]
+default = ["dev"]
+dev = [
+    "bevy/dynamic_linking",
+    "bevy/bevy_dev_tools",
+    "bevy/bevy_gizmos",
+    "bevy/file_watcher"
+]
+
+linux = []
+windows = []
+macos = []
