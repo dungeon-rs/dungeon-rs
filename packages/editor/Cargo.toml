@@ -6,9 +6,11 @@ version.workspace = true
 readme.workspace = true
 authors.workspace = true
 license.workspace = true
+description = "The editor binary, this starts the UI and is intended to be the user facing binary"
 
 [dependencies]
-bevy = { version = "0.16.0", default-features = false, features = [
+dungeonrs_ui = { path = "../ui"}
+bevy = { workspace = true, features = [
     "multi_threaded",
     "bevy_window",
     "bevy_winit",
