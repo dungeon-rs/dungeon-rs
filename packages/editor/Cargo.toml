@@ -1,6 +1,6 @@
 [package]
 name = "dungeonrs_editor"
-edition = "2024"
+edition.workspace = true
 repository.workspace = true
 version.workspace = true
 readme.workspace = true
@@ -9,7 +9,7 @@ license.workspace = true
 description = "The editor binary, this starts the UI and is intended to be the user facing binary"
 
 [dependencies]
-dungeonrs_ui = { path = "../ui"}
+dungeonrs_ui = { path = "../ui" }
 dungeonrs_core = { path = "../core" }
 bevy = { workspace = true, features = [
     "multi_threaded",
@@ -19,29 +19,32 @@ bevy = { workspace = true, features = [
     "bevy_core_pipeline",
     "bevy_sprite",
     "bevy_log"
-]}
+] }
 
 [features]
 default = ["dev"]
 dev = [
     "bevy/dynamic_linking",
     "bevy/bevy_dev_tools",
+    "bevy/bevy_debug_stepping",
     "bevy/bevy_gizmos",
     "bevy/file_watcher",
     "dungeonrs_ui/dev"
 ]
 
 windows = [
-  "dungeonrs_core/windows",
-  "dungeonrs_ui/windows"
+    "dungeonrs_core/windows",
+    "dungeonrs_ui/windows"
 ]
 linux = [
     "bevy/x11",
     "bevy/wayland",
+    "bevy/accesskit_unix",
     "dungeonrs_core/linux",
     "dungeonrs_ui/linux"
 ]
 macos = [
-  "dungeonrs_core/macos",
-  "dungeonrs_ui/macos"
+    "bevy/accesskit_unix",
+    "dungeonrs_core/macos",
+    "dungeonrs_ui/macos"
 ]

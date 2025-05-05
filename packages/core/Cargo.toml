@@ -1,6 +1,6 @@
 [package]
 name = "dungeonrs_core"
-edition = "2024"
+edition.workspace = true
 repository.workspace = true
 version.workspace = true
 readme.workspace = true
