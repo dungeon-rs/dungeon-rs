@@ -1,6 +1,7 @@
 use bevy::prelude::*;
 use bevy_egui::{EguiContextPass, EguiContexts, EguiPlugin, egui};
 
+#[derive(Default)]
 pub struct UIPlugin;
 
 impl Plugin for UIPlugin {
@@ -9,8 +10,6 @@ impl Plugin for UIPlugin {
             enable_multipass_for_primary_context: true,
         })
         .add_systems(EguiContextPass, ui_example_system);
-
-        app.add_plugins(bevy_inspector_egui::quick::WorldInspectorPlugin::new());
     }
 }
 

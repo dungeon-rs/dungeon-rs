@@ -10,6 +10,7 @@ description = "The editor binary, this starts the UI and is intended to be the u
 
 [dependencies]
 dungeonrs_ui = { path = "../ui"}
+dungeonrs_core = { path = "../core" }
 bevy = { workspace = true, features = [
     "multi_threaded",
     "bevy_window",
