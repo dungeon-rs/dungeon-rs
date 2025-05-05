@@ -27,12 +27,21 @@ dev = [
     "bevy/dynamic_linking",
     "bevy/bevy_dev_tools",
     "bevy/bevy_gizmos",
-    "bevy/file_watcher"
+    "bevy/file_watcher",
+    "dungeonrs_ui/dev"
 ]
 
+windows = [
+  "dungeonrs_core/windows",
+  "dungeonrs_ui/windows"
+]
 linux = [
     "bevy/x11",
-    "bevy/wayland"
+    "bevy/wayland",
+    "dungeonrs_core/linux",
+    "dungeonrs_ui/linux"
 ]
-windows = []
-macos = []
+macos = [
+  "dungeonrs_core/macos",
+  "dungeonrs_ui/macos"
+]

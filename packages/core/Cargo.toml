@@ -9,3 +9,10 @@ license.workspace = true
 
 [dependencies]
 bevy = { workspace = true }
+
+[features]
+dev = []
+
+windows = []
+linux = []
+macos = []
