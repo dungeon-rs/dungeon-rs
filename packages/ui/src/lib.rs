@@ -1,7 +1,13 @@
-use bevy::prelude::*;
-use bevy_egui::{EguiContextPass, EguiContexts, EguiPlugin, egui};
-use bevy_inspector_egui::{DefaultInspectorConfigPlugin, reflect_inspector};
+mod widgets;
 
+use crate::widgets::toolbar::toolbar;
+use bevy::prelude::*;
+use bevy_egui::{EguiContextPass, EguiContexts, EguiPlugin};
+use bevy_inspector_egui::DefaultInspectorConfigPlugin;
+
+/// The UI plugin handles registering and setting up all user interface elements of the editor.
+/// This module is unavailable in headless mode and should not contain any actual functionality,
+/// just build the user interface.
 #[derive(Default)]
 pub struct UIPlugin;
 
@@ -11,30 +17,20 @@ impl Plugin for UIPlugin {
             enable_multipass_for_primary_context: true,
         })
         .add_plugins(DefaultInspectorConfigPlugin)
-        .add_systems(EguiContextPass, ui_example_system);
+        .add_systems(EguiContextPass, editor_interface);
     }
 }
 
-fn ui_example_system(
-    mut contexts: EguiContexts,
-    registry: Res<AppTypeRegistry>,
-    mut backcolor: ResMut<ClearColor>,
-) {
+fn editor_interface(mut contexts: EguiContexts) {
     let Some(context) = contexts.try_ctx_mut() else {
         return;
     };
-    let registry = registry.read();
+
+    toolbar(context);
 
     egui::SidePanel::right("inspector_panel")
         .resizable(true)
         .show(context, |ui| {
-            egui::CollapsingHeader::new("Colours").show(ui, |ui| {
-                for _ in 1..10 {
-                    ui.horizontal(|ui| {
-                        ui.label("Background color");
-                        reflect_inspector::ui_for_value(&mut backcolor.0, ui, &registry);
-                    });
-                }
-            })
+            //         side_panel.ui(ui, &mut Viewer);
         });
 }
