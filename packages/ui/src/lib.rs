@@ -32,7 +32,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         .spawn((
             Pickable::default(),
             Name::from("left"),
-            Sprite::from_image(asset_server.load("example.png")),
+            Sprite::from_image(asset_server.load("logo.png")),
             Transform::from_xyz(-100.0, 0.0, 0.0),
         ))
         .observe(on_click_sprite);
@@ -41,7 +41,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         .spawn((
             Pickable::default(),
             Name::from("right"),
-            Sprite::from_image(asset_server.load("example.png")),
+            Sprite::from_image(asset_server.load("logo.png")),
             Transform::from_xyz(100.0, 0.0, 0.0),
         ))
         .observe(on_click_sprite);
@@ -77,9 +77,9 @@ fn editor_interface(
 fn on_click_sprite(
     event: Trigger<Pointer<Pressed>>,
     mut commands: Commands,
-    mut query: Query<(&Name, &mut Transform)>,
+    mut query: Query<&Name>,
 ) {
-    let Ok((name, transform)) = query.get_mut(event.target) else {
+    let Ok(name) = query.get_mut(event.target) else {
         return;
     };
 
