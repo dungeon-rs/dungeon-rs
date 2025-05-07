@@ -4,12 +4,18 @@ use crate::widgets::toolbar::toolbar;
 use bevy::prelude::*;
 use bevy_egui::{EguiContextPass, EguiContexts, EguiPlugin};
 use bevy_inspector_egui::{DefaultInspectorConfigPlugin, reflect_inspector};
+use egui::load::SizedTexture;
 
 /// The UI plugin handles registering and setting up all user interface elements of the editor.
 /// This module is unavailable in headless mode and should not contain any actual functionality,
 /// just build the user interface.
 #[derive(Default)]
 pub struct UIPlugin;
+
+#[derive(Resource)]
+struct UiState {
+    logo: SizedTexture,
+}
 
 #[derive(Resource)]
 struct EntityToInspect {
@@ -27,12 +33,18 @@ impl Plugin for UIPlugin {
     }
 }
 
-fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
+fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut contexts: EguiContexts) {
+    let logo = asset_server.load::<Image>("logo.png");
+    let texture = contexts.add_image(logo.clone());
+    commands.insert_resource(UiState {
+        logo: SizedTexture::new(texture, [24., 24.]),
+    });
+
     commands
         .spawn((
             Pickable::default(),
             Name::from("left"),
-            Sprite::from_image(asset_server.load("logo.png")),
+            Sprite::from_image(logo.clone()),
             Transform::from_xyz(-100.0, 0.0, 0.0),
         ))
         .observe(on_click_sprite);
@@ -41,7 +53,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         .spawn((
             Pickable::default(),
             Name::from("right"),
-            Sprite::from_image(asset_server.load("logo.png")),
+            Sprite::from_image(logo),
             Transform::from_xyz(100.0, 0.0, 0.0),
         ))
         .observe(on_click_sprite);
@@ -52,12 +64,13 @@ fn editor_interface(
     entity: Option<Res<EntityToInspect>>,
     mut query: Query<&mut Transform>,
     registry: Res<AppTypeRegistry>,
+    state: Res<UiState>,
 ) {
     let Some(context) = contexts.try_ctx_mut() else {
         return;
     };
 
-    toolbar(context);
+    toolbar(context, state.logo);
 
     egui::SidePanel::right("inspector_panel")
         .resizable(true)
