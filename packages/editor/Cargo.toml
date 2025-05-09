@@ -18,7 +18,12 @@ bevy = { workspace = true, features = [
     "bevy_render",
     "bevy_core_pipeline",
     "bevy_sprite",
-    "bevy_log"
+    "bevy_log",
+
+    # image formats
+    "png",
+    "jpeg",
+    "webp"
 ] }
 
 [features]
@@ -47,4 +52,20 @@ macos = [
     "bevy/accesskit_unix",
     "dungeonrs_core/macos",
     "dungeonrs_ui/macos"
+]
+
+# Extended support for images, beyond the "default" image support (png, jpeg, webp)
+images = [
+    "bevy/hdr",
+    "bevy/ktx2",
+    "bevy/bmp",
+    "bevy/dds",
+    "bevy/exr",
+    "bevy/ff",
+    "bevy/gif",
+    "bevy/ico",
+    "bevy/pnm",
+    "bevy/qoi",
+    "bevy/tga",
+    "bevy/tiff",
 ]
