@@ -9,7 +9,11 @@ license.workspace = true
 
 [dependencies]
 bevy = { workspace = true, features = [
-  "bevy_state"
+  "bevy_log",
+  "bevy_render",
+  "bevy_core_pipeline",
+  "bevy_sprite",
+  "bevy_asset"
 ] }
 
 [features]

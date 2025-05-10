@@ -2099,6 +2099,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "dungeonrs_headless"
+version = "0.0.1"
+dependencies = [
+ "bevy",
+ "dungeonrs_core",
+]
+
+[[package]]
 name = "dungeonrs_ui"
 version = "0.0.1"
 dependencies = [

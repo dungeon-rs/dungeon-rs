@@ -1,0 +1,13 @@
+[package]
+name = "dungeonrs_headless"
+edition = "2024"
+repository.workspace = true
+version.workspace = true
+readme.workspace = true
+authors.workspace = true
+license.workspace = true
+
+[dependencies]
+dungeonrs_core = { path = "../core" }
+bevy = { workspace = true, features = [
+] }

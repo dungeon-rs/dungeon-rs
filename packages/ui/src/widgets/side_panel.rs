@@ -1,21 +1,21 @@
 // use bevy::prelude::Resource;
 // use egui::Ui;
 // use egui_dock::{DockArea, DockState, Style, TabViewer};
-// 
+//
 // /// A side panel with tabs, reusable for any sort of side panel.
 // #[derive(Resource)]
 // pub struct SidePanel<T> {
 //     dock_state: DockState<T>,
 // }
-// 
+//
 // impl<T> SidePanel<T> {
 //     /// Create a new `SidePanel<T>` which generates the docking state from `tabs`.
 //     pub fn new(tabs: Vec<T>) -> Self {
 //         let dock_state = DockState::new(tabs);
-// 
+//
 //         Self { dock_state }
 //     }
-// 
+//
 //     /// Renders a `DockArea` inside `ui` and uses `viewer` to render it.
 //     /// The `SidePanel<T>` is responsible for maintaining the state of the docked tabs.
 //     pub fn ui(&mut self, ui: &mut Ui, viewer: &mut impl TabViewer<Tab = T>) {

@@ -15,9 +15,6 @@ bevy = { workspace = true, features = [
     "multi_threaded",
     "bevy_window",
     "bevy_winit",
-    "bevy_render",
-    "bevy_core_pipeline",
-    "bevy_sprite",
     "bevy_log",
 
     # image formats
