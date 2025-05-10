@@ -31,11 +31,13 @@ pub fn toolbar(
                     .on_hover_text("Export the current map to an image")
                     .clicked()
                 {
-                    export_writer.write(ExportRequest {
-                        output: PathBuf::from("output.png"),
-                        ppi: 128,
-                        tile_size: (512, 512),
-                    });
+                    let Ok(request) =
+                        ExportRequest::new(PathBuf::from("output.png"), 128, (512, 512))
+                    else {
+                        return;
+                    };
+
+                    export_writer.write(request);
                 }
 
                 ui.separator();

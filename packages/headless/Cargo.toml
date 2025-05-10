@@ -10,4 +10,23 @@ license.workspace = true
 [dependencies]
 dungeonrs_core = { path = "../core" }
 bevy = { workspace = true, features = [
+    "bevy_window"
 ] }
+
+[features]
+default = ["dev"]
+dev = [
+    "bevy/dynamic_linking",
+    "bevy/bevy_dev_tools",
+    "bevy/bevy_debug_stepping",
+]
+
+windows = [
+    "dungeonrs_core/windows",
+]
+linux = [
+    "dungeonrs_core/linux",
+]
+macos = [
+    "dungeonrs_core/macos",
+]
