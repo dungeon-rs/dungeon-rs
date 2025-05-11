@@ -1,5 +1,5 @@
-use crate::export::ongoing_export::{OngoingExport, ExportState};
-use crate::export::systems;
+use crate::export::ongoing_export::{ExportState, OngoingExport};
+use crate::export::callbacks;
 use bevy::prelude::{Camera, Commands, Entity, ResMut, Single, With};
 use bevy::render::gpu_readback::Readback;
 
@@ -16,7 +16,7 @@ pub fn attach_readback(
     commands.entity(*camera).with_children(|parent| {
         parent
             .spawn(Readback::texture(export.render_texture.clone_weak()))
-            .observe(systems::read_frame);
+            .observe(callbacks::read_frame);
     });
 
     export.state = ExportState::Capturing;

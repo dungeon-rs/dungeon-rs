@@ -1,9 +1,10 @@
 mod events;
 mod ongoing_export;
 mod systems;
+mod callbacks;
 
-use crate::export::ongoing_export::{OngoingExport, ExportState};
-use crate::export::systems::{advance_camera, attach_readback};
+use crate::export::ongoing_export::{ExportState, OngoingExport};
+use crate::export::systems::{advance_camera, attach_readback, poll_processing};
 use bevy::app::App;
 use bevy::prelude::{
     FixedPostUpdate, IntoScheduleConfigs, Plugin, PostUpdate, Res, not, resource_exists,
@@ -24,6 +25,7 @@ impl Plugin for ExportPlugin {
             (
                 attach_readback.run_if(in_state(ExportState::Preparing)),
                 advance_camera.run_if(in_state(ExportState::Capturing)),
+                poll_processing.run_if(in_state(ExportState::Processing)),
             ),
         );
         app.add_systems(
@@ -33,6 +35,7 @@ impl Plugin for ExportPlugin {
     }
 }
 
+/// Returns a function to determine if a given system should run based on the current export state.
 fn in_state(_state: ExportState) -> impl FnMut(Option<Res<OngoingExport>>) -> bool {
     |export: Option<Res<OngoingExport>>| {
         let Some(export) = export else {

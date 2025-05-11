@@ -1,4 +1,4 @@
-use crate::export::ongoing_export::{OngoingExport, ExportState};
+use crate::export::ongoing_export::{ExportState, OngoingExport};
 use crate::export::{ExportProgress, ExportStatus};
 use bevy::prelude::{Camera, EventWriter, ResMut, Single, Transform, With};
 

@@ -1,7 +1,8 @@
-use crate::export::ongoing_export::{OngoingExport, ExportState};
-use crate::export::{ExportProgress, ExportStatus};
+use crate::export::ongoing_export::{ExportState, OngoingExport};
+use crate::export::{callbacks, ExportProgress, ExportStatus};
 use bevy::prelude::{Commands, EventWriter, ResMut, Trigger};
 use bevy::render::gpu_readback::ReadbackComplete;
+use bevy::tasks::AsyncComputeTaskPool;
 use std::mem;
 
 /// Reads the texture from the GPU, set as an observer callback from [crate::export::systems::attach_readback]
@@ -29,6 +30,12 @@ pub fn read_frame(
         Err(_) => {
             commands.entity(trigger.target()).despawn();
             export.state = ExportState::Processing;
+
+            let (buffer, sender) = export.consume();
+            let task = AsyncComputeTaskPool::get()
+                .spawn(async move { callbacks::process_frames(buffer, sender) });
+
+            export.set_processing_task(task);
         }
     }
 }

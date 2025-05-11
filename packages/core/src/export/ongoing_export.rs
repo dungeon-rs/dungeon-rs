@@ -1,9 +1,12 @@
-use crate::export::ExportRequest;
+use crate::export::{ExportCompleted, ExportProgress, ExportRequest};
 use bevy::asset::RenderAssetUsages;
 use bevy::image::BevyDefault;
 use bevy::prelude::{Assets, Handle, Image, ResMut, Resource, Vec2, default};
 use bevy::render::render_resource::{Extent3d, TextureDimension, TextureFormat, TextureUsages};
+use crossbeam_channel::{Receiver, Sender};
 use std::collections::VecDeque;
+use std::mem;
+use bevy::tasks::Task;
 
 #[derive(Debug, Resource)]
 pub(crate) struct OngoingExport {
@@ -24,6 +27,11 @@ pub(crate) struct OngoingExport {
     pub total_steps: u64,
     /// The number of steps that have been completed.
     pub current_step: u64,
+    /// Once we reach the [ExportState::Processing] state, this will be set to the receiver of the
+    /// asynchronous processing channel.
+    pub(crate) receiver: Option<Receiver<ExportProgress>>,
+    /// The task that is processing the received frames into an image.
+    pub(crate) processing_task: Option<Task<ExportCompleted>>
 }
 
 /// A more specialized version of [ExportStatus] used for internal state tracking.
@@ -56,6 +64,8 @@ impl OngoingExport {
             render_texture: images.add(texture),
             total_steps: (frame_count as u64 * 3),
             current_step: 0,
+            receiver: None,
+            processing_task: None,
         }
     }
 
@@ -88,11 +98,25 @@ impl OngoingExport {
         }
     }
 
-    /// Attempts to read an extracted frame and associated coordinates.
-    /// Returns `None` if no frame is available.
-    #[inline(always)]
-    pub fn pop_extracted(&mut self) -> Option<(Vec2, Vec<u8>)> {
-        self.extracted.pop()
+    /// Consumes the current export buffer, reading all extracted frames and setting a receiver.
+    /// The returned [Sender<ExportProgress>] can be used to communicate progress of the processing.
+    /// The task you process the given buffer on should be given to [Self::set_processing_task].
+    ///
+    /// <div class="warning">
+    ///
+    /// The internal frame buffer is emptied when this method is called
+    ///
+    /// </div>
+    pub fn consume(&mut self) -> (Vec<(Vec2, Vec<u8>)>, Sender<ExportProgress>) {
+        let (sender, receiver) = crossbeam_channel::unbounded();
+        let buffer = mem::take(&mut self.extracted);
+        self.receiver = Some(receiver);
+
+        (buffer, sender)
+    }
+
+    pub fn set_processing_task(&mut self, task: Task<ExportCompleted>) {
+        self.processing_task = Some(task);
     }
 
     /// Generates an [Image] that Bevy will render GPU images into.
