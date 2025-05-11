@@ -6,9 +6,9 @@ use bevy::render::render_resource::{Extent3d, TextureDimension, TextureFormat, T
 use std::collections::VecDeque;
 
 #[derive(Debug, Resource)]
-pub(crate) struct Screenshot {
-    /// What the screenshot is currently processing.
-    pub status: ScreenshotStatus,
+pub(crate) struct OngoingExport {
+    /// What the export is currently processing.
+    pub state: ExportState,
     /// The queue of coordinates the camera needs to be moved to for a frame capture.
     /// Every time a movement completes, it moves to [self::extracting].
     pending: VecDeque<Vec2>,
@@ -19,7 +19,7 @@ pub(crate) struct Screenshot {
     extracted: Vec<(Vec2, Vec<u8>)>,
     /// The texture the camera renders into, used to copy from GPU to CPU.
     pub render_texture: Handle<Image>,
-    /// The total number of steps needed to complete the screenshot.
+    /// The total number of steps needed to complete the export.
     /// This includes all camera movements, frame captures and processing.
     pub total_steps: u64,
     /// The number of steps that have been completed.
@@ -28,28 +28,28 @@ pub(crate) struct Screenshot {
 
 /// A more specialized version of [ExportStatus] used for internal state tracking.
 #[derive(Debug)]
-pub enum ScreenshotStatus {
-    /// The screenshot is initializing for capture.
+pub enum ExportState {
+    /// The export is initializing for capture.
     /// This is usually only for one frame, when the readback and camera position are set up.
     Preparing,
-    /// The screenshot is moving the camera around to capture each frame.
+    /// The export is moving the camera around to capture each frame.
     Capturing,
-    /// The screenshot has finishing moving and is extracting frames from the GPU.
+    /// The export has finishing moving and is extracting frames from the GPU.
     Extracting,
     /// All frames have been extracted and are being converted to images.
     Processing,
 }
 
-impl Screenshot {
-    /// Generate a new [Screenshot] resource.
+impl OngoingExport {
+    /// Generate a new [OngoingExport] resource.
     pub fn new(request: &ExportRequest, mut images: ResMut<Assets<Image>>) -> Self {
         // TODO: for now we'll assume the canvas is *always* 2048 pixels.
-        let frames = Screenshot::frames(2048, 2048, request.frame_size.0, request.frame_size.1);
-        let texture = Screenshot::render_image(request.frame_size.0, request.frame_size.1);
+        let frames = OngoingExport::frames(2048, 2048, request.frame_size.0, request.frame_size.1);
+        let texture = OngoingExport::render_image(request.frame_size.0, request.frame_size.1);
 
         let frame_count = frames.len();
         Self {
-            status: ScreenshotStatus::Preparing,
+            state: ExportState::Preparing,
             pending: frames,
             extracting: VecDeque::with_capacity(frame_count),
             extracted: Vec::with_capacity(frame_count),
@@ -116,7 +116,7 @@ impl Screenshot {
         image
     }
 
-    /// Builds a list of all coordinates the camera needs to be moved to for a screenshot.
+    /// Builds a list of all coordinates the camera needs to be moved to for a export.
     /// This should be an exhaustive list that covers the entire given `width` and `height`.
     ///
     /// # Parameters

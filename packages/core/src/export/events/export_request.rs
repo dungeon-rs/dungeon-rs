@@ -8,7 +8,7 @@ type FrameSize = (u32, u32);
 /// Usually this is done through the editor when selecting "export"
 /// or by the headless exporter.
 ///
-/// The request contains the information about how to construct the export (screenshot).
+/// The request contains the information about how to construct the export.
 #[derive(Debug, Event)]
 #[doc(alias = "export")]
 pub struct ExportRequest {

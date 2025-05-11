@@ -1,23 +1,23 @@
 use crate::export::ExportRequest;
-use crate::export::screenshot::Screenshot;
+use crate::export::ongoing_export::OngoingExport;
 use bevy::asset::Assets;
 use bevy::image::Image;
 use bevy::prelude::{Commands, EventReader, Res, ResMut};
 
-/// Simple system that generates a [Screenshot] resource in response to a [ExportRequest].
+/// Simple system that generates an [OngoingExport] resource in response to a [ExportRequest].
 pub fn on_export_request(
     mut commands: Commands,
     images: ResMut<Assets<Image>>,
     mut requests: EventReader<ExportRequest>,
-    screenshot: Option<Res<Screenshot>>,
+    export: Option<Res<OngoingExport>>,
 ) {
-    if screenshot.is_some() {
+    if export.is_some() {
         return;
     }
 
     if let Some(event) = requests.read().next() {
-        let screenshot = Screenshot::new(event, images);
+        let export = OngoingExport::new(event, images);
 
-        commands.insert_resource(screenshot);
+        commands.insert_resource(export);
     }
 }

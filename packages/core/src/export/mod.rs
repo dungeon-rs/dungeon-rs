@@ -1,8 +1,8 @@
 mod events;
-mod screenshot;
+mod ongoing_export;
 mod systems;
 
-use crate::export::screenshot::{Screenshot, ScreenshotStatus};
+use crate::export::ongoing_export::{OngoingExport, ExportState};
 use crate::export::systems::{advance_camera, attach_readback};
 use bevy::app::App;
 use bevy::prelude::{
@@ -22,23 +22,23 @@ impl Plugin for ExportPlugin {
         app.add_systems(
             PostUpdate,
             (
-                attach_readback.run_if(in_state(ScreenshotStatus::Preparing)),
-                advance_camera.run_if(in_state(ScreenshotStatus::Capturing)),
+                attach_readback.run_if(in_state(ExportState::Preparing)),
+                advance_camera.run_if(in_state(ExportState::Capturing)),
             ),
         );
         app.add_systems(
             FixedPostUpdate,
-            systems::on_export_request.run_if(not(resource_exists::<Screenshot>)),
+            systems::on_export_request.run_if(not(resource_exists::<OngoingExport>)),
         );
     }
 }
 
-fn in_state(_state: ScreenshotStatus) -> impl FnMut(Option<Res<Screenshot>>) -> bool {
-    |screenshot: Option<Res<Screenshot>>| {
-        let Some(screenshot) = screenshot else {
+fn in_state(_state: ExportState) -> impl FnMut(Option<Res<OngoingExport>>) -> bool {
+    |export: Option<Res<OngoingExport>>| {
+        let Some(export) = export else {
             return false;
         };
 
-        matches!(&screenshot.status, _state)
+        matches!(&export.state, _state)
     }
 }
