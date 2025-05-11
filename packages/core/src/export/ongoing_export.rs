@@ -107,12 +107,12 @@ impl OngoingExport {
     /// The internal frame buffer is emptied when this method is called
     ///
     /// </div>
-    pub fn consume(&mut self) -> (Vec<(Vec2, Vec<u8>)>, Sender<ExportProgress>) {
+    pub fn consume(&mut self) -> (Vec<(Vec2, Vec<u8>)>, u64, u64, Sender<ExportProgress>) {
         let (sender, receiver) = crossbeam_channel::unbounded();
         let buffer = mem::take(&mut self.extracted);
         self.receiver = Some(receiver);
 
-        (buffer, sender)
+        (buffer, self.total_steps, self.current_step, sender)
     }
 
     pub fn set_processing_task(&mut self, task: Task<ExportCompleted>) {

@@ -31,9 +31,9 @@ pub fn read_frame(
             commands.entity(trigger.target()).despawn();
             export.state = ExportState::Processing;
 
-            let (buffer, sender) = export.consume();
+            let (buffer, total, current, sender) = export.consume();
             let task = AsyncComputeTaskPool::get()
-                .spawn(async move { callbacks::process_frames(buffer, sender) });
+                .spawn(async move { callbacks::process_frames(buffer, total, current, sender) });
 
             export.set_processing_task(task);
         }
