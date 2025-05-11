@@ -1,18 +1,14 @@
-pub mod events;
-mod export_frame;
+mod events;
 mod screenshot;
+mod systems;
 
+use crate::export::screenshot::{Screenshot, ScreenshotStatus};
+use crate::export::systems::{advance_camera, attach_readback};
 use bevy::app::App;
 use bevy::prelude::{
-    Assets, Commands, EventReader, FixedPostUpdate, Image, Plugin, PostUpdate, Res, ResMut,
+    FixedPostUpdate, IntoScheduleConfigs, Plugin, PostUpdate, Res, not, resource_exists,
 };
-
-pub use crate::export::events::export_completed::ExportCompleted;
-pub use crate::export::events::export_progress::ExportProgress;
-pub use crate::export::events::export_progress::ExportStatus;
-pub use crate::export::events::export_request::ExportRequest;
-
-use crate::export::screenshot::Screenshot;
+pub use events::*;
 
 #[derive(Default)]
 pub struct ExportPlugin;
@@ -23,23 +19,26 @@ impl Plugin for ExportPlugin {
             .add_event::<ExportProgress>()
             .add_event::<ExportCompleted>();
 
-        app.add_systems(PostUpdate, export_frame::export_frame);
-        app.add_systems(FixedPostUpdate, on_export_request);
+        app.add_systems(
+            PostUpdate,
+            (
+                attach_readback.run_if(in_state(ScreenshotStatus::Preparing)),
+                advance_camera.run_if(in_state(ScreenshotStatus::Capturing)),
+            ),
+        );
+        app.add_systems(
+            FixedPostUpdate,
+            systems::on_export_request.run_if(not(resource_exists::<Screenshot>)),
+        );
     }
 }
 
-/// Simple system that generates a [Screenshot] resource in response to a [ExportRequest].
-fn on_export_request(
-    mut commands: Commands,
-    images: ResMut<Assets<Image>>,
-    mut requests: EventReader<ExportRequest>,
-    screenshot: Option<Res<Screenshot>>,
-) {
-    if screenshot.is_some() {
-        return;
-    }
+fn in_state(_state: ScreenshotStatus) -> impl FnMut(Option<Res<Screenshot>>) -> bool {
+    |screenshot: Option<Res<Screenshot>>| {
+        let Some(screenshot) = screenshot else {
+            return false;
+        };
 
-    if let Some(event) = requests.read().next() {
-        commands.insert_resource(Screenshot::new(event, images));
+        matches!(&screenshot.status, _state)
     }
 }

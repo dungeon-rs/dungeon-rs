@@ -15,7 +15,8 @@ fn main() {
             }),
             CorePlugin,
         ))
-        .add_plugins(ScheduleRunnerPlugin::run_loop(Duration::ZERO))
+        // .add_plugins(ScheduleRunnerPlugin::run_loop(Duration::ZERO))
+        .add_plugins(ScheduleRunnerPlugin::run_loop(Duration::from_millis(100)))
         .add_systems(Startup, setup)
         .add_systems(Update, update)
         .run();

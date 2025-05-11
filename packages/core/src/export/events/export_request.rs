@@ -2,7 +2,7 @@ use bevy::prelude::Event;
 use std::path::PathBuf;
 
 /// Represents the dimensions of a 'frame', which is a simple frame in the export.
-type FrameSize = (u16, u16);
+type FrameSize = (u32, u32);
 
 /// A Bevy event that is dispatched when the user requests an export.
 /// Usually this is done through the editor when selecting "export"
