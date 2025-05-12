@@ -1,8 +1,6 @@
+use crate::export::size_2d::Size2D;
 use bevy::prelude::Event;
 use std::path::PathBuf;
-
-/// Represents the dimensions of a 'frame', which is a simple frame in the export.
-type FrameSize = (u32, u32);
 
 /// A Bevy event that is dispatched when the user requests an export.
 /// Usually this is done through the editor when selecting "export"
@@ -19,7 +17,7 @@ pub struct ExportRequest {
     /// The size of each frame the export takes, expressed in pixels.
     /// Larger frame sizes can reduce export time (as there are fewer frames required) but increase memory consumption.
     /// Each dimension needs to be an increment of `256` and no larger than `4096`.
-    pub(crate) frame_size: FrameSize,
+    pub(crate) frame_size: Size2D,
 }
 
 impl ExportRequest {
@@ -29,15 +27,22 @@ impl ExportRequest {
     /// # Returns
     /// * `Ok(ExportRequest)` - If frame sizes are valid multiples of 256
     /// * `Err(String)` - If frame sizes are not valid multiples of 256
-    pub fn new(output: PathBuf, ppi: u32, frame_size: FrameSize) -> Result<Self, String> {
-        let (x, y) = frame_size;
+    pub fn new(output: PathBuf, ppi: u32, frame_size: Size2D) -> Result<Self, String> {
+        let Size2D {
+            width: x,
+            height: y,
+        } = frame_size;
 
+        if ppi == 0 {
+            return Err(String::from("ppi must be greater than 0"));
+        }
         if x % 256 != 0 || x > 4096 || x == 0 {
             return Err(format!(
                 "frame size must be a multiple of 256 (up to 4096), got invalid X value {}",
                 x
             ));
-        } else if y % 256 != 0 || y > 4096 || y == 0 {
+        }
+        if y % 256 != 0 || y > 4096 || y == 0 {
             return Err(format!(
                 "frame size must be a multiple of 256 (up to 4096), got invalid Y value {}",
                 y

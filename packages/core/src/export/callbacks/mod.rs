@@ -1,5 +1,3 @@
-mod read_frame;
-mod process_frames;
+mod on_readback_complete;
 
-pub(crate) use read_frame::read_frame;
-pub(crate) use process_frames::process_frames;
+pub use on_readback_complete::on_readback_complete;

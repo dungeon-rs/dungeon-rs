@@ -4,5 +4,4 @@ mod export_request;
 
 pub use export_completed::ExportCompleted;
 pub use export_progress::ExportProgress;
-pub use export_progress::ExportStatus;
 pub use export_request::ExportRequest;

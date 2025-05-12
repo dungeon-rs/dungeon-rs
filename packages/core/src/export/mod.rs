@@ -1,15 +1,21 @@
-mod events;
-mod ongoing_export;
-mod systems;
 mod callbacks;
-mod export_data;
+mod events;
+mod ongoing;
+pub mod size_2d;
+mod state;
+mod systems;
+mod tasks;
 
-use crate::export::ongoing_export::{ExportState, OngoingExport};
-use crate::export::systems::{advance_camera, attach_readback, poll_processing};
-use bevy::app::App;
-use bevy::prelude::{
-    FixedPostUpdate, IntoScheduleConfigs, Plugin, PostUpdate, Res, not, resource_exists,
+use crate::{
+    export::ongoing::OngoingExport,
+    export::state::ExportState,
+    export::systems::{
+        check_for_requests, prepare_and_advance_camera, wait_for_image_processing,
+    }
 };
+use bevy::app::App;
+use bevy::prelude::{not, resource_exists, IntoScheduleConfigs, Plugin, PostUpdate, Res, Update};
+
 pub use events::*;
 
 #[derive(Default)]
@@ -21,28 +27,28 @@ impl Plugin for ExportPlugin {
             .add_event::<ExportProgress>()
             .add_event::<ExportCompleted>();
 
+        // If there are no ongoing exports, check for requests.
         app.add_systems(
             PostUpdate,
             (
-                attach_readback.run_if(in_state(ExportState::Preparing)),
-                advance_camera.run_if(in_state(ExportState::Capturing)),
-                poll_processing.run_if(in_state(ExportState::Processing)),
+                check_for_requests.run_if(not(resource_exists::<OngoingExport>)),
+                wait_for_image_processing.run_if(in_state(ExportState::ProcessFrames)),
             ),
-        );
-        app.add_systems(
-            FixedPostUpdate,
-            systems::on_export_request.run_if(not(resource_exists::<OngoingExport>)),
+        )
+        .add_systems(
+            Update,
+            prepare_and_advance_camera.run_if(resource_exists::<OngoingExport>),
         );
     }
 }
 
-/// Returns a function to determine if a given system should run based on the current export state.
-fn in_state(_state: ExportState) -> impl FnMut(Option<Res<OngoingExport>>) -> bool {
-    |export: Option<Res<OngoingExport>>| {
+/// Generates a [Condition] that validates a system should run this frame based on the current export state.
+fn in_state(state: ExportState) -> impl Fn(Option<Res<OngoingExport>>) -> bool {
+    move |export: Option<Res<OngoingExport>>| {
         let Some(export) = export else {
             return false;
         };
 
-        matches!(&export.state, _state)
+        export.state == state
     }
 }

@@ -8,19 +8,23 @@ authors.workspace = true
 license.workspace = true
 
 [dependencies]
-image = { version = "*", default-features = false }
 crossbeam-channel = "*"
+image = { version = "*", default-features = false }
+serde = { version = "*", default-features = false }
 bevy = { workspace = true, features = [
   "bevy_state",
   "bevy_log",
   "bevy_render",
   "bevy_core_pipeline",
   "bevy_sprite",
-  "bevy_asset"
+  "bevy_asset",
+  "serialize"
 ] }
 
 [features]
-dev = []
+dev = [
+  "bevy/track_location"
+]
 
 windows = []
 linux = []

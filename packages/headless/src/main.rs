@@ -1,7 +1,10 @@
 use bevy::window::ExitCondition;
 use bevy::{app::ScheduleRunnerPlugin, prelude::*};
-use dungeonrs_core::CorePlugin;
-use dungeonrs_core::export::{ExportCompleted, ExportProgress, ExportRequest};
+use dungeonrs_core::{
+    CorePlugin,
+    export::size_2d::Size2D,
+    export::{ExportCompleted, ExportProgress, ExportRequest},
+};
 use std::path::PathBuf;
 use std::time::Duration;
 
@@ -31,7 +34,8 @@ fn setup(
 
     commands.spawn(Sprite::from_image(asset_server.load("logo.png")));
 
-    let Ok(request) = ExportRequest::new(PathBuf::from("output.png"), 128, (512, 512)) else {
+    let Ok(request) = ExportRequest::new(PathBuf::from("output.png"), 128, Size2D::new(512, 512))
+    else {
         return;
     };
 

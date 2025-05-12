@@ -19,6 +19,7 @@ bevy = { workspace = true, features = [
 [features]
 default = ["dev"]
 dev = [
+    "dungeonrs_core/dev",
     "bevy/dynamic_linking",
     "bevy/bevy_dev_tools",
     "bevy/bevy_debug_stepping",

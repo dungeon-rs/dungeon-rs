@@ -1,5 +1,6 @@
 use bevy::prelude::EventWriter;
 use dungeonrs_core::export::ExportRequest;
+use dungeonrs_core::export::size_2d::Size2D;
 use egui::load::SizedTexture;
 use egui::{Context, TopBottomPanel};
 use std::path::PathBuf;
@@ -32,7 +33,7 @@ pub fn toolbar(
                     .clicked()
                 {
                     let Ok(request) =
-                        ExportRequest::new(PathBuf::from("output.png"), 128, (512, 512))
+                        ExportRequest::new(PathBuf::from("output.png"), 128, Size2D::new(512, 512))
                     else {
                         return;
                     };
