@@ -73,6 +73,8 @@ fn update(
         )
         .outer_edges();
 
+    gizmos.axes_2d(Transform::IDENTITY, 1024.0);
+
     for progress in progress.read() {
         info!("Exporting: {:?}", progress);
     }

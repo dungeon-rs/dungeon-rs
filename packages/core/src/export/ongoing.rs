@@ -63,7 +63,7 @@ impl OngoingExport {
     /// camera and render target preparation before proceeding to frame capture.
     pub fn new(request: &ExportRequest, images: &mut ResMut<Assets<Image>>) -> Self {
         let (frames, frame_world_size, frame_px_size) =
-            Self::calculate_frames(Size2D::splat(2048), request.ppi);
+            Self::calculate_frames(Size2D::splat(8192), request.ppi);
         let mut image = Image::new_fill(
             Extent3d {
                 width: frame_px_size.0,
@@ -192,32 +192,14 @@ impl OngoingExport {
         // Max frame size converted to world units (eg. frame is 2000 world units big)
         let max_world_per_frame = (MAX_TEXTURE_SIZE_PX as f32 / pixel_to_world_ratio).floor();
 
-        let frame_count_x = (map_size.width as f32 / max_world_per_frame).ceil() as u32;
-        let frame_count_y = (map_size.height as f32 / max_world_per_frame).ceil() as u32;
+        let frame_count_x = (map_size.width as f32 / max_world_per_frame).ceil() as i32;
+        let frame_count_y = (map_size.height as f32 / max_world_per_frame).ceil() as i32;
 
         let mut adjusted_world_per_frame_x = map_size.width as f32 / frame_count_x as f32;
         let mut adjusted_world_per_frame_y = map_size.height as f32 / frame_count_y as f32;
 
         let pixels_per_frame_x = adjusted_world_per_frame_x * pixel_to_world_ratio;
         let pixels_per_frame_y = adjusted_world_per_frame_y * pixel_to_world_ratio;
-
-        // let pixels_per_unit = ppi as f32 / GRID_CELL_UNITS; //1,28
-        //
-        // // Calculate the raw units per frame before considering alignment
-        // let raw_units_per_frame = (MAX_TEXTURE_SIZE_PX as f32 / pixels_per_unit).ceil();
-        //
-        // // Calculate how many frames would fit
-        // let frame_count_x = (map_size.width as f32 / raw_units_per_frame).ceil() as u32;
-        // let frame_count_y = (map_size.height as f32 / raw_units_per_frame).ceil() as u32;
-        //
-        // // Adjust frame units to perfectly fit the map without spillover
-        // let mut adjusted_units_per_frame_x = (map_size.width as f32 / frame_count_x as f32).ceil();
-        // let mut adjusted_units_per_frame_y = (map_size.height as f32 / frame_count_y as f32).ceil();
-        //
-        // // Calculate the pixel size per frame
-        // let mut frame_pixels_x = adjusted_units_per_frame_x * pixels_per_unit;
-        // let mut frame_pixels_y = adjusted_units_per_frame_y * pixels_per_unit;
-        //
 
         // Align pixel size to nearest multiple of 256 and adjust units per frame accordingly
         let adjusted_pixels_per_frame_x = (pixels_per_frame_x / 256.0).ceil() * 256.0;
@@ -226,16 +208,14 @@ impl OngoingExport {
         let buffer_x = adjusted_pixels_per_frame_x - (pixels_per_frame_x / 256.0);
         let buffer_y = adjusted_pixels_per_frame_y - (pixels_per_frame_y / 256.0);
 
-        info!("Buffer: {}x{}", buffer_x, buffer_y);
-
         adjusted_world_per_frame_x = pixels_per_frame_x / pixel_to_world_ratio;
         adjusted_world_per_frame_y = pixels_per_frame_y / pixel_to_world_ratio;
 
         // // Generate the frame grid
         let mut coordinates = VecDeque::with_capacity((frame_count_x * frame_count_y) as usize);
         //
-        for x in 0..frame_count_x {
-            for y in 0..frame_count_y {
+        for x in -(frame_count_x / 2)..(frame_count_x / 2) + 1 {
+            for y in -(frame_count_y / 2)..(frame_count_y / 2) + 1 {
                 coordinates.push_back(Vec2::new(
                     x as f32 * adjusted_world_per_frame_x,
                     y as f32 * adjusted_world_per_frame_y,
