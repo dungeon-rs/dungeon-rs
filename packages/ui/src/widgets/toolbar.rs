@@ -1,6 +1,5 @@
 use bevy::prelude::EventWriter;
 use dungeonrs_core::export::ExportRequest;
-use dungeonrs_core::export::size_2d::Size2D;
 use egui::load::SizedTexture;
 use egui::{Context, TopBottomPanel};
 use std::path::PathBuf;
@@ -32,9 +31,7 @@ pub fn toolbar(
                     .on_hover_text("Export the current map to an image")
                     .clicked()
                 {
-                    let Ok(request) =
-                        ExportRequest::new(PathBuf::from("output.png"), 128, Size2D::new(512, 512))
-                    else {
+                    let Ok(request) = ExportRequest::new(PathBuf::from("output.png"), 128) else {
                         return;
                     };
 

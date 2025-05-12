@@ -1,11 +1,11 @@
 use serde::{Deserialize, Serialize};
 
-/// Represents the size of a frame in pixels.
+/// Represents a size in world units.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub struct Size2D {
-    /// The width in pixels.
+    /// The width in world units.
     pub width: u32,
-    /// The height in pixels.
+    /// The height in world units.
     pub height: u32,
 }
 

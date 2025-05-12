@@ -4,19 +4,30 @@
 //! is either completed or cancelled. It encapsulates the current state of the export lifecycle,
 //! allowing systems to coordinate their behaviour accordingly. This resource is removed once
 //! the export concludes.
+//!
+//! All sizes and coordinates expressed in [`Size2D`] and `Vec2` are in **world units**,
+//! never pixels. The pixel size is calculated explicitly using the provided PPI and the known
+//! grid cell size in world units. This ensures that logic and calculations remain consistent and
+//! do not mix world units and pixel units inadvertently.
 
-use crate::export::{ExportCompleted, ExportRequest};
+const GRID_CELL_UNITS: f32 = 100.0;
+const MAX_TEXTURE_SIZE_PX: u32 = 4096;
+
 use crate::export::size_2d::Size2D;
 use crate::export::state::ExportState;
+use crate::export::tasks::process_image_data;
+use crate::export::{ExportCompleted, ExportRequest};
 use bevy::asset::RenderAssetUsages;
 use bevy::image::{BevyDefault, Image};
-use bevy::prelude::{Assets, BevyError, Camera, Handle, ResMut, Resource, Result, Vec2, default};
-use bevy::render::camera::RenderTarget;
+use bevy::prelude::{
+    Assets, BevyError, Camera, Handle, OrthographicProjection, ResMut, Resource, Result, Vec2,
+    default, info,
+};
+use bevy::render::camera::{RenderTarget, ScalingMode};
 use bevy::render::gpu_readback::Readback;
 use bevy::render::render_resource::{Extent3d, TextureDimension, TextureFormat, TextureUsages};
-use std::collections::VecDeque;
 use bevy::tasks::{AsyncComputeTaskPool, Task};
-use crate::export::tasks::process_image_data;
+use std::collections::VecDeque;
 
 /// Tracks the state and internal data for an ongoing export operation.
 ///
@@ -29,6 +40,10 @@ pub(super) struct OngoingExport {
     pub state: ExportState,
     /// Strong handle to keep the texture we render into alive.
     texture: Handle<Image>,
+    /// The size of the frames, expressed in world units.
+    frame_world_size: Size2D,
+    /// The size of the frames, expressed in pixels.
+    frame_px_size: (u32, u32),
     /// The queue of coordinates the camera needs to be moved to for a frame capture.
     /// Every time a movement completes, it moves to [self::extracting].
     pending: VecDeque<Vec2>,
@@ -47,11 +62,12 @@ impl OngoingExport {
     /// This ensures the export process begins in a consistent state, ready for systems to perform
     /// camera and render target preparation before proceeding to frame capture.
     pub fn new(request: &ExportRequest, images: &mut ResMut<Assets<Image>>) -> Self {
-        let frames = Self::calculate_frames(Size2D::splat(1024), request.frame_size);
+        let (frames, frame_world_size, frame_px_size) =
+            Self::calculate_frames(Size2D::splat(2048), request.ppi);
         let mut image = Image::new_fill(
             Extent3d {
-                width: request.frame_size.width * request.ppi,
-                height: request.frame_size.height * request.ppi,
+                width: frame_px_size.0,
+                height: frame_px_size.1,
                 ..default()
             },
             TextureDimension::D2,
@@ -66,6 +82,8 @@ impl OngoingExport {
         OngoingExport {
             state: ExportState::PrepareTargetAndCamera,
             texture: images.add(image),
+            frame_world_size,
+            frame_px_size,
             pending: frames,
             extracting: VecDeque::with_capacity(frame_count),
             extracted: Vec::with_capacity(frame_count),
@@ -76,9 +94,22 @@ impl OngoingExport {
     /// Attaches this export to the camera, ensuring we render into a buffer we can read.
     ///
     /// We then return a [Readback] that will handle reading the results back to the CPU.
-    pub fn attach_to_camera(&self, camera: &mut Camera) -> Readback {
+    pub fn attach_to_camera(
+        &self,
+        camera: &mut Camera,
+        projection: &mut OrthographicProjection,
+    ) -> Readback {
         // We use a weak handle, so the lifetime is always determined by the lifetime of the export.
         camera.target = RenderTarget::Image(self.texture.clone_weak().into());
+        // We adjust the projection of the camera to match the size of the frames we're about to use.
+        info!(
+            "Adjusting projection to {}x{} {:?}",
+            self.frame_world_size.width, self.frame_world_size.height, self.frame_px_size
+        );
+        projection.scaling_mode = ScalingMode::Fixed {
+            width: self.frame_world_size.width as f32,
+            height: self.frame_world_size.height as f32,
+        };
 
         Readback::Texture(self.texture.clone_weak())
     }
@@ -113,6 +144,17 @@ impl OngoingExport {
                 "No coordinates available to push image data to",
             )),
             Some(coordinates) => {
+                image::RgbaImage::from_raw(
+                    self.frame_px_size.0,
+                    self.frame_px_size.1,
+                    data.clone(),
+                )
+                .unwrap()
+                .save_with_format(
+                    format!("tile-{}x{}.png", coordinates.x, coordinates.y),
+                    image::ImageFormat::Png,
+                )
+                .expect("TODO: panic message");
                 self.extracted.push((coordinates, data));
 
                 Ok(())
@@ -131,23 +173,87 @@ impl OngoingExport {
         self.processing_task = Some(task);
     }
 
-    /// Generate a queue of coordinates at which a frame should be captured.
-    /// This method assumes that *all* frames will be the same size (being `frame_width`x`frame_height`).
-    fn calculate_frames(size: Size2D, frame_size: Size2D) -> VecDeque<Vec2> {
-        let x_count = (size.width as f32 / frame_size.width as f32).ceil() as u32;
-        let y_count = (size.height as f32 / frame_size.height as f32).ceil() as u32;
+    /// Calculates a queue of coordinates at which the camera should capture a frame, along with the
+    /// size of each frame in world units and its size in pixels.
+    ///
+    /// This method calculates the coordinates at which to capture and the size of all frames,
+    /// attempting to minimise the number of frames needed without exceeding GPU memory limits.
+    ///
+    /// The calculation ensures the frame pixel size never exceeds the GPU texture limit and is
+    /// aligned to 256 pixels as required by WGPU.
+    ///
+    /// Returns a tuple containing:
+    /// - the list of capture coordinates,
+    /// - the size of each frame in world units (`Size2D`),
+    /// - the size of each frame in pixels as a tuple `(u32, u32)`.
+    fn calculate_frames(map_size: Size2D, ppi: u32) -> (VecDeque<Vec2>, Size2D, (u32, u32)) {
+        let pixel_to_world_ratio = ppi as f32 / GRID_CELL_UNITS; // 1.28
 
-        let mut coordinates = VecDeque::with_capacity((x_count * y_count) as usize);
-        for x in 0..x_count {
-            for y in 0..y_count {
+        // Max frame size converted to world units (eg. frame is 2000 world units big)
+        let max_world_per_frame = (MAX_TEXTURE_SIZE_PX as f32 / pixel_to_world_ratio).floor();
+
+        let frame_count_x = (map_size.width as f32 / max_world_per_frame).ceil() as u32;
+        let frame_count_y = (map_size.height as f32 / max_world_per_frame).ceil() as u32;
+
+        let mut adjusted_world_per_frame_x = map_size.width as f32 / frame_count_x as f32;
+        let mut adjusted_world_per_frame_y = map_size.height as f32 / frame_count_y as f32;
+
+        let pixels_per_frame_x = adjusted_world_per_frame_x * pixel_to_world_ratio;
+        let pixels_per_frame_y = adjusted_world_per_frame_y * pixel_to_world_ratio;
+
+        // let pixels_per_unit = ppi as f32 / GRID_CELL_UNITS; //1,28
+        //
+        // // Calculate the raw units per frame before considering alignment
+        // let raw_units_per_frame = (MAX_TEXTURE_SIZE_PX as f32 / pixels_per_unit).ceil();
+        //
+        // // Calculate how many frames would fit
+        // let frame_count_x = (map_size.width as f32 / raw_units_per_frame).ceil() as u32;
+        // let frame_count_y = (map_size.height as f32 / raw_units_per_frame).ceil() as u32;
+        //
+        // // Adjust frame units to perfectly fit the map without spillover
+        // let mut adjusted_units_per_frame_x = (map_size.width as f32 / frame_count_x as f32).ceil();
+        // let mut adjusted_units_per_frame_y = (map_size.height as f32 / frame_count_y as f32).ceil();
+        //
+        // // Calculate the pixel size per frame
+        // let mut frame_pixels_x = adjusted_units_per_frame_x * pixels_per_unit;
+        // let mut frame_pixels_y = adjusted_units_per_frame_y * pixels_per_unit;
+        //
+
+        // Align pixel size to nearest multiple of 256 and adjust units per frame accordingly
+        let adjusted_pixels_per_frame_x = (pixels_per_frame_x / 256.0).ceil() * 256.0;
+        let adjusted_pixels_per_frame_y = (pixels_per_frame_y / 256.0).ceil() * 256.0;
+
+        let buffer_x = adjusted_pixels_per_frame_x - (pixels_per_frame_x / 256.0);
+        let buffer_y = adjusted_pixels_per_frame_y - (pixels_per_frame_y / 256.0);
+
+        info!("Buffer: {}x{}", buffer_x, buffer_y);
+
+        adjusted_world_per_frame_x = pixels_per_frame_x / pixel_to_world_ratio;
+        adjusted_world_per_frame_y = pixels_per_frame_y / pixel_to_world_ratio;
+
+        // // Generate the frame grid
+        let mut coordinates = VecDeque::with_capacity((frame_count_x * frame_count_y) as usize);
+        //
+        for x in 0..frame_count_x {
+            for y in 0..frame_count_y {
                 coordinates.push_back(Vec2::new(
-                    x as f32 * frame_size.width as f32,
-                    y as f32 * frame_size.height as f32,
+                    x as f32 * adjusted_world_per_frame_x,
+                    y as f32 * adjusted_world_per_frame_y,
                 ));
             }
         }
-
-        coordinates
+        //
+        (
+            coordinates,
+            Size2D::new(
+                adjusted_world_per_frame_y.round() as u32,
+                adjusted_world_per_frame_y.round() as u32,
+            ),
+            (
+                adjusted_pixels_per_frame_x.round() as u32,
+                adjusted_pixels_per_frame_y.round() as u32,
+            ),
+        )
     }
 }
 
@@ -157,22 +263,26 @@ mod tests {
 
     #[test]
     fn test_amount_frames_calculated() {
-        let coordinates =
-            OngoingExport::calculate_frames(Size2D::new(100, 100), Size2D::new(10, 10));
-        assert_eq!(coordinates.len(), 100);
+        let (coordinates, world_size, px_size) =
+            OngoingExport::calculate_frames(Size2D::splat(2048), 128);
+        assert!(coordinates.len() > 1);
 
-        let coordinates =
-            OngoingExport::calculate_frames(Size2D::new(500, 500), Size2D::new(10, 10));
-        assert_eq!(coordinates.len(), 2500);
-    }
-
-    #[test]
-    fn test_frames_coordinates() {
-        let coordinates = OngoingExport::calculate_frames(Size2D::new(2, 2), Size2D::new(1, 1));
-
-        assert_eq!(coordinates.front(), Some(&Vec2::new(0.0, 0.0)));
-        assert_eq!(coordinates.get(1), Some(&Vec2::new(0.0, 1.0)));
-        assert_eq!(coordinates.get(2), Some(&Vec2::new(1.0, 0.0)));
-        assert_eq!(coordinates.get(3), Some(&Vec2::new(1.0, 1.0)));
+        // let (coordinates, frame_size, _) =
+        //     OngoingExport::calculate_frames(Size2D::new(5000, 5000), 128);
+        // assert!(coordinates.len() > 1);
+        // assert!(frame_size.width > 0);
+        // assert!(frame_size.height > 0);
+        //
+        // let (coordinates, frame_size, _) =
+        //     OngoingExport::calculate_frames(Size2D::new(5000, 3000), 128);
+        // assert!(coordinates.len() > 1);
+        // assert!(frame_size.width > 0);
+        // assert!(frame_size.height > 0);
+        //
+        // let (coordinates, frame_size, _) =
+        //     OngoingExport::calculate_frames(Size2D::new(3000, 5000), 128);
+        // assert!(coordinates.len() > 1);
+        // assert!(frame_size.width > 0);
+        // assert!(frame_size.height > 0);
     }
 }

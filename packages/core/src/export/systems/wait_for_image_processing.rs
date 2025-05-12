@@ -1,5 +1,5 @@
-use bevy::prelude::ResMut;
 use crate::export::ongoing::OngoingExport;
+use bevy::prelude::ResMut;
 
 /// Waits for [crate::export::tasks::process_image_data] to finish processing the received data.
 ///

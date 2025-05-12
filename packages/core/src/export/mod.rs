@@ -9,12 +9,10 @@ mod tasks;
 use crate::{
     export::ongoing::OngoingExport,
     export::state::ExportState,
-    export::systems::{
-        check_for_requests, prepare_and_advance_camera, wait_for_image_processing,
-    }
+    export::systems::{check_for_requests, prepare_and_advance_camera, wait_for_image_processing},
 };
 use bevy::app::App;
-use bevy::prelude::{not, resource_exists, IntoScheduleConfigs, Plugin, PostUpdate, Res, Update};
+use bevy::prelude::{IntoScheduleConfigs, Plugin, PostUpdate, Res, Update, not, resource_exists};
 
 pub use events::*;
 
