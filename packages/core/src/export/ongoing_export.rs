@@ -7,9 +7,18 @@ use crossbeam_channel::{Receiver, Sender};
 use std::collections::VecDeque;
 use std::mem;
 use bevy::tasks::Task;
+use crate::export::export_data::ExportData;
+
+const TEST_SIZE: u32 = 2048;
 
 #[derive(Debug, Resource)]
 pub(crate) struct OngoingExport {
+    /// The width of a single frame in pixels.
+    frame_width: u32,
+    /// The height of a single frame in pixels.
+    frame_height: u32,
+    /// The PPI to set the export density to.
+    ppi: u32,
     /// What the export is currently processing.
     pub state: ExportState,
     /// The queue of coordinates the camera needs to be moved to for a frame capture.
@@ -52,11 +61,14 @@ impl OngoingExport {
     /// Generate a new [OngoingExport] resource.
     pub fn new(request: &ExportRequest, mut images: ResMut<Assets<Image>>) -> Self {
         // TODO: for now we'll assume the canvas is *always* 2048 pixels.
-        let frames = OngoingExport::frames(2048, 2048, request.frame_size.0, request.frame_size.1);
+        let frames = OngoingExport::frames(TEST_SIZE, TEST_SIZE, request.frame_size.0, request.frame_size.1);
         let texture = OngoingExport::render_image(request.frame_size.0, request.frame_size.1);
 
         let frame_count = frames.len();
         Self {
+            frame_width: request.frame_size.0,
+            frame_height: request.frame_size.1,
+            ppi: request.ppi,
             state: ExportState::Preparing,
             pending: frames,
             extracting: VecDeque::with_capacity(frame_count),
@@ -99,7 +111,7 @@ impl OngoingExport {
     }
 
     /// Consumes the current export buffer, reading all extracted frames and setting a receiver.
-    /// The returned [Sender<ExportProgress>] can be used to communicate progress of the processing.
+    /// The returned [Sender<ExportProgress>] can be used to communicate the progress of the processing.
     /// The task you process the given buffer on should be given to [Self::set_processing_task].
     ///
     /// <div class="warning">
@@ -107,12 +119,21 @@ impl OngoingExport {
     /// The internal frame buffer is emptied when this method is called
     ///
     /// </div>
-    pub fn consume(&mut self) -> (Vec<(Vec2, Vec<u8>)>, u64, u64, Sender<ExportProgress>) {
+    pub fn consume(&mut self) -> ExportData {
         let (sender, receiver) = crossbeam_channel::unbounded();
         let buffer = mem::take(&mut self.extracted);
         self.receiver = Some(receiver);
 
-        (buffer, self.total_steps, self.current_step, sender)
+        ExportData {
+            buffer,
+            sender,
+            total_steps: self.total_steps,
+            current_step: self.current_step,
+            width: TEST_SIZE,
+            height: TEST_SIZE,
+            frame_width: self.frame_width,
+            frame_height: self.frame_height
+        }
     }
 
     pub fn set_processing_task(&mut self, task: Task<ExportCompleted>) {

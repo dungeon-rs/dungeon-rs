@@ -2,6 +2,7 @@ mod events;
 mod ongoing_export;
 mod systems;
 mod callbacks;
+mod export_data;
 
 use crate::export::ongoing_export::{ExportState, OngoingExport};
 use crate::export::systems::{advance_camera, attach_readback, poll_processing};

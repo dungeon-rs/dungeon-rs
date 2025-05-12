@@ -10,7 +10,10 @@ license.workspace = true
 [dependencies]
 dungeonrs_core = { path = "../core" }
 bevy = { workspace = true, features = [
-    "bevy_window"
+    "bevy_window",
+    "png",
+    "webp",
+    "jpeg"
 ] }
 
 [features]

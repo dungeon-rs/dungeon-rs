@@ -8,6 +8,7 @@ authors.workspace = true
 license.workspace = true
 
 [dependencies]
+image = { version = "*", default-features = false }
 crossbeam-channel = "*"
 bevy = { workspace = true, features = [
   "bevy_state",
