@@ -1,8 +1,8 @@
 use bevy::window::ExitCondition;
 use bevy::{app::ScheduleRunnerPlugin, prelude::*};
 use dungeonrs_core::{
-    CorePlugin,
     export::{ExportCompleted, ExportProgress, ExportRequest},
+    CorePlugin,
 };
 use std::path::PathBuf;
 use std::time::Duration;
@@ -38,15 +38,19 @@ fn setup(
 
     commands.spawn((
         Sprite::from_image(asset_server.load("logo.png")),
-        Transform::from_xyz(512., 512., 0.0),
+        Transform::from_xyz(500., 0., 0.0),
     ));
 
     commands.spawn((
         Sprite::from_image(asset_server.load("logo.png")),
-        Transform::from_xyz(1024., 1024., 0.0),
+        Transform::from_xyz(1000., 1000., 0.0),
     ));
 
-    let Ok(request) = ExportRequest::new(PathBuf::from("output.png"), 128) else {
+    let Ok(request) = ExportRequest::new(
+        PathBuf::from("output.png"),
+        Rect::from_center_size(Vec2::ZERO, Vec2::splat(600.)),
+        256,
+    ) else {
         return;
     };
 

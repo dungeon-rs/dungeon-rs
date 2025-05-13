@@ -1,4 +1,4 @@
-use bevy::prelude::EventWriter;
+use bevy::prelude::{EventWriter, Rect};
 use dungeonrs_core::export::ExportRequest;
 use egui::load::SizedTexture;
 use egui::{Context, TopBottomPanel};
@@ -31,7 +31,11 @@ pub fn toolbar(
                     .on_hover_text("Export the current map to an image")
                     .clicked()
                 {
-                    let Ok(request) = ExportRequest::new(PathBuf::from("output.png"), 128) else {
+                    let Ok(request) = ExportRequest::new(
+                        PathBuf::from("output.png"),
+                        Rect::new(-500., -500., 500., 500.),
+                        128,
+                    ) else {
                         return;
                     };
 

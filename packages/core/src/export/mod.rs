@@ -1,7 +1,6 @@
 mod callbacks;
 mod events;
 mod ongoing;
-pub mod size_2d;
 mod state;
 mod systems;
 mod tasks;
