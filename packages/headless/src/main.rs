@@ -46,7 +46,7 @@ fn setup(
         Transform::from_xyz(1024., 1024., 0.0),
     ));
 
-    let Ok(request) = ExportRequest::new(PathBuf::from("output.png"), 256) else {
+    let Ok(request) = ExportRequest::new(PathBuf::from("output.png"), 128) else {
         return;
     };
 
