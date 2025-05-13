@@ -40,7 +40,7 @@ impl Plugin for ExportPlugin {
     }
 }
 
-/// Generates a [Condition] that validates a system should run this frame based on the current export state.
+/// Generates a [bevy::prelude::Condition] that validates a system should run this frame based on the current export state.
 fn in_state(state: ExportState) -> impl Fn(Option<Res<OngoingExport>>) -> bool {
     move |export: Option<Res<OngoingExport>>| {
         let Some(export) = export else {

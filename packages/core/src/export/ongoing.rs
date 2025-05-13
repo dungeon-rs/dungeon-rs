@@ -45,10 +45,10 @@ pub(super) struct OngoingExport {
     /// The size of the frames, expressed in pixels.
     frame_px_size: (u32, u32),
     /// The queue of coordinates the camera needs to be moved to for a frame capture.
-    /// Every time a movement completes, it moves to [self::extracting].
+    /// Every time a movement completes, it moves to [OngoingExport::extracting].
     pending: VecDeque<Vec2>,
     /// The queue of coordinates the camera has been moved to and are awaiting GPU extraction.
-    /// Once a frame is extracted, the coordinate gets popped, and they move to [self::extracted].
+    /// Once a frame is extracted, the coordinate gets popped, and they move to [OngoingExport::extracted].
     extracting: VecDeque<Vec2>,
     /// The frames that have been extracted from the GPU alongside the coordinates they were extracted from.
     extracted: Vec<(Vec2, Vec<u8>)>,
@@ -63,7 +63,7 @@ impl OngoingExport {
     /// camera and render target preparation before proceeding to frame capture.
     pub fn new(request: &ExportRequest, images: &mut ResMut<Assets<Image>>) -> Self {
         let (frames, frame_world_size, frame_px_size) =
-            Self::calculate_frames(Size2D::splat(8192), request.ppi);
+            Self::calculate_frames(Size2D::splat(600), request.ppi);
         let mut image = Image::new_fill(
             Extent3d {
                 width: frame_px_size.0,
@@ -93,7 +93,7 @@ impl OngoingExport {
 
     /// Attaches this export to the camera, ensuring we render into a buffer we can read.
     ///
-    /// We then return a [Readback] that will handle reading the results back to the CPU.
+    /// We then return a `Readback` that will handle reading the results back to the CPU.
     pub fn attach_to_camera(
         &self,
         camera: &mut Camera,
@@ -184,13 +184,12 @@ impl OngoingExport {
     ///
     /// Returns a tuple containing:
     /// - the list of capture coordinates,
-    /// - the size of each frame in world units (`Size2D`),
+    /// - the size of each frame in world units ([Size2D]),
     /// - the size of each frame in pixels as a tuple `(u32, u32)`.
     fn calculate_frames(map_size: Size2D, ppi: u32) -> (VecDeque<Vec2>, Size2D, (u32, u32)) {
-        let pixel_to_world_ratio = ppi as f32 / GRID_CELL_UNITS; // 1.28
+        let pixels_per_world_unit = ppi as f32 / GRID_CELL_UNITS;
 
-        // Max frame size converted to world units (eg. frame is 2000 world units big)
-        let max_world_per_frame = (MAX_TEXTURE_SIZE_PX as f32 / pixel_to_world_ratio).floor();
+        let max_world_per_frame = (MAX_TEXTURE_SIZE_PX as f32 / pixels_per_world_unit).floor();
 
         let frame_count_x = (map_size.width as f32 / max_world_per_frame).ceil() as i32;
         let frame_count_y = (map_size.height as f32 / max_world_per_frame).ceil() as i32;
@@ -198,22 +197,21 @@ impl OngoingExport {
         let mut adjusted_world_per_frame_x = map_size.width as f32 / frame_count_x as f32;
         let mut adjusted_world_per_frame_y = map_size.height as f32 / frame_count_y as f32;
 
-        let pixels_per_frame_x = adjusted_world_per_frame_x * pixel_to_world_ratio;
-        let pixels_per_frame_y = adjusted_world_per_frame_y * pixel_to_world_ratio;
+        let pixels_per_frame_x = adjusted_world_per_frame_x * pixels_per_world_unit;
+        let pixels_per_frame_y = adjusted_world_per_frame_y * pixels_per_world_unit;
 
         // Align pixel size to nearest multiple of 256 and adjust units per frame accordingly
-        let adjusted_pixels_per_frame_x = (pixels_per_frame_x / 256.0).ceil() * 256.0;
-        let adjusted_pixels_per_frame_y = (pixels_per_frame_y / 256.0).ceil() * 256.0;
+        let aligned_pixels_per_frame_x = (pixels_per_frame_x / 256.0).ceil() * 256.0;
+        let aligned_pixels_per_frame_y = (pixels_per_frame_y / 256.0).ceil() * 256.0;
 
-        let buffer_x = adjusted_pixels_per_frame_x - (pixels_per_frame_x / 256.0);
-        let buffer_y = adjusted_pixels_per_frame_y - (pixels_per_frame_y / 256.0);
+        assert!(aligned_pixels_per_frame_x <= MAX_TEXTURE_SIZE_PX as f32);
+        assert!(aligned_pixels_per_frame_y <= MAX_TEXTURE_SIZE_PX as f32);
 
-        adjusted_world_per_frame_x = pixels_per_frame_x / pixel_to_world_ratio;
-        adjusted_world_per_frame_y = pixels_per_frame_y / pixel_to_world_ratio;
+        adjusted_world_per_frame_x = aligned_pixels_per_frame_x / pixels_per_world_unit;
+        adjusted_world_per_frame_y = aligned_pixels_per_frame_y / pixels_per_world_unit;
 
-        // // Generate the frame grid
         let mut coordinates = VecDeque::with_capacity((frame_count_x * frame_count_y) as usize);
-        //
+
         for x in -(frame_count_x / 2)..(frame_count_x / 2) + 1 {
             for y in -(frame_count_y / 2)..(frame_count_y / 2) + 1 {
                 coordinates.push_back(Vec2::new(
@@ -226,12 +224,12 @@ impl OngoingExport {
         (
             coordinates,
             Size2D::new(
-                adjusted_world_per_frame_y.round() as u32,
+                adjusted_world_per_frame_x.round() as u32,
                 adjusted_world_per_frame_y.round() as u32,
             ),
             (
-                adjusted_pixels_per_frame_x.round() as u32,
-                adjusted_pixels_per_frame_y.round() as u32,
+                aligned_pixels_per_frame_x.round() as u32,
+                aligned_pixels_per_frame_y.round() as u32,
             ),
         )
     }
@@ -241,28 +239,106 @@ impl OngoingExport {
 mod tests {
     use super::*;
 
-    #[test]
-    fn test_amount_frames_calculated() {
-        let (coordinates, world_size, px_size) =
-            OngoingExport::calculate_frames(Size2D::splat(2048), 128);
-        assert!(coordinates.len() > 1);
+    fn assert_grid_covers_map(
+        coordinates: &VecDeque<Vec2>,
+        frame_size: &Size2D,
+        map_size: &Size2D,
+    ) {
+        // Calculate actual covered area
+        let min_x = coordinates
+            .iter()
+            .map(|c| c.x)
+            .fold(f32::INFINITY, f32::min);
+        let min_y = coordinates
+            .iter()
+            .map(|c| c.y)
+            .fold(f32::INFINITY, f32::min);
+        let max_x = coordinates
+            .iter()
+            .map(|c| c.x + frame_size.width as f32)
+            .fold(f32::NEG_INFINITY, f32::max);
+        let max_y = coordinates
+            .iter()
+            .map(|c| c.y + frame_size.height as f32)
+            .fold(f32::NEG_INFINITY, f32::max);
 
-        // let (coordinates, frame_size, _) =
-        //     OngoingExport::calculate_frames(Size2D::new(5000, 5000), 128);
-        // assert!(coordinates.len() > 1);
-        // assert!(frame_size.width > 0);
-        // assert!(frame_size.height > 0);
-        //
-        // let (coordinates, frame_size, _) =
-        //     OngoingExport::calculate_frames(Size2D::new(5000, 3000), 128);
-        // assert!(coordinates.len() > 1);
-        // assert!(frame_size.width > 0);
-        // assert!(frame_size.height > 0);
-        //
-        // let (coordinates, frame_size, _) =
-        //     OngoingExport::calculate_frames(Size2D::new(3000, 5000), 128);
-        // assert!(coordinates.len() > 1);
-        // assert!(frame_size.width > 0);
-        // assert!(frame_size.height > 0);
+        assert!(min_x <= 0.0);
+        assert!(min_y <= 0.0);
+        assert!((max_x - min_x).ceil() >= map_size.width as f32);
+        assert!((max_y - min_y).ceil() >= map_size.height as f32);
+
+        // Check that all coordinates are aligned correctly (no gaps or jitter)
+        for coord in coordinates {
+            assert_eq!(coord.x % frame_size.width as f32, 0.0);
+            assert_eq!(coord.y % frame_size.height as f32, 0.0);
+        }
+    }
+
+    #[test]
+    fn test_square_map_low_ppi() {
+        let (coordinates, world_size, px_size) =
+            OngoingExport::calculate_frames(Size2D::new(1000, 1000), 128);
+        assert_eq!(coordinates.len(), 1);
+        assert_eq!(px_size.0 % 256, 0);
+        assert_eq!(px_size.1 % 256, 0);
+
+        assert_grid_covers_map(&coordinates, &world_size, &Size2D::new(1000, 1000));
+    }
+
+    #[test]
+    fn test_non_square_map() {
+        let (coordinates, world_size, px_size) =
+            OngoingExport::calculate_frames(Size2D::new(3000, 5000), 128);
+        assert!(coordinates.len() > 1);
+        assert_eq!(px_size.0 % 256, 0);
+        assert_eq!(px_size.1 % 256, 0);
+
+        assert_grid_covers_map(&coordinates, &world_size, &Size2D::new(3000, 5000));
+    }
+
+    #[test]
+    fn test_min_ppi_tiny_map() {
+        let (coordinates, world_size, px_size) =
+            OngoingExport::calculate_frames(Size2D::new(100, 100), 16);
+        assert_eq!(coordinates.len(), 1);
+        assert!(px_size.0 >= 256);
+        assert!(px_size.1 >= 256);
+
+        assert_grid_covers_map(&coordinates, &world_size, &Size2D::new(100, 100));
+    }
+
+    #[test]
+    fn test_max_ppi_tiny_map() {
+        let (coordinates, world_size, px_size) =
+            OngoingExport::calculate_frames(Size2D::new(100, 100), 512);
+        assert_eq!(coordinates.len(), 1);
+        assert!(px_size.0 <= MAX_TEXTURE_SIZE_PX);
+        assert!(px_size.1 <= MAX_TEXTURE_SIZE_PX);
+
+        assert_grid_covers_map(&coordinates, &world_size, &Size2D::new(100, 100));
+    }
+
+    #[test]
+    fn test_wide_map_medium_ppi() {
+        let (coordinates, world_size, px_size) =
+            OngoingExport::calculate_frames(Size2D::new(5000, 1000), 256);
+        assert!(coordinates.len() > 1);
+        assert_eq!(px_size.0 % 256, 0);
+        assert_eq!(px_size.1 % 256, 0);
+
+        assert_grid_covers_map(&coordinates, &world_size, &Size2D::new(5000, 1000));
+    }
+
+    #[test]
+    fn test_large_map_high_ppi() {
+        let (coordinates, world_size, px_size) =
+            OngoingExport::calculate_frames(Size2D::new(10000, 10000), 512);
+        assert!(coordinates.len() > 10);
+        assert!(px_size.0 <= MAX_TEXTURE_SIZE_PX);
+        assert!(px_size.1 <= MAX_TEXTURE_SIZE_PX);
+        assert_eq!(px_size.0 % 256, 0);
+        assert_eq!(px_size.1 % 256, 0);
+
+        assert_grid_covers_map(&coordinates, &world_size, &Size2D::new(10000, 10000));
     }
 }

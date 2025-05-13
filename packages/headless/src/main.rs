@@ -46,7 +46,7 @@ fn setup(
         Transform::from_xyz(1024., 1024., 0.0),
     ));
 
-    let Ok(request) = ExportRequest::new(PathBuf::from("output.png"), 128) else {
+    let Ok(request) = ExportRequest::new(PathBuf::from("output.png"), 256) else {
         return;
     };
 
@@ -61,19 +61,19 @@ fn update(
 ) {
     gizmos.rect_2d(
         Isometry2d::IDENTITY,
-        Vec2::splat(2048.),
+        Vec2::splat(599.),
         Color::srgb(1., 0., 0.),
     );
     gizmos
         .grid_2d(
             Isometry2d::IDENTITY,
-            UVec2::splat(11),
+            UVec2::splat(6),
             Vec2::splat(100.),
             Color::WHITE,
         )
         .outer_edges();
 
-    gizmos.axes_2d(Transform::IDENTITY, 1024.0);
+    gizmos.axes_2d(Transform::IDENTITY, 300.0);
 
     for progress in progress.read() {
         info!("Exporting: {:?}", progress);
