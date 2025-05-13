@@ -1,7 +1,7 @@
 use crate::export::ongoing::OngoingExport;
 use crate::export::state::ExportState;
-use crate::export::{ExportCompleted, ExportProgress};
-use bevy::prelude::{EventWriter, ResMut, warn};
+use crate::export::{ExportCompleted, ExportFailed, ExportProgress};
+use bevy::prelude::{EventWriter, ResMut};
 
 /// Waits for [crate::export::tasks::process_image_data] to finish processing the received data.
 ///
@@ -10,6 +10,7 @@ pub fn wait_for_image_processing(
     mut ongoing_export: ResMut<OngoingExport>,
     mut progress: EventWriter<ExportProgress>,
     mut finished: EventWriter<ExportCompleted>,
+    mut failed: EventWriter<ExportFailed>,
 ) {
     if let Some(events) = ongoing_export.poll_processing_progress() {
         progress.write_batch(events);
@@ -19,7 +20,9 @@ pub fn wait_for_image_processing(
         if let Ok(completed) = completed {
             finished.write(completed);
         } else {
-            warn!("An error caused failure in image processing");
+            failed.write(ExportFailed {
+                error: completed.unwrap_err(),
+            });
         }
 
         ongoing_export.state = ExportState::Cleanup;

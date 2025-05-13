@@ -24,7 +24,8 @@ impl Plugin for ExportPlugin {
     fn build(&self, app: &mut App) {
         app.add_event::<ExportRequest>()
             .add_event::<ExportProgress>()
-            .add_event::<ExportCompleted>();
+            .add_event::<ExportCompleted>()
+            .add_event::<ExportFailed>();
 
         // If there are no ongoing exports, check for requests.
         app.add_systems(
