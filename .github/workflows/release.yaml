@@ -27,24 +27,24 @@ jobs:
         strategy:
             matrix:
                 include:
-#                    - platform: linux
-#                      label: editor-linux-x64
-#                      binary: editor
-#                      target: x86_64-unknown-linux-gnu
-#                      profile: release
-#                      features: editor/linux
-#                      package_ext: .zip
-#                      runner: ubuntu-latest
-#
-#                    - platform: windows
-#                      label: editor-windows-x64
-#                      binary: editor
-#                      target: x86_64-pc-windows-msvc
-#                      profile: release
-#                      features: editor/windows
-#                      binary_ext: .exe
-#                      package_ext: .zip
-#                      runner: windows-latest
+                    - platform: linux
+                      label: editor-linux-x64
+                      binary: editor
+                      target: x86_64-unknown-linux-gnu
+                      profile: release
+                      features: editor/linux
+                      package_ext: .zip
+                      runner: ubuntu-latest
+
+                    - platform: windows
+                      label: editor-windows-x64
+                      binary: editor
+                      target: x86_64-pc-windows-msvc
+                      profile: release
+                      features: editor/windows
+                      binary_ext: .exe
+                      package_ext: .zip
+                      runner: windows-latest
 
                     - platform: macos
                       label: editor-macos-arm
