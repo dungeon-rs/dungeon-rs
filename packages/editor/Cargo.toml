@@ -15,9 +15,6 @@ bevy = { workspace = true, features = [
     "multi_threaded",
     "bevy_window",
     "bevy_winit",
-    "bevy_render",
-    "bevy_core_pipeline",
-    "bevy_sprite",
     "bevy_log",
 
     # image formats
@@ -34,6 +31,7 @@ dev = [
     "bevy/bevy_debug_stepping",
     "bevy/bevy_gizmos",
     "bevy/file_watcher",
+    "dungeonrs_core/dev",
     "dungeonrs_ui/dev"
 ]
 

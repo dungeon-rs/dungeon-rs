@@ -1,17 +1,22 @@
 use crate::UiState;
 use crate::widgets::toolbar::toolbar;
-use bevy::prelude::{Res, warn};
+use bevy::prelude::{EventWriter, Res, warn};
 use bevy_egui::EguiContexts;
+use dungeonrs_core::export::ExportRequest;
 use egui::{Direction, Layout, SidePanel, TopBottomPanel};
 
 /// This system builds the editor layout, positioning all other widgets and panels on the screen.
-pub fn editor_layout(mut contexts: EguiContexts, ui_state: Res<UiState>) {
+pub fn editor_layout(
+    mut contexts: EguiContexts,
+    ui_state: Res<UiState>,
+    export_writer: EventWriter<ExportRequest>,
+) {
     let Some(context) = contexts.try_ctx_mut() else {
         warn!("Failed to acquire egui context");
         return;
     };
 
-    toolbar(context, ui_state.logo);
+    toolbar(context, ui_state.logo, export_writer);
 
     TopBottomPanel::bottom("bottom_panel")
         .frame(egui::Frame::NONE)

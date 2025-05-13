@@ -16,9 +16,9 @@ pub fn camera(
 ) {
     let state = state.get_or_insert(CameraState { moving: false });
 
-    if input.just_pressed(MouseButton::Middle) {
+    if input.just_pressed(MouseButton::Left) {
         state.moving = true;
-    } else if input.just_released(MouseButton::Middle) {
+    } else if input.just_released(MouseButton::Left) {
         state.moving = false;
     }
 
