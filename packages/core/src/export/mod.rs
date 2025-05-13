@@ -14,6 +14,7 @@ use crate::{
 use bevy::app::App;
 use bevy::prelude::{IntoScheduleConfigs, Plugin, PostUpdate, Res, Update, not, resource_exists};
 
+use crate::export::systems::clean_up;
 pub use events::*;
 
 #[derive(Default)]
@@ -31,6 +32,7 @@ impl Plugin for ExportPlugin {
             (
                 check_for_requests.run_if(not(resource_exists::<OngoingExport>)),
                 wait_for_image_processing.run_if(in_state(ExportState::ProcessFrames)),
+                clean_up.run_if(in_state(ExportState::Cleanup)),
             ),
         )
         .add_systems(

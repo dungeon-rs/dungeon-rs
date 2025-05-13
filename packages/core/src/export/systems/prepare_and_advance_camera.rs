@@ -27,7 +27,7 @@ pub fn prepare_and_advance_camera(
             ));
         };
 
-        let readback = ongoing_export.attach_to_camera(&mut camera, projection);
+        let readback = ongoing_export.attach_to_camera(&mut camera, &transform, projection);
         commands.entity(entity).with_children(|parent| {
             parent
                 .spawn(readback) // Whenever the readback reads a frame, we call [on_readback_complete].

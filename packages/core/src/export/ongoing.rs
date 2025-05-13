@@ -21,13 +21,13 @@ use bevy::asset::RenderAssetUsages;
 use bevy::image::{BevyDefault, Image};
 use bevy::math::UVec2;
 use bevy::prelude::{
-    Assets, BevyError, Camera, Handle, OrthographicProjection, ResMut, Resource, Result, Vec2,
-    default, info,
+    Assets, BevyError, Camera, Handle, OrthographicProjection, ResMut, Resource, Result, Transform,
+    Vec2, default,
 };
 use bevy::render::camera::{RenderTarget, ScalingMode};
 use bevy::render::gpu_readback::Readback;
 use bevy::render::render_resource::{Extent3d, TextureDimension, TextureFormat, TextureUsages};
-use bevy::tasks::{AsyncComputeTaskPool, Task};
+use bevy::tasks::{AsyncComputeTaskPool, Task, block_on, poll_once};
 use crossbeam_channel::Receiver;
 use std::collections::VecDeque;
 use std::mem;
@@ -52,6 +52,9 @@ pub(super) struct OngoingExport {
     frame_px_size: (u32, u32),
     /// The size of all frames combined, expressed in pixels.
     final_px_size: (u32, u32),
+    /// The camera location when the export was attached to it.
+    /// Used to reset the camera location in the [ExportState::Cleanup] state.
+    pub camera_location: Option<Transform>,
     /// The queue of coordinates the camera needs to be moved to for a frame capture along the coordinates
     /// expressed in pixels (used when stitching the frames together).
     /// Every time a movement completes, it moves to [OngoingExport::extracting].
@@ -80,7 +83,6 @@ struct FramesGrid {
     /// The total size of the stitched image, expressed in pixels.
     pub final_px_size: (u32, u32),
 }
-
 
 impl OngoingExport {
     /// Creates a new `OngoingExport` instance, initialised in the `PrepareTargetAndCamera` state.
@@ -116,6 +118,7 @@ impl OngoingExport {
             frame_world_size,
             frame_px_size,
             final_px_size,
+            camera_location: None,
             pending: frames,
             extracting: VecDeque::with_capacity(frame_count),
             extracted: Vec::with_capacity(frame_count),
@@ -128,17 +131,16 @@ impl OngoingExport {
     ///
     /// We then return a `Readback` that will handle reading the results back to the CPU.
     pub fn attach_to_camera(
-        &self,
+        &mut self,
         camera: &mut Camera,
+        camera_location: &Transform,
         projection: &mut OrthographicProjection,
     ) -> Readback {
         // We use a weak handle, so the lifetime is always determined by the lifetime of the export.
         camera.target = RenderTarget::Image(self.texture.clone_weak().into());
+
+        self.camera_location = Some(*camera_location);
         // We adjust the projection of the camera to match the size of the frames we're about to use.
-        info!(
-            "Adjusting projection to {}x{} {:?}",
-            self.frame_world_size.width, self.frame_world_size.height, self.frame_px_size
-        );
         projection.scaling_mode = ScalingMode::Fixed {
             width: self.frame_world_size.width as f32,
             height: self.frame_world_size.height as f32,
@@ -205,6 +207,28 @@ impl OngoingExport {
 
         self.processing_receiver = Some(receiver);
         self.processing_task = Some(task);
+    }
+
+    /// Get an iterator that returns all [ExportProgress] events received so far.
+    pub fn poll_processing_progress(&mut self) -> Option<impl IntoIterator<Item = ExportProgress>> {
+        let receiver = self.processing_receiver.as_mut()?;
+
+        Some(receiver.try_iter())
+    }
+
+    /// Attempts to retrieve the result of the [OngoingExport::processing_task] and return [None]
+    /// if it hasn't finished running yet.
+    pub fn poll_processing_completed(
+        &mut self,
+    ) -> Option<std::result::Result<ExportCompleted, BevyError>> {
+        let task = self.processing_task.as_mut()?;
+        if task.is_finished() {
+            if let Some(result) = block_on(poll_once(self.processing_task.as_mut()?)) {
+                return Some(result);
+            }
+        }
+
+        None
     }
 
     /// Calculates the grid of camera positions and corresponding pixel positions for the export.
@@ -299,8 +323,14 @@ mod tests {
         frame_size: &Size2D,
         map_size: &Size2D,
     ) {
-        let min_x = coordinates.iter().map(|c| c.x).fold(f32::INFINITY, f32::min);
-        let min_y = coordinates.iter().map(|c| c.y).fold(f32::INFINITY, f32::min);
+        let min_x = coordinates
+            .iter()
+            .map(|c| c.x)
+            .fold(f32::INFINITY, f32::min);
+        let min_y = coordinates
+            .iter()
+            .map(|c| c.y)
+            .fold(f32::INFINITY, f32::min);
         let max_x = coordinates
             .iter()
             .map(|c| c.x + frame_size.width as f32)
@@ -329,7 +359,11 @@ mod tests {
         assert_eq!(grid.frame_px_size.1 % 256, 0);
 
         let world_coords = grid.frames.iter().map(|(w, _)| *w).collect();
-        assert_grid_covers_map(&world_coords, &grid.frame_world_size, &Size2D::new(1000, 1000));
+        assert_grid_covers_map(
+            &world_coords,
+            &grid.frame_world_size,
+            &Size2D::new(1000, 1000),
+        );
 
         assert!(grid.final_px_size.0 >= grid.frame_px_size.0);
         assert!(grid.final_px_size.1 >= grid.frame_px_size.1);
@@ -343,7 +377,11 @@ mod tests {
         assert_eq!(grid.frame_px_size.1 % 256, 0);
 
         let world_coords = grid.frames.iter().map(|(w, _)| *w).collect();
-        assert_grid_covers_map(&world_coords, &grid.frame_world_size, &Size2D::new(3000, 5000));
+        assert_grid_covers_map(
+            &world_coords,
+            &grid.frame_world_size,
+            &Size2D::new(3000, 5000),
+        );
 
         assert!(grid.final_px_size.0 >= grid.frame_px_size.0);
         assert!(grid.final_px_size.1 > grid.frame_px_size.1);
@@ -357,12 +395,15 @@ mod tests {
         assert_eq!(grid.frame_px_size.1 % 256, 0);
 
         let world_coords = grid.frames.iter().map(|(w, _)| *w).collect();
-        assert_grid_covers_map(&world_coords, &grid.frame_world_size, &Size2D::new(5000, 3000));
+        assert_grid_covers_map(
+            &world_coords,
+            &grid.frame_world_size,
+            &Size2D::new(5000, 3000),
+        );
 
         assert!(grid.final_px_size.0 > grid.frame_px_size.0);
         assert!(grid.final_px_size.1 >= grid.frame_px_size.1);
     }
-
 
     #[test]
     fn test_min_ppi_tiny_map() {
@@ -372,7 +413,11 @@ mod tests {
         assert!(grid.frame_px_size.1 >= 256);
 
         let world_coords = grid.frames.iter().map(|(w, _)| *w).collect();
-        assert_grid_covers_map(&world_coords, &grid.frame_world_size, &Size2D::new(100, 100));
+        assert_grid_covers_map(
+            &world_coords,
+            &grid.frame_world_size,
+            &Size2D::new(100, 100),
+        );
     }
 
     #[test]
@@ -383,7 +428,11 @@ mod tests {
         assert!(grid.frame_px_size.1 <= MAX_TEXTURE_SIZE_PX);
 
         let world_coords = grid.frames.iter().map(|(w, _)| *w).collect();
-        assert_grid_covers_map(&world_coords, &grid.frame_world_size, &Size2D::new(100, 100));
+        assert_grid_covers_map(
+            &world_coords,
+            &grid.frame_world_size,
+            &Size2D::new(100, 100),
+        );
     }
 
     #[test]
@@ -394,7 +443,11 @@ mod tests {
         assert_eq!(grid.frame_px_size.1 % 256, 0);
 
         let world_coords = grid.frames.iter().map(|(w, _)| *w).collect();
-        assert_grid_covers_map(&world_coords, &grid.frame_world_size, &Size2D::new(5000, 1000));
+        assert_grid_covers_map(
+            &world_coords,
+            &grid.frame_world_size,
+            &Size2D::new(5000, 1000),
+        );
     }
 
     #[test]
@@ -407,7 +460,11 @@ mod tests {
         assert_eq!(grid.frame_px_size.1 % 256, 0);
 
         let world_coords = grid.frames.iter().map(|(w, _)| *w).collect();
-        assert_grid_covers_map(&world_coords, &grid.frame_world_size, &Size2D::new(10000, 10000));
+        assert_grid_covers_map(
+            &world_coords,
+            &grid.frame_world_size,
+            &Size2D::new(10000, 10000),
+        );
     }
 
     #[test]

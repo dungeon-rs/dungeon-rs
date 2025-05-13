@@ -18,6 +18,7 @@ bevy = { workspace = true, features = [
   "bevy_core_pipeline",
   "bevy_sprite",
   "bevy_asset",
+  "bevy_window",
   "serialize"
 ] }
 

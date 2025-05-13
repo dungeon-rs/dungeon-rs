@@ -1,6 +1,6 @@
 use crate::export::{ExportCompleted, ExportProgress};
 use bevy::math::UVec2;
-use bevy::prelude::{BevyError, info};
+use bevy::prelude::BevyError;
 use crossbeam_channel::Sender;
 use image::RgbaImage;
 use std::path::PathBuf;
