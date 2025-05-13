@@ -1,5 +1,5 @@
 use bevy::prelude::{EventWriter, Rect};
-use dungeonrs_core::export::ExportRequest;
+use core::export::ExportRequest;
 use egui::load::SizedTexture;
 use egui::{Context, TopBottomPanel};
 use std::path::PathBuf;

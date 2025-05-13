@@ -29,10 +29,10 @@ jobs:
 
       - name: Run tests
         run: |
-          cargo test --locked --workspace --all-features --all-targets --features='dungeonrs_editor/linux'
+          cargo test --locked --workspace --all-features --all-targets --features='editor/linux'
           # Running doc tests separately is a workaround for https://github.com/rust-lang/cargo/issues/6669
           # Setting LD_LIBRARY_PATH is a workaround for https://github.com/TheBevyFlock/bevy_new_2d/pull/318#issuecomment-2585935350
-          LD_LIBRARY_PATH="$(rustc --print target-libdir)" cargo test --locked --workspace --all-features --features='dungeonrs_editor/linux' --doc
+          LD_LIBRARY_PATH="$(rustc --print target-libdir)" cargo test --locked --workspace --all-features --features='editor/linux' --doc
 
   format:
     name: Check formatting
@@ -71,4 +71,4 @@ jobs:
           sweep-cache: true
 
       - name: Check documentation
-        run: cargo doc --locked --workspace --all-features --features='dungeonrs_editor/linux' --document-private-items --no-deps
+        run: cargo doc --locked --workspace --all-features --features='editor/linux' --document-private-items --no-deps

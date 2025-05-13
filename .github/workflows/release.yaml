@@ -29,29 +29,29 @@ jobs:
                 include:
 #                    - platform: linux
 #                      label: editor-linux-x64
-#                      binary: dungeonrs_editor
+#                      binary: editor
 #                      target: x86_64-unknown-linux-gnu
 #                      profile: release
-#                      features: dungeonrs_editor/linux
+#                      features: editor/linux
 #                      package_ext: .zip
 #                      runner: ubuntu-latest
 #
 #                    - platform: windows
 #                      label: editor-windows-x64
-#                      binary: dungeonrs_editor
+#                      binary: editor
 #                      target: x86_64-pc-windows-msvc
 #                      profile: release
-#                      features: dungeonrs_editor/windows
+#                      features: editor/windows
 #                      binary_ext: .exe
 #                      package_ext: .zip
 #                      runner: windows-latest
 
                     - platform: macos
                       label: editor-macos-arm
-                      binary: dungeonrs_editor
+                      binary: editor
                       target: aarch64-apple-darwin
                       profile: release
-                      features: dungeonrs_editor/macos
+                      features: editor/macos
                       app_suffix: .app/Contents/MacOS
                       package_ext: .dmg
                       runner: macos-latest
@@ -233,7 +233,7 @@ jobs:
               run: sudo apt-get update; sudo apt-get install --no-install-recommends libasound2-dev libudev-dev libwayland-dev libxkbcommon-dev
 
             - name: Build documentation
-              run: cargo +nightly doc --locked --workspace --all-features --features='dungeonrs_editor/linux' --document-private-items --no-deps
+              run: cargo +nightly doc --locked --workspace --all-features --features='editor/linux' --document-private-items --no-deps
               env:
                   RUSTDOCFLAGS: "-Z unstable-options --enable-index-page"
 

@@ -1,6 +1,6 @@
 use bevy::window::ExitCondition;
 use bevy::{app::ScheduleRunnerPlugin, prelude::*};
-use dungeonrs_core::{
+use core::{
     CorePlugin,
     export::{ExportCompleted, ExportProgress, ExportRequest},
 };

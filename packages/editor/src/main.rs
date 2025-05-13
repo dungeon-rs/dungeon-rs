@@ -2,7 +2,7 @@ mod plugin;
 
 use crate::plugin::EditorPlugin;
 use bevy::prelude::*;
-use dungeonrs_core::export::{ExportCompleted, ExportProgress};
+use core::export::{ExportCompleted, ExportProgress};
 
 fn main() {
     App::new()

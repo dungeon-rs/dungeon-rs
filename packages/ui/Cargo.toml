@@ -1,5 +1,5 @@
 [package]
-name = "dungeonrs_ui"
+name = "ui"
 description = "Provides the user interface functionality, currently using egui but could switch to bevy_ui if it matures"
 edition.workspace = true
 repository.workspace = true
@@ -9,7 +9,7 @@ authors.workspace = true
 license.workspace = true
 
 [dependencies]
-dungeonrs_core = { path = "../core" }
+core = { path = "../core" }
 egui_dock = "0.16.0"
 bevy = { workspace = true, features = [
     "bevy_log",

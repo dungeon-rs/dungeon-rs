@@ -1,5 +1,5 @@
 [package]
-name = "dungeonrs_headless"
+name = "headless"
 edition = "2024"
 repository.workspace = true
 version.workspace = true
@@ -8,7 +8,7 @@ authors.workspace = true
 license.workspace = true
 
 [dependencies]
-dungeonrs_core = { path = "../core" }
+core = { path = "../core" }
 bevy = { workspace = true, features = [
     "bevy_window",
     "png",
@@ -19,7 +19,7 @@ bevy = { workspace = true, features = [
 [features]
 default = ["dev"]
 dev = [
-    "dungeonrs_core/dev",
+    "core/dev",
     "bevy/bevy_gizmos",
     "bevy/dynamic_linking",
     "bevy/bevy_dev_tools",
@@ -27,11 +27,11 @@ dev = [
 ]
 
 windows = [
-    "dungeonrs_core/windows",
+    "core/windows",
 ]
 linux = [
-    "dungeonrs_core/linux",
+    "core/linux",
 ]
 macos = [
-    "dungeonrs_core/macos",
+    "core/macos",
 ]

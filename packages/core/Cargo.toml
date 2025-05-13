@@ -1,5 +1,5 @@
 [package]
-name = "dungeonrs_core"
+name = "core"
 edition.workspace = true
 repository.workspace = true
 version.workspace = true

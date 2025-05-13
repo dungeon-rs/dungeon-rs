@@ -2,7 +2,7 @@ use crate::UiState;
 use crate::widgets::toolbar::toolbar;
 use bevy::prelude::{EventWriter, Res, warn};
 use bevy_egui::EguiContexts;
-use dungeonrs_core::export::ExportRequest;
+use core::export::ExportRequest;
 use egui::{Direction, Layout, SidePanel, TopBottomPanel};
 
 /// This system builds the editor layout, positioning all other widgets and panels on the screen.
