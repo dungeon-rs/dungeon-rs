@@ -140,6 +140,7 @@ impl OngoingExport {
 
         self.camera_location = Some(*camera_location);
         // We adjust the projection of the camera to match the size of the frames we're about to use.
+        projection.scale = 1.;
         projection.scaling_mode = ScalingMode::Fixed {
             width: self.frame_world_size.width(),
             height: self.frame_world_size.height(),
