@@ -1,12 +1,19 @@
-use std::ops::DerefMut;
-use bevy::input::mouse::AccumulatedMouseMotion;
-use bevy::prelude::{ButtonInput, Camera, KeyCode, Local, MouseButton, Projection, Query, Res, Transform, With, Result};
+use bevy::input::mouse::{AccumulatedMouseMotion, AccumulatedMouseScroll};
 use bevy::prelude::Projection::Orthographic;
+use bevy::prelude::{
+    ButtonInput, Camera, KeyCode, Local, MouseButton, Projection, Query, Res, Result, Transform,
+    With, default,
+};
+use std::ops::DerefMut;
 
 /// Tracks the state of the camera controls, used to see if the user is trying to move the camera
 /// so we don't have the camera move with the mouse all the time.
+#[derive(Default)]
 pub struct CameraState {
+    /// Whether the camera is being dragged around
     moving: bool,
+    /// Whether the camera is being zoomed.
+    scrolling: bool,
 }
 
 /// System that allows the user to control the camera.
@@ -17,8 +24,9 @@ pub fn camera(
     mut camera: Query<&mut Transform, With<Camera>>,
     mut projection: Query<&mut Projection, With<Camera>>,
     mouse_motion: Res<AccumulatedMouseMotion>,
+    mouse_scroll: Res<AccumulatedMouseScroll>,
 ) -> Result {
-    let state = state.get_or_insert(CameraState { moving: false });
+    let state = state.get_or_insert(default());
 
     if mouse_input.just_pressed(MouseButton::Right) {
         state.moving = true;
@@ -26,14 +34,16 @@ pub fn camera(
         state.moving = false;
     }
 
-    let mut projection = projection.single_mut()?;
-    if let Orthographic(projection) = projection.deref_mut() {
-        if keyboard_input.just_pressed(KeyCode::ArrowUp) {
-            projection.scale *= 1.1;
-        } else if keyboard_input.just_pressed(KeyCode::ArrowDown) {
-            projection.scale /= 1.1;
-        } else if keyboard_input.just_pressed(KeyCode::ArrowLeft) {
-            projection.scale = 1.;
+    if keyboard_input.just_pressed(KeyCode::ControlLeft) {
+        state.scrolling = true;
+    } else if keyboard_input.just_released(KeyCode::ControlLeft) {
+        state.scrolling = false;
+    }
+
+    if state.scrolling {
+        let mut projection = projection.single_mut()?;
+        if let Orthographic(projection) = projection.deref_mut() {
+            projection.scale /= 1.0 + mouse_scroll.delta.y * 0.01;
         }
     }
 

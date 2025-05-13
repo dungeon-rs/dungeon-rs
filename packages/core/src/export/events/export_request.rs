@@ -29,6 +29,10 @@ impl ExportRequest {
             return Err(String::from("ppi must be greater than 0"));
         }
 
-        Ok(ExportRequest { output, region, ppi })
+        Ok(ExportRequest {
+            output,
+            region,
+            ppi,
+        })
     }
 }

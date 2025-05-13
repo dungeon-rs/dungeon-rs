@@ -20,13 +20,13 @@ use bevy::asset::RenderAssetUsages;
 use bevy::image::{BevyDefault, Image};
 use bevy::math::UVec2;
 use bevy::prelude::{
-    default, Assets, BevyError, Camera, Handle, OrthographicProjection, Rect, ResMut, Resource,
-    Result, Transform, Vec2,
+    Assets, BevyError, Camera, Handle, OrthographicProjection, Rect, ResMut, Resource, Result,
+    Transform, Vec2, default,
 };
 use bevy::render::camera::{RenderTarget, ScalingMode};
 use bevy::render::gpu_readback::Readback;
 use bevy::render::render_resource::{Extent3d, TextureDimension, TextureFormat, TextureUsages};
-use bevy::tasks::{block_on, poll_once, AsyncComputeTaskPool, Task};
+use bevy::tasks::{AsyncComputeTaskPool, Task, block_on, poll_once};
 use crossbeam_channel::Receiver;
 use std::collections::VecDeque;
 use std::mem;
