@@ -12,15 +12,14 @@ description = "The editor binary, this starts the UI and is intended to be the u
 ui = { path = "../ui" }
 core = { path = "../core" }
 bevy = { workspace = true, features = [
-    "multi_threaded",
-    "bevy_window",
-    "bevy_winit",
-    "bevy_log",
-
-    # image formats
-    "png",
-    "jpeg",
-    "webp"
+  "multi_threaded",
+  "bevy_window",
+  "bevy_winit",
+  "bevy_log",
+  # image formats
+  "png",
+  "jpeg",
+  "webp"
 ] }
 
 [build-dependencies]
@@ -30,28 +29,30 @@ winresource = "0.1.20"
 [features]
 default = ["dev"]
 dev = [
-    "bevy/dynamic_linking",
-    "bevy/bevy_dev_tools",
-    "bevy/bevy_debug_stepping",
-    "bevy/bevy_gizmos",
-    "bevy/file_watcher",
-    "core/dev",
-    "ui/dev"
+  "bevy/trace",
+  "bevy/track_location",
+  "bevy/dynamic_linking",
+  "bevy/bevy_dev_tools",
+  "bevy/bevy_debug_stepping",
+  "bevy/bevy_gizmos",
+  "bevy/file_watcher",
+  "core/dev",
+  "ui/dev"
 ]
 
 windows = [
-    "core/windows",
-    "ui/windows"
+  "core/windows",
+  "ui/windows"
 ]
 linux = [
-    "bevy/x11",
-    "bevy/wayland",
-    "bevy/accesskit_unix",
-    "core/linux",
-    "ui/linux"
+  "bevy/x11",
+  "bevy/wayland",
+  "bevy/accesskit_unix",
+  "core/linux",
+  "ui/linux"
 ]
 macos = [
-    "bevy/accesskit_unix",
-    "core/macos",
-    "ui/macos"
+  "bevy/accesskit_unix",
+  "core/macos",
+  "ui/macos"
 ]

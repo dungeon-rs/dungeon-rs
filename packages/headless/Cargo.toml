@@ -10,28 +10,30 @@ license.workspace = true
 [dependencies]
 core = { path = "../core" }
 bevy = { workspace = true, features = [
-    "bevy_window",
-    "png",
-    "webp",
-    "jpeg"
+  "bevy_window",
+  "png",
+  "webp",
+  "jpeg"
 ] }
 
 [features]
 default = ["dev"]
 dev = [
-    "core/dev",
-    "bevy/bevy_gizmos",
-    "bevy/dynamic_linking",
-    "bevy/bevy_dev_tools",
-    "bevy/bevy_debug_stepping",
+  "core/dev",
+  "bevy/trace",
+  "bevy/track_location",
+  "bevy/bevy_gizmos",
+  "bevy/dynamic_linking",
+  "bevy/bevy_dev_tools",
+  "bevy/bevy_debug_stepping",
 ]
 
 windows = [
-    "core/windows",
+  "core/windows",
 ]
 linux = [
-    "core/linux",
+  "core/linux",
 ]
 macos = [
-    "core/macos",
+  "core/macos",
 ]

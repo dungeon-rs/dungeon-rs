@@ -24,6 +24,7 @@ bevy = { workspace = true, features = [
 
 [features]
 dev = [
+  "bevy/trace",
   "bevy/track_location"
 ]
 
