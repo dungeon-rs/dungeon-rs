@@ -6,6 +6,7 @@ mod widgets;
 use crate::ui_state::UiState;
 use bevy::prelude::*;
 use bevy_egui::{EguiContextPass, EguiContexts, EguiPlugin};
+use bevy_inspector_egui::DefaultInspectorConfigPlugin;
 
 /// The UI plugin handles registering and setting up all user interface elements of the editor.
 /// This module is unavailable in headless mode and should not contain any actual functionality,
@@ -18,8 +19,10 @@ impl Plugin for UIPlugin {
         app.add_plugins(EguiPlugin {
             enable_multipass_for_primary_context: true,
         })
+        .add_plugins(DefaultInspectorConfigPlugin)
         .add_systems(Startup, setup)
-        .add_systems(EguiContextPass, editor_layout::editor_layout)
+            .add_systems(EguiContextPass, editor_layout::editor_layout)
+            .add_systems(EguiContextPass, editor_layout::inspector_layout)
         .add_systems(Update, controls::camera::camera);
     }
 }

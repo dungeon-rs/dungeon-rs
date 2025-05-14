@@ -17,6 +17,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn(Camera2d);
 
     commands.spawn((
+        Name::new("Logo"),
         Sprite::from_image(asset_server.load("logo.png")),
         Transform::from_xyz(0., 0., 0.),
     ));

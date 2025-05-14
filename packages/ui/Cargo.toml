@@ -18,11 +18,11 @@ bevy = { workspace = true, features = [
     "bevy_sprite",
     "bevy_image"
 ] }
-#bevy-inspector-egui = { version = "0.31.0", default-features = false, features = [
-#    "bevy_core_pipeline",
-#    "bevy_image",
-#    "bevy_render",
-#] }
+bevy-inspector-egui = { version = "0.31.0", default-features = false, features = [
+    "bevy_core_pipeline",
+    "bevy_image",
+    "bevy_render",
+] }
 bevy_egui = { version = "0.34.1", default-features = false, features = [
     "default_fonts",
 #    "picking",

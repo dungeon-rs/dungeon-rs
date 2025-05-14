@@ -1,7 +1,9 @@
-use crate::UiState;
 use crate::widgets::toolbar::toolbar;
-use bevy::prelude::{EventWriter, Res, warn};
-use bevy_egui::EguiContexts;
+use crate::UiState;
+use bevy::prelude::{warn, EventWriter, Res, With, World};
+use bevy::window::PrimaryWindow;
+use bevy_egui::{EguiContext, EguiContexts};
+use bevy_inspector_egui::bevy_inspector;
 use core::export::ExportRequest;
 use egui::{Direction, Layout, SidePanel, TopBottomPanel};
 
@@ -29,10 +31,24 @@ pub fn editor_layout(
                 },
             );
         });
+}
+
+pub fn inspector_layout(world: &mut World) {
+    let egui_context = world
+        .query_filtered::<&mut EguiContext, With<PrimaryWindow>>()
+        .single(world);
+
+    let Ok(egui_context) = egui_context else {
+        return;
+    };
+    let mut egui_context = egui_context.clone();
 
     SidePanel::right("right_panel")
         .resizable(true)
-        .show(context, |ui| {
-            ui.label("Right panel");
+        .show(egui_context.get_mut(), |ui| {
+            egui::ScrollArea::both().show(ui, |ui| {
+                bevy_inspector::ui_for_world(world, ui);
+                ui.allocate_space(ui.available_size());
+            });
         });
 }
