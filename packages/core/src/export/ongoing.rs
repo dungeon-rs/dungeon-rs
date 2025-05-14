@@ -10,9 +10,9 @@
 //! grid cell size in world units. This ensures that logic and calculations remain consistent and
 //! do not mix world units and pixel units inadvertently.
 
-const GRID_CELL_UNITS: f32 = 100.0;
 const MAX_TEXTURE_SIZE_PX: u32 = 4096;
 
+use crate::constants::WORLD_UNITS_PER_CELL;
 use crate::export::state::ExportState;
 use crate::export::tasks::process_image_data;
 use crate::export::{ExportCompleted, ExportProgress, ExportRequest};
@@ -244,7 +244,7 @@ impl OngoingExport {
     /// Returns a [FramesGrid] containing the calculated data.
     #[must_use]
     fn calculate_frames(map_rect: Rect, ppi: u32) -> FramesGrid {
-        let pixels_per_world_unit = ppi as f32 / GRID_CELL_UNITS;
+        let pixels_per_world_unit = ppi as f32 / WORLD_UNITS_PER_CELL as f32;
 
         let map_width = map_rect.width();
         let map_height = map_rect.height();

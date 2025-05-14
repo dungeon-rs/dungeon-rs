@@ -8,7 +8,8 @@ fn main() {
         let ico_path = out_dir.join("logo.ico");
 
         let img = image::open("../../assets/logo.png").expect("Failed to open PNG");
-        img.save_with_format(&ico_path, image::ImageFormat::Ico).expect("Failed to save ICO");
+        img.save_with_format(&ico_path, image::ImageFormat::Ico)
+            .expect("Failed to save ICO");
 
         let mut res = winresource::WindowsResource::new();
         res.set_icon(ico_path.to_str().unwrap());
