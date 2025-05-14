@@ -1,9 +1,14 @@
+mod components;
 mod constants;
-pub mod export;
+mod export;
 
 use crate::export::ExportPlugin;
 use bevy::app::App;
 use bevy::prelude::Plugin;
+
+pub mod prelude {
+    pub use crate::{components::*, export::events::*};
+}
 
 #[derive(Default)]
 pub struct CorePlugin;

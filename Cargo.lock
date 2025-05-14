@@ -1834,7 +1834,6 @@ dependencies = [
  "bevy",
  "crossbeam-channel",
  "image",
- "ron",
  "serde",
 ]
 

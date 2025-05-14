@@ -21,8 +21,8 @@ impl Plugin for UIPlugin {
         })
         .add_plugins(DefaultInspectorConfigPlugin)
         .add_systems(Startup, setup)
-            .add_systems(EguiContextPass, editor_layout::editor_layout)
-            .add_systems(EguiContextPass, editor_layout::inspector_layout)
+        .add_systems(EguiContextPass, editor_layout::editor_layout)
+        .add_systems(EguiContextPass, editor_layout::inspector_layout)
         .add_systems(Update, controls::camera::camera);
     }
 }

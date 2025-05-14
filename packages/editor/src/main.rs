@@ -2,7 +2,7 @@ mod plugin;
 
 use crate::plugin::EditorPlugin;
 use bevy::prelude::*;
-use core::export::{ExportCompleted, ExportProgress};
+use core::prelude::*;
 
 fn main() {
     App::new()
@@ -17,9 +17,44 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn(Camera2d);
 
     commands.spawn((
-        Name::new("Logo"),
-        Sprite::from_image(asset_server.load("logo.png")),
-        Transform::from_xyz(0., 0., 0.),
+        Project::new(
+            "example",
+            Rect::from_center_size(Vec2::ZERO, Vec2::splat(1000.)),
+        ),
+        children![
+            (
+                Name::new("Default Layer"),
+                Layer::default(),
+                children![
+                    (
+                        Name::new("Logo"),
+                        Sprite::from_image(asset_server.load("logo.png")),
+                        Transform::from_xyz(0., 0., 0.),
+                    ),
+                    (
+                        Name::new("Logo 2"),
+                        Sprite::from_image(asset_server.load("logo.png")),
+                        Transform::from_xyz(250., 0., 0.),
+                    ),
+                ]
+            ),
+            (
+                Name::new("Background Layer"),
+                Layer { weight: -1 },
+                children![
+                    (
+                        Name::new("Logo 3"),
+                        Sprite::from_image(asset_server.load("logo.png")),
+                        Transform::from_xyz(0., 250., 0.),
+                    ),
+                    (
+                        Name::new("Logo 4"),
+                        Sprite::from_image(asset_server.load("logo.png")),
+                        Transform::from_xyz(250., 250., 0.),
+                    ),
+                ]
+            ),
+        ],
     ));
 }
 

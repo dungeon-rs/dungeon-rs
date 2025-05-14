@@ -2,7 +2,7 @@ use bevy::window::ExitCondition;
 use bevy::{app::ScheduleRunnerPlugin, prelude::*};
 use core::{
     CorePlugin,
-    export::{ExportCompleted, ExportProgress, ExportRequest},
+    prelude::{ExportCompleted, ExportProgress, ExportRequest},
 };
 use std::path::PathBuf;
 use std::time::Duration;

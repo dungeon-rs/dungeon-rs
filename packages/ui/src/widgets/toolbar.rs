@@ -1,5 +1,5 @@
 use bevy::prelude::{EventWriter, Rect};
-use core::export::ExportRequest;
+use core::prelude::ExportRequest;
 use egui::load::SizedTexture;
 use egui::{Context, TopBottomPanel};
 use std::path::PathBuf;
