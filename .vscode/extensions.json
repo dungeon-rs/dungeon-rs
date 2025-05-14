@@ -1,0 +1,7 @@
+{
+    "recommendations": [
+        "rust-lang.rust-analyzer",
+        "a5huynh.vscode-ron",
+        "JScearcy.rust-doc-viewer"
+    ]
+}
