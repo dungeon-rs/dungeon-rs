@@ -6,7 +6,8 @@ use serde::{Deserialize, Serialize};
 pub struct Layer {
     /// The name that identifies this [Layer] in the UI.
     pub name: String,
-    /// [crate::components::Layer] weight.
+    /// The weight determines the order in which layers are rendered.
+    /// A higher weight will render on top, making this an abstraction of the Z index.
     pub weight: i32,
     /// A list of all [Image]s in this layer.
     pub images: Vec<Image>,

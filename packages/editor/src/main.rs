@@ -33,7 +33,7 @@ fn setup(
             children![
                 (
                     Name::new("Default Layer"),
-                    Layer::default(),
+                    Layer,
                     children![
                         (
                             Name::new("Logo"),

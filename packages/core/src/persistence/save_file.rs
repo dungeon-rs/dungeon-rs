@@ -31,9 +31,8 @@ impl SaveFile {
     #[allow(clippy::too_many_arguments)]
     pub fn new(
         project_query: Query<(&Project, &Name, &Children), With<Project>>,
-        children_query: Query<&Children>,
-        level_query: Query<&Name, With<LevelComponent>>,
-        layer_query: Query<(&Transform, &Name), With<LayerComponent>>,
+        level_query: Query<(&Name, &Children), With<LevelComponent>>,
+        layer_query: Query<(&Transform, &Name, &Children), With<LayerComponent>>,
         mesh_query: Query<(&Texture, Option<&Name>), With<Mesh2d>>,
         transform_query: Query<&Transform>,
         material_query: Query<&MeshMaterial2d<ColorMaterial>>,
@@ -43,15 +42,14 @@ impl SaveFile {
         let mut levels = Vec::new();
 
         for level_entity in project_children.iter() {
-            let level_name = level_query.get(level_entity)?;
+            let (level_name, level_children) = level_query.get(level_entity)?;
             let mut layers = Vec::new();
 
-            let level_children = children_query.get(level_entity)?;
             for layer_entity in level_children.iter() {
-                let (layer_transform, layer_name) = layer_query.get(layer_entity)?;
+                let (layer_transform, layer_name, layer_children) =
+                    layer_query.get(layer_entity)?;
 
                 let mut images = Vec::new();
-                let layer_children = children_query.get(layer_entity)?;
                 for entity in layer_children.iter() {
                     let (texture, name) = mesh_query.get(entity)?;
                     let transform = transform_query.get(entity)?;

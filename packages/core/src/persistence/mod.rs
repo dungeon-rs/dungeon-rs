@@ -44,9 +44,8 @@ impl Plugin for PersistencePlugin {
 fn poll_save_project_events(
     mut save_projects: EventReader<SaveProjectRequest>,
     project_query: Query<(&Project, &Name, &Children), With<Project>>,
-    children_query: Query<&Children>,
-    level_query: Query<&Name, With<Level>>,
-    layer_query: Query<(&Transform, &Name), With<Layer>>,
+    level_query: Query<(&Name, &Children), With<Level>>,
+    layer_query: Query<(&Transform, &Name, &Children), With<Layer>>,
     mesh_query: Query<(&Texture, Option<&Name>), With<Mesh2d>>,
     transform_query: Query<&Transform>,
     material_query: Query<&MeshMaterial2d<ColorMaterial>>,
@@ -55,7 +54,6 @@ fn poll_save_project_events(
     for save_project in save_projects.read() {
         let save = SaveFile::new(
             project_query,
-            children_query,
             level_query,
             layer_query,
             mesh_query,
