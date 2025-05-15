@@ -21,8 +21,8 @@ use crate::utils;
 use bevy::app::App;
 use bevy::asset::{AssetServer, Assets};
 use bevy::prelude::{
-    info, Children, ColorMaterial, Commands, Entity, EventReader, FixedPostUpdate, Mesh,
-    Mesh2d, MeshMaterial2d, Name, Plugin, Query, Res, ResMut, Result, Transform, With,
+    Children, ColorMaterial, Commands, Entity, EventReader, FixedPostUpdate, Mesh, Mesh2d,
+    MeshMaterial2d, Name, Plugin, Query, Res, ResMut, Result, Transform, With, info,
 };
 use std::fs::write;
 
