@@ -2,6 +2,7 @@ mod components;
 mod constants;
 mod export;
 mod persistence;
+mod utils;
 
 use crate::export::ExportPlugin;
 use crate::persistence::PersistencePlugin;

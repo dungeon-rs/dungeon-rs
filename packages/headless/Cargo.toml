@@ -17,7 +17,7 @@ bevy = { workspace = true, features = [
 ] }
 
 [features]
-default = ["dev"]
+default = ["dev", "core/json"]
 dev = [
   "core/dev",
   "bevy/trace",

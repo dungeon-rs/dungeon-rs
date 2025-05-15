@@ -17,11 +17,12 @@ use crate::components::{Layer, Level, Project, Texture};
 use crate::persistence::events::load_project_request::LoadProjectRequest;
 use crate::persistence::save_file::SaveFile;
 use crate::prelude::SaveProjectRequest;
+use crate::utils;
 use bevy::app::App;
 use bevy::asset::{AssetServer, Assets};
 use bevy::prelude::{
-    Children, ColorMaterial, Commands, Entity, EventReader, FixedPostUpdate, Mesh, Mesh2d,
-    MeshMaterial2d, Name, Plugin, Query, Res, ResMut, Result, Transform, With, info,
+    info, Children, ColorMaterial, Commands, Entity, EventReader, FixedPostUpdate, Mesh,
+    Mesh2d, MeshMaterial2d, Name, Plugin, Query, Res, ResMut, Result, Transform, With,
 };
 use std::fs::write;
 
@@ -63,16 +64,7 @@ fn poll_save_project_events(
             &materials,
         )?;
 
-        #[cfg(feature = "dev")]
-        write(
-            save_project.path.as_path(),
-            serde_json::to_string_pretty(&save)?,
-        )
-        .expect("FAILED TO SAVE");
-
-        #[cfg(not(feature = "dev"))]
-        write(save_project.path.as_path(), rmp_serde::to_vec_named(&save)?)
-            .expect("FAILED TO SAVE");
+        write(save_project.path.as_path(), utils::serialize(&save)?).expect("FAILED TO SAVE");
 
         info!("Saved to {}", save_project.path.display());
     }
@@ -89,11 +81,8 @@ fn poll_load_project_events(
     asset_server: Res<AssetServer>,
 ) -> Result {
     for load_project in load_projects.read() {
-        let content = std::fs::read_to_string(&load_project.path)?;
-        #[cfg(feature = "dev")]
-        let save: SaveFile = serde_json::from_str(&content)?;
-        #[cfg(not(feature = "dev"))]
-        let save: SaveFile = rmp_serde::from_slice(content.as_bytes())?;
+        let content = std::fs::read(&load_project.path)?;
+        let save: SaveFile = utils::deserialize(&content)?;
 
         if let Ok(project) = project.single() {
             info!("Despawning existing hierarchy");
