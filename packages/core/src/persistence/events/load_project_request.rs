@@ -1,5 +1,5 @@
-use std::path::PathBuf;
 use bevy::prelude::Event;
+use std::path::PathBuf;
 
 #[derive(Event)]
 pub struct LoadProjectRequest {

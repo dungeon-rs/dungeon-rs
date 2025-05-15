@@ -23,7 +23,11 @@ pub fn toolbar(
                 ui.separator();
 
                 ui.button("New").on_hover_text("Create a new map");
-                if ui.button("Open").on_hover_text("Open an existing map").clicked() {
+                if ui
+                    .button("Open")
+                    .on_hover_text("Open an existing map")
+                    .clicked()
+                {
                     load_writer.write(LoadProjectRequest {
                         path: PathBuf::from("output.drs"),
                     });

@@ -20,7 +20,13 @@ pub fn editor_layout(
         return;
     };
 
-    toolbar(context, ui_state.logo, export_writer, save_writer, load_writer);
+    toolbar(
+        context,
+        ui_state.logo,
+        export_writer,
+        save_writer,
+        load_writer,
+    );
 
     TopBottomPanel::bottom("bottom_panel")
         .frame(egui::Frame::NONE)

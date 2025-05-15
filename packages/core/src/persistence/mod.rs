@@ -20,8 +20,8 @@ use crate::prelude::SaveProjectRequest;
 use bevy::app::App;
 use bevy::asset::{AssetServer, Assets};
 use bevy::prelude::{
-    default, info, Children, ColorMaterial, Commands, Entity, EventReader, FixedPostUpdate,
-    Mesh, Mesh2d, MeshMaterial2d, Name, Plugin, Query, Res, ResMut, Result, Transform, With,
+    Children, ColorMaterial, Commands, Entity, EventReader, FixedPostUpdate, Mesh, Mesh2d,
+    MeshMaterial2d, Name, Plugin, Query, Res, ResMut, Result, Transform, With, info,
 };
 use std::fs::write;
 
@@ -63,11 +63,17 @@ fn poll_save_project_events(
             &materials,
         )?;
 
+        #[cfg(feature = "dev")]
         write(
             save_project.path.as_path(),
             serde_json::to_string_pretty(&save)?,
         )
         .expect("FAILED TO SAVE");
+
+        #[cfg(not(feature = "dev"))]
+        write(save_project.path.as_path(), rmp_serde::to_vec_named(&save)?)
+            .expect("FAILED TO SAVE");
+
         info!("Saved to {}", save_project.path.display());
     }
 
@@ -84,7 +90,10 @@ fn poll_load_project_events(
 ) -> Result {
     for load_project in load_projects.read() {
         let content = std::fs::read_to_string(&load_project.path)?;
+        #[cfg(feature = "dev")]
         let save: SaveFile = serde_json::from_str(&content)?;
+        #[cfg(not(feature = "dev"))]
+        let save: SaveFile = rmp_serde::from_slice(content.as_bytes())?;
 
         if let Ok(project) = project.single() {
             info!("Despawning existing hierarchy");
