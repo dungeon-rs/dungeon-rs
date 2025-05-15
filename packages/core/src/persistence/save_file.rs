@@ -4,22 +4,37 @@ use crate::persistence::entities::{image::Image, layer::Layer, level::Level};
 use bevy::prelude::*;
 use serde::{Deserialize, Serialize};
 
+/// Represents the information that is written/read from/to disk.
+///
+/// Anything about a project that needs to be persisted should be included in this data structure.
 #[derive(Debug, Serialize, Deserialize)]
 pub struct SaveFile {
+    /// The version of the software that created the save.
     pub version: String,
+    /// The (semantic) name of the map (unrelated to the filename).
     pub name: String,
+    /// The canvas size, while currently not enforced, determines the export region.
     pub size: Rect,
+    /// A list of all levels that are currently included in the project.
     pub levels: Vec<Level>,
 }
 
 impl SaveFile {
+    /// Builds a [SaveFile] based on the current ECS hierarchy.
+    ///
+    /// This method queries and captures the following ECS structure:
+    ///
+    /// [Project] <br />
+    /// | -> [crate::components::Level] <br />
+    /// | ----> [crate::components::Layer] <br />
+    /// | --------> images, paths, patterns, ...
     #[allow(clippy::too_many_arguments)]
     pub fn new(
         project_query: Query<(&Project, &Name, &Children), With<Project>>,
         children_query: Query<&Children>,
         level_query: Query<&Name, With<LevelComponent>>,
         layer_query: Query<(&LayerComponent, &Name)>,
-        mesh_query: Query<(&Texture, &Name), With<Mesh2d>>,
+        mesh_query: Query<(&Texture, Option<&Name>), With<Mesh2d>>,
         transform_query: Query<&Transform>,
         material_query: Query<&MeshMaterial2d<ColorMaterial>>,
         materials: &Res<Assets<ColorMaterial>>,
@@ -46,7 +61,7 @@ impl SaveFile {
                         if let Some(texture_handle) = &material.texture {
                             if let Some(path) = texture_handle.path() {
                                 images.push(Image {
-                                    name: name.to_string(),
+                                    name: name.and_then(|name| Some(name.to_string())),
                                     path: path.path().to_path_buf(),
                                     alpha: material.color.alpha(),
                                     size: texture.size,
@@ -75,6 +90,8 @@ impl SaveFile {
         })
     }
 
+    /// Rebuilds the ECS structure represented in this [SaveFile] back into [Commands].
+    /// It automatically constructs and registers all required meshes, materials and assets.
     pub fn restore(
         &self,
         commands: &mut Commands,
@@ -102,8 +119,11 @@ impl SaveFile {
 
                         child.with_children(|grand_child| {
                             for image in &layer.images {
+                                if let Some(name) = &image.name {
+                                    grand_child.spawn(Name::new(name.clone()));
+                                }
+
                                 grand_child.spawn((
-                                    Name::new(image.name.clone()),
                                     Mesh2d(meshes.add(image.size)),
                                     MeshMaterial2d(materials.add(ColorMaterial {
                                         texture: Some(asset_server.load(image.path.clone())),

@@ -46,7 +46,7 @@ fn poll_save_project_events(
     children_query: Query<&Children>,
     level_query: Query<&Name, With<Level>>,
     layer_query: Query<(&Layer, &Name)>,
-    mesh_query: Query<(&Texture, &Name), With<Mesh2d>>,
+    mesh_query: Query<(&Texture, Option<&Name>), With<Mesh2d>>,
     transform_query: Query<&Transform>,
     material_query: Query<&MeshMaterial2d<ColorMaterial>>,
     materials: Res<Assets<ColorMaterial>>,
