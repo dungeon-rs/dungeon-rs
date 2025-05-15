@@ -61,9 +61,9 @@ impl SaveFile {
                         if let Some(texture_handle) = &material.texture {
                             if let Some(path) = texture_handle.path() {
                                 images.push(Image {
-                                    name: name.and_then(|name| Some(name.to_string())),
+                                    name: name.map(|name| name.to_string()),
                                     path: path.path().to_path_buf(),
-                                    alpha: material.color.alpha(),
+                                    colour: material.color,
                                     size: texture.size,
                                     transform: *transform,
                                 });
@@ -126,6 +126,7 @@ impl SaveFile {
                                 grand_child.spawn((
                                     Mesh2d(meshes.add(image.size)),
                                     MeshMaterial2d(materials.add(ColorMaterial {
+                                        color: image.colour,
                                         texture: Some(asset_server.load(image.path.clone())),
                                         ..default()
                                     })),
