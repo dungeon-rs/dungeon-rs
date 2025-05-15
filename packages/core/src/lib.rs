@@ -9,7 +9,9 @@ use bevy::app::App;
 use bevy::prelude::Plugin;
 
 pub mod prelude {
-    pub use crate::{components::*, export::events::*, persistence::events::save_project_request::*};
+    pub use crate::{
+        components::*, export::events::*, persistence::events::save_project_request::*,
+    };
 }
 
 #[derive(Default)]

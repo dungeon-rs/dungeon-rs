@@ -22,48 +22,53 @@ fn setup(
     commands.spawn(Camera2d);
 
     commands.spawn((
+        Name::new("Project"),
         Project::new(
             "example",
             Rect::from_center_size(Vec2::ZERO, Vec2::splat(1000.)),
         ),
-        children![
-            (
-                Name::new("Default Layer"),
-                Layer::default(),
-                children![
-                    (
-                        Name::new("Logo"),
-                        Mesh2d(meshes.add(Rectangle::from_size(Vec2::splat(256.)))),
-                        generate_image(&mut materials, &asset_server),
-                        Transform::from_xyz(0., 0., 0.),
-                    ),
-                    (
-                        Name::new("Logo 2"),
-                        Mesh2d(meshes.add(Rectangle::from_size(Vec2::splat(256.)))),
-                        generate_image(&mut materials, &asset_server),
-                        Transform::from_xyz(250., 0., 0.),
-                    ),
-                ]
-            ),
-            (
-                Name::new("Background Layer"),
-                Layer { weight: -1 },
-                children![
-                    (
-                        Name::new("Logo 3"),
-                        Mesh2d(meshes.add(Rectangle::from_size(Vec2::splat(256.)))),
-                        generate_image(&mut materials, &asset_server),
-                        Transform::from_xyz(0., 250., 0.),
-                    ),
-                    (
-                        Name::new("Logo 4"),
-                        Mesh2d(meshes.add(Rectangle::from_size(Vec2::splat(256.)))),
-                        generate_image(&mut materials, &asset_server),
-                        Transform::from_xyz(250., 250., 0.),
-                    ),
-                ]
-            ),
-        ],
+        children![(
+            Name::new("Root"),
+            Level,
+            children![
+                (
+                    Name::new("Default Layer"),
+                    Layer::default(),
+                    children![
+                        (
+                            Name::new("Logo"),
+                            Mesh2d(meshes.add(Rectangle::from_size(Vec2::splat(256.)))),
+                            generate_image(&mut materials, &asset_server),
+                            Transform::from_xyz(0., 0., 0.),
+                        ),
+                        (
+                            Name::new("Logo 2"),
+                            Mesh2d(meshes.add(Rectangle::from_size(Vec2::splat(256.)))),
+                            generate_image(&mut materials, &asset_server),
+                            Transform::from_xyz(250., 0., 0.),
+                        ),
+                    ]
+                ),
+                (
+                    Name::new("Background Layer"),
+                    Layer { weight: -1 },
+                    children![
+                        (
+                            Name::new("Logo 3"),
+                            Mesh2d(meshes.add(Rectangle::from_size(Vec2::splat(256.)))),
+                            generate_image(&mut materials, &asset_server),
+                            Transform::from_xyz(0., 250., 0.),
+                        ),
+                        (
+                            Name::new("Logo 4"),
+                            Mesh2d(meshes.add(Rectangle::from_size(Vec2::splat(256.)))),
+                            generate_image(&mut materials, &asset_server),
+                            Transform::from_xyz(250., 250., 0.),
+                        ),
+                    ]
+                ),
+            ]
+        )],
     ));
 }
 
@@ -72,11 +77,7 @@ fn update(
     mut completed: EventReader<ExportCompleted>,
     mut gizmos: Gizmos,
 ) {
-    gizmos.rect_2d(
-        Vec2::ZERO,
-        Vec2::splat(256.),
-        Color::srgb(1.0, 0., 0.)
-    );
+    gizmos.rect_2d(Vec2::ZERO, Vec2::splat(256.), Color::srgb(1.0, 0., 0.));
 
     gizmos
         .grid_2d(

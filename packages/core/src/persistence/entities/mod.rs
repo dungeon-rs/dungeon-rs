@@ -2,5 +2,6 @@
 //!
 //! If information and/or data should be persisted for a project or its dependencies, it should go here.
 
+pub(super) mod image;
 pub(super) mod layer;
 pub(super) mod level;

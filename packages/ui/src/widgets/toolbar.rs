@@ -29,7 +29,7 @@ pub fn toolbar(
                     .clicked()
                 {
                     save_writer.write(SaveProjectRequest {
-                        path: PathBuf::from("savefile.drs"),
+                        path: PathBuf::from("output.drs"),
                     });
                 }
                 // ui.add_enabled(false, Button::new("Export"))

@@ -13,11 +13,16 @@ pub(super) mod entities;
 pub(super) mod events;
 pub(super) mod save_file;
 
+use crate::components::{Layer, Level, Project};
 use crate::persistence::save_file::SaveFile;
 use crate::prelude::SaveProjectRequest;
 use bevy::app::App;
+use bevy::asset::Assets;
 use bevy::asset::ron::ser::to_string_pretty;
-use bevy::prelude::{default, EventReader, FixedPostUpdate, Plugin};
+use bevy::prelude::{
+    Children, ColorMaterial, EventReader, FixedPostUpdate, Mesh2d, MeshMaterial2d, Name, Plugin,
+    Query, Res, Result, Transform, With, default, info,
+};
 use std::fs::write;
 
 #[derive(Default)]
@@ -30,13 +35,37 @@ impl Plugin for PersistencePlugin {
     }
 }
 
-fn poll_save_project_events(mut save_projects: EventReader<SaveProjectRequest>) {
+#[allow(clippy::too_many_arguments)]
+fn poll_save_project_events(
+    mut save_projects: EventReader<SaveProjectRequest>,
+    project_query: Query<&Children, With<Project>>,
+    children_query: Query<&Children>,
+    level_query: Query<&Name, With<Level>>,
+    layer_query: Query<(&Layer, &Name)>,
+    mesh_query: Query<&Mesh2d>,
+    transform_query: Query<&Transform>,
+    material_query: Query<&MeshMaterial2d<ColorMaterial>>,
+    materials: Res<Assets<ColorMaterial>>,
+) -> Result {
     for save_project in save_projects.read() {
-        let save = SaveFile::new();
+        let save = SaveFile::new(
+            project_query,
+            children_query,
+            level_query,
+            layer_query,
+            mesh_query,
+            transform_query,
+            material_query,
+            &materials,
+        )?;
+
         write(
-            "output.drs",
+            save_project.path.as_path(),
             to_string_pretty(&save, default()).expect("FAILED TO SERIALISE"),
         )
-            .expect("FAILED TO SAVE");
+        .expect("FAILED TO SAVE");
+        info!("Saved to {}", save_project.path.display());
     }
+
+    Ok(())
 }

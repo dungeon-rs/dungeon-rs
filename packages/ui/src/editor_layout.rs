@@ -1,6 +1,6 @@
-use crate::widgets::toolbar::toolbar;
 use crate::UiState;
-use bevy::prelude::{warn, EventWriter, Res, With, World};
+use crate::widgets::toolbar::toolbar;
+use bevy::prelude::{EventWriter, Res, With, World, warn};
 use bevy::window::PrimaryWindow;
 use bevy_egui::{EguiContext, EguiContexts};
 use bevy_inspector_egui::bevy_inspector;
