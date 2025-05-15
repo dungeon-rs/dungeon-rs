@@ -10,8 +10,4 @@ use bevy::prelude::{Component, Transform, Visibility};
 #[derive(Component, Default)]
 #[component(immutable)]
 #[require(Transform::from_xyz(0.0, 0.0, 0.0), Visibility::default())]
-pub struct Layer {
-    /// The weight determines the order in which layers are rendered.
-    /// A higher weight will render on top, making this an abstraction of the Z index.
-    pub weight: i32,
-}
+pub struct Layer;

@@ -1,6 +1,6 @@
 [package]
 name = "headless"
-edition = "2024"
+edition.workspace = true
 repository.workspace = true
 version.workspace = true
 readme.workspace = true
@@ -17,7 +17,7 @@ bevy = { workspace = true, features = [
 ] }
 
 [features]
-default = ["dev"]
+default = ["dev", "core/json"]
 dev = [
   "core/dev",
   "bevy/trace",

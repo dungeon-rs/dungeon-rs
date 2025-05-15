@@ -12,13 +12,21 @@ pub fn editor_layout(
     mut contexts: EguiContexts,
     ui_state: Res<UiState>,
     export_writer: EventWriter<ExportRequest>,
+    save_writer: EventWriter<SaveProjectRequest>,
+    load_writer: EventWriter<LoadProjectRequest>,
 ) {
     let Some(context) = contexts.try_ctx_mut() else {
         warn!("Failed to acquire egui context");
         return;
     };
 
-    toolbar(context, ui_state.logo, export_writer);
+    toolbar(
+        context,
+        ui_state.logo,
+        export_writer,
+        save_writer,
+        load_writer,
+    );
 
     TopBottomPanel::bottom("bottom_panel")
         .frame(egui::Frame::NONE)

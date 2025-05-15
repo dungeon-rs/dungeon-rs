@@ -1,5 +1,5 @@
 use bevy::prelude::{EventWriter, Rect};
-use core::prelude::ExportRequest;
+use core::prelude::*;
 use egui::load::SizedTexture;
 use egui::{Context, TopBottomPanel};
 use std::path::PathBuf;
@@ -9,6 +9,8 @@ pub fn toolbar(
     context: &mut Context,
     logo: SizedTexture,
     mut export_writer: EventWriter<ExportRequest>,
+    mut save_writer: EventWriter<SaveProjectRequest>,
+    mut load_writer: EventWriter<LoadProjectRequest>,
 ) {
     TopBottomPanel::top("toolbar")
         .resizable(false)
@@ -21,8 +23,24 @@ pub fn toolbar(
                 ui.separator();
 
                 ui.button("New").on_hover_text("Create a new map");
-                ui.button("Open").on_hover_text("Open an existing map");
-                ui.button("Save").on_hover_text("Save the current map");
+                if ui
+                    .button("Open")
+                    .on_hover_text("Open an existing map")
+                    .clicked()
+                {
+                    load_writer.write(LoadProjectRequest {
+                        path: PathBuf::from("output.drs"),
+                    });
+                }
+                if ui
+                    .button("Save")
+                    .on_hover_text("Save the current map")
+                    .clicked()
+                {
+                    save_writer.write(SaveProjectRequest {
+                        path: PathBuf::from("output.drs"),
+                    });
+                }
                 // ui.add_enabled(false, Button::new("Export"))
                 //     .on_hover_text("Export the current map as an image");
 
