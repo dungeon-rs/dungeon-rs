@@ -33,7 +33,7 @@ impl SaveFile {
         project_query: Query<(&Project, &Name, &Children), With<Project>>,
         children_query: Query<&Children>,
         level_query: Query<&Name, With<LevelComponent>>,
-        layer_query: Query<(&LayerComponent, &Name)>,
+        layer_query: Query<(&Transform, &Name), With<LayerComponent>>,
         mesh_query: Query<(&Texture, Option<&Name>), With<Mesh2d>>,
         transform_query: Query<&Transform>,
         material_query: Query<&MeshMaterial2d<ColorMaterial>>,
@@ -48,7 +48,7 @@ impl SaveFile {
 
             let level_children = children_query.get(level_entity)?;
             for layer_entity in level_children.iter() {
-                let (layer_component, layer_name) = layer_query.get(layer_entity)?;
+                let (layer_transform, layer_name) = layer_query.get(layer_entity)?;
 
                 let mut images = Vec::new();
                 let layer_children = children_query.get(layer_entity)?;
@@ -74,7 +74,7 @@ impl SaveFile {
 
                 layers.push(Layer::new(
                     layer_name.as_str(),
-                    layer_component.weight,
+                    layer_transform.translation.z as i32,
                     images,
                 ));
             }
@@ -110,13 +110,13 @@ impl SaveFile {
 
                 parent.with_children(|parent| {
                     for layer in &level.layers {
-                        let mut child = parent.spawn((
-                            Name::new(layer.name.clone()),
-                            LayerComponent {
-                                weight: layer.weight,
-                            },
-                        ));
+                        let mut child =
+                            parent.spawn((Name::new(layer.name.clone()), LayerComponent));
 
+                        let weight = layer.weight as f32;
+                        child.entry::<Transform>().and_modify(move |mut transform| {
+                            transform.translation.z = weight;
+                        });
                         child.with_children(|grand_child| {
                             for image in &layer.images {
                                 if let Some(name) = &image.name {

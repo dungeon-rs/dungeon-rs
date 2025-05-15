@@ -57,7 +57,8 @@ fn setup(
                 ),
                 (
                     Name::new("Background Layer"),
-                    Layer { weight: -1 },
+                    Layer,
+                    Transform::from_xyz(0., 0., -1.),
                     children![
                         (
                             Name::new("Logo 3"),
