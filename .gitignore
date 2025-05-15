@@ -9,3 +9,7 @@ target/
 # --- Editors/IDEs ----------------------------------------------------------
 .idea/
 *.swp
+
+# --- Test files for local development
+output.png
+output.drs

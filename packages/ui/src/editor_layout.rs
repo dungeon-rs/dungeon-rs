@@ -1,6 +1,6 @@
-use crate::UiState;
 use crate::widgets::toolbar::toolbar;
-use bevy::prelude::{EventWriter, Res, With, World, warn};
+use crate::UiState;
+use bevy::prelude::{warn, EventWriter, Res, With, World};
 use bevy::window::PrimaryWindow;
 use bevy_egui::{EguiContext, EguiContexts};
 use bevy_inspector_egui::bevy_inspector;
@@ -12,13 +12,14 @@ pub fn editor_layout(
     mut contexts: EguiContexts,
     ui_state: Res<UiState>,
     export_writer: EventWriter<ExportRequest>,
+    save_writer: EventWriter<SaveProjectRequest>,
 ) {
     let Some(context) = contexts.try_ctx_mut() else {
         warn!("Failed to acquire egui context");
         return;
     };
 
-    toolbar(context, ui_state.logo, export_writer);
+    toolbar(context, ui_state.logo, export_writer, save_writer);
 
     TopBottomPanel::bottom("bottom_panel")
         .frame(egui::Frame::NONE)
