@@ -13,63 +13,8 @@ fn main() {
         .run();
 }
 
-fn setup(
-    mut commands: Commands,
-    asset_server: Res<AssetServer>,
-    mut materials: ResMut<Assets<ColorMaterial>>,
-    mut meshes: ResMut<Assets<Mesh>>,
-) {
+fn setup(mut commands: Commands) {
     commands.spawn(Camera2d);
-
-    commands.spawn((
-        Name::new("Project"),
-        Project::new(
-            "example",
-            Rect::from_center_size(Vec2::ZERO, Vec2::splat(1000.)),
-        ),
-        children![(
-            Name::new("Root"),
-            Level,
-            children![
-                (
-                    Name::new("Default Layer"),
-                    Layer::default(),
-                    children![
-                        (
-                            Name::new("Logo"),
-                            Mesh2d(meshes.add(Rectangle::from_size(Vec2::splat(256.)))),
-                            generate_image(&mut materials, &asset_server),
-                            Transform::from_xyz(0., 0., 0.),
-                        ),
-                        (
-                            Name::new("Logo 2"),
-                            Mesh2d(meshes.add(Rectangle::from_size(Vec2::splat(256.)))),
-                            generate_image(&mut materials, &asset_server),
-                            Transform::from_xyz(250., 0., 0.),
-                        ),
-                    ]
-                ),
-                (
-                    Name::new("Background Layer"),
-                    Layer { weight: -1 },
-                    children![
-                        (
-                            Name::new("Logo 3"),
-                            Mesh2d(meshes.add(Rectangle::from_size(Vec2::splat(256.)))),
-                            generate_image(&mut materials, &asset_server),
-                            Transform::from_xyz(0., 250., 0.),
-                        ),
-                        (
-                            Name::new("Logo 4"),
-                            Mesh2d(meshes.add(Rectangle::from_size(Vec2::splat(256.)))),
-                            generate_image(&mut materials, &asset_server),
-                            Transform::from_xyz(250., 250., 0.),
-                        ),
-                    ]
-                ),
-            ]
-        )],
-    ));
 }
 
 fn update(
@@ -95,14 +40,4 @@ fn update(
     for completed in completed.read() {
         info!("Export completed: {:#?}", completed);
     }
-}
-
-fn generate_image(
-    materials: &mut ResMut<Assets<ColorMaterial>>,
-    asset_server: &Res<AssetServer>,
-) -> MeshMaterial2d<ColorMaterial> {
-    MeshMaterial2d(materials.add(ColorMaterial {
-        texture: Some(asset_server.load("logo.png")),
-        ..default()
-    }))
 }

@@ -10,6 +10,7 @@ pub fn toolbar(
     logo: SizedTexture,
     mut export_writer: EventWriter<ExportRequest>,
     mut save_writer: EventWriter<SaveProjectRequest>,
+    mut load_writer: EventWriter<LoadProjectRequest>,
 ) {
     TopBottomPanel::top("toolbar")
         .resizable(false)
@@ -22,7 +23,11 @@ pub fn toolbar(
                 ui.separator();
 
                 ui.button("New").on_hover_text("Create a new map");
-                ui.button("Open").on_hover_text("Open an existing map");
+                if ui.button("Open").on_hover_text("Open an existing map").clicked() {
+                    load_writer.write(LoadProjectRequest {
+                        path: PathBuf::from("output.drs"),
+                    });
+                }
                 if ui
                     .button("Save")
                     .on_hover_text("Save the current map")

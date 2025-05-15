@@ -10,7 +10,8 @@ use bevy::prelude::Plugin;
 
 pub mod prelude {
     pub use crate::{
-        components::*, export::events::*, persistence::events::save_project_request::*,
+        components::*, export::events::*, persistence::events::load_project_request::*,
+        persistence::events::save_project_request::*,
     };
 }
 

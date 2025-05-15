@@ -1,11 +1,13 @@
-use crate::components::{Layer as LayerComponent, Level as LevelComponent, Project};
+use crate::components::{Layer as LayerComponent, Level as LevelComponent, Project, Texture};
+use crate::constants;
 use crate::persistence::entities::{image::Image, layer::Layer, level::Level};
 use bevy::prelude::*;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct SaveFile {
-    pub version: &'static str,
+    pub version: String,
+    pub name: String,
     pub size: Rect,
     pub levels: Vec<Level>,
 }
@@ -13,16 +15,16 @@ pub struct SaveFile {
 impl SaveFile {
     #[allow(clippy::too_many_arguments)]
     pub fn new(
-        project_query: Query<&Children, With<Project>>,
+        project_query: Query<(&Project, &Name, &Children), With<Project>>,
         children_query: Query<&Children>,
         level_query: Query<&Name, With<LevelComponent>>,
         layer_query: Query<(&LayerComponent, &Name)>,
-        mesh_query: Query<&Mesh2d>,
+        mesh_query: Query<(&Texture, &Name), With<Mesh2d>>,
         transform_query: Query<&Transform>,
         material_query: Query<&MeshMaterial2d<ColorMaterial>>,
         materials: &Res<Assets<ColorMaterial>>,
     ) -> Result<Self, BevyError> {
-        let project_children = project_query.single()?;
+        let (project, project_name, project_children) = project_query.single()?;
         let mut levels = Vec::new();
 
         for level_entity in project_children.iter() {
@@ -36,7 +38,7 @@ impl SaveFile {
                 let mut images = Vec::new();
                 let layer_children = children_query.get(layer_entity)?;
                 for entity in layer_children.iter() {
-                    let _mesh = mesh_query.get(entity)?;
+                    let (texture, name) = mesh_query.get(entity)?;
                     let transform = transform_query.get(entity)?;
                     let material_handle = material_query.get(entity)?;
 
@@ -44,8 +46,10 @@ impl SaveFile {
                         if let Some(texture_handle) = &material.texture {
                             if let Some(path) = texture_handle.path() {
                                 images.push(Image {
+                                    name: name.to_string(),
                                     path: path.path().to_path_buf(),
                                     alpha: material.color.alpha(),
+                                    size: texture.size,
                                     transform: *transform,
                                 });
                             }
@@ -64,9 +68,54 @@ impl SaveFile {
         }
 
         Ok(Self {
-            version: "0.0.1",
-            size: Rect::from_center_size(Vec2::ZERO, Vec2::splat(100.0)),
+            version: String::from(constants::VERSION),
+            name: project_name.to_string(),
+            size: project.size,
             levels,
         })
+    }
+
+    pub fn restore(
+        &self,
+        commands: &mut Commands,
+        meshes: &mut ResMut<Assets<Mesh>>,
+        materials: &mut ResMut<Assets<ColorMaterial>>,
+        asset_server: &Res<AssetServer>,
+    ) {
+        let mut project = commands.spawn((
+            Name::new(self.name.clone()),
+            Project::new(self.name.clone(), self.size),
+        ));
+
+        project.with_children(|project| {
+            for level in &self.levels {
+                let mut parent = project.spawn((Name::new(level.name.clone()), LevelComponent));
+
+                parent.with_children(|parent| {
+                    for layer in &level.layers {
+                        let mut child = parent.spawn((
+                            Name::new(layer.name.clone()),
+                            LayerComponent {
+                                weight: layer.weight,
+                            },
+                        ));
+
+                        child.with_children(|grand_child| {
+                            for image in &layer.images {
+                                grand_child.spawn((
+                                    Name::new(image.name.clone()),
+                                    Mesh2d(meshes.add(image.size)),
+                                    MeshMaterial2d(materials.add(ColorMaterial {
+                                        texture: Some(asset_server.load(image.path.clone())),
+                                        ..default()
+                                    })),
+                                    image.transform,
+                                ));
+                            }
+                        });
+                    }
+                });
+            }
+        });
     }
 }
