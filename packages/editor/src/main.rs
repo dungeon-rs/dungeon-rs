@@ -13,7 +13,12 @@ fn main() {
         .run();
 }
 
-fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
+fn setup(
+    mut commands: Commands,
+    asset_server: Res<AssetServer>,
+    mut materials: ResMut<Assets<ColorMaterial>>,
+    mut meshes: ResMut<Assets<Mesh>>,
+) {
     commands.spawn(Camera2d);
 
     commands.spawn((
@@ -28,12 +33,14 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 children![
                     (
                         Name::new("Logo"),
-                        Sprite::from_image(asset_server.load("logo.png")),
+                        Mesh2d(meshes.add(Rectangle::from_size(Vec2::splat(256.)))),
+                        generate_image(&mut materials, &asset_server),
                         Transform::from_xyz(0., 0., 0.),
                     ),
                     (
                         Name::new("Logo 2"),
-                        Sprite::from_image(asset_server.load("logo.png")),
+                        Mesh2d(meshes.add(Rectangle::from_size(Vec2::splat(256.)))),
+                        generate_image(&mut materials, &asset_server),
                         Transform::from_xyz(250., 0., 0.),
                     ),
                 ]
@@ -44,12 +51,14 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 children![
                     (
                         Name::new("Logo 3"),
-                        Sprite::from_image(asset_server.load("logo.png")),
+                        Mesh2d(meshes.add(Rectangle::from_size(Vec2::splat(256.)))),
+                        generate_image(&mut materials, &asset_server),
                         Transform::from_xyz(0., 250., 0.),
                     ),
                     (
                         Name::new("Logo 4"),
-                        Sprite::from_image(asset_server.load("logo.png")),
+                        Mesh2d(meshes.add(Rectangle::from_size(Vec2::splat(256.)))),
+                        generate_image(&mut materials, &asset_server),
                         Transform::from_xyz(250., 250., 0.),
                     ),
                 ]
@@ -63,6 +72,12 @@ fn update(
     mut completed: EventReader<ExportCompleted>,
     mut gizmos: Gizmos,
 ) {
+    gizmos.rect_2d(
+        Vec2::ZERO,
+        Vec2::splat(256.),
+        Color::srgb(1.0, 0., 0.)
+    );
+
     gizmos
         .grid_2d(
             Isometry2d::IDENTITY,
@@ -79,4 +94,14 @@ fn update(
     for completed in completed.read() {
         info!("Export completed: {:#?}", completed);
     }
+}
+
+fn generate_image(
+    materials: &mut ResMut<Assets<ColorMaterial>>,
+    asset_server: &Res<AssetServer>,
+) -> MeshMaterial2d<ColorMaterial> {
+    MeshMaterial2d(materials.add(ColorMaterial {
+        texture: Some(asset_server.load("logo.png")),
+        ..default()
+    }))
 }
