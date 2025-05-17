@@ -99,7 +99,7 @@ impl SaveFile {
     ) {
         let mut project = commands.spawn((
             Name::new(self.name.clone()),
-            Project::new(self.name.clone(), self.size),
+            Project::new(self.size),
         ));
 
         project.with_children(|project| {

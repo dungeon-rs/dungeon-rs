@@ -3,6 +3,8 @@ use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
 /// Represents a "plain" image.
+///
+/// The [Image] class is used to represent an image shown as-is, unlike brushes or patterns.
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Image {
     /// An optional name that can be used to identify this image.
