@@ -2,7 +2,16 @@
 
 use serde::Serialize;
 
-/// Serializes the given [T] using the configured serializer.
+/// Returns the current version of the package as defined in the `Cargo.toml` manifest.
+/// Since all packages in the workspace inherit their version from the root `Cargo.toml` this method
+/// essentially returns the version from there.
+///
+/// This method is available at compile time.
+pub const fn version() -> &'static str {
+    env!("CARGO_PKG_VERSION")
+}
+
+/// Serializes the given `T` using the configured serializer.
 pub fn serialize<T>(subject: &T) -> Result<Vec<u8>, String>
 where
     T: Serialize,

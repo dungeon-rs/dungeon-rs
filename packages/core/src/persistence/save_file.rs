@@ -1,6 +1,6 @@
 use crate::components::{Layer as LayerComponent, Level as LevelComponent, Project, Texture};
-use crate::constants;
 use crate::persistence::entities::{image::Image, layer::Layer, level::Level};
+use crate::utils;
 use bevy::prelude::*;
 use serde::{Deserialize, Serialize};
 
@@ -81,7 +81,7 @@ impl SaveFile {
         }
 
         Ok(Self {
-            version: String::from(constants::VERSION),
+            version: String::from(utils::version()),
             name: project_name.to_string(),
             size: project.size,
             levels,
@@ -89,7 +89,7 @@ impl SaveFile {
     }
 
     /// Rebuilds the ECS structure represented in this [SaveFile] back into [Commands].
-    /// It automatically constructs and registers all required meshes, materials and assets.
+    /// It automatically constructs and registers all required meshes, materials, and assets.
     pub fn restore(
         &self,
         commands: &mut Commands,
