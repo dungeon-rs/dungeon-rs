@@ -7,6 +7,7 @@ use bevy::prelude::{
     ColorMaterial, Commands, Entity, EventReader, Mesh, Query, Res, ResMut, With, info,
 };
 
+/// System to poll for incoming [LoadProjectRequest] events.
 pub fn poll_load_project(
     mut load_projects: EventReader<LoadProjectRequest>,
     mut commands: Commands,

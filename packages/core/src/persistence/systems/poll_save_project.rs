@@ -9,6 +9,7 @@ use bevy::prelude::{
 };
 use std::fs::write;
 
+/// System to poll for incoming [SaveProjectRequest] events.
 #[allow(clippy::too_many_arguments)]
 pub fn poll_save_project(
     mut save_projects: EventReader<SaveProjectRequest>,
