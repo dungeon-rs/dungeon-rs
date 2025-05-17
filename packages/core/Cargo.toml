@@ -23,7 +23,7 @@ bevy = { workspace = true, features = [
   "bevy_window",
   "serialize"
 ] }
-semver = "1.0.26"
+semver = { version = "1.0.26", features = ["serde"] }
 
 [features]
 default = ["msgpack"]

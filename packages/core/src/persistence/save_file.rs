@@ -10,7 +10,7 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Serialize, Deserialize)]
 pub struct SaveFile {
     /// The version of the software that created the save.
-    pub version: String,
+    pub version: semver::Version,
     /// The (semantic) name of the map (unrelated to the filename).
     pub name: String,
     /// The canvas size, while currently not enforced, determines the export region.
@@ -81,7 +81,7 @@ impl SaveFile {
         }
 
         Ok(Self {
-            version: String::from(utils::version()),
+            version: semver::Version::parse(utils::version())?,
             name: project_name.to_string(),
             size: project.size,
             levels,
