@@ -1,3 +1,5 @@
+#![doc = include_str!("../README.md")]
+
 use bevy::window::ExitCondition;
 use bevy::{app::ScheduleRunnerPlugin, prelude::*};
 use core::{
