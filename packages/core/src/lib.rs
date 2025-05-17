@@ -25,5 +25,11 @@ impl Plugin for CorePlugin {
     fn build(&self, app: &mut App) {
         app.add_plugins((ExportPlugin, PersistencePlugin))
             .init_state::<DungeonRsState>();
+
+        #[cfg(feature = "dev")]
+        app.add_systems(
+            bevy::prelude::FixedPreUpdate,
+            bevy::dev_tools::states::log_transitions::<DungeonRsState>,
+        );
     }
 }
