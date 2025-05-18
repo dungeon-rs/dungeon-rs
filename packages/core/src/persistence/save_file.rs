@@ -97,10 +97,7 @@ impl SaveFile {
         materials: &mut ResMut<Assets<ColorMaterial>>,
         asset_server: &Res<AssetServer>,
     ) {
-        let mut project = commands.spawn((
-            Name::new(self.name.clone()),
-            Project::new(self.size),
-        ));
+        let mut project = commands.spawn((Name::new(self.name.clone()), Project::new(self.size)));
 
         project.with_children(|project| {
             for level in &self.levels {

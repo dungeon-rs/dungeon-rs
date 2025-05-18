@@ -24,7 +24,7 @@
 //!             ]
 //!         ),
 //!     ]
-//! )
+//! );
 //! ```
 
 #[doc(hidden)]
@@ -37,9 +37,4 @@ mod project;
 mod texture;
 
 #[doc(inline)]
-pub use {
-    layer::Layer,
-    level::Level,
-    project::Project,
-    texture::Texture,
-};
+pub use {layer::Layer, level::Level, project::Project, texture::Texture};

@@ -18,7 +18,7 @@ use crate::export::{
     },
 };
 use bevy::app::App;
-use bevy::prelude::{not, resource_exists, IntoScheduleConfigs, Plugin, PostUpdate, Res, Update};
+use bevy::prelude::{IntoScheduleConfigs, Plugin, PostUpdate, Res, Update, not, resource_exists};
 
 #[derive(Default)]
 pub struct ExportPlugin;
