@@ -4,6 +4,7 @@
 pub mod components;
 mod constants;
 mod export;
+mod log_plugin;
 mod persistence;
 mod states;
 mod utils;
@@ -16,8 +17,9 @@ use bevy::prelude::{AppExtStates, Plugin};
 
 pub mod prelude {
     pub use crate::{
-        components::*, export::events::*, persistence::events::load_project_request::*,
-        persistence::events::save_project_request::*, states::*,
+        components::*, export::events::*, log_plugin::log_plugin,
+        persistence::events::load_project_request::*, persistence::events::save_project_request::*,
+        states::*,
     };
 }
 
