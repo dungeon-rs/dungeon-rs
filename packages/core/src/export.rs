@@ -1,3 +1,7 @@
+//! The whole purpose of DungeonRS is making maps, but to actually use them they need to be converted
+//! into an image format like PNG, WebP or JPEG. This module handles the conversion of the internal
+//! state into a finalised image that can be used in software like Foundry, Roll20 etc.
+
 mod callbacks;
 pub mod events;
 mod ongoing;

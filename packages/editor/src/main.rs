@@ -1,3 +1,5 @@
+#![doc = include_str!("../README.md")]
+
 mod plugin;
 
 use crate::plugin::EditorPlugin;
@@ -23,10 +25,7 @@ fn setup(
 
     commands.spawn((
         Name::new("Project"),
-        Project::new(
-            "example",
-            Rect::from_center_size(Vec2::ZERO, Vec2::splat(1000.)),
-        ),
+        Project::new(Rect::from_center_size(Vec2::ZERO, Vec2::splat(1000.))),
         children![(
             Name::new("Root"),
             Level,

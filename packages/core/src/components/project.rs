@@ -11,15 +11,13 @@ use bevy::prelude::{Component, Rect, Transform, Visibility};
 #[component(immutable)]
 #[require(Transform::from_xyz(0.0, 0.0, 0.0), Visibility::default())]
 pub struct Project {
-    pub name: String,
     pub size: Rect,
 }
 
 impl Project {
-    pub fn new(name: impl Into<String>, size: Rect) -> Self {
-        Self {
-            name: name.into(),
-            size,
-        }
+    /// Generate a new [Project] instance.
+    /// The [Rect] passed in determines the exported region.
+    pub fn new(size: Rect) -> Self {
+        Self { size }
     }
 }
