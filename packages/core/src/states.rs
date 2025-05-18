@@ -19,13 +19,13 @@ pub enum DungeonRsState {
     /// The initial [DungeonRsState], the software doesn't have anything loaded and is idle.
     /// This is primarily used by the editor when launching, and nothing is being opened / created.
     #[default]
-    Splash,
+    Idle,
 
     /// The editor is loading and should disable anything that may interfere with the loading process.
     /// While there are many things that can be "loaded", this one should be reserved for things like
     /// loading, saving or exporting maps where the UI may be disabled or even removed entirely.
     ///
-    /// All other states should consider a substate of [DungeonRsState::Loaded].
+    /// All other states should consider a substate of [DungeonRsState::Active].
     Loading,
 
     /// The editor is fully operational and can be worked with, or is already working with tasks.
@@ -33,5 +33,5 @@ pub enum DungeonRsState {
     /// themselves here.
     /// Systems that want to indicate loading that doesn't require locking out the user entirely
     /// (as [DungeonRsState::Loading] would) should consider making substates for this state.
-    Loaded,
+    Active,
 }

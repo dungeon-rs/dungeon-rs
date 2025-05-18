@@ -29,6 +29,6 @@ pub fn clean_up(
         projection.scaling_mode = ScalingMode::WindowSize;
     }
 
-    dungeonrs_state.set(DungeonRsState::Loaded);
+    dungeonrs_state.set(DungeonRsState::Active);
     Ok(())
 }
