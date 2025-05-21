@@ -14,12 +14,13 @@ use crate::persistence::PersistencePlugin;
 use crate::states::DungeonRsState;
 use bevy::app::App;
 use bevy::prelude::{AppExtStates, Plugin};
+use core_assets::AssetsPlugin;
 
 pub mod prelude {
     pub use crate::{
-        components::*, export::events::*, log_plugin::log_plugin,
-        persistence::events::load_project_request::*, persistence::events::save_project_request::*,
-        states::*,
+        components::*, export::events::*,
+        log_plugin::log_plugin, persistence::events::load_project_request::*,
+        persistence::events::save_project_request::*, states::*,
     };
 }
 
@@ -28,7 +29,7 @@ pub struct CorePlugin;
 
 impl Plugin for CorePlugin {
     fn build(&self, app: &mut App) {
-        app.add_plugins((ExportPlugin, PersistencePlugin))
+        app.add_plugins((ExportPlugin, PersistencePlugin, AssetsPlugin))
             .init_state::<DungeonRsState>();
 
         #[cfg(feature = "dev")]

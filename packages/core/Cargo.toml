@@ -8,6 +8,7 @@ authors.workspace = true
 license.workspace = true
 
 [dependencies]
+core_assets = { path = "../core_assets", default-features = false, features = [] }
 crossbeam-channel = "*"
 image = { version = "*", default-features = false }
 serde = { version = "*", default-features = false }
