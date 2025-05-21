@@ -5,7 +5,7 @@ use bevy::render::gpu_readback::ReadbackComplete;
 use std::mem;
 
 /// Handles the callback when we receive a frame from the GPU.
-/// We update the [OngoingExport] with the received image data.
+/// We update the [`OngoingExport`] with the received image data.
 pub fn on_readback_complete(
     mut readback: Trigger<ReadbackComplete>,
     mut commands: Commands,

@@ -21,6 +21,9 @@ impl ExportRequest {
     /// Creates a new export request with the specified parameters.
     /// See [`ExportRequest`] for details on expected parameters.
     ///
+    /// # Errors
+    /// If the `ppi` passed is `0`.
+    ///
     /// # Returns
     /// * `Ok(ExportRequest)` - If frame sizes are valid multiples of 256
     /// * `Err(String)` - If frame sizes are not valid multiples of 256

@@ -9,7 +9,7 @@ pub struct SaveProjectRequest {
 }
 
 impl SaveProjectRequest {
-    /// Creates a new [SaveProjectRequest] event.
+    /// Creates a new [`SaveProjectRequest`] event.
     pub fn new(path: impl Into<PathBuf>) -> Self {
         Self { path: path.into() }
     }

@@ -10,9 +10,9 @@ pub struct Image {
     /// An optional name that can be used to identify this image.
     pub name: Option<String>,
     /// The path to the texture that this [Image] should render.
-    /// Should be a path that the AssetServer can find.
+    /// Should be a path that the `AssetServer` can find.
     pub path: PathBuf,
-    /// The [Color] to render this image at, set to [Color::WHITE] for it not to be modified.
+    /// The [Color] to render this image at, set to [`Color::WHITE`] for it not to be modified.
     /// You can control the transparency of the image through the alpha of this colour.
     pub colour: Color,
     /// The [Rectangle] representing the size of the mesh this texture renders on.

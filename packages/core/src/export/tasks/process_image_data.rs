@@ -6,7 +6,7 @@ use image::RgbaImage;
 use std::path::PathBuf;
 
 /// This method is intended to be running as an asynchronous task in the background.
-/// See [bevy::tasks::AsyncComputeTaskPool] for how to run this.
+/// See [`bevy::tasks::AsyncComputeTaskPool`] for how to run this.
 ///
 /// ### Parameters:
 /// - `output`: The file the resulting image should be written to.

@@ -52,18 +52,18 @@ pub(super) struct OngoingExport {
     /// The size of all frames combined, expressed in pixels.
     final_px_size: (u32, u32),
     /// The camera location when the export was attached to it.
-    /// Used to reset the camera location in the [ExportState::Cleanup] state.
+    /// Used to reset the camera location in the [`ExportState::Cleanup`] state.
     pub camera_location: Option<Transform>,
     /// The queue of coordinates the camera needs to be moved to for a frame capture along the coordinates
     /// expressed in pixels (used when stitching the frames together).
-    /// Every time a movement completes, it moves to [OngoingExport::extracting].
+    /// Every time a movement completes, it moves to [`OngoingExport::extracting`].
     pending: VecDeque<(Vec2, UVec2)>,
     /// The coordinates in pixels where the camera has been moved to, used to stitch the frames together.
-    /// Once a frame is extracted, the coordinates get popped, and they move to [OngoingExport::extracted].
+    /// Once a frame is extracted, the coordinates get popped, and they move to [`OngoingExport::extracted`].
     extracting: VecDeque<UVec2>,
     /// The frames that have been extracted from the GPU alongside the coordinates they were extracted from.
     extracted: Vec<(UVec2, Vec<u8>)>,
-    /// The [`Receiver<ExportProgress>`] used to communicate [ExportProgress] from the async processing task
+    /// The [`Receiver<ExportProgress>`] used to communicate [`ExportProgress`] from the async processing task
     /// back to the main thread.
     processing_receiver: Option<Receiver<ExportProgress>>,
     /// If set contains the task processing the image data into a final export image.
@@ -189,9 +189,7 @@ impl OngoingExport {
     /// Starts asynchronous processing of the received image data.
     /// If attempting to process before all image data is received, this method will panic.
     pub fn process_async(&mut self) {
-        if !self.pending.is_empty() || !self.extracting.is_empty() {
-            panic!("Cannot process image data before all frames are extracted");
-        }
+        assert!(!(!self.pending.is_empty() || !self.extracting.is_empty()), "Cannot process image data before all frames are extracted");
 
         let image_data = mem::take(&mut self.extracted);
         let (sender, receiver) = crossbeam_channel::unbounded();
@@ -209,14 +207,14 @@ impl OngoingExport {
         self.processing_task = Some(task);
     }
 
-    /// Get an iterator that returns all [ExportProgress] events received so far.
+    /// Get an iterator that returns all [`ExportProgress`] events received so far.
     pub fn poll_processing_progress(&mut self) -> Option<impl IntoIterator<Item = ExportProgress>> {
         let receiver = self.processing_receiver.as_mut()?;
 
         Some(receiver.try_iter())
     }
 
-    /// Attempts to retrieve the result of the [OngoingExport::processing_task] and return [None]
+    /// Attempts to retrieve the result of the [`OngoingExport::processing_task`] and return [None]
     /// if it hasn't finished running yet.
     pub fn poll_processing_completed(
         &mut self,
@@ -241,8 +239,9 @@ impl OngoingExport {
     ///
     /// Ensures the frame pixel size does not exceed the GPU texture limit, aligning sizes to 256 pixels as required by WGPU.
     ///
-    /// Returns a [FramesGrid] containing the calculated data.
+    /// Returns a [`FramesGrid`] containing the calculated data.
     #[must_use]
+    #[allow(clippy::cast_precision_loss, clippy::cast_possible_truncation, clippy::cast_sign_loss)]
     fn calculate_frames(map_rect: Rect, ppi: u32) -> FramesGrid {
         let pixels_per_world_unit = ppi as f32 / WORLD_UNITS_PER_CELL as f32;
 

@@ -9,7 +9,7 @@ pub struct LoadProjectRequest {
 }
 
 impl LoadProjectRequest {
-    /// Creates a new [LoadProjectRequest] event.
+    /// Creates a new [`LoadProjectRequest`] event.
     pub fn new(path: impl Into<PathBuf>) -> Self {
         Self { path: path.into() }
     }

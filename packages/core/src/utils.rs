@@ -1,4 +1,4 @@
-//! Contains small utility functions for DungeonRS.
+//! Contains small utility functions for `DungeonRS`.
 
 use serde::Serialize;
 

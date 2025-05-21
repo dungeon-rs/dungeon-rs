@@ -1,3 +1,4 @@
+#![allow(clippy::needless_pass_by_value)]
 mod check_for_requests;
 mod clean_up;
 mod prepare_and_advance_camera;

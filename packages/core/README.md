@@ -12,7 +12,7 @@ it handles persistence, export and data structures.
 
 ## Conceptual Model
 
-A DungeonRS map is expressed as a strict three-level hierarchy:
+A `DungeonRS` map is expressed as a strict three-level hierarchy:
 
 * **Project** – The root entity; defines the overall canvas (`Rect`) and project metadata.  
 * **Level** – Represents a discrete floor or depth within the project; multiple levels are allowed.  
