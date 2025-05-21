@@ -1,4 +1,9 @@
 #![doc = include_str!("../README.md")]
+#![warn(
+    clippy::pedantic,
+    clippy::suspicious,
+    clippy::complexity
+)]
 
 mod plugin;
 
@@ -15,6 +20,7 @@ fn main() {
         .run();
 }
 
+#[allow(clippy::needless_pass_by_value)]
 fn setup(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
