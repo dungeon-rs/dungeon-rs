@@ -8,6 +8,7 @@ use core::prelude::*;
 use egui::{Direction, Layout, SidePanel, TopBottomPanel};
 
 /// This system builds the editor layout, positioning all other widgets and panels on the screen.
+#[allow(clippy::needless_pass_by_value)]
 pub fn editor_layout(
     mut contexts: EguiContexts,
     ui_state: Res<UiState>,

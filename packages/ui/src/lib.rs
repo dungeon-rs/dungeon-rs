@@ -1,4 +1,9 @@
 #![doc = include_str!("../README.md")]
+#![warn(
+    clippy::pedantic,
+    clippy::suspicious,
+    clippy::complexity
+)]
 
 mod controls;
 mod editor_layout;
@@ -29,6 +34,7 @@ impl Plugin for UIPlugin {
     }
 }
 
+#[allow(clippy::needless_pass_by_value)]
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut contexts: EguiContexts) {
     commands.insert_resource(UiState::new(&mut contexts, &asset_server));
 }
