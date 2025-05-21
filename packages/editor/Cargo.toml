@@ -9,8 +9,8 @@ license.workspace = true
 description = "The editor binary, this starts the UI and is intended to be the user facing binary"
 
 [dependencies]
-ui = { path = "../ui" }
-core = { path = "../core" }
+ui = { path = "../ui", default-features = false }
+core = { path = "../core", default-features = false }
 bevy = { workspace = true, features = [
   "multi_threaded",
   "bevy_window",
@@ -34,7 +34,6 @@ dev = [
   "bevy/dynamic_linking",
   "bevy/bevy_dev_tools",
   "bevy/bevy_debug_stepping",
-  "bevy/bevy_gizmos",
   "bevy/file_watcher",
   "core/dev",
   "ui/dev"

@@ -8,7 +8,7 @@ authors.workspace = true
 license.workspace = true
 
 [dependencies]
-core = { path = "../core" }
+core = { path = "../core", default-features = false }
 bevy = { workspace = true, features = [
   "bevy_window",
   "png",
