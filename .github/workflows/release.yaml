@@ -31,8 +31,7 @@ jobs:
             label: editor-linux-x64
             binary: editor
             target: x86_64-unknown-linux-gnu
-            profile: release
-            features: editor/linux
+            features: editor/linux,core/msgpack
             package_ext: .zip
             runner: ubuntu-latest
 
@@ -40,8 +39,7 @@ jobs:
             label: editor-windows-x64
             binary: editor
             target: x86_64-pc-windows-msvc
-            profile: release
-            features: editor/windows
+            features: editor/windows,core/msgpack
             binary_ext: .exe
             package_ext: .zip
             runner: windows-latest
@@ -50,8 +48,7 @@ jobs:
             label: editor-macos-arm
             binary: editor
             target: aarch64-apple-darwin
-            profile: release
-            features: editor/macos
+            features: editor/macos,core/msgpack
             app_suffix: .app/Contents/MacOS
             package_ext: .dmg
             runner: macos-latest
