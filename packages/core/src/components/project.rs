@@ -17,7 +17,8 @@ pub struct Project {
 impl Project {
     /// Generate a new [Project] instance.
     /// The [Rect] passed in determines the exported region.
-    #[must_use] pub fn new(size: Rect) -> Self {
+    #[must_use]
+    pub fn new(size: Rect) -> Self {
         Self { size }
     }
 }

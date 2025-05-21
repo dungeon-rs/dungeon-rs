@@ -1,9 +1,5 @@
 #![doc = include_str!("../README.md")]
-#![warn(
-    clippy::pedantic,
-    clippy::suspicious,
-    clippy::complexity
-)]
+#![warn(clippy::pedantic, clippy::suspicious, clippy::complexity)]
 
 mod controls;
 mod editor_layout;

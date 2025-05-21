@@ -1,9 +1,5 @@
 #![doc = include_str!("../README.md")]
-#![warn(
-    clippy::pedantic,
-    clippy::suspicious,
-    clippy::complexity
-)]
+#![warn(clippy::pedantic, clippy::suspicious, clippy::complexity)]
 
 use bevy::window::ExitCondition;
 use bevy::{app::ScheduleRunnerPlugin, prelude::*};

@@ -189,7 +189,10 @@ impl OngoingExport {
     /// Starts asynchronous processing of the received image data.
     /// If attempting to process before all image data is received, this method will panic.
     pub fn process_async(&mut self) {
-        assert!(!(!self.pending.is_empty() || !self.extracting.is_empty()), "Cannot process image data before all frames are extracted");
+        assert!(
+            !(!self.pending.is_empty() || !self.extracting.is_empty()),
+            "Cannot process image data before all frames are extracted"
+        );
 
         let image_data = mem::take(&mut self.extracted);
         let (sender, receiver) = crossbeam_channel::unbounded();
@@ -241,7 +244,11 @@ impl OngoingExport {
     ///
     /// Returns a [`FramesGrid`] containing the calculated data.
     #[must_use]
-    #[allow(clippy::cast_precision_loss, clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+    #[allow(
+        clippy::cast_precision_loss,
+        clippy::cast_possible_truncation,
+        clippy::cast_sign_loss
+    )]
     fn calculate_frames(map_rect: Rect, ppi: u32) -> FramesGrid {
         let pixels_per_world_unit = ppi as f32 / WORLD_UNITS_PER_CELL as f32;
 
