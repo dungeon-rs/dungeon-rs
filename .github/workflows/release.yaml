@@ -2,247 +2,244 @@ name: Release
 run-name: ${{ inputs.version }}
 
 on:
-    release:
-        types: [ published ]
-    workflow_dispatch:
-        inputs:
-            version:
-                description: 'Version to use (e.g. v1.2.3)'
-                required: true
+  release:
+    types: [ published ]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to use (e.g. v1.2.3)'
+        required: true
 
 env:
-    app_name: DungeonRS
+  app_name: DungeonRS
 
-    # OSX variables
-    app_id: dealloc.dungeon_rs
+  # OSX variables
+  app_id: dealloc.dungeon_rs
 jobs:
-    build:
-        name: Build ${{ matrix.label }}
-        permissions:
-            contents: write
-        runs-on: ${{ matrix.runner }}
-        outputs:
-            version: ${{ steps.set_version.outputs.version }}
-            version-without-v: ${{ steps.set_version.outputs.version-without-v }}
-        strategy:
-            matrix:
-                include:
-                    - platform: linux
-                      label: editor-linux-x64
-                      binary: editor
-                      target: x86_64-unknown-linux-gnu
-                      profile: release
-                      features: editor/linux
-                      package_ext: .zip
-                      runner: ubuntu-latest
+  build:
+    name: Build ${{ matrix.label }}
+    permissions:
+      contents: write
+    runs-on: ${{ matrix.runner }}
+    outputs:
+      version: ${{ steps.set_version.outputs.version }}
+      version-without-v: ${{ steps.set_version.outputs.version-without-v }}
+    strategy:
+      matrix:
+        include:
+          - platform: linux
+            label: editor-linux-x64
+            binary: editor
+            target: x86_64-unknown-linux-gnu
+            features: editor/linux,core/msgpack
+            package_ext: .zip
+            runner: ubuntu-latest
 
-                    - platform: windows
-                      label: editor-windows-x64
-                      binary: editor
-                      target: x86_64-pc-windows-msvc
-                      profile: release
-                      features: editor/windows
-                      binary_ext: .exe
-                      package_ext: .zip
-                      runner: windows-latest
+          - platform: windows
+            label: editor-windows-x64
+            binary: editor
+            target: x86_64-pc-windows-msvc
+            features: editor/windows,core/msgpack
+            binary_ext: .exe
+            package_ext: .zip
+            runner: windows-latest
 
-                    - platform: macos
-                      label: editor-macos-arm
-                      binary: editor
-                      target: aarch64-apple-darwin
-                      profile: release
-                      features: editor/macos
-                      app_suffix: .app/Contents/MacOS
-                      package_ext: .dmg
-                      runner: macos-latest
+          - platform: macos
+            label: editor-macos-arm
+            binary: editor
+            target: aarch64-apple-darwin
+            features: editor/macos,core/msgpack
+            app_suffix: .app/Contents/MacOS
+            package_ext: .dmg
+            runner: macos-latest
 
-        #          - platform: macos
-        #            label: macos-x64
-        #            target: x86_64-apple-darwin
-        #            profile: release
-        #            app_suffix: .app/Contents/MacOS
-        #            package_ext: .dmg
-        #            runner: macos-latest
-        defaults:
-            run:
-                shell: bash
+    #          - platform: macos
+    #            label: macos-x64
+    #            target: x86_64-apple-darwin
+    #            profile: release
+    #            app_suffix: .app/Contents/MacOS
+    #            package_ext: .dmg
+    #            runner: macos-latest
+    defaults:
+      run:
+        shell: bash
 
-        steps:
-            - name: Set Version
-              id: set_version
-              run: |
-                if [[ -n "${{ github.event.inputs.version }}" ]]; then
-                  VERSION="${{ github.event.inputs.version }}"
-                else
-                  VERSION="${GITHUB_REF##*/}"
-                fi
+    steps:
+      - name: Set Version
+        id: set_version
+        run: |
+          if [[ -n "${{ github.event.inputs.version }}" ]]; then
+            VERSION="${{ github.event.inputs.version }}"
+          else
+            VERSION="${GITHUB_REF##*/}"
+          fi
 
-                VERSION_WITHOUT_V="${VERSION#v}"
+          VERSION_WITHOUT_V="${VERSION#v}"
 
-                echo "VERSION=$VERSION"
-                echo "VERSION_WITHOUT_V=$VERSION_WITHOUT_V"
-                echo "version=$VERSION" >> $GITHUB_OUTPUT
-                echo "version-without-v=$VERSION_WITHOUT_V" >> $GITHUB_OUTPUT
+          echo "VERSION=$VERSION"
+          echo "VERSION_WITHOUT_V=$VERSION_WITHOUT_V"
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "version-without-v=$VERSION_WITHOUT_V" >> $GITHUB_OUTPUT
 
-            - name: Set up environment
-              if: ${{ matrix.platform == 'macos' }}
-              run: |
-                  echo 'MACOSX_DEPLOYMENT_TARGET=11.0' >> "${GITHUB_ENV}" # macOS 11.0 Big Sur is the first version to support universal binaries.
-                  echo "SDKROOT=$(xcrun --sdk macosx --show-sdk-path)" >> "${GITHUB_ENV}"
+      - name: Set up environment
+        if: ${{ matrix.platform == 'macos' }}
+        run: |
+          echo 'MACOSX_DEPLOYMENT_TARGET=11.0' >> "${GITHUB_ENV}" # macOS 11.0 Big Sur is the first version to support universal binaries.
+          echo "SDKROOT=$(xcrun --sdk macosx --show-sdk-path)" >> "${GITHUB_ENV}"
 
-            - name: Checkout Repository
-              uses: actions/checkout@v3
+      - name: Checkout Repository
+        uses: actions/checkout@v3
 
-            - name: Install Rust toolchain
-              uses: dtolnay/rust-toolchain@stable
-              with:
-                  targets: ${{ matrix.target }}
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
 
-            - name: Populate cargo cache
-              uses: Leafwing-Studios/cargo-cache@v2
-              with:
-                  sweep-cache: true
+      - name: Populate cargo cache
+        uses: Leafwing-Studios/cargo-cache@v2
+        with:
+          sweep-cache: true
 
-            - name: Setup ImageMagick
-              if: ${{ matrix.platform == 'macos' }}
-              uses: mfinelli/setup-imagemagick@v6
+      - name: Setup ImageMagick
+        if: ${{ matrix.platform == 'macos' }}
+        uses: mfinelli/setup-imagemagick@v6
 
-            - name: Install dependencies (Linux)
-              if: ${{ matrix.platform == 'linux' }}
-              run: sudo apt-get update; sudo apt-get install --no-install-recommends libasound2-dev libudev-dev libwayland-dev libxkbcommon-dev
+      - name: Install dependencies (Linux)
+        if: ${{ matrix.platform == 'linux' }}
+        run: sudo apt-get update; sudo apt-get install --no-install-recommends libasound2-dev libudev-dev libwayland-dev libxkbcommon-dev
 
-            - name: Update version to ${{ steps.set_version.outputs.version }} in Cargo.toml
-              run: |
-                  cargo install cargo-edit --no-default-features --features='set-version'
-                  cargo set-version ${{ steps.set_version.outputs.version-without-v }}
+      - name: Update version to ${{ steps.set_version.outputs.version }} in Cargo.toml
+        run: |
+          cargo install cargo-edit --no-default-features --features='set-version'
+          cargo set-version ${{ steps.set_version.outputs.version-without-v }}
 
-            - name: Build ${{ matrix.label }} binaries
-              run: cargo build --release --locked --workspace --target="${{ matrix.target }}" --no-default-features --features='${{ matrix.features }}'
+      - name: Build ${{ matrix.label }} binaries
+        run: cargo build --release --locked --workspace --target="${{ matrix.target }}" --no-default-features --features='${{ matrix.features }}'
 
-            - name: Generate package files for ${{ matrix.label }}
-              run: |
-                  mkdir -p tmp/${{ matrix.label }}/${{ matrix.binary }}/${{ matrix.binary }}${{ matrix.app_suffix }}
-                  cp -r ./assets tmp/${{ matrix.label }}/${{ matrix.binary }}/${{ matrix.binary }}${{ matrix.app_suffix }}
-                  mv target/${{ matrix.target }}/release/${{ matrix.binary }}${{ matrix.binary_ext }} tmp/${{ matrix.label }}/${{ matrix.binary }}/${{ matrix.binary }}${{ matrix.app_suffix }}
+      - name: Generate package files for ${{ matrix.label }}
+        run: |
+          mkdir -p tmp/${{ matrix.label }}/${{ matrix.binary }}/${{ matrix.binary }}${{ matrix.app_suffix }}
+          cp -r ./assets tmp/${{ matrix.label }}/${{ matrix.binary }}/${{ matrix.binary }}${{ matrix.app_suffix }}
+          mv target/${{ matrix.target }}/release/${{ matrix.binary }}${{ matrix.binary_ext }} tmp/${{ matrix.label }}/${{ matrix.binary }}/${{ matrix.binary }}${{ matrix.app_suffix }}
 
-            - name: Package Linux package
-              if: ${{ matrix.platform == 'linux' }}
-              working-directory: tmp/${{ matrix.label }}/${{ matrix.binary }}
-              run: zip --recurse-paths '${{ matrix.binary }}-${{ matrix.label }}${{ matrix.package_ext }}' '.'
+      - name: Package Linux package
+        if: ${{ matrix.platform == 'linux' }}
+        working-directory: tmp/${{ matrix.label }}/${{ matrix.binary }}
+        run: zip --recurse-paths '${{ matrix.binary }}-${{ matrix.label }}${{ matrix.package_ext }}' '.'
 
-            - name: Package OSX package
-              if: ${{ matrix.platform == 'macos' }}
-              working-directory: tmp/${{ matrix.label }}/${{ matrix.binary }}
-              run: |
-                  mkdir -p /tmp/${{ matrix.label }}/icons.iconset
-                  mkdir -p '${{ matrix.binary }}${{ matrix.app_suffix }}/../Resources'
-                  magick ../../../assets/logo.png -resize 16x16     "/tmp/${{ matrix.label }}/icons.iconset/icon_16x16.png"
-                  magick ../../../assets/logo.png -resize 32x32     "/tmp/${{ matrix.label }}/icons.iconset/icon_16x16@2x.png"
-                  magick ../../../assets/logo.png -resize 32x32     "/tmp/${{ matrix.label }}/icons.iconset/icon_32x32.png"
-                  magick ../../../assets/logo.png -resize 64x64     "/tmp/${{ matrix.label }}/icons.iconset/icon_32x32@2x.png"
-                  magick ../../../assets/logo.png -resize 128x128   "/tmp/${{ matrix.label }}/icons.iconset/icon_128x128.png"
-                  magick ../../../assets/logo.png -resize 256x256   "/tmp/${{ matrix.label }}/icons.iconset/icon_128x128@2x.png"
-                  magick ../../../assets/logo.png -resize 256x256   "/tmp/${{ matrix.label }}/icons.iconset/icon_256x256.png"
-                  magick ../../../assets/logo.png -resize 512x512   "/tmp/${{ matrix.label }}/icons.iconset/icon_256x256@2x.png"
-                  magick ../../../assets/logo.png -resize 512x512   "/tmp/${{ matrix.label }}/icons.iconset/icon_512x512.png"
-                  magick ../../../assets/logo.png -resize 1024x1024 "/tmp/${{ matrix.label }}/icons.iconset/icon_512x512@2x.png"
-                  iconutil -c icns "/tmp/${{ matrix.label }}/icons.iconset" -o "${{ matrix.binary }}${{ matrix.app_suffix }}/../Resources/AppIcon.icns"
+      - name: Package OSX package
+        if: ${{ matrix.platform == 'macos' }}
+        working-directory: tmp/${{ matrix.label }}/${{ matrix.binary }}
+        run: |
+          mkdir -p /tmp/${{ matrix.label }}/icons.iconset
+          mkdir -p '${{ matrix.binary }}${{ matrix.app_suffix }}/../Resources'
+          magick ../../../assets/logo.png -resize 16x16     "/tmp/${{ matrix.label }}/icons.iconset/icon_16x16.png"
+          magick ../../../assets/logo.png -resize 32x32     "/tmp/${{ matrix.label }}/icons.iconset/icon_16x16@2x.png"
+          magick ../../../assets/logo.png -resize 32x32     "/tmp/${{ matrix.label }}/icons.iconset/icon_32x32.png"
+          magick ../../../assets/logo.png -resize 64x64     "/tmp/${{ matrix.label }}/icons.iconset/icon_32x32@2x.png"
+          magick ../../../assets/logo.png -resize 128x128   "/tmp/${{ matrix.label }}/icons.iconset/icon_128x128.png"
+          magick ../../../assets/logo.png -resize 256x256   "/tmp/${{ matrix.label }}/icons.iconset/icon_128x128@2x.png"
+          magick ../../../assets/logo.png -resize 256x256   "/tmp/${{ matrix.label }}/icons.iconset/icon_256x256.png"
+          magick ../../../assets/logo.png -resize 512x512   "/tmp/${{ matrix.label }}/icons.iconset/icon_256x256@2x.png"
+          magick ../../../assets/logo.png -resize 512x512   "/tmp/${{ matrix.label }}/icons.iconset/icon_512x512.png"
+          magick ../../../assets/logo.png -resize 1024x1024 "/tmp/${{ matrix.label }}/icons.iconset/icon_512x512@2x.png"
+          iconutil -c icns "/tmp/${{ matrix.label }}/icons.iconset" -o "${{ matrix.binary }}${{ matrix.app_suffix }}/../Resources/AppIcon.icns"
 
-                  cat >'${{ matrix.binary }}${{ matrix.app_suffix }}/../Info.plist' <<EOF
-                    <?xml version="1.0" encoding="UTF-8"?>
-                    <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-                    <plist version="1.0">
-                        <dict>
-                            <key>CFBundleDevelopmentRegion</key>
-                            <string>en</string>
-                            <key>CFBundleDisplayName</key>
-                            <string>${{ env.app_name }}</string>
-                            <key>CFBundleExecutable</key>
-                            <string>${{ matrix.binary }}</string>
-                            <key>CFBundleIdentifier</key>
-                            <string>${{ env.app_id }}</string>
-                            <key>CFBundleIconFile</key>
-                            <string>AppIcon</string>
-                            <key>CFBundleName</key>
-                            <string>${{ env.app_name }}</string>
-                            <key>CFBundleShortVersionString</key>
-                            <string>v${{ steps.get_version.outputs.version-without-v }}</string>
-                            <key>CFBundleVersion</key>
-                            <string>v${{ steps.get_version.outputs.version-without-v }}</string>
-                            <key>CFBundleInfoDictionaryVersion</key>
-                            <string>6.0</string>
-                            <key>CFBundlePackageType</key>
-                            <string>APPL</string>
-                            <key>CFBundleSupportedPlatforms</key>
-                            <array>
-                                <string>MacOSX</string>
-                            </array>
-                        </dict>
-                    </plist>
-                  EOF
-                  ln -s /Applications .
-                  codesign --deep --force --sign - "${{ matrix.binary }}.app"
-                  hdiutil create -fs HFS+ -volname ${{ matrix.binary }} -srcfolder . '${{ matrix.binary }}-${{ matrix.label }}${{ matrix.package_ext }}'
+          cat >'${{ matrix.binary }}${{ matrix.app_suffix }}/../Info.plist' <<EOF
+            <?xml version="1.0" encoding="UTF-8"?>
+            <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+            <plist version="1.0">
+                <dict>
+                    <key>CFBundleDevelopmentRegion</key>
+                    <string>en</string>
+                    <key>CFBundleDisplayName</key>
+                    <string>${{ env.app_name }}</string>
+                    <key>CFBundleExecutable</key>
+                    <string>${{ matrix.binary }}</string>
+                    <key>CFBundleIdentifier</key>
+                    <string>${{ env.app_id }}</string>
+                    <key>CFBundleIconFile</key>
+                    <string>AppIcon</string>
+                    <key>CFBundleName</key>
+                    <string>${{ env.app_name }}</string>
+                    <key>CFBundleShortVersionString</key>
+                    <string>v${{ steps.get_version.outputs.version-without-v }}</string>
+                    <key>CFBundleVersion</key>
+                    <string>v${{ steps.get_version.outputs.version-without-v }}</string>
+                    <key>CFBundleInfoDictionaryVersion</key>
+                    <string>6.0</string>
+                    <key>CFBundlePackageType</key>
+                    <string>APPL</string>
+                    <key>CFBundleSupportedPlatforms</key>
+                    <array>
+                        <string>MacOSX</string>
+                    </array>
+                </dict>
+            </plist>
+          EOF
+          ln -s /Applications .
+          codesign --deep --force --sign - "${{ matrix.binary }}.app"
+          hdiutil create -fs HFS+ -volname ${{ matrix.binary }} -srcfolder . '${{ matrix.binary }}-${{ matrix.label }}${{ matrix.package_ext }}'
 
-            - name: Package Windows package
-              if: ${{ matrix.platform == 'windows' }}
-              working-directory: tmp/${{ matrix.label }}/${{ matrix.binary }}
-              shell: pwsh
-              run: Compress-Archive -Path ${{ matrix.binary }} -DestinationPath '${{ matrix.binary }}-${{ matrix.label }}${{ matrix.package_ext }}'
+      - name: Package Windows package
+        if: ${{ matrix.platform == 'windows' }}
+        working-directory: tmp/${{ matrix.label }}/${{ matrix.binary }}
+        shell: pwsh
+        run: Compress-Archive -Path ${{ matrix.binary }} -DestinationPath '${{ matrix.binary }}-${{ matrix.label }}${{ matrix.package_ext }}'
 
-            # Update the GitHub release with the manifest and module archive files.
-            - name: Update Release With Files
-              id: create_version_release
-              uses: ncipollo/release-action@v1
-              with:
-                  allowUpdates: true
-                  name: ${{ github.event.release.name }}
-                  draft: ${{ github.event.release.unpublished }}
-                  prerelease: ${{ github.event.release.prerelease }}
-                  token: ${{ secrets.GITHUB_TOKEN }}
-                  artifacts: 'tmp/${{ matrix.label }}/${{ matrix.binary }}/${{ matrix.binary }}-${{ matrix.label }}${{ matrix.package_ext }}'
-                  tag: ${{ steps.set_version.outputs.version }}
-                  body: ${{ github.event.release.body }}
+      # Update the GitHub release with the manifest and module archive files.
+      - name: Update Release With Files
+        id: create_version_release
+        uses: ncipollo/release-action@v1
+        with:
+          allowUpdates: true
+          name: ${{ github.event.release.name }}
+          draft: ${{ github.event.release.unpublished }}
+          prerelease: ${{ github.event.release.prerelease }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+          artifacts: 'tmp/${{ matrix.label }}/${{ matrix.binary }}/${{ matrix.binary }}-${{ matrix.label }}${{ matrix.package_ext }}'
+          tag: ${{ steps.set_version.outputs.version }}
+          body: ${{ github.event.release.body }}
 
-    docs:
-        runs-on: ubuntu-latest
-        name: Generate documentation
-        needs: build
-        permissions:
-            contents: write
-            id-token: write
-            pages: write
-        steps:
-            - name: Checkout Repository
-              uses: actions/checkout@v4
+  docs:
+    runs-on: ubuntu-latest
+    name: Generate documentation
+    needs: build
+    permissions:
+      contents: write
+      id-token: write
+      pages: write
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
 
-            - name: Install Rust toolchain
-              uses: dtolnay/rust-toolchain@stable
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
 
-            - name: Populate cargo cache
-              uses: Leafwing-Studios/cargo-cache@v2
-              with:
-                sweep-cache: true
+      - name: Populate cargo cache
+        uses: Leafwing-Studios/cargo-cache@v2
+        with:
+          sweep-cache: true
 
-            - name: Update version to ${{ needs.build.outputs.version }} in Cargo.toml
-              run: |
-                cargo install cargo-edit --no-default-features --features='set-version'
-                cargo set-version ${{ needs.build.outputs.version-without-v }}
+      - name: Update version to ${{ needs.build.outputs.version }} in Cargo.toml
+        run: |
+          cargo install cargo-edit --no-default-features --features='set-version'
+          cargo set-version ${{ needs.build.outputs.version-without-v }}
 
-            - name: Install dependencies
-              run: sudo apt-get update; sudo apt-get install --no-install-recommends libasound2-dev libudev-dev libwayland-dev libxkbcommon-dev
+      - name: Install dependencies
+        run: sudo apt-get update; sudo apt-get install --no-install-recommends libasound2-dev libudev-dev libwayland-dev libxkbcommon-dev
 
-            - name: Build documentation
-              run: cargo +nightly doc --locked --workspace --all-features --features='editor/linux' --document-private-items --no-deps
-              env:
-                  RUSTDOCFLAGS: "-Z unstable-options --enable-index-page"
+      - name: Build documentation
+        run: cargo +nightly doc --locked --workspace --all-features --features='editor/linux' --document-private-items --no-deps
+        env:
+          RUSTDOCFLAGS: "-Z unstable-options --enable-index-page"
 
-            - name: Upload static files as artifact
-              id: deployment-artifact
-              uses: actions/upload-pages-artifact@v3 # or specific "vX.X.X" version tag for this action
-              with:
-                  path: target/doc
+      - name: Upload static files as artifact
+        id: deployment-artifact
+        uses: actions/upload-pages-artifact@v3 # or specific "vX.X.X" version tag for this action
+        with:
+          path: target/doc
 
-            - name: Deploy to GitHub Pages
-              id: deployment-pages
-              uses: actions/deploy-pages@v4
+      - name: Deploy to GitHub Pages
+        id: deployment-pages
+        uses: actions/deploy-pages@v4

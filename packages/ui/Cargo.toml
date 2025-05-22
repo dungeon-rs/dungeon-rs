@@ -9,14 +9,15 @@ authors.workspace = true
 license.workspace = true
 
 [dependencies]
-core = { path = "../core" }
+core = { path = "../core", default-features = false }
 egui_dock = "0.16.0"
 bevy = { workspace = true, features = [
   "bevy_log",
   "bevy_render",
   "bevy_asset",
   "bevy_sprite",
-  "bevy_image"
+  "bevy_image",
+  "bevy_gizmos"
 ] }
 bevy-inspector-egui = { version = "0.31.0", default-features = false, features = [
   "bevy_core_pipeline",
