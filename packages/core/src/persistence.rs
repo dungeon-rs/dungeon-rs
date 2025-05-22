@@ -1,8 +1,8 @@
-//! The persistence module handles saving and restoring DungeonRS' state from (and to) disk.
+//! The persistence module handles saving and restoring `DungeonRS`' state from (and to) disk.
 //!
 //! This module contains copies of a lot of data structures found in Core, but this is intentional,
 //! the copies contained in this module are intended (and optimised) for serialisation.
-//! These copies can be found under [crate::persistence::entities].
+//! These copies can be found under [`crate::persistence::entities`].
 //!
 //! Serialisation logic itself is implemented using [Serde](https://serde.rs/), keeping the format
 //! to which we serialise flexible.

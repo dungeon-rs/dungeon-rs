@@ -1,6 +1,6 @@
-//! This module contains the ECS modules that make up the DungeonRS project structure.
+//! This module contains the ECS modules that make up the `DungeonRS` project structure.
 //!
-//! A typical DungeonRS map will be structured like this:
+//! A typical `DungeonRS` map will be structured like this:
 //! ```rust
 //! use bevy::ecs::children;
 //! use crate::core::components::*;

@@ -20,13 +20,13 @@ pub struct SaveFile {
 }
 
 impl SaveFile {
-    /// Builds a [SaveFile] based on the current ECS hierarchy.
+    /// Builds a [`SaveFile`] based on the current ECS hierarchy.
     ///
     /// This method queries and captures the following ECS structure:
     ///
     /// [Project] <br />
-    /// | -> [crate::components::Level] <br />
-    /// | ----> [crate::components::Layer] <br />
+    /// | -> [`crate::components::Level`] <br />
+    /// | ----> [`crate::components::Layer`] <br />
     /// | --------> images, paths, patterns, ...
     #[allow(clippy::too_many_arguments)]
     pub fn new(
@@ -59,7 +59,7 @@ impl SaveFile {
                         if let Some(texture_handle) = &material.texture {
                             if let Some(path) = texture_handle.path() {
                                 images.push(Image {
-                                    name: name.map(|name| name.to_string()),
+                                    name: name.map(std::string::ToString::to_string),
                                     path: path.path().to_path_buf(),
                                     colour: material.color,
                                     size: texture.size,
@@ -72,7 +72,7 @@ impl SaveFile {
 
                 layers.push(Layer::new(
                     layer_name.as_str(),
-                    layer_transform.translation.z as i32,
+                    layer_transform.translation.z,
                     images,
                 ));
             }
@@ -88,7 +88,7 @@ impl SaveFile {
         })
     }
 
-    /// Rebuilds the ECS structure represented in this [SaveFile] back into [Commands].
+    /// Rebuilds the ECS structure represented in this [`SaveFile`] back into [Commands].
     /// It automatically constructs and registers all required meshes, materials, and assets.
     pub fn restore(
         &self,
@@ -108,7 +108,7 @@ impl SaveFile {
                         let mut child =
                             parent.spawn((Name::new(layer.name.clone()), LayerComponent));
 
-                        let weight = layer.weight as f32;
+                        let weight = layer.weight;
                         child.entry::<Transform>().and_modify(move |mut transform| {
                             transform.translation.z = weight;
                         });

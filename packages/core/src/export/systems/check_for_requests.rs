@@ -3,7 +3,7 @@ use crate::export::ongoing::OngoingExport;
 use crate::states::DungeonRsState;
 use bevy::prelude::{Assets, Commands, EventReader, Image, NextState, ResMut};
 
-/// This system checks for incoming [ExportRequest]s and initialises the [OngoingExport].
+/// This system checks for incoming [`ExportRequest`]s and initialises the [`OngoingExport`].
 pub fn check_for_requests(
     mut requests: EventReader<ExportRequest>,
     mut commands: Commands,

@@ -1,7 +1,7 @@
 use crate::persistence::entities::layer::Layer;
 use serde::{Deserialize, Serialize};
 
-/// Counterpart of [crate::components::Level].
+/// Counterpart of [`crate::components::Level`].
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Level {
     /// The name that identifies this [Level] in the UI.

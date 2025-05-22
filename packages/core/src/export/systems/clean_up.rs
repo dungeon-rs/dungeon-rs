@@ -6,9 +6,8 @@ use bevy::prelude::{
 };
 use bevy::render::camera::{RenderTarget, ScalingMode};
 use bevy::window::WindowRef;
-use std::ops::DerefMut;
 
-/// Handles cleaning up the [OngoingExport].
+/// Handles cleaning up the [`OngoingExport`].
 /// It resets the camera and projection as well as removing the resource.
 pub fn clean_up(
     mut commands: Commands,
@@ -25,7 +24,7 @@ pub fn clean_up(
         transform.translation = original.translation;
     }
 
-    if let Orthographic(projection) = projection.deref_mut() {
+    if let Orthographic(projection) = &mut *projection {
         projection.scaling_mode = ScalingMode::WindowSize;
     }
 

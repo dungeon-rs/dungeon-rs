@@ -4,7 +4,6 @@ use bevy::prelude::{
     ButtonInput, Camera, KeyCode, Local, MouseButton, Projection, Query, Res, Result, Transform,
     With, default,
 };
-use std::ops::DerefMut;
 
 /// Tracks the state of the camera controls, used to see if the user is trying to move the camera
 /// so we don't have the camera move with the mouse all the time.
@@ -17,6 +16,7 @@ pub struct CameraState {
 }
 
 /// System that allows the user to control the camera.
+#[allow(clippy::needless_pass_by_value)]
 pub fn camera(
     mut state: Local<Option<CameraState>>,
     mouse_input: Res<ButtonInput<MouseButton>>,
@@ -42,7 +42,7 @@ pub fn camera(
 
     if state.scrolling {
         let mut projection = projection.single_mut()?;
-        if let Orthographic(projection) = projection.deref_mut() {
+        if let Orthographic(projection) = &mut *projection {
             projection.scale /= 1.0 + mouse_scroll.delta.y * 0.01;
         }
     }
