@@ -96,7 +96,22 @@ pub fn create_asset_library(
         ui.horizontal(|ui| {
             ui.label(format!("Location: {}", path.display()));
             if ui.button("...").clicked() {
-                // TODO: show file picker
+                // TODO: we don't want this right here in the UI code..
+                AsyncCommand::spawn(&mut commands, async move {
+                    let dialog = AsyncFileDialog::new();
+
+                    let mut queue = CommandQueue::default();
+                    if let Some(folder) = dialog.pick_folder().await {
+                        queue.push(move |world: &mut World| {
+                            let path = PathBuf::from(folder.path());
+
+                            let mut builder = world.get_resource_mut::<AssetLibraryBuilder>().unwrap();
+                            builder.root = path;
+                        });
+                    }
+
+                    Ok(queue)
+                });
             }
         });
 
