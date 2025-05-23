@@ -44,7 +44,7 @@ impl AssetLibrary {
         Ok(())
     }
 
-    /// Create a new [AssetLibrary] without any [AssetPack]s.
+    /// Create a new [`AssetLibrary`] without any [`AssetPack`]s.
     ///
     /// This creates the folder (if it doesn't exist yet), an empty index and the config file.
     pub fn create(name: String, path: impl Into<PathBuf>) -> Result<Self, BevyError> {
@@ -78,7 +78,7 @@ impl AssetLibrary {
         })
     }
 
-    /// Attempts to open an already created [AssetLibrary] and all dependent [AssetPack]s.
+    /// Attempts to open an already created [`AssetLibrary`] and all dependent [`AssetPack`]s.
     pub fn open(path: impl Into<PathBuf>) -> Result<Self, BevyError> {
         let path = path.into();
         let index_path = path.join("index");

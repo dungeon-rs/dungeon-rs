@@ -4,7 +4,7 @@ use toml_edit::{Table, value};
 /// A single folder in a library containing assets and subfolders.
 ///
 /// Everything under this folder is considered an asset.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct AssetPack {
     pub name: String,
     pub root: PathBuf,

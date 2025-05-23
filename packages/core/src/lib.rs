@@ -7,7 +7,7 @@ mod export;
 mod log_plugin;
 mod persistence;
 mod states;
-mod utils;
+pub mod utils;
 
 use crate::export::ExportPlugin;
 use crate::persistence::PersistencePlugin;
@@ -17,6 +17,10 @@ use bevy::prelude::{AppExtStates, Plugin};
 use core_assets::AssetsPlugin;
 
 pub mod prelude {
+    pub use core_assets::{
+        AssetLibraryBuilder,
+        AssetPack
+    };
     pub use crate::{
         components::*, export::events::*,
         log_plugin::log_plugin, persistence::events::load_project_request::*,

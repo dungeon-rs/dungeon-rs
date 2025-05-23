@@ -3,6 +3,7 @@
 
 mod plugin;
 
+use core::utils::load_logo;
 use crate::plugin::EditorPlugin;
 use bevy::prelude::*;
 use core::prelude::*;
@@ -115,7 +116,7 @@ fn generate_image(
     asset_server: &Res<AssetServer>,
 ) -> MeshMaterial2d<ColorMaterial> {
     MeshMaterial2d(materials.add(ColorMaterial {
-        texture: Some(asset_server.load("logo.png")),
+        texture: Some(load_logo(asset_server)),
         ..default()
     }))
 }

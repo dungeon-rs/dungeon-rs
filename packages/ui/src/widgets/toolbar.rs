@@ -1,15 +1,16 @@
+use crate::ui_state::UiState;
 use bevy::diagnostic::{DiagnosticsStore, FrameTimeDiagnosticsPlugin};
-use bevy::prelude::{EventWriter, Rect, Res};
+use bevy::prelude::{Commands, EventWriter, Rect, Res, default};
 use core::prelude::*;
-use egui::load::SizedTexture;
 use egui::{Context, TopBottomPanel};
 use std::path::PathBuf;
 
 /// Draw the toolbar, depending on the `state` it automatically enables/disables buttons.
 pub fn toolbar(
     context: &mut Context,
+    commands: &mut Commands,
     diagnostics: Res<DiagnosticsStore>,
-    logo: SizedTexture,
+    state: &Res<UiState>,
     mut export_writer: EventWriter<ExportRequest>,
     mut save_writer: EventWriter<SaveProjectRequest>,
     mut load_writer: EventWriter<LoadProjectRequest>,
@@ -21,10 +22,19 @@ pub fn toolbar(
             ui.style_mut().visuals.button_frame = false;
 
             ui.horizontal(|ui| {
-                ui.image(logo);
+                ui.image(state.logo);
                 ui.separator();
 
-                ui.button("New").on_hover_text("Create a new map");
+                ui.menu_button("New", move |ui| {
+                    if ui
+                        .button("New Asset Library")
+                        .on_hover_text("Create a new asset library")
+                        .clicked()
+                    {
+                        commands.insert_resource::<AssetLibraryBuilder>(default());
+                        ui.close_menu();
+                    }
+                });
                 if ui
                     .button("Open")
                     .on_hover_text("Open an existing map")

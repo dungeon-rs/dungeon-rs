@@ -2,7 +2,6 @@
 #![warn(clippy::pedantic, clippy::suspicious, clippy::complexity)]
 
 mod controls;
-mod editor_layout;
 mod ui_state;
 mod widgets;
 
@@ -11,6 +10,7 @@ use bevy::diagnostic::FrameTimeDiagnosticsPlugin;
 use bevy::prelude::*;
 use bevy_egui::{EguiContextPass, EguiContexts, EguiPlugin};
 use bevy_inspector_egui::DefaultInspectorConfigPlugin;
+use core::prelude::AssetLibraryBuilder;
 
 /// The UI plugin handles registering and setting up all user interface elements of the editor.
 /// This module is unavailable in headless mode and should not contain any actual functionality,
@@ -26,8 +26,12 @@ impl Plugin for UIPlugin {
         .add_plugins(FrameTimeDiagnosticsPlugin::default())
         .add_plugins(DefaultInspectorConfigPlugin)
         .add_systems(Startup, setup)
-        .add_systems(EguiContextPass, editor_layout::editor_layout)
-        .add_systems(EguiContextPass, editor_layout::inspector_layout)
+        .add_systems(EguiContextPass, widgets::editor_layout)
+        .add_systems(EguiContextPass, widgets::inspector_layout)
+        .add_systems(
+            EguiContextPass,
+            widgets::create_asset_library.run_if(resource_exists::<AssetLibraryBuilder>),
+        )
         .add_systems(Update, controls::camera::camera);
     }
 }

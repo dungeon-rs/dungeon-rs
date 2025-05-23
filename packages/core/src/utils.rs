@@ -1,5 +1,6 @@
 //! Contains small utility functions for `DungeonRS`.
 
+use bevy::prelude::{AssetServer, Handle, Image};
 use serde::Serialize;
 
 /// Returns the current version of the package as defined in the `Cargo.toml` manifest.
@@ -7,8 +8,13 @@ use serde::Serialize;
 /// essentially returns the version from there.
 ///
 /// This method is available at compile time.
-pub const fn version() -> &'static str {
+#[must_use] pub const fn version() -> &'static str {
     env!("CARGO_PKG_VERSION")
+}
+
+/// Loads the `DungeonRS` logo asset.
+#[must_use] pub fn load_logo(asset_server: &AssetServer) -> Handle<Image> {
+    asset_server.load("logo.png")
 }
 
 /// Serializes the given `T` using the configured serializer.
