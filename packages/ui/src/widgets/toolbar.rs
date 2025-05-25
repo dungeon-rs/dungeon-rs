@@ -73,7 +73,7 @@ pub fn toolbar(
                 }
 
                 ui.separator();
-                ui.add_space(ui.available_width() - 100.0);
+                ui.add_space(ui.available_width() - 30.0);
 
                 // algorithm taken from the official FPS code
                 if let Some(fps) = diagnostics
