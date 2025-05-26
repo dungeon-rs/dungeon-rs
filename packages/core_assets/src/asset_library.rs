@@ -2,9 +2,9 @@ use crate::AssetPack;
 use bevy::prelude::{BevyError, Resource};
 use std::fs;
 use std::path::PathBuf;
-use tantivy::schema::{Schema, STORED, TEXT};
+use tantivy::schema::{STORED, Schema, TEXT};
 use tantivy::{Index, IndexReader, IndexWriter};
-use toml_edit::{value, ArrayOfTables, DocumentMut};
+use toml_edit::{ArrayOfTables, DocumentMut, value};
 
 #[derive(Resource)]
 pub struct AssetLibrary {

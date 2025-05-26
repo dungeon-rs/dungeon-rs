@@ -1,5 +1,5 @@
 use crate::ui_state::UiState;
-use bevy::diagnostic::{DiagnosticsStore, FrameTimeDiagnosticsPlugin};
+use bevy::diagnostic::{Diagnostic, DiagnosticsStore, FrameTimeDiagnosticsPlugin};
 use bevy::prelude::{Commands, EventWriter, Rect, Res, default};
 use core::prelude::*;
 use egui::{Context, TopBottomPanel};
@@ -9,7 +9,7 @@ use std::path::PathBuf;
 pub fn toolbar(
     context: &mut Context,
     commands: &mut Commands,
-    diagnostics: Res<DiagnosticsStore>,
+    diagnostics: &Res<DiagnosticsStore>,
     state: &Res<UiState>,
     mut export_writer: EventWriter<ExportRequest>,
     mut save_writer: EventWriter<SaveProjectRequest>,
@@ -78,9 +78,9 @@ pub fn toolbar(
                 // algorithm taken from the official FPS code
                 if let Some(fps) = diagnostics
                     .get(&FrameTimeDiagnosticsPlugin::FPS)
-                    .and_then(|fps| fps.smoothed())
+                    .and_then(Diagnostic::smoothed)
                 {
-                    ui.label(format!("{:.0}fps", fps));
+                    ui.label(format!("{fps:.0}fps"));
                 }
             });
         });

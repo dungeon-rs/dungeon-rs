@@ -3,10 +3,10 @@
 
 mod plugin;
 
-use core::utils::load_logo;
 use crate::plugin::EditorPlugin;
 use bevy::prelude::*;
 use core::prelude::*;
+use core::utils::load_logo;
 
 fn main() {
     App::new()

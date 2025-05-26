@@ -1,5 +1,6 @@
 #![doc = include_str!("../README.md")]
 #![warn(clippy::pedantic, clippy::suspicious, clippy::complexity)]
+#![allow(clippy::missing_errors_doc)]
 
 mod async_command;
 pub mod components;

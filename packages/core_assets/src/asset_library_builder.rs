@@ -1,7 +1,7 @@
+use crate::asset_library::AssetLibrary;
 use crate::asset_pack::AssetPack;
 use bevy::prelude::{BevyError, Component, Resource};
 use std::path::PathBuf;
-use crate::asset_library::AssetLibrary;
 
 /// Resource that can be used to construct a new [`AssetLibrary`].
 #[derive(Resource, Component, Debug)]

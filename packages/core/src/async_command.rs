@@ -1,7 +1,7 @@
 use bevy::ecs::world::CommandQueue;
-use bevy::prelude::{warn, BevyError, Commands, Component, Entity, EntityCommands, Query};
+use bevy::prelude::{BevyError, Commands, Component, Entity, Query, warn};
 use bevy::tasks::futures_lite::future;
-use bevy::tasks::{block_on, AsyncComputeTaskPool, Task};
+use bevy::tasks::{AsyncComputeTaskPool, Task, block_on};
 
 /// The [`AsyncCommand`] component provides a way to insert a task that should be merged into ECS
 /// at a later time.
@@ -44,7 +44,7 @@ pub(super) fn execute_async_commands(
             match result {
                 Ok(mut queue) => commands.append(&mut queue),
                 Err(error) => warn!("AsyncCommand failed: {}", error),
-            };
+            }
 
             commands.entity(entity).despawn();
         }

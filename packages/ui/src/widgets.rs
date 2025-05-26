@@ -1,18 +1,16 @@
 mod side_panel;
 mod toolbar;
 
-use crate::widgets::toolbar::toolbar;
 use crate::UiState;
+use crate::widgets::toolbar::toolbar;
 use bevy::diagnostic::DiagnosticsStore;
 use bevy::ecs::world::CommandQueue;
-use bevy::prelude::{info, warn, Commands, EventWriter, Res, ResMut, With, World};
-use bevy::tasks::futures_lite::future;
-use bevy::tasks::{block_on, AsyncComputeTaskPool};
+use bevy::prelude::{Commands, EventWriter, Res, ResMut, With, World, info, warn};
 use bevy::window::PrimaryWindow;
 use bevy_egui::{EguiContext, EguiContexts};
 use bevy_inspector_egui::bevy_inspector;
 use core::prelude::*;
-use egui::{Direction, Frame, Layout, SidePanel, TopBottomPanel};
+use egui::{Direction, Layout, SidePanel, TopBottomPanel};
 use rfd::AsyncFileDialog;
 use std::path::PathBuf;
 
@@ -35,7 +33,7 @@ pub fn editor_layout(
     toolbar(
         context,
         &mut commands,
-        diagnostics,
+        &diagnostics,
         &ui_state,
         export_writer,
         save_writer,
@@ -140,7 +138,7 @@ pub fn create_asset_library(
                                         let mut builder = world
                                             .get_resource_mut::<AssetLibraryBuilder>()
                                             .unwrap();
-                                        let mut pack = builder.packs.get_mut(index).unwrap();
+                                        let pack = builder.packs.get_mut(index).unwrap();
 
                                         pack.root = path;
                                     });

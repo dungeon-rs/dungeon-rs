@@ -8,12 +8,14 @@ use serde::Serialize;
 /// essentially returns the version from there.
 ///
 /// This method is available at compile time.
-#[must_use] pub const fn version() -> &'static str {
+#[must_use]
+pub const fn version() -> &'static str {
     env!("CARGO_PKG_VERSION")
 }
 
 /// Loads the `DungeonRS` logo asset.
-#[must_use] pub fn load_logo(asset_server: &AssetServer) -> Handle<Image> {
+#[must_use]
+pub fn load_logo(asset_server: &AssetServer) -> Handle<Image> {
     asset_server.load("logo.png")
 }
 
