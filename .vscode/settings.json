@@ -6,5 +6,12 @@
         "**/.DS_Store": true,
         "**/Thumbs.db": true,
         ".idea": true
-    }
+    },
+    "rust-analyzer.check.command": "clippy",
+    "debug.allowBreakpointsEverywhere": true,
+    "files.readonlyInclude": {
+        "**/.cargo/registry/src/**/*.rs": true,
+        "**/.cargo/git/checkouts/**/*.rs": true,
+        "**/lib/rustlib/src/rust/library/**/*.rs": true,
+    },
 }
