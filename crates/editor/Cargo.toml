@@ -1,0 +1,29 @@
+[package]
+name = "editor"
+description = "The GUI binary that sets up the windows for the users to interact with."
+edition.workspace = true
+repository.workspace = true
+version.workspace = true
+readme.workspace = true
+authors.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+bevy = { workspace = true, default-features = false, features = [
+  "std",
+  "bevy_window",
+  "bevy_winit",
+  "async_executor",
+  "multi_threaded"
+] }
+
+[features]
+default = ["dev"]
+dev = []
+windows = []
+linux = []
+macos = []

@@ -28,27 +28,27 @@ jobs:
       matrix:
         include:
           - platform: linux
-            label: editor-linux-x64
+            label: editor-linux
             binary: editor
             target: x86_64-unknown-linux-gnu
-            features: editor/linux,core/msgpack
+            features: editor/linux
             package_ext: .zip
             runner: ubuntu-latest
 
           - platform: windows
-            label: editor-windows-x64
+            label: editor-windows
             binary: editor
             target: x86_64-pc-windows-msvc
-            features: editor/windows,core/msgpack
+            features: editor/windows
             binary_ext: .exe
             package_ext: .zip
             runner: windows-latest
 
           - platform: macos
-            label: editor-macos-arm
+            label: editor-macos
             binary: editor
             target: aarch64-apple-darwin
-            features: editor/macos,core/msgpack
+            features: editor/macos
             app_suffix: .app/Contents/MacOS
             package_ext: .dmg
             runner: macos-latest
