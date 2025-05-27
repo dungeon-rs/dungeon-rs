@@ -6,7 +6,7 @@ repository.workspace = true
 version.workspace = true
 readme.workspace = true
 authors.workspace = true
-license.workspace = true
+license-file.workspace = true
 rust-version.workspace = true
 
 [lints]
@@ -20,6 +20,10 @@ bevy = { workspace = true, default-features = false, features = [
   "async_executor",
   "multi_threaded"
 ] }
+
+[target.'cfg(windows)'.build-dependencies]
+image = { version = "0.25.6", default-features = false, features = ["png", "ico"] }
+winresource = "0.1.20"
 
 [features]
 default = ["dev"]

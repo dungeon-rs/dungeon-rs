@@ -5,7 +5,7 @@ members = ["crates/editor"]
 [workspace.package]
 edition = "2024"
 version = "0.0.1"
-license = "MIT"
+license-file = "LICENSE"
 readme = "README.md"
 rust-version = "1.87.0"
 authors = ["Wannes Gennar <info@dealloc.be>"]
@@ -15,7 +15,6 @@ repository = "https://github.com/dealloc/dungeon_rs"
 unsafe_code = "forbid"
 
 [workspace.lints.clippy]
-
 
 [workspace.dependencies]
 bevy = { version = "0.16.0", default-features = false }
