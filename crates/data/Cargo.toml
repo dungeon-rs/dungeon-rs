@@ -1,0 +1,22 @@
+[package]
+name = "data"
+description = "Contains the data structures used throughout other packages."
+edition.workspace = true
+repository.workspace = true
+version.workspace = true
+readme.workspace = true
+authors.workspace = true
+license-file.workspace = true
+rust-version.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+
+[features]
+default = []
+dev = []
+windows = []
+linux = []
+macos = []

@@ -1,6 +1,6 @@
 [workspace]
 resolver = "3"
-members = ["crates/editor"]
+members = [ "crates/data","crates/editor"]
 
 [workspace.package]
 edition = "2024"
@@ -8,7 +8,10 @@ version = "0.0.1"
 license-file = "LICENSE"
 readme = "README.md"
 rust-version = "1.87.0"
-authors = ["Wannes Gennar <info@dealloc.be>"]
+authors = [
+  "Wannes Gennar <info@dealloc.be>",
+  "Amber Swevers <amber.swevers@hotmail.com>"
+]
 repository = "https://github.com/dealloc/dungeon_rs"
 
 [workspace.lints.rust]
