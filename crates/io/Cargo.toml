@@ -1,0 +1,37 @@
+[package]
+name = "io"
+description = "Handles the I/O processing of saving and loading maps"
+edition.workspace = true
+repository.workspace = true
+version.workspace = true
+readme.workspace = true
+authors.workspace = true
+license-file.workspace = true
+rust-version.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+data = { path = "../data" }
+bevy = { workspace = true, default-features = false }
+serde = "1.0.219"
+serde_json = "1.0.140"
+anyhow = { workspace = true }
+
+[dev-dependencies]
+tempfile = "3.20"
+
+[features]
+default = []
+dev = [
+  "bevy/bevy_debug_stepping",
+  "bevy/bevy_dev_tools",
+  "bevy/debug_glam_assert",
+  "bevy/dynamic_linking",
+  "bevy/trace",
+  "bevy/track_location"
+]
+windows = []
+linux = []
+macos = []

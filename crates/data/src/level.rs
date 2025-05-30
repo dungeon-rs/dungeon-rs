@@ -42,7 +42,7 @@ impl Level {
     /// # }
     /// ```
     #[allow(clippy::new_ret_no_self)]
-    #[must_use]
+    #[must_use = "Level won't be added to the world unless spawned"]
     pub fn new(name: impl Into<Cow<'static, str>>) -> impl Bundle {
         (Name::new(name), Level {})
     }
