@@ -3,9 +3,8 @@
 //! beyond persistence and should not be used outside this scope.
 
 use bevy::{
-    ecs::relationship::RelationshipTarget,
-    ecs::system::Query,
-    prelude::{Children, Name},
+    ecs::{relationship::RelationshipTarget, system::Query},
+    prelude::{Children, Name}, transform::components::Transform,
 };
 use data::{Layer, Level};
 use serde::Serialize;
@@ -28,6 +27,7 @@ pub struct DocumentLevel {
 #[derive(Debug, Serialize)]
 pub struct DocumentLayer {
     name: String,
+    order: f32,
     items: Vec<DocumentItem>,
 }
 
@@ -40,7 +40,7 @@ impl Document {
     pub fn new(
         value: (&Name, &Children),
         level_query: Query<(&Level, &Name, &Children)>,
-        layer_query: Query<(&Layer, &Name, &Children)>,
+        layer_query: Query<(&Layer, &Name, &Transform, &Children)>,
     ) -> Self {
         let levels: Vec<DocumentLevel> = value
             .1
@@ -59,7 +59,7 @@ impl Document {
 impl DocumentLevel {
     pub fn new(
         value: (&Level, &Name, &Children),
-        layer_query: Query<(&Layer, &Name, &Children)>,
+        layer_query: Query<(&Layer, &Name, &Transform, &Children)>,
     ) -> Self {
         let layers = value
             .2
@@ -75,9 +75,10 @@ impl DocumentLevel {
 }
 
 impl DocumentLayer {
-    pub fn new(value: (&Layer, &Name, &Children)) -> Self {
+    pub fn new(value: (&Layer, &Name, &Transform, &Children)) -> Self {
         Self {
             name: value.1.to_string(),
+            order: value.2.translation.z,
             items: Vec::new(),
         }
     }

@@ -1,5 +1,7 @@
 use anyhow::Context;
-use bevy::prelude::{BevyError, Children, Entity, Event, EventReader, Name, Query, With};
+use bevy::prelude::{
+    BevyError, Children, Entity, Event, EventReader, Name, Query, Transform, With,
+};
 use data::{Layer, Level, Project};
 use std::{fs::File, io::Write, path::PathBuf};
 
@@ -34,7 +36,7 @@ pub fn handle_save_project(
     mut events: EventReader<SaveProjectEvent>,
     project_query: Query<(&Name, &Children), With<Project>>,
     level_query: Query<(&Level, &Name, &Children)>,
-    layer_query: Query<(&Layer, &Name, &Children)>,
+    layer_query: Query<(&Layer, &Name, &Transform, &Children)>,
 ) -> Result<(), BevyError> {
     let Some(event) = events.read().next() else {
         return Ok(());
