@@ -16,6 +16,7 @@ use crate::document::Document;
 /// the user is responsible for only emitting "valid" entities, as this crate will assume they are,
 /// and according to Bevy's own documentation, this can lead to undefined behaviour if not respected.
 #[derive(Event, Debug)]
+#[allow(rustdoc::private_intra_doc_links)]
 pub struct SaveProjectEvent {
     /// The [`Entity`] of the [`data::Project`] to save.
     pub(crate) project: Entity,

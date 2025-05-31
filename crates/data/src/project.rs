@@ -19,6 +19,10 @@ impl Project {
     /// Generates a new [`Bundle`] with a project to indicate the start of a hierarchy under which
     /// the map (often referred to as 'project', hence the name) will be set.
     ///
+    /// # Arguments
+    /// * `name` - The human-friendly name of the project, entirely unrelated to the filename. This
+    ///   is mostly used in the user interface.
+    ///
     /// # Examples
     ///
     /// Here's how to spawn a simple `Project` named "Roadside Inn"
