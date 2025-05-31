@@ -36,7 +36,7 @@ pub fn handle_load_project_event(
                                     layer.name,
                                     Transform::from_xyz(0.0, 0.0, layer.order),
                                 ))
-                                .with_children(|commands| {
+                                .with_children(|_commands| {
                                     for _item in layer.items {
                                         // TODO: spawn item
                                     }
