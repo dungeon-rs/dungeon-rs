@@ -8,44 +8,44 @@ use bevy::{
     transform::components::Transform,
 };
 use data::{Layer, Level};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 /// A [`Document`] represents a [`data::Project`] (and it's children) that is written to or read from storage.
 ///
 /// It's an intentionally simplified representation of the ECS datastructure optimized for serialisation.
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct Document {
     /// See `name` in [`data::Project::new`].
-    name: String,
+    pub name: String,
     /// All [`DocumentLevel`] constructed from the [`data::Project`]'s children.
-    levels: Vec<DocumentLevel>,
+    pub levels: Vec<DocumentLevel>,
 }
 
 /// A [`DocumentLevel`] represents a [`data::Level`] (and it's children) that is written to or read
 /// from storage.
 ///
 /// It's an intentionally simplified representation of the ECS datastructure optimized for serialisation.
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct DocumentLevel {
     /// See `name` in [`data::Level::new`].
-    name: String,
+    pub name: String,
     // All [`DocumentLayer`] constructed from the [`data::Level`]'s children.
-    layers: Vec<DocumentLayer>,
+    pub layers: Vec<DocumentLayer>,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct DocumentLayer {
     /// See `name` in [`data::Layer::new`].
-    name: String,
+    pub name: String,
     /// The order of the [`data::Layer`] (determined by it's [`Transform`]).
-    order: f32,
+    pub order: f32,
     /// The [`DocumentItem`] constructed from the [`data::Layer`]'s children.
-    items: Vec<DocumentItem>,
+    pub items: Vec<DocumentItem>,
 }
 
 /// Represents the lowest level of a [`Document`], these are the items that are 'visible' on the
 /// screen for the user (objects, paths, patterns, textures, ...).
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub enum DocumentItem {
     // TODO: actually rendered items and their metadata should be included here
 }

@@ -4,6 +4,8 @@
 pub(crate) mod document;
 mod plugin;
 mod save_project;
+mod load_project;
 
 pub use plugin::IOPlugin;
 pub use save_project::SaveProjectEvent;
+pub use load_project::LoadProjectEvent;

@@ -9,7 +9,7 @@ mod tests {
 
     #[test]
     fn save_project_event() -> anyhow::Result<()> {
-        // Holds output files for this directory, we hold the variable since it's deleted on drop.
+        // Holds output files for this test, we hold the variable since it's deleted on drop.
         let temp_dir = tempdir()?;
         let mut app = App::new();
         app.add_plugins(IOPlugin);

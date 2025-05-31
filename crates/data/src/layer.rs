@@ -8,7 +8,7 @@ use std::borrow::Cow;
 /// interactions (such as locking or isolating layers during drawing or object placement).
 #[derive(Component, Default)]
 #[component(immutable)]
-#[require(Transform::from_xyz(0.0, 0.0, 0.0), Visibility::default())]
+#[require(Visibility::default())]
 pub struct Layer;
 
 impl Layer {
@@ -45,6 +45,13 @@ impl Layer {
     #[allow(clippy::new_ret_no_self)]
     #[must_use = "Layer won't be added to the world unless spawned"]
     pub fn new(name: impl Into<Cow<'static, str>>) -> impl Bundle {
-        (Name::new(name), Layer {})
+        Self::new_with_transform(name, Transform::IDENTITY)
+    }
+
+    pub fn new_with_transform(
+        name: impl Into<Cow<'static, str>>,
+        transform: Transform,
+    ) -> impl Bundle {
+        (Name::new(name), Layer {}, transform)
     }
 }
