@@ -28,7 +28,7 @@ image = { version = "0.25.6", default-features = false, features = ["png", "ico"
 winresource = "0.1.20"
 
 [features]
-default = []
+default = ["png"]
 dev = [
   "data/dev",
   "io/dev",
@@ -49,3 +49,8 @@ macos = [
   "io/macos",
   "ui/macos"
 ]
+
+# support for various image formats
+png = ["bevy/png"]
+webp = ["bevy/webp"]
+jpeg = ["bevy/jpeg"]
