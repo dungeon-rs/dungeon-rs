@@ -20,6 +20,7 @@ impl Plugin for UIPlugin {
     }
 }
 
+#[allow(clippy::needless_pass_by_value)]
 pub fn setup(mut commands: Commands, asset_server: ResMut<AssetServer>) {
     commands.spawn((Camera2d, RenderLayers::layer(LAYER_A)));
 
