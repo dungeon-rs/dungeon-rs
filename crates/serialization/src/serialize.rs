@@ -66,6 +66,7 @@ where
     match format {
         SerializationFormat::JSON => serialize_json(subject),
         SerializationFormat::MessagePack => serialize_messagepack(subject),
+        SerializationFormat::Toml => serialize_toml(subject),
     }
 }
 
@@ -97,4 +98,24 @@ where
 
     #[cfg(feature = "msgpack")]
     rmp_serde::to_vec(subject).map_err(|error| SerializationError::Serialize(Error::from(error)))
+}
+
+#[allow(clippy::missing_errors_doc)]
+#[cfg_attr(not(feature = "toml"), allow(unused_variables))]
+pub fn serialize_toml<T>(subject: &T) -> Result<Vec<u8>>
+where
+    T: ?Sized + Serialize,
+{
+    #[cfg(not(feature = "toml"))]
+    return Err(SerializationError::FormatUnavailable("toml"));
+
+    #[cfg(feature = "toml")]
+    let toml = toml::to_string(subject)
+        .map_err(|error| SerializationError::Serialize(Error::from(error)))?;
+    #[cfg(all(feature = "toml", feature = "dev"))]
+    let toml = toml::to_string_pretty(subject)
+        .map_err(|error| SerializationError::Serialize(Error::from(error)))?;
+
+    #[cfg(feature = "toml")]
+    Ok(toml.into_bytes())
 }

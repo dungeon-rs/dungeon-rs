@@ -4,4 +4,5 @@ pub enum SerializationFormat {
     #[default]
     JSON,
     MessagePack,
+    Toml,
 }

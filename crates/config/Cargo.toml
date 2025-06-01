@@ -1,0 +1,27 @@
+[package]
+name = "config"
+description = "This crate handles the configuration of other crates"
+edition.workspace = true
+repository.workspace = true
+version.workspace = true
+readme.workspace = true
+authors.workspace = true
+license-file.workspace = true
+rust-version.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+anyhow = { workspace = true }
+serde = { workspace = true }
+serialization = { path = "../serialization" }
+
+[features]
+default = [
+  "serialization/toml"
+]
+dev = []
+windows = []
+linux = []
+macos = []

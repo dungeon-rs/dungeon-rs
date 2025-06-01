@@ -43,6 +43,7 @@ where
     match format {
         SerializationFormat::JSON => deserialize_json(subject),
         SerializationFormat::MessagePack => deserialize_messagepack(subject),
+        SerializationFormat::Toml => deserialize_toml(subject),
     }
 }
 
@@ -63,4 +64,24 @@ pub fn deserialize_messagepack<'a, T: Deserialize<'a>>(subject: &'a [u8]) -> Res
     #[cfg(feature = "msgpack")]
     rmp_serde::from_slice(subject)
         .map_err(|error| SerializationError::Deserialize(Error::from(error)))
+}
+
+/// Attempts to deserialize `subject` using [TOML](https://toml.io/).
+#[allow(clippy::missing_errors_doc)]
+#[cfg_attr(not(feature = "toml"), allow(unused_variables))]
+pub fn deserialize_toml<'a, T: Deserialize<'a>>(subject: &'a [u8]) -> Result<T>
+where
+    T: Deserialize<'a>,
+{
+    #[cfg(not(feature = "toml"))]
+    return Err(SerializationError::FormatUnavailable("toml"));
+
+    #[cfg(feature = "toml")]
+    {
+        let str = String::from_utf8_lossy(subject);
+        let deserializer = toml::Deserializer::new(&str);
+
+        T::deserialize(deserializer)
+            .map_err(|error| SerializationError::Deserialize(Error::from(error)))
+    }
 }
