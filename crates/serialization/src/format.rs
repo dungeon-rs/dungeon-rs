@@ -1,4 +1,4 @@
-/// Available serialization formats.
+/// Available serialisation formats.
 #[non_exhaustive]
 #[derive(Debug, Default)]
 pub enum SerializationFormat {

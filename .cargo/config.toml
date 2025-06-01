@@ -1,0 +1,7 @@
+[build]
+# Enforce warnings-as-errors globally, unless overridden per crate
+rustflags = ["-Dwarnings"]
+
+[alias]
+# Lint all targets and features, deny all warnings
+lint = "clippy --all-targets --all-features -- -D warnings"

@@ -8,6 +8,7 @@ version = "0.0.1"
 license-file = "LICENSE"
 readme = "README.md"
 rust-version = "1.87.0"
+publish = false
 repository = "https://github.com/dealloc/dungeon_rs"
 authors = [
   "Wannes Gennar <info@dealloc.be>",

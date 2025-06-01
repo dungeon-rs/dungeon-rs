@@ -12,7 +12,7 @@ rust-version.workspace = true
 workspace = true
 
 [dependencies]
-egui = { version = "*", default-features = false, features = ["mint"] }
+egui = { version = "0.31.1", default-features = false, features = ["mint"] }
 bevy_egui = { version = "0.34.1", default-features = false, features = ["render", "default_fonts"] }
 bevy = { workspace = true, default-features = false, features = ["bevy_core_pipeline", "bevy_asset", "bevy_sprite"] }
 bevy-inspector-egui = { version = "0.31.0", default-features = false, features = ["bevy_render"] }

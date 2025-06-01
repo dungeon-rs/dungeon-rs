@@ -12,7 +12,7 @@ use serialization::{Deserialize, Serialize};
 
 /// A [`Document`] represents a [`data::Project`] (and it's children) that is written to or read from storage.
 ///
-/// It's an intentionally simplified representation of the ECS datastructure optimized for serialisation.
+/// It's an intentionally simplified representation of the ECS datastructure optimised for serialisation.
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Document {
     /// See `name` in [`data::Project::new`].
@@ -24,7 +24,7 @@ pub struct Document {
 /// A [`DocumentLevel`] represents a [`data::Level`] (and it's children) that is written to or read
 /// from storage.
 ///
-/// It's an intentionally simplified representation of the ECS datastructure optimized for serialisation.
+/// It's an intentionally simplified representation of the ECS datastructure optimised for serialisation.
 #[derive(Debug, Serialize, Deserialize)]
 pub struct DocumentLevel {
     /// See `name` in [`data::Level::new`].

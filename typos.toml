@@ -1,0 +1,33 @@
+[files]
+extend-exclude = [
+  "*.pbxproj",               # metadata file
+  "*.patch",                 # Automatically generated files that should not be manually modified.
+  "*.bin",                   # Binary files
+  ".git/",                   # Version control files
+  "rustfmt.toml",            # Does not contain words that should be spellchecked.
+  "rust-toolchain.toml",     # likewise, shouldn't be spellchecked.
+  ".vscode/extensions.json", # likewise, shouldn't be spellchecked.
+  ".vscode/settings.json",   # likewise, shouldn't be spellchecked.
+]
+ignore-hidden = false
+
+[type.yaml]
+extend-ignore-re = [
+  "artifacts:",
+  "-artifact",
+  "CARGO_TERM_COLOR"
+]
+
+[default]
+locale = "en-gb"
+extend-ignore-re = [
+  # Mainly to be consistent with Serde's language
+  "(?i)serialize",
+  "Serialization(Format|Error)",
+  "\\bBig Sur\\b",       # macOS Big Sur
+  # don't match on namespaces, rust-doc links, ...
+  "\\[\\`[^\\`]+\\`\\]",
+  "serialization::",
+  "`serialization`",
+  # Ignore lines that have spellchecker:disable-line
+]

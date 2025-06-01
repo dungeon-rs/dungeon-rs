@@ -234,7 +234,7 @@ jobs:
         env:
           RUSTDOCFLAGS: "-Z unstable-options --enable-index-page"
 
-      - name: Upload static files as artifact
+      - name: Upload static files as artefact
         id: deployment-artifact
         uses: actions/upload-pages-artifact@v3 # or specific "vX.X.X" version tag for this action
         with:

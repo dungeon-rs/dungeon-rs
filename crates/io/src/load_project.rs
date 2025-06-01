@@ -17,6 +17,7 @@ pub struct LoadProjectEvent {
 }
 
 /// Bevy system that handles `LoadProjectEvent` events that were fired.
+#[allow(clippy::missing_errors_doc)]
 pub fn handle_load_project_event(
     mut events: EventReader<LoadProjectEvent>,
     mut commands: Commands,

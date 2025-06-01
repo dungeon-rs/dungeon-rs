@@ -4,7 +4,7 @@ use crate::format::SerializationFormat;
 use anyhow::Error;
 use std::io::Write;
 
-/// Shorthand for `Result<T, SerializationError>`.
+/// Shorthand for [`Result<T, SerializationError>`].
 type Result<T> = std::result::Result<T, SerializationError>;
 
 /// A simple wrapper function that calls [`serialize`] and writes the result to `writer`.
@@ -34,12 +34,12 @@ where
 /// # Arguments
 ///
 /// * `subject`: The data structure to serialize.
-/// * `format`: A [`SerializationFormat`] that indicates which serialization format to use.
+/// * `format`: A [`SerializationFormat`] that indicates which serialisation format to use.
 ///
 /// returns: [`Result<Vec<u8>>`]
 ///
 /// # Errors
-/// This method returns a [`SerializationError`] if any of the steps for serialization fails.
+/// This method returns a [`SerializationError`] if any of the steps for serialisation fails.
 /// See [`SerializationError`] for specific details on each error scenario.
 ///
 /// # Examples
@@ -101,8 +101,7 @@ where
 }
 
 /// Attempts to serialize `subject` into `TOML`.
-#[allow(clippy::missing_errors_doc)]
-#[cfg_attr(not(feature = "dev"), allow(unused_variables))]
+#[allow(clippy::missing_errors_doc, unused_variables)]
 pub fn serialize_toml<T>(subject: &T) -> Result<Vec<u8>>
 where
     T: ?Sized + Serialize,

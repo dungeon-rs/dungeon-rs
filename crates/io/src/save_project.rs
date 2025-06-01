@@ -34,6 +34,7 @@ impl SaveProjectEvent {
 }
 
 /// Bevy system that handles [`SaveProjectEvent`] events.
+#[allow(clippy::missing_errors_doc)]
 #[allow(clippy::needless_pass_by_value)]
 pub fn handle_save_project(
     mut events: EventReader<SaveProjectEvent>,

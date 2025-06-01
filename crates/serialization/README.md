@@ -1,5 +1,5 @@
 # `DungeonRS` `serialization`
-This crate handles serialization from and to binary representations.
+This crate handles serialisation from and to binary representations.
 It's essentially a wrapper around Serde using various formats depending on the enabled features.
 
 These are the currently supported features:
