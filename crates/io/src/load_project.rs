@@ -6,11 +6,17 @@ use serialization::deserialize;
 use std::fs::read;
 use std::path::PathBuf;
 
+/// Emitting this event will cause the software to attempt loading a project file at the given `input`.
+///
+/// The progress, result or failure of this event's actions will also be emitted as events.
+/// TODO: add events to indicate progress, success or failure
 #[derive(Event, Debug)]
 pub struct LoadProjectEvent {
+    /// The path to the project file to load.
     pub input: PathBuf,
 }
 
+/// Bevy system that handles `LoadProjectEvent` events that were fired.
 pub fn handle_load_project_event(
     mut events: EventReader<LoadProjectEvent>,
     mut commands: Commands,

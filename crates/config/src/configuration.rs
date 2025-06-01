@@ -5,7 +5,7 @@ use std::env::current_exe;
 use std::fs::File;
 use std::path::PathBuf;
 
-/// Configuration for the DungeonRS application.
+/// Configuration for the `DungeonRS` application.
 #[derive(Debug, Default, Serialize, Deserialize)]
 pub struct Configuration {
     /// A list of recently opened files,
@@ -23,6 +23,11 @@ const CONFIG_FILE_NAME: &str = "config.toml";
 
 impl Configuration {
     /// Attempts to save the configuration.
+    ///
+    /// # Errors
+    /// - [`std::io::Error`] returned when the underlying calls to either [`std::env::current_exe`]
+    ///   or [`std::io::File::create`] fails.
+    /// - [`serialization::SerializationError`] Thrown when a serialization-related error occurs.
     pub fn save(&self) -> anyhow::Result<()> {
         let mut path = current_exe().with_context(|| "Failed to get current executable path")?;
         path.pop(); // Remove the executable name

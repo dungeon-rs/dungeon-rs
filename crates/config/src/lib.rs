@@ -1,5 +1,5 @@
 #![doc = include_str!("../README.md")]
-#![warn(clippy::pedantic, clippy::suspicious, clippy::complexity)]
+#![allow(clippy::missing_docs_in_private_items)]
 
 mod configuration;
 

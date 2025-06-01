@@ -100,8 +100,9 @@ where
     rmp_serde::to_vec(subject).map_err(|error| SerializationError::Serialize(Error::from(error)))
 }
 
+/// Attempts to serialize `subject` into `TOML`.
 #[allow(clippy::missing_errors_doc)]
-#[cfg_attr(not(feature = "toml"), allow(unused_variables))]
+#[cfg_attr(not(feature = "dev"), allow(unused_variables))]
 pub fn serialize_toml<T>(subject: &T) -> Result<Vec<u8>>
 where
     T: ?Sized + Serialize,
@@ -109,7 +110,7 @@ where
     #[cfg(not(feature = "toml"))]
     return Err(SerializationError::FormatUnavailable("toml"));
 
-    #[cfg(feature = "toml")]
+    #[cfg(all(feature = "toml", not(feature = "dev")))]
     let toml = toml::to_string(subject)
         .map_err(|error| SerializationError::Serialize(Error::from(error)))?;
     #[cfg(all(feature = "toml", feature = "dev"))]

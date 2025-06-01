@@ -46,7 +46,7 @@ mod tests {
         let json = read_to_string(output.clone())
             .with_context(|| format!("Output file {} could not be opened", output.display()))?;
 
-        assert!(json.starts_with("{"));
+        assert!(json.starts_with('{'));
         Ok(())
     }
 }

@@ -48,6 +48,7 @@ impl Layer {
         Self::new_with_transform(name, Transform::IDENTITY)
     }
 
+    /// Generates a new [`Bundle`] with a [`Layer`] and provided [`Transform`].
     pub fn new_with_transform(
         name: impl Into<Cow<'static, str>>,
         transform: Transform,

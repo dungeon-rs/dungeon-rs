@@ -29,7 +29,7 @@ pub struct Document {
 pub struct DocumentLevel {
     /// See `name` in [`data::Level::new`].
     pub name: String,
-    // All [`DocumentLayer`] constructed from the [`data::Level`]'s children.
+    /// All [`DocumentLayer`] constructed from the [`data::Level`]'s children.
     pub layers: Vec<DocumentLayer>,
 }
 

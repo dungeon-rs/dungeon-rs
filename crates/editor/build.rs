@@ -1,3 +1,6 @@
+#![allow(missing_docs)]
+#![allow(clippy::missing_docs_in_private_items)]
+
 fn main() {
     #[cfg(target_os = "windows")]
     generate_exe()

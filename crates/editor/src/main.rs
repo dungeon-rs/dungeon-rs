@@ -1,5 +1,4 @@
 #![doc = include_str!("../README.md")]
-#![warn(clippy::pedantic, clippy::suspicious, clippy::complexity)]
 
 use bevy::prelude::*;
 use io::IOPlugin;

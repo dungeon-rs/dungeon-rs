@@ -16,8 +16,15 @@ authors = [
 
 [workspace.lints.rust]
 unsafe_code = "forbid"
+missing_docs = "warn"
 
 [workspace.lints.clippy]
+pedantic = "warn"
+suspicious = "warn"
+complexity = "warn"
+missing_docs_in_private_items = "warn"
+module_name_repetitions = "warn"
+semicolon_if_nothing_returned = "warn"
 
 [workspace.dependencies]
 bevy = { version = "0.16.0", default-features = false }

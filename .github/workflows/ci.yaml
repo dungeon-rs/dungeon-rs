@@ -50,7 +50,7 @@ jobs:
       - name: Run cargo fmt
         run: cargo fmt --all -- --check
       - name: Run cargo clippy
-        run: cargo clippy
+        run: cargo clippy --all-features
   doc:
     name: Build documentation
     runs-on: ubuntu-latest

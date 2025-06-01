@@ -69,7 +69,7 @@ pub fn deserialize_messagepack<'a, T: Deserialize<'a>>(subject: &'a [u8]) -> Res
 /// Attempts to deserialize `subject` using [TOML](https://toml.io/).
 #[allow(clippy::missing_errors_doc)]
 #[cfg_attr(not(feature = "toml"), allow(unused_variables))]
-pub fn deserialize_toml<'a, T: Deserialize<'a>>(subject: &'a [u8]) -> Result<T>
+pub fn deserialize_toml<'a, T>(subject: &'a [u8]) -> Result<T>
 where
     T: Deserialize<'a>,
 {
