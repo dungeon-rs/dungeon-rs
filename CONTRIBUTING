@@ -1,0 +1,42 @@
+# Contributing to DungeonRS
+
+Setting up a local development environment requires having [Rust](https://rust-lang.org) installed.
+
+1. Clone the repository
+    ```bash
+   git clone https://github.com/dealloc/dungeon_rs.git
+    ```
+2. Ensure you have the correct toolchain installed, `Rustup` can take care of this for you:
+    ```bash
+   rustup show
+    ```
+3. Install additional tools used by `DungeonRS` for linting, analysis etc
+    ```bash
+   cargo install cargo-bloat cargo-deny typos-cli
+    ```
+4. Build the `editor`, this should build all dependent crates too
+   (replace `<windows/linux/macos>` with the correct OS you're using):
+    ```bash
+   cargo build -p editor --features editor/<windows/linux/macos>
+    ```
+5. Run the editor using:
+    ```bash
+   cargo run -p editor --features editor/<windows/linux/macos>
+    ```
+The editor should pop up and you can start developing!
+
+> [!IMPORTANT]
+> DungeonRS has very strict linting to ensure consistent and idiomatic code.
+> Before opening a PR (or pushing your commits), ensure you run the commands
+> below to check your code conforms
+
+### Linting, spell check and analysis
+It's highly recommended running the commands below before opening/updating a PR:
+```bash
+# Run the formatter to make sure everything is formatted consistently
+cargo fmt
+# Run Clippy to detect syntax / code smells
+cargo lint
+# Ensure everything is typed consistently
+typos
+```
