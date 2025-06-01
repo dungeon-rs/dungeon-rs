@@ -1,11 +1,12 @@
+use crate::document::Document;
 use anyhow::Context;
+use bevy::prelude::default;
 use bevy::prelude::{
     BevyError, Children, Entity, Event, EventReader, Name, Query, Transform, With,
 };
 use data::{Layer, Level, Project};
-use std::{fs::File, io::Write, path::PathBuf};
-
-use crate::document::Document;
+use serialization::serialize_to;
+use std::{fs::File, path::PathBuf};
 
 /// When this event is sent, the associated `project` will be fetched and saved.
 /// As a reaction to this event, a system will build a [`bevy::prelude::Query`] that attempts to
@@ -46,14 +47,13 @@ pub fn handle_save_project(
     let project = project_query.get(event.project)?;
     let document = Document::new(project, level_query, layer_query);
     // TODO: we should probably write asynchronously to files
-    let mut file = File::create(event.output.clone()).with_context(|| {
+    let file = File::create(event.output.clone()).with_context(|| {
         format!(
             "Failed to open {} for writing savefile",
             event.output.display()
         )
     })?;
-    serde_json::to_writer_pretty(file.try_clone()?, &document)?;
-    file.flush()?;
+    serialize_to(&document, &default(), file)?;
 
     Ok(())
 }

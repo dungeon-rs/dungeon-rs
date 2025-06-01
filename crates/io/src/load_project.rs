@@ -1,7 +1,8 @@
 use crate::document::Document;
 use anyhow::Context;
-use bevy::prelude::{BevyError, Commands, Event, EventReader, Transform};
+use bevy::prelude::{BevyError, Commands, Event, EventReader, Transform, default};
 use data::{Layer, Level, Project};
+use serialization::deserialize;
 use std::fs::read;
 use std::path::PathBuf;
 
@@ -20,7 +21,7 @@ pub fn handle_load_project_event(
 
     let content = read(event.input.clone())
         .with_context(|| format!("Failed to open project file: '{}'", event.input.display()))?;
-    let project = serde_json::from_slice::<Document>(&content)
+    let project = deserialize::<Document>(&content, &default())
         .with_context(|| format!("Failed to parse project file '{}'", event.input.display()))?;
 
     commands

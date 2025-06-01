@@ -8,7 +8,7 @@ use bevy::{
     transform::components::Transform,
 };
 use data::{Layer, Level};
-use serde::{Deserialize, Serialize};
+use serialization::{Deserialize, Serialize};
 
 /// A [`Document`] represents a [`data::Project`] (and it's children) that is written to or read from storage.
 ///

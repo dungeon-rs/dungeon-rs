@@ -1,0 +1,31 @@
+[package]
+name = "serialization"
+description = "Handles the selection of serialization techniques and formats"
+edition.workspace = true
+repository.workspace = true
+version.workspace = true
+readme.workspace = true
+authors.workspace = true
+license-file.workspace = true
+rust-version.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+thiserror = { workspace = true }
+anyhow = { workspace = true }
+serde = { workspace = true }
+# JSON is the only format we enable by default.
+serde_json = "*"
+rmp-serde = { version = "1.3", optional = true }
+
+[features]
+default = []
+dev = []
+windows = []
+linux = []
+macos = []
+
+# serialization formats
+msgpack = ["dep:rmp-serde"]

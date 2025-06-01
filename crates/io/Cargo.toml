@@ -14,9 +14,9 @@ workspace = true
 
 [dependencies]
 data = { path = "../data" }
+serialization = { path = "../serialization" }
 bevy = { workspace = true, default-features = false }
-serde = "1.0.219"
-serde_json = "1.0.140"
+serde = { workspace = true }
 anyhow = { workspace = true }
 
 [dev-dependencies]
@@ -25,6 +25,8 @@ tempfile = "3.20"
 [features]
 default = []
 dev = [
+  "data/dev",
+  "serialization/dev",
   "bevy/bevy_debug_stepping",
   "bevy/bevy_dev_tools",
   "bevy/debug_glam_assert",
@@ -32,6 +34,15 @@ dev = [
   "bevy/trace",
   "bevy/track_location"
 ]
-windows = []
-linux = []
-macos = []
+windows = [
+  "data/windows",
+  "serialization/windows"
+]
+linux = [
+  "data/linux",
+  "serialization/linux"
+]
+macos = [
+  "data/macos",
+  "serialization/macos"
+]
