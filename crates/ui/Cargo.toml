@@ -12,12 +12,17 @@ rust-version.workspace = true
 workspace = true
 
 [dependencies]
+egui = { version = "*", default-features = false, features = ["mint"] }
 bevy_egui = { version = "0.34.1", default-features = false, features = ["render", "default_fonts"] }
-bevy = { workspace = true, default-features = false }
+bevy = { workspace = true, default-features = false, features = ["bevy_core_pipeline"] }
+bevy-inspector-egui = { version = "0.31.0", default-features = false, features = ["bevy_render"] }
 
 [features]
 default = []
-dev = []
+dev = [
+  "egui/deadlock_detection",
+  "egui/log"
+]
 windows = []
 linux = []
 macos = []

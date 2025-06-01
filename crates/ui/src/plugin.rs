@@ -1,6 +1,7 @@
 use bevy::app::App;
 use bevy::prelude::Plugin;
 use bevy_egui::{EguiContextPass, EguiContexts, EguiPlugin, egui};
+use bevy_inspector_egui::quick::WorldInspectorPlugin;
 
 pub struct UIPlugin;
 
@@ -9,6 +10,7 @@ impl Plugin for UIPlugin {
         app.add_plugins(EguiPlugin {
             enable_multipass_for_primary_context: true,
         })
+        .add_plugins(WorldInspectorPlugin::new())
         .add_systems(EguiContextPass, window);
     }
 }
