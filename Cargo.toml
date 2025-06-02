@@ -49,3 +49,16 @@ codegen-units = 1
 # Do a second optimization pass over the entire program, including dependencies.
 # Slows compile times, marginal improvements.
 lto = "thin"
+
+# Unit tests are not optimised since we want to optimise compile times
+[profile.test]
+opt-level = 0
+codegen-units = 256
+strip = "none"
+debug-assertions = true
+overflow-checks = true
+lto = false
+incremental = true
+
+[profile.test.package."*"]
+opt-level = 0
