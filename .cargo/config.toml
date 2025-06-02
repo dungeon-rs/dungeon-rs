@@ -1,6 +1,5 @@
 [build]
-# Enforce warnings-as-errors globally, unless overridden per crate
-rustflags = ["-Dwarnings"]
+rustflags = []
 
 [alias]
 # Lint all targets and features, deny all warnings
