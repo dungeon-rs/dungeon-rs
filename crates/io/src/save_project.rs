@@ -10,8 +10,8 @@ use std::{fs::File, path::PathBuf};
 
 /// When this event is sent, the associated `project` will be fetched and saved.
 /// As a reaction to this event, a system will build a [`bevy::prelude::Query`] that attempts to
-/// fetch all [`data::Project`]'s [`data::Level`]s (and their descendant [`data::Layer`]s)
-/// and then (attempts) to persist them to disk.
+/// fetch all [`data::Project`]'s [`data::Level`]s (and their descendant [`data::Layer`]s along
+/// all their descendants) and then (attempts) to persist them to disk.
 ///
 /// The [`data::Project`] fetched is queried by the [`SaveProjectEvent::project`] [`Entity`],
 /// the user is responsible for only emitting "valid" entities, as this crate will assume they are,
