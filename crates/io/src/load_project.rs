@@ -40,7 +40,7 @@ pub fn handle_load_project_event(
                     .with_children(|commands| {
                         for layer in level.layers {
                             commands
-                                .spawn(Layer::new_with_transform(
+                                .spawn(Layer::new(
                                     layer.name,
                                     Transform::from_xyz(0.0, 0.0, layer.order),
                                 ))

@@ -19,7 +19,7 @@ fn save_project_event() -> anyhow::Result<()> {
         Project::new("Example Project"),
         children![(
             Level::new("First Level"),
-            children![(Layer::new("First Layer"), children![])]
+            children![(Layer::new("First Layer", Transform::IDENTITY), children![])]
         )],
     ));
     let (_, project) = app

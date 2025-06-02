@@ -13,6 +13,7 @@ pub struct Layer;
 
 impl Layer {
     /// Generates a new [`Bundle`] with a layer under which graphic items can be grouped.
+    /// The `transform` determines how the layer is positioned relative to other layers.
     ///
     /// # Examples
     ///
@@ -36,7 +37,7 @@ impl Layer {
     ///         children![
     ///             Level::new("Ground Floor"),
     ///             children![
-    ///                 Layer::new("Walls"),
+    ///                 Layer::new("Walls", Transform::IDENTITY),
     ///             ]
     ///         ]
     ///     ));
@@ -44,15 +45,7 @@ impl Layer {
     /// ```
     #[allow(clippy::new_ret_no_self)]
     #[must_use = "Layer won't be added to the world unless spawned"]
-    pub fn new(name: impl Into<Cow<'static, str>>) -> impl Bundle {
-        Self::new_with_transform(name, Transform::IDENTITY)
-    }
-
-    /// Generates a new [`Bundle`] with a [`Layer`] and provided [`Transform`].
-    pub fn new_with_transform(
-        name: impl Into<Cow<'static, str>>,
-        transform: Transform,
-    ) -> impl Bundle {
+    pub fn new(name: impl Into<Cow<'static, str>>, transform: Transform) -> impl Bundle {
         (Name::new(name), Layer {}, transform)
     }
 }
