@@ -88,6 +88,7 @@ where
 
 /// Attempts to serialize `subject` into `MessagePack`.
 #[allow(clippy::missing_errors_doc)]
+#[cfg_attr(doc, doc(cfg(feature = "msgpack")))]
 #[cfg_attr(not(feature = "msgpack"), allow(unused_variables))]
 pub fn serialize_messagepack<T>(subject: &T) -> Result<Vec<u8>>
 where
@@ -101,6 +102,8 @@ where
 }
 
 /// Attempts to serialize `subject` into `TOML`.
+#[allow(clippy::missing_errors_doc)]
+#[cfg_attr(doc, doc(cfg(feature = "toml")))]
 #[allow(clippy::missing_errors_doc, unused_variables)]
 pub fn serialize_toml<T>(subject: &T) -> Result<Vec<u8>>
 where

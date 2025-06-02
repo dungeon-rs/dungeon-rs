@@ -8,3 +8,4 @@ These are the currently supported features:
 |-------------|--------------------------------------|-----------|
 | MessagePack | Binary format with small output size | `msgpack` |
 | JSON        | Human-readable text format           | `json`    |
+| TOML        | Human-readable configuration format  | `toml`    |
