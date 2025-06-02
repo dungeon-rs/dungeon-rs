@@ -1654,6 +1654,7 @@ name = "config"
 version = "0.0.1"
 dependencies = [
  "anyhow",
+ "bevy",
  "serde",
  "serialization",
 ]
@@ -1941,6 +1942,7 @@ name = "editor"
 version = "0.0.1"
 dependencies = [
  "bevy",
+ "config",
  "data",
  "image",
  "io",

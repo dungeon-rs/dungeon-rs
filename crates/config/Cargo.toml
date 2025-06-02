@@ -17,6 +17,7 @@ workspace = true
 anyhow = { workspace = true }
 serde = { workspace = true }
 serialization = { path = "../serialization" }
+bevy = { workspace = true }
 
 [features]
 default = [
