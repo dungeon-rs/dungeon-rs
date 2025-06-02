@@ -31,7 +31,7 @@ semicolon_if_nothing_returned = "warn"
 bevy = { version = "0.16.0", default-features = false }
 anyhow = "1.0"
 thiserror = "2.0"
-serde = "1.0"
+serde = { version = "1.0", features = ["derive"] }
 
 # Enable a small amount of optimization in the dev profile.
 [profile.dev]

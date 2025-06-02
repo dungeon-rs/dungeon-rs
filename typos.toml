@@ -15,7 +15,8 @@ ignore-hidden = false
 extend-ignore-re = [
   "artifacts:",
   "-artifact",
-  "CARGO_TERM_COLOR"
+  "CARGO_TERM_COLOR",
+  "-p serialization"
 ]
 
 [default]

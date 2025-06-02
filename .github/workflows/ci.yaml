@@ -7,6 +7,10 @@ on:
   pull_request:
     branches: [ master ]
 
+concurrency:
+  group: ${{github.workflow}}-${{github.ref}}
+  cancel-in-progress: ${{github.event_name == 'pull_request'}}
+
 jobs:
   test:
     name: Run tests
@@ -18,6 +22,8 @@ jobs:
 
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: nightly
 
       - name: Install dependencies
         run: sudo apt-get update; sudo apt-get install --no-install-recommends libasound2-dev libudev-dev libwayland-dev libxkbcommon-dev
@@ -29,10 +35,14 @@ jobs:
 
       - name: Run tests
         run: |
-          cargo test --locked --workspace --all-features --all-targets --features='editor/linux'
+          cargo +nightly test --locked --workspace --all-features --all-targets --features='editor/linux'
           # Running doc tests separately is a workaround for https://github.com/rust-lang/cargo/issues/6669
           # Setting LD_LIBRARY_PATH is a workaround for https://github.com/TheBevyFlock/bevy_new_2d/pull/318#issuecomment-2585935350
-          LD_LIBRARY_PATH="$(rustc --print target-libdir)" cargo test --locked --workspace --all-features --features='editor/linux' --doc
+          LD_LIBRARY_PATH="$(rustc --print target-libdir)" cargo +nightly test --locked --all-features -p config --doc
+          LD_LIBRARY_PATH="$(rustc --print target-libdir)" cargo +nightly test --locked --all-features -p data --doc
+          LD_LIBRARY_PATH="$(rustc --print target-libdir)" cargo +nightly test --locked --all-features -p io --doc
+          LD_LIBRARY_PATH="$(rustc --print target-libdir)" cargo +nightly test --locked --all-features -p serialization --doc
+          LD_LIBRARY_PATH="$(rustc --print target-libdir)" cargo +nightly test --locked --all-features -p ui --doc
 
   format:
     name: Check formatting
@@ -70,8 +80,10 @@ jobs:
         with:
           sweep-cache: true
 
-      - name: Check documentation
-        run: cargo doc --locked --workspace --all-features --features='editor/linux' --document-private-items --no-deps
+      - name: Build documentation
+        run: cargo +nightly doc --locked --workspace --all-features --features='editor/linux' --document-private-items --no-deps
+        env:
+          RUSTDOCFLAGS: "-Z unstable-options --enable-index-page"
   typos:
     runs-on: ubuntu-latest
     timeout-minutes: 30
