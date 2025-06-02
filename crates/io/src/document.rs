@@ -33,6 +33,10 @@ pub struct DocumentLevel {
     pub layers: Vec<DocumentLayer>,
 }
 
+/// A [`DocumentLayer`] represents a [`data::Layer`] (and it's children) that is written to or read
+/// from storage.
+///
+/// It's an intentionally simplified representation of the ECS datastructure optimised for serialisation.
 #[derive(Debug, Serialize, Deserialize)]
 pub struct DocumentLayer {
     /// See `name` in [`data::Layer::new`].

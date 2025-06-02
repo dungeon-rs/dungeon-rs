@@ -25,8 +25,8 @@ impl Configuration {
     /// Attempts to save the configuration.
     ///
     /// # Errors
-    /// - [`std::io::Error`] returned when the underlying calls to either [`std::env::current_exe`]
-    ///   or [`std::io::File::create`] fails.
+    /// - `Error` returned when the underlying calls to either `current_exe`
+    ///   or `File::create` fails.
     /// - [`serialization::SerializationError`] Thrown when a serialisation-related error occurs.
     pub fn save(&self) -> anyhow::Result<()> {
         let mut path = current_exe().with_context(|| "Failed to get current executable path")?;

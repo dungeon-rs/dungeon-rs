@@ -36,7 +36,7 @@ where
 /// * `subject`: The data structure to serialize.
 /// * `format`: A [`SerializationFormat`] that indicates which serialisation format to use.
 ///
-/// returns: [`Result<Vec<u8>>`]
+/// returns: `Result<Vec<u8>>`
 ///
 /// # Errors
 /// This method returns a [`SerializationError`] if any of the steps for serialisation fails.

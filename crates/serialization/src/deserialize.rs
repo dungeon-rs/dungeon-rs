@@ -6,14 +6,14 @@ use anyhow::Error;
 /// Shorthand for `Result<T, SerializationError>`.
 type Result<T> = std::result::Result<T, SerializationError>;
 
-/// Attempts to deserialize `subject` using `format` into [`T`].
+/// Attempts to deserialize `subject` using `format` into `T`.
 ///
 /// # Arguments
 ///
-/// * `subject`: The `Vec<u8>` that represents [`T`] in binary format.
+/// * `subject`: The `Vec<u8>` that represents `T` in binary format.
 /// * `format`: The format to use when deserializing `subject`.
 ///
-/// returns: [`Result<T>`]
+/// returns: `Result<T>`
 ///
 /// # Errors
 /// This method returns a [`SerializationError`] if any of the steps for deserialization fails.
