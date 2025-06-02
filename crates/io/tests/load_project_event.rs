@@ -3,11 +3,13 @@
 #![allow(clippy::pedantic)]
 
 use bevy::prelude::*;
+use bevy::time::TimePlugin;
 use data::Project;
 use io::{IOPlugin, LoadProjectEvent};
 use std::fs::File;
 use std::io::Write;
 use std::path::PathBuf;
+use std::time::Duration;
 use tempfile::tempdir;
 
 #[test]
@@ -15,12 +17,28 @@ fn load_project_event() -> anyhow::Result<()> {
     // Holds output files for this test, we hold the variable since it's deleted on drop.
     let temp_dir = tempdir()?;
     let mut app = App::new();
-    app.add_plugins(IOPlugin);
+    app.add_plugins((TimePlugin, IOPlugin));
     let mut input = PathBuf::from(temp_dir.path());
     input.push("testfile");
 
     let mut file = File::create_new(input.clone())?;
-    file.write_all(b"{}")?;
+    file.write_all(
+        b"{
+  \"name\": \"Example Project\",
+  \"levels\": [
+    {
+      \"name\": \"First Level\",
+      \"layers\": [
+        {
+          \"name\": \"First Layer\",
+          \"order\": 0,
+          \"items\": []
+        }
+      ]
+    }
+  ]
+}",
+    )?;
 
     // run the schedules once to process Setup and spawn
     app.update();
@@ -39,6 +57,10 @@ fn load_project_event() -> anyhow::Result<()> {
     // advance world to send event and once more to run systems
     app.update();
     app.update();
+    app.world_mut()
+        .resource_mut::<Time<Fixed>>()
+        .advance_by(Duration::from_secs(2));
+    app.world_mut().run_schedule(FixedPostUpdate);
 
     assert_eq!(
         app.world_mut()

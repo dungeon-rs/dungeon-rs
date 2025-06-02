@@ -32,7 +32,7 @@ type Result<T> = std::result::Result<T, SerializationError>;
 ///
 /// # fn main() -> anyhow::Result<()> {
 /// let json = b"{ \"bar\": \"baz\" }";
-/// deserialize(json, &SerializationFormat::JSON)?;
+/// deserialize::<Foo>(json, &SerializationFormat::JSON)?;
 /// #     Ok(())
 /// # }
 #[inline]
