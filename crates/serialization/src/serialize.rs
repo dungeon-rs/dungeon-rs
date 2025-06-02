@@ -86,7 +86,7 @@ where
     Ok(json.into_bytes())
 }
 
-/// Attempts to serialize `subject` into `MessagePack`.
+/// Attempts to serialize `subject` into `MessagePack` and returns as a `Vec<u8>`.
 #[allow(clippy::missing_errors_doc)]
 #[cfg_attr(doc, doc(cfg(feature = "msgpack")))]
 #[cfg_attr(not(feature = "msgpack"), allow(unused_variables))]
@@ -101,7 +101,7 @@ where
     rmp_serde::to_vec(subject).map_err(|error| SerializationError::Serialize(Error::from(error)))
 }
 
-/// Attempts to serialize `subject` into `TOML`.
+/// Attempts to serialize `subject` into `TOML` and returns the string as a `Vec<u8>`.
 #[allow(clippy::missing_errors_doc)]
 #[cfg_attr(doc, doc(cfg(feature = "toml")))]
 #[allow(clippy::missing_errors_doc, unused_variables)]
