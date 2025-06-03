@@ -1,6 +1,6 @@
 use crate::document::Document;
 use anyhow::Context;
-use bevy::prelude::{BevyError, Commands, Event, EventReader, Transform, bevy_main, default};
+use bevy::prelude::{BevyError, Commands, Event, EventReader, Transform, default};
 use data::{Layer, Level, Project};
 use serialization::deserialize;
 use std::fs::read;
