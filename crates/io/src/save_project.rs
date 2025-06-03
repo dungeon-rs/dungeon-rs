@@ -34,8 +34,7 @@ impl SaveProjectEvent {
 }
 
 /// Bevy system that handles [`SaveProjectEvent`] events.
-#[allow(clippy::missing_errors_doc)]
-#[allow(clippy::needless_pass_by_value)]
+#[core::bevy_system]
 pub fn handle_save_project(
     mut events: EventReader<SaveProjectEvent>,
     project_query: Query<(&Name, &Children), With<Project>>,

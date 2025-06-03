@@ -1,6 +1,6 @@
 use crate::document::Document;
 use anyhow::Context;
-use bevy::prelude::{BevyError, Commands, Event, EventReader, Transform, default};
+use bevy::prelude::{BevyError, Commands, Event, EventReader, Transform, bevy_main, default};
 use data::{Layer, Level, Project};
 use serialization::deserialize;
 use std::fs::read;
@@ -17,7 +17,7 @@ pub struct LoadProjectEvent {
 }
 
 /// Bevy system that handles `LoadProjectEvent` events that were fired.
-#[allow(clippy::missing_errors_doc)]
+#[core::bevy_system]
 pub fn handle_load_project_event(
     mut events: EventReader<LoadProjectEvent>,
     mut commands: Commands,
