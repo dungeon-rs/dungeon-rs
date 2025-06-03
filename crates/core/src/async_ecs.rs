@@ -4,11 +4,11 @@
 //! and automatically executes commands emitted on the world the component is attached to.
 
 use bevy::ecs::world::CommandQueue;
-use bevy::prelude::{BevyError, Commands, Component, Entity, Query};
+use bevy::prelude::{BevyError, Commands, Component, Entity, Event, Query, World};
 use bevy::tasks::futures_lite::future;
 use bevy::tasks::{AsyncComputeTaskPool, ComputeTaskPool, IoTaskPool, Task, block_on};
-use crossbeam_channel::unbounded;
 pub use crossbeam_channel::{Receiver, Sender};
+use crossbeam_channel::{SendError, unbounded};
 use std::future::Future;
 
 /// Represents an ongoing asynchronous operation that will be polled for progress and/or completion.
@@ -72,6 +72,50 @@ impl AsyncComponent {
         let task = IoTaskPool::get().spawn(task(sender));
         AsyncComponent { task, receiver }
     }
+}
+
+/// A helper function for reporting progress from a task controlled by [`AsyncComponent`].
+///
+/// This method is a shorthand for creating a `CommandQueue`, pushing a single command that dispatches
+/// an event (of type `E`) and sends it over the `sender`.
+///
+/// # Example
+/// ```rust
+/// # use bevy::prelude::*;
+/// # use core::{AsyncComponent, report_progress};
+/// #[derive(Event)]
+/// struct FooEvent;
+///
+/// # fn main() {
+/// #     let mut app = App::new();
+/// #     app.add_plugins(TaskPoolPlugin::default());
+/// #     app.add_event::<FooEvent>();
+/// #     app.add_systems(Startup, setup);
+/// #     app.run();
+/// # }
+/// #
+/// # fn setup(mut commands: Commands) {
+/// #    commands.spawn(AsyncComponent::new_async(async |sender| {
+/// report_progress(&sender, FooEvent)?;
+/// #        Ok(())
+/// #    }));
+/// # }
+/// ```
+/// # Errors
+/// This method forwards the `Result` received from calling `sender.send(...)`.
+pub fn report_progress<E>(
+    sender: &Sender<CommandQueue>,
+    event: E,
+) -> Result<(), SendError<CommandQueue>>
+where
+    E: Event,
+{
+    let mut queue = CommandQueue::default();
+    queue.push(move |world: &mut World| {
+        world.send_event(event);
+    });
+
+    sender.send(queue)
 }
 
 /// Polls each [`AsyncComponent`] in the ECS tree and checks for progress and/or completion.
