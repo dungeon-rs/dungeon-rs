@@ -1706,7 +1706,9 @@ dependencies = [
 name = "core"
 version = "0.0.1"
 dependencies = [
+ "bevy",
  "core_macros",
+ "crossbeam-channel",
 ]
 
 [[package]]
