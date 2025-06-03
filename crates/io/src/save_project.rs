@@ -1,9 +1,11 @@
 use crate::document::Document;
 use anyhow::Context;
-use bevy::prelude::default;
 use bevy::prelude::{
     BevyError, Children, Entity, Event, EventReader, Name, Query, Transform, With,
 };
+use bevy::prelude::{Commands, default};
+use core::AsyncComponent;
+use core::report_progress;
 use data::{Layer, Level, Project};
 use serialization::serialize_to;
 use std::{fs::File, path::PathBuf};
@@ -25,6 +27,13 @@ pub struct SaveProjectEvent {
     pub(crate) output: PathBuf,
 }
 
+/// This event indicates that the work of a [`SaveProjectEvent`] has completed.
+#[derive(Event, Debug)]
+pub struct SaveProjectCompleteEvent {
+    /// The output path of the savefile that was created.
+    pub(crate) output: PathBuf,
+}
+
 impl SaveProjectEvent {
     /// Generate a new [`SaveProjectEvent`] that can be dispatched.
     #[must_use = "This event does nothing unless you dispatch it"]
@@ -36,6 +45,7 @@ impl SaveProjectEvent {
 /// Bevy system that handles [`SaveProjectEvent`] events.
 #[core::bevy_system]
 pub fn handle_save_project(
+    mut commands: Commands,
     mut events: EventReader<SaveProjectEvent>,
     project_query: Query<(&Name, &Children), With<Project>>,
     level_query: Query<(&Level, &Name, &Children)>,
@@ -46,15 +56,22 @@ pub fn handle_save_project(
     };
 
     let project = project_query.get(event.project)?;
+
+    let output = event.output.clone();
     let document = Document::new(project, level_query, layer_query);
-    // TODO: we should probably write asynchronously to files
-    let file = File::create(event.output.clone()).with_context(|| {
-        format!(
-            "Failed to open {} for writing savefile",
-            event.output.display()
-        )
-    })?;
-    serialize_to(&document, &default(), file)?;
+    commands.spawn(AsyncComponent::new_io(async move |sender| {
+        let file = File::create(output.clone())
+            .with_context(|| format!("Failed to open {} for writing savefile", output.display()))?;
+        serialize_to(&document, &default(), file)?;
+
+        report_progress(
+            &sender,
+            SaveProjectCompleteEvent {
+                output: PathBuf::new(),
+            },
+        )?;
+        Ok(())
+    }));
 
     Ok(())
 }

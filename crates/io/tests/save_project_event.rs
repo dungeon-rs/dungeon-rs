@@ -44,7 +44,19 @@ fn save_project_event() -> anyhow::Result<()> {
         .resource_mut::<Time<Fixed>>()
         .advance_by(Duration::from_secs(2));
     app.world_mut().run_schedule(FixedPostUpdate);
-    // TODO: currently tests don't seem to fail when the system internally fails (for whatever reason).
+    app.update();
+    app.world_mut()
+        .resource_mut::<Time<Fixed>>()
+        .advance_by(Duration::from_secs(2));
+    app.world_mut().run_schedule(FixedPostUpdate);
+    app.update();
+
+    // TODO: this fails to query the event.
+    // assert_eq!(
+    //     app.world_mut().resource::<Events<SaveProjectCompleteEvent>>().len(),
+    //     1,
+    //     "SaveProjectEvent should have been emitted"
+    // );
 
     let json = read_to_string(output.clone())
         .with_context(|| format!("Output file {} could not be opened", output.display()))?;
