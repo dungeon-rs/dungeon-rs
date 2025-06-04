@@ -1,7 +1,7 @@
 //! Defines the [`UIPlugin`] which inserts all UI related functionality into the bevy `App`.
 use crate::camera::{UICamera, camera_control_system};
 use bevy::app::App;
-use bevy::prelude::{AssetServer, Commands, Plugin, PostUpdate, Res, Sprite, Startup};
+use bevy::prelude::{Commands, Plugin, PostUpdate, Startup};
 use bevy_egui::EguiPlugin;
 use bevy_inspector_egui::quick::WorldInspectorPlugin;
 
@@ -15,12 +15,12 @@ impl Plugin for UIPlugin {
             enable_multipass_for_primary_context: true,
         })
         .add_plugins(WorldInspectorPlugin::new())
-        .add_systems(Startup, setup);
+        .add_systems(Startup, setup_ui_camera);
     }
 }
-#[utils::bevy_system]
-fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
-    commands.spawn(UICamera::bundle());
 
-    commands.spawn(Sprite::from_image(asset_server.load("logo.png")));
+/// Sets up the [`UICamera`] bundle.
+#[utils::bevy_system]
+fn setup_ui_camera(mut commands: Commands) {
+    commands.spawn(UICamera::bundle());
 }
