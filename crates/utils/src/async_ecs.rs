@@ -82,7 +82,7 @@ impl AsyncComponent {
 /// # Example
 /// ```rust
 /// # use bevy::prelude::*;
-/// # use core::{AsyncComponent, report_progress};
+/// # use utils::{AsyncComponent, report_progress};
 /// #[derive(Event)]
 /// struct FooEvent;
 ///

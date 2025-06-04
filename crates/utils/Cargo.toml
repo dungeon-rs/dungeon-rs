@@ -1,6 +1,6 @@
 [package]
-name = "core_macros"
-description = "Contains macros for the `core` crate"
+name = "utils"
+description = "Crate containing helpers, macros and utilities for use in all other crates"
 edition.workspace = true
 repository.workspace = true
 version.workspace = true
@@ -10,15 +10,13 @@ license-file.workspace = true
 rust-version.workspace = true
 publish.workspace = true
 
-[lib]
-proc-macro = true
-
 [lints]
 workspace = true
 
 [dependencies]
-quote = "1.0.40"
-syn = { version = "2.0.101", features = ["full"] }
+utils_macros = { path = "macros" }
+bevy = { workspace = true }
+crossbeam-channel = "0.5.15"
 
 [features]
 default = []

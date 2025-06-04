@@ -16,7 +16,7 @@ workspace = true
 [dependencies]
 data = { path = "../data" }
 serialization = { path = "../serialization" }
-core = { path = "../core" }
+utils = { path = "../utils" }
 bevy = { workspace = true, default-features = false }
 serde = { workspace = true }
 anyhow = { workspace = true }

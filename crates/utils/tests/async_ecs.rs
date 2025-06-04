@@ -7,8 +7,8 @@ use bevy::app::FixedPostUpdate;
 use bevy::ecs::world::CommandQueue;
 use bevy::prelude::{App, Component, Fixed, Time, World};
 use bevy::tasks::tick_global_task_pools_on_main_thread;
-use core::{AsyncComponent, CorePlugin};
 use std::time::Duration;
+use utils::{AsyncComponent, CorePlugin};
 
 #[derive(Component)]
 struct FooComponent {
