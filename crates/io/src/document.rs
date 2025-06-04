@@ -81,6 +81,21 @@ impl Document {
             levels,
         }
     }
+
+    /// Calculates the total number of entities contained in this document.
+    ///
+    /// It counts itself, all children and their children recursively.
+    /// This is used mostly for progress reporting when loading projects.
+    pub fn count(&self) -> u32 {
+        // start counting at 1 because we count ourselves.
+        self.levels.iter().fold(1, |total, lvl| {
+            // start counting at total + 1 to count the level along
+            lvl.layers.iter().fold(total + 1, |total, layer| {
+                // same deal for the items, count the layer
+                layer.items.iter().fold(total + 1, |total, _item| total + 1)
+            })
+        })
+    }
 }
 
 impl DocumentLevel {
@@ -122,5 +137,89 @@ impl DocumentLayer {
             order: value.2.translation.z,
             items: Vec::new(),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    #![allow(clippy::type_complexity)]
+    #![allow(clippy::missing_panics_doc)]
+    #![allow(clippy::missing_errors_doc)]
+    #![allow(clippy::float_cmp)]
+
+    use super::*;
+    use bevy::ecs::system::SystemState;
+    use bevy::prelude::*;
+    use data::{Layer, Level, Project};
+
+    #[test]
+    pub fn document_new() -> anyhow::Result<()> {
+        let mut world = World::default();
+        world.spawn((
+            Project::new("Example Project"),
+            children![(
+                Level::new("First Level"),
+                children![(Layer::new("First Layer", Transform::IDENTITY), children![])]
+            )],
+        ));
+
+        let mut system_state: SystemState<(
+            Query<(&Name, &Children), With<Project>>,
+            Query<(&Level, &Name, &Children)>,
+            Query<(&Layer, &Name, &Transform, &Children)>,
+        )> = SystemState::new(&mut world);
+        let (project_query, level_query, layer_query) = system_state.get(&world);
+        let project = project_query.single()?;
+
+        let document = Document::new(project, level_query, layer_query);
+        assert_eq!(document.name, String::from("Example Project"));
+        assert_eq!(document.levels.len(), 1);
+        assert_eq!(document.levels[0].name, String::from("First Level"));
+        assert_eq!(document.levels[0].layers.len(), 1);
+        assert_eq!(document.levels[0].layers[0].name, "First Layer");
+        assert_eq!(document.levels[0].layers[0].order, 0.0);
+
+        Ok(())
+    }
+
+    #[test]
+    pub fn document_count_recursive() {
+        let document = Document {
+            name: String::from("test document"),
+            levels: vec![
+                DocumentLevel {
+                    name: String::from("test level 1"),
+                    layers: vec![
+                        DocumentLayer {
+                            name: String::from("test layer 1"),
+                            order: 0.0,
+                            items: vec![],
+                        },
+                        DocumentLayer {
+                            name: String::from("test layer 2"),
+                            order: 0.0,
+                            items: vec![],
+                        },
+                    ],
+                },
+                DocumentLevel {
+                    name: String::from("test level 2"),
+                    layers: vec![
+                        DocumentLayer {
+                            name: String::from("test layer 3"),
+                            order: 0.0,
+                            items: vec![],
+                        },
+                        DocumentLayer {
+                            name: String::from("test layer 4"),
+                            order: 0.0,
+                            items: vec![],
+                        },
+                    ],
+                },
+            ],
+        };
+
+        assert_eq!(document.count(), 7);
     }
 }
