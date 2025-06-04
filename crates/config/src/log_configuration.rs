@@ -2,9 +2,12 @@
 
 use serialization::{Deserialize, Serialize};
 
+/// A configuration block to control how the application should handle logging.
+///
+/// It allows configuring the filter (which parts log at which level) and the minimum level of the logging system.
 #[derive(Debug, Serialize, Deserialize)]
 pub struct LogConfiguration {
-    /// A filter that tells
+    /// A filter that indicates how to filter logging from various parts of the software.
     ///
     /// For syntax and information, see [`EnvFilter`](https://docs.rs/tracing-subscriber/latest/tracing_subscriber/filter/struct.EnvFilter.html)
     pub filter: String,
