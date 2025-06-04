@@ -22,9 +22,16 @@ bevy-inspector-egui = { version = "0.31.0", default-features = false, features =
 [features]
 default = []
 dev = [
+  "utils/dev",
   "egui/deadlock_detection",
   "egui/log"
 ]
-windows = []
-linux = []
-macos = []
+windows = [
+  "utils/windows"
+]
+linux = [
+  "utils/linux"
+]
+macos = [
+  "utils/macos"
+]

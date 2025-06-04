@@ -23,7 +23,15 @@ bevy = { workspace = true }
 default = [
   "serialization/toml"
 ]
-dev = []
-windows = []
-linux = []
-macos = []
+dev = [
+  "serialization/dev"
+]
+windows = [
+  "serialization/windows"
+]
+linux = [
+  "serialization/windows"
+]
+macos = [
+  "serialization/macos"
+]

@@ -35,22 +35,30 @@ default = ["png"]
 dev = [
   "data/dev",
   "io/dev",
-  "ui/dev"
+  "ui/dev",
+  "utils/dev",
+  "config/dev"
 ]
 windows = [
   "data/windows",
   "io/windows",
-  "ui/windows"
+  "ui/windows",
+  "utils/windows",
+  "config/windows"
 ]
 linux = [
   "data/linux",
   "io/linux",
-  "ui/linux"
+  "ui/linux",
+  "utils/linux",
+  "config/linux"
 ]
 macos = [
   "data/macos",
   "io/macos",
-  "ui/macos"
+  "ui/macos",
+  "utils/macos",
+  "config/macos"
 ]
 
 # support for various image formats

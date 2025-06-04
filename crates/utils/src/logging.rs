@@ -23,20 +23,21 @@ pub fn log_plugin(config: &LogConfiguration) -> LogPlugin {
 /// This allows us to configure how the software should log, where and so forth.
 #[allow(clippy::unnecessary_wraps)]
 fn custom_layer(_app: &mut App) -> Option<BoxedLayer> {
-    let writer = daily("logs", "dungeonrs");
-
     #[cfg(not(feature = "dev"))]
     return None;
 
+    #[allow(
+        unreachable_code,
+        reason = "Only unreachable in dev, release mode will have this on"
+    )]
     Some(Box::new(vec![
-        // layer().with_file(true).boxed(),
         layer()
             .with_file(false)
             .with_thread_names(true)
             .with_thread_ids(true)
             .with_level(true)
             .json()
-            .with_writer(writer)
+            .with_writer(daily("logs", "dungeonrs"))
             .boxed(),
     ]))
 }
