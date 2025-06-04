@@ -4516,6 +4516,7 @@ dependencies = [
  "bevy-inspector-egui",
  "bevy_egui",
  "egui",
+ "utils",
 ]
 
 [[package]]
