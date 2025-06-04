@@ -1,5 +1,6 @@
 //! Defines [`Configuration`], the primary struct to access configuration throughout the application.
 
+use crate::LogConfiguration;
 use anyhow::Context;
 use bevy::prelude::Resource;
 use serialization::{Deserialize, SerializationFormat, Serialize, deserialize, serialize_to};
@@ -21,6 +22,10 @@ pub struct Configuration {
     /// The result is that if the same library is located in different paths (as is often the case
     /// across multiple devices and/or users), asset references will still work consistently.
     pub libraries: HashMap<String, PathBuf>,
+    /// Controls how the application should handle logging.
+    ///
+    /// Note that some configuration requires additional features to be enabled to work.
+    pub logging: LogConfiguration,
 }
 
 const CONFIG_FILE_NAME: &str = "config.toml";

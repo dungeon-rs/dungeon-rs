@@ -4,6 +4,7 @@ use bevy::prelude::*;
 use config::Configuration;
 use io::IOPlugin;
 use ui::UIPlugin;
+use utils::log_plugin;
 
 /// Main entry point for the editor.
 ///
@@ -17,7 +18,11 @@ fn main() -> AppExit {
     };
 
     App::new()
-        .add_plugins((DefaultPlugins, IOPlugin, UIPlugin))
+        .add_plugins((
+            DefaultPlugins.set(log_plugin(&config.logging)),
+            IOPlugin,
+            UIPlugin,
+        ))
         .insert_resource(config)
         .run()
 }

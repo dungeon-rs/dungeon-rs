@@ -13,3 +13,6 @@ target/
 # --- Test files for local development
 output.png
 output.drs
+
+# --- Ignore log files
+/logs/

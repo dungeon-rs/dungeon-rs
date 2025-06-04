@@ -17,6 +17,7 @@ workspace = true
 data = { path = "../data" }
 io = { path = "../io" }
 ui = { path = "../ui" }
+utils = { path = "../utils" }
 config = { path = "../config" }
 bevy = { workspace = true, default-features = false, features = [
   "std",
