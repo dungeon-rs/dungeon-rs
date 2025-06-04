@@ -81,21 +81,6 @@ impl Document {
             levels,
         }
     }
-
-    /// Calculates the total number of entities contained in this document.
-    ///
-    /// It counts itself, all children and their children recursively.
-    /// This is used mostly for progress reporting when loading projects.
-    pub fn count(&self) -> u32 {
-        // start counting at 1 because we count ourselves.
-        self.levels.iter().fold(1, |total, lvl| {
-            // start counting at total + 1 to count the level along
-            lvl.layers.iter().fold(total + 1, |total, layer| {
-                // same deal for the items, count the layer
-                layer.items.iter().fold(total + 1, |total, _item| total + 1)
-            })
-        })
-    }
 }
 
 impl DocumentLevel {
@@ -180,46 +165,5 @@ mod tests {
         assert_eq!(document.levels[0].layers[0].order, 0.0);
 
         Ok(())
-    }
-
-    #[test]
-    pub fn document_count_recursive() {
-        let document = Document {
-            name: String::from("test document"),
-            levels: vec![
-                DocumentLevel {
-                    name: String::from("test level 1"),
-                    layers: vec![
-                        DocumentLayer {
-                            name: String::from("test layer 1"),
-                            order: 0.0,
-                            items: vec![],
-                        },
-                        DocumentLayer {
-                            name: String::from("test layer 2"),
-                            order: 0.0,
-                            items: vec![],
-                        },
-                    ],
-                },
-                DocumentLevel {
-                    name: String::from("test level 2"),
-                    layers: vec![
-                        DocumentLayer {
-                            name: String::from("test layer 3"),
-                            order: 0.0,
-                            items: vec![],
-                        },
-                        DocumentLayer {
-                            name: String::from("test layer 4"),
-                            order: 0.0,
-                            items: vec![],
-                        },
-                    ],
-                },
-            ],
-        };
-
-        assert_eq!(document.count(), 7);
     }
 }
