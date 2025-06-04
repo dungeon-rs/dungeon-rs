@@ -1,4 +1,4 @@
-//! Contains the [`SaveProjectEvent`] and it's handler systems.
+//! Contains the events for saving projects and their handling systems.
 use crate::document::Document;
 use anyhow::Context;
 use bevy::prelude::{
@@ -30,12 +30,14 @@ pub struct SaveProjectEvent {
 /// This event indicates that the work of a [`SaveProjectEvent`] has completed.
 #[derive(Event, Debug)]
 pub struct SaveProjectCompleteEvent {
+    /// The [`Entity`] of the [`data::Project`] that was saved.
+    pub project: Entity,
     /// The output path of the savefile that was created.
     #[allow(
         dead_code,
         reason = "Temporarily until editor and status reporting is implemented"
     )]
-    pub(crate) output: PathBuf, // TODO: remove dead_code
+    pub output: PathBuf, // TODO: remove dead_code
 }
 
 impl SaveProjectEvent {
@@ -61,6 +63,7 @@ pub fn handle_save_project(
 
     let project = project_query.get(event.project)?;
 
+    let entity = event.project;
     let output = event.output.clone();
     let document = Document::new(project, level_query, layer_query);
     commands.spawn(AsyncComponent::new_io(async move |sender| {
@@ -68,10 +71,12 @@ pub fn handle_save_project(
             .with_context(|| format!("Failed to open {} for writing savefile", output.display()))?;
         serialize_to(&document, &default(), file)?;
 
+        // Report completion
         report_progress(
             &sender,
             SaveProjectCompleteEvent {
-                output: PathBuf::new(),
+                project: entity,
+                output,
             },
         )?;
         Ok(())
