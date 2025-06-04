@@ -19,6 +19,9 @@ pub struct AsyncComponent {
     /// The task tracking if the asynchronous operation is completed.
     task: Task<Result<(), BevyError>>,
     /// The channel through which updates are emitted.
+    ///
+    /// Updates are modelled through Bevy's [`CommandQueue`](https://docs.rs/bevy/latest/bevy/ecs/world/struct.CommandQueue.html),
+    /// which allows async tasks to send commands back to the main World.
     receiver: Receiver<CommandQueue>,
 }
 
@@ -137,8 +140,12 @@ pub(crate) fn handle_async_components(
             commands.append(&mut queue);
         }
 
-        if block_on(future::poll_once(&mut component.task)).is_some() {
-            commands.entity(entity).despawn();
+        if let Some(result) = block_on(future::poll_once(&mut component.task)) {
+            if result.is_ok() {
+                commands.entity(entity).despawn();
+            } else {
+                // TODO: handle errors in async tasks?
+            }
         }
     }
 }
