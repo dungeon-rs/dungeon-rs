@@ -1,3 +1,4 @@
+//! Provides all serialisation related methods and their respective formats.
 use crate::Serialize;
 use crate::error::SerializationError;
 use crate::format::SerializationFormat;

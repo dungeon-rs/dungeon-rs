@@ -1,3 +1,4 @@
+//! Contains all errors defined and used by the `serialization` crate.
 use thiserror::Error;
 
 /// Represents potential serialisation errors.

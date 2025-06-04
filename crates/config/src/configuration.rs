@@ -1,3 +1,5 @@
+//! Defines [`Configuration`], the primary struct to access configuration throughout the application.
+
 use anyhow::Context;
 use bevy::prelude::Resource;
 use serialization::{Deserialize, SerializationFormat, Serialize, deserialize, serialize_to};

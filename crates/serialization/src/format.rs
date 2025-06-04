@@ -1,3 +1,5 @@
+//! Contains the formats the `serialization` crate makes available.
+
 /// Available serialisation formats.
 #[non_exhaustive]
 #[derive(Debug, Default)]

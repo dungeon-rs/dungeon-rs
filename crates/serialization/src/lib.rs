@@ -1,6 +1,5 @@
 #![cfg_attr(doc, feature(doc_cfg))]
 #![doc = include_str!("../README.md")]
-#![allow(clippy::missing_docs_in_private_items)]
 
 mod deserialize;
 mod error;

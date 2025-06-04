@@ -1,3 +1,4 @@
+//! Contains the [`SaveProjectEvent`] and it's handler systems.
 use crate::document::Document;
 use anyhow::Context;
 use bevy::prelude::{
@@ -7,8 +8,7 @@ use bevy::prelude::{Commands, default};
 use data::{Layer, Level, Project};
 use serialization::serialize_to;
 use std::{fs::File, path::PathBuf};
-use utils::AsyncComponent;
-use utils::report_progress;
+use utils::{AsyncComponent, report_progress};
 
 /// When this event is sent, the associated `project` will be fetched and saved.
 /// As a reaction to this event, a system will build a [`bevy::prelude::Query`] that attempts to
@@ -31,7 +31,11 @@ pub struct SaveProjectEvent {
 #[derive(Event, Debug)]
 pub struct SaveProjectCompleteEvent {
     /// The output path of the savefile that was created.
-    pub(crate) output: PathBuf,
+    #[allow(
+        dead_code,
+        reason = "Temporarily until editor and status reporting is implemented"
+    )]
+    pub(crate) output: PathBuf, // TODO: remove dead_code
 }
 
 impl SaveProjectEvent {

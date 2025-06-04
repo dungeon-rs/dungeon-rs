@@ -1,3 +1,4 @@
+//! Provides all deserialisation related methods and their respective formats.
 use crate::Deserialize;
 use crate::error::SerializationError;
 use crate::format::SerializationFormat;
@@ -6,12 +7,12 @@ use anyhow::Error;
 /// Shorthand for `Result<T, SerializationError>`.
 type Result<T> = std::result::Result<T, SerializationError>;
 
-/// Attempts to deserialize `subject` using `format` into `T`.
+/// Attempts to deserialise `subject` using `format` into `T`.
 ///
 /// # Arguments
 ///
 /// * `subject`: The `Vec<u8>` that represents `T` in binary format.
-/// * `format`: The format to use when deserializing `subject`.
+/// * `format`: The format to use when deserialising `subject`.
 ///
 /// returns: `Result<T>`
 ///

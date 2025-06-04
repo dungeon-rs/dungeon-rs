@@ -1,3 +1,4 @@
+//! Contains the [`LoadProjectEvent`] and it's handler systems.
 use crate::document::Document;
 use anyhow::Context;
 use bevy::prelude::{BevyError, Commands, Event, EventReader, Transform, default};

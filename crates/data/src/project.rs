@@ -1,3 +1,4 @@
+//! Defines the [`Project`] struct and it's implementations.
 use bevy::prelude::{Bundle, Component, Name, Transform, Visibility};
 use std::borrow::Cow;
 

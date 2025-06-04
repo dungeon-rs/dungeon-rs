@@ -1,3 +1,4 @@
+//! Defines the [`UIPlugin`] which inserts all UI related functionality into the bevy `App`.
 use bevy::app::App;
 use bevy::prelude::Plugin;
 use bevy_egui::EguiPlugin;
