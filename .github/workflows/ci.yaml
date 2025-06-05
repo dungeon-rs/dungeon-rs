@@ -137,4 +137,6 @@ jobs:
 
       - name: Check for undocumented features
         working-directory: tools/ci
-        run: cargo run --profile dev -- validate-features
+        run: |
+          cargo run --profile dev -- documented-features
+          cargo run --profile dev -- required-features

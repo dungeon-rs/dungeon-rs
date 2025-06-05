@@ -1,5 +1,5 @@
 //! This module contains the command to validate that all features in the workspace have been documented.
-
+use crate::validate_required_features::REQUIRED_FEATURES;
 use anyhow::{Context, Result, anyhow};
 use cargo_metadata::MetadataCommand;
 use cli_colors::Colorizer;
@@ -54,7 +54,7 @@ pub fn execute() -> Result<()> {
     Ok(())
 }
 
-/// For one package, read its declared features (excluding "default"), then ensure each name
+/// For one package, read its declared features (excluding required packages), then ensure each name
 /// appears in its README.md (as a substring).
 fn validate_package_features(
     pkg: &cargo_metadata::Package,
@@ -87,7 +87,7 @@ fn validate_package_features(
     let declared_features: Vec<String> = pkg
         .features
         .keys()
-        .filter(|&feat_name| feat_name != "default")
+        .filter(|&feat_name| !REQUIRED_FEATURES.contains(&feat_name.as_str()))
         .cloned()
         .collect();
 
