@@ -99,3 +99,42 @@ jobs:
           echo 'You can find typos here: https://crates.io/crates/typos'
           echo 'if you use VSCode, you can also install `Typos Spell Checker'
           echo 'You can find the extension here: https://marketplace.visualstudio.com/items?itemName=tekumara.typos-vscode'
+
+  check_compiles:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    name: Check DungeonRS compiles on stable
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Populate target directory from cache
+        uses: Leafwing-Studios/cargo-cache@v2
+        with:
+          sweep-cache: true
+
+      - name: Run build
+        run: cargo build --workspace --profile=fast --all-features
+
+  advanced_checks:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    name: Advanced CI checks
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Populate target directory from cache
+        uses: Leafwing-Studios/cargo-cache@v2
+        with:
+          sweep-cache: true
+
+      - name: Check for undocumented features
+        working-directory: tools/ci
+        run: cargo run --profile dev -- validate-features
