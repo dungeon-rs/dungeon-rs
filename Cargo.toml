@@ -20,6 +20,9 @@ authors = [
 unsafe_code = "forbid"
 missing_docs = "warn"
 
+[workspace.lints.rustdoc]
+private_intra_doc_links = "allow"
+
 [workspace.lints.clippy]
 pedantic = "warn"
 suspicious = "warn"

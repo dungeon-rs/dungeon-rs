@@ -13,7 +13,8 @@ use std::future::Future;
 
 /// Represents an ongoing asynchronous operation that will be polled for progress and/or completion.
 ///
-/// To create instances, see [`AsyncComponent::new`].
+/// To create instances, see [`AsyncComponent::new_async`], [`AsyncComponent::new_compute`] and
+/// [`AsyncComponent::new_io`].
 #[derive(Component)]
 pub struct AsyncComponent {
     /// The task tracking if the asynchronous operation is completed.
