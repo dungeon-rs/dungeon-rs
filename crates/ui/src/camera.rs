@@ -3,8 +3,8 @@
 use bevy::input::mouse::{AccumulatedMouseMotion, AccumulatedMouseScroll};
 use bevy::prelude::Projection::Orthographic;
 use bevy::prelude::{
-    Bundle, ButtonInput, Camera2d, Component, Local, MouseButton, Name, Projection, Res, Single,
-    Transform, With,
+    Bundle, ButtonInput, Camera2d, Commands, Component, Local, MouseButton, Name, Projection, Res,
+    Single, Transform, With,
 };
 
 /// Marker component for the UI's camera bundle.
@@ -24,6 +24,12 @@ impl UICamera {
     pub fn bundle() -> impl Bundle {
         (Name::new("UI Camera"), Self, Camera2d)
     }
+}
+
+/// Spawns the [`UICamera`] bundle.
+#[utils::bevy_system]
+pub(crate) fn setup_ui_camera(mut commands: Commands) {
+    commands.spawn(UICamera::bundle());
 }
 
 /// The system that controls the UI camera.
