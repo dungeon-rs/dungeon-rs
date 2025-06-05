@@ -81,7 +81,7 @@ jobs:
           sweep-cache: true
 
       - name: Build documentation
-        run: cargo +nightly doc --locked --workspace --all-features --features='editor/linux' --document-private-items --no-deps
+        run: cargo +nightly doc --profile=fast --locked --workspace --all-features --features='editor/linux' --document-private-items --no-deps
         env:
           RUSTDOCFLAGS: "-Z unstable-options --enable-index-page"
   typos:
