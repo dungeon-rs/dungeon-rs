@@ -1,0 +1,16 @@
+[package]
+name = "ci"
+edition = "2024"
+
+[dependencies]
+anyhow = "1.0.98"
+cargo_metadata = "0.20.0"
+clap = { version = "4.5.39", features = ["derive"] }
+cli-colors = "1.0.0"
+cli-table = "0.5.0"
+
+[profile.dev]
+opt-level = 0
+
+[profile.dev.package."*"]
+opt-level = 0
