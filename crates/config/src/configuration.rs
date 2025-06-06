@@ -3,6 +3,7 @@
 use crate::LogConfiguration;
 use anyhow::Context;
 use bevy::prelude::Resource;
+use semver::{BuildMetadata, Prerelease, Version};
 use serialization::{Deserialize, SerializationFormat, Serialize, deserialize, serialize_to};
 use std::collections::HashMap;
 use std::env::current_exe;
@@ -11,8 +12,10 @@ use std::io::Read;
 use std::path::PathBuf;
 
 /// Configuration for the `DungeonRS` application.
-#[derive(Resource, Debug, Default, Serialize, Deserialize)]
+#[derive(Resource, Debug, Serialize, Deserialize)]
 pub struct Configuration {
+    /// The version of the software that created the configuration file.
+    pub version: Version,
     /// A list of recently opened files,
     /// used in the UI to show recently opened projects.
     pub recents: Vec<PathBuf>,
@@ -28,7 +31,25 @@ pub struct Configuration {
     pub logging: LogConfiguration,
 }
 
+/// The filename of the configuration file.
 const CONFIG_FILE_NAME: &str = "config.toml";
+
+impl Default for Configuration {
+    fn default() -> Self {
+        Self {
+            version: Version::parse(env!("CARGO_PKG_VERSION")).unwrap_or(Version {
+                major: 0,
+                minor: 0,
+                patch: 0,
+                pre: Prerelease::new("").unwrap(),
+                build: BuildMetadata::EMPTY,
+            }),
+            recents: Vec::new(),
+            libraries: HashMap::new(),
+            logging: LogConfiguration::default(),
+        }
+    }
+}
 
 impl Configuration {
     /// Attempt to load configuration from [`CONFIG_FILE_NAME`].
