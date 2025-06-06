@@ -17,8 +17,13 @@ pub struct UiState {
 impl Default for UiState {
     fn default() -> Self {
         let mut state = DockState::new(vec![EditorPanels::Editor]);
-        let tree = state.main_surface_mut();
-        let [_, _] = tree.split_right(NodeIndex::root(), 0.75, vec![EditorPanels::Foo]);
+        let surface = state.main_surface_mut();
+        let [_, _assets] = surface.split_below(NodeIndex::root(), 0.9, vec![EditorPanels::Assets]);
+        let [_, _layers] = surface.split_right(
+            NodeIndex::root(),
+            0.8,
+            vec![EditorPanels::Layers, EditorPanels::Levels],
+        );
 
         Self { dock_state: state }
     }

@@ -1,12 +1,15 @@
-//! This module defines the building blocks for layouting the editor.
+//! This module defines the building blocks for building the layout of the editor.
 //!
 //! The current implementation builds an `egui_dock` `TabViewer` and delegates the specific layout
 //! to that. We contain the different panels and how to construct them in this module.
+
+mod assets;
+mod layers;
+mod levels;
+
 use crate::state::UiState;
-use bevy::prelude::{With, World};
-use bevy::window::PrimaryWindow;
-use bevy_egui::EguiContext;
-use bevy_inspector_egui::bevy_inspector::ui_for_world;
+use bevy::prelude::ResMut;
+use bevy_egui::EguiContexts;
 use egui::{Ui, WidgetText};
 use egui_dock::{DockArea, Style, TabViewer};
 
@@ -17,19 +20,19 @@ use egui_dock::{DockArea, Style, TabViewer};
 pub enum EditorPanels {
     /// The "main" view that shows the underlying Bevy rendered world.
     Editor,
-    /// testing purposes.
-    Foo,
+    /// Shows the assets available in the currently selected libraries.
+    Assets,
+    /// Shows the layers available in the currently selected level.
+    Layers,
+    /// Shows the levels available in the currently selected project.
+    Levels,
 }
 
 /// Contains the data structures that are available to the [`TabViewer`] when rendering the editor layout.
 /// See [`EditorLayout::ui`] in particular.
-pub struct EditorLayout<'a> {
-    /// The Bevy `World` that is rendering the [`EditorLayout`] instance.
-    /// We need this to show various editing panels.
-    world: &'a mut World,
-}
+pub struct EditorLayout {}
 
-impl TabViewer for EditorLayout<'_> {
+impl TabViewer for EditorLayout {
     type Tab = EditorPanels;
 
     fn title(&mut self, tab: &mut Self::Tab) -> WidgetText {
@@ -39,12 +42,17 @@ impl TabViewer for EditorLayout<'_> {
     fn ui(&mut self, ui: &mut Ui, tab: &mut Self::Tab) {
         match tab {
             EditorPanels::Editor => {
-                ui.label("Editor panel");
-                ui_for_world(self.world, ui);
+                // we don't render anything in the editor view.
+                // Instead, in `clear_background` we make the background transparent so the underlying
+                // Bevy render is visible.
+
+                // Later on, we'd want to get the rectangle that this pane is shown in and then update
+                // the Bevy camera to only render to this. That would prevent the camera shifting around
+                // when we move the pane.
             }
-            EditorPanels::Foo => {
-                ui.label("Foo panel");
-            }
+            EditorPanels::Assets => assets::render(self, ui),
+            EditorPanels::Layers => layers::render(self, ui),
+            EditorPanels::Levels => levels::render(self, ui),
         }
     }
 
@@ -55,29 +63,25 @@ impl TabViewer for EditorLayout<'_> {
     fn allowed_in_windows(&self, _tab: &mut Self::Tab) -> bool {
         false
     }
+
+    fn clear_background(&self, tab: &Self::Tab) -> bool {
+        !matches!(tab, EditorPanels::Editor)
+    }
 }
 
 /// Handles rendering the [`EditorLayout`] in the `World`.
 #[utils::bevy_system]
-pub fn render_editor_layout(world: &mut World) {
-    let Ok(egui_context) = world
-        .query_filtered::<&mut EguiContext, With<PrimaryWindow>>()
-        .single(world)
-    else {
+pub fn render_editor_layout(mut contexts: EguiContexts, mut state: ResMut<UiState>) {
+    let Some(context) = contexts.try_ctx_mut() else {
         return;
     };
-    let mut egui_context = egui_context.clone();
 
-    // get an instance of the UiState and a mutable reference to the world to work with.
-    world.resource_scope::<UiState, _>(|world, mut state| {
-        let context = egui_context.get_mut();
-        // construct an `EditorLayout` using our mutable world reference for rendering.
-        // the `EditorLayout` struct has a strict lifetime bound to this scope and may not leak.
-        let mut viewer = EditorLayout { world };
+    // construct an `EditorLayout` using our mutable world reference for rendering.
+    // the `EditorLayout` struct has a strict lifetime bound to this scope and may not leak.
+    let mut viewer = EditorLayout {};
 
-        // Render the `dock_state` in the `UiState` in a DockArea.
-        DockArea::new(&mut state.dock_state)
-            .style(Style::from_egui(context.style().as_ref()))
-            .show(context, &mut viewer);
-    });
+    // Render the `dock_state` in the `UiState` in a DockArea.
+    DockArea::new(&mut state.dock_state)
+        .style(Style::from_egui(context.style().as_ref()))
+        .show(context, &mut viewer);
 }
