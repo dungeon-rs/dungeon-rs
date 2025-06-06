@@ -17,6 +17,8 @@ use egui_dock::{DockArea, Style, TabViewer};
 pub enum EditorPanels {
     /// The "main" view that shows the underlying Bevy rendered world.
     Editor,
+    /// testing purposes.
+    Foo,
 }
 
 /// Contains the data structures that are available to the [`TabViewer`] when rendering the editor layout.
@@ -39,6 +41,9 @@ impl TabViewer for EditorLayout<'_> {
             EditorPanels::Editor => {
                 ui.label("Editor panel");
                 ui_for_world(self.world, ui);
+            }
+            EditorPanels::Foo => {
+                ui.label("Foo panel");
             }
         }
     }

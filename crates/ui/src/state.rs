@@ -2,7 +2,7 @@
 //! resource that contains this code.
 use crate::layout::EditorPanels;
 use bevy::prelude::Resource;
-use egui_dock::DockState;
+use egui_dock::{DockState, NodeIndex};
 
 /// Holds the internal state of various UI components.
 ///
@@ -16,8 +16,10 @@ pub struct UiState {
 
 impl Default for UiState {
     fn default() -> Self {
-        Self {
-            dock_state: DockState::new(vec![EditorPanels::Editor]),
-        }
+        let mut state = DockState::new(vec![EditorPanels::Editor]);
+        let tree = state.main_surface_mut();
+        let [_, _] = tree.split_right(NodeIndex::root(), 0.75, vec![EditorPanels::Foo]);
+
+        Self { dock_state: state }
     }
 }
