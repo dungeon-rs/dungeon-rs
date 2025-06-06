@@ -30,11 +30,11 @@ where
     Ok(())
 }
 
-/// Attempts to serialize `subject` into the specified format and returns the result as a `Vec<u8>`.
+/// Attempts to serialise `subject` into the specified format and returns the result as a `Vec<u8>`.
 ///
 /// # Arguments
 ///
-/// * `subject`: The data structure to serialize.
+/// * `subject`: The data structure to serialise.
 /// * `format`: A [`SerializationFormat`] that indicates which serialisation format to use.
 ///
 /// returns: `Result<Vec<u8>>`
@@ -71,7 +71,7 @@ where
     }
 }
 
-/// Attempts to serialize `subject` into JSON and returns the string as a `Vec<u8>`.
+/// Attempts to serialise `subject` into JSON and returns the string as a `Vec<u8>`.
 #[allow(clippy::missing_errors_doc)]
 pub fn serialize_json<T>(subject: &T) -> Result<Vec<u8>>
 where
@@ -87,7 +87,7 @@ where
     Ok(json.into_bytes())
 }
 
-/// Attempts to serialize `subject` into `MessagePack` and returns as a `Vec<u8>`.
+/// Attempts to serialise `subject` into `MessagePack` and returns as a `Vec<u8>`.
 #[allow(clippy::missing_errors_doc)]
 #[cfg_attr(doc, doc(cfg(feature = "msgpack")))]
 #[cfg_attr(not(feature = "msgpack"), allow(unused_variables))]
@@ -102,7 +102,7 @@ where
     rmp_serde::to_vec(subject).map_err(|error| SerializationError::Serialize(Error::from(error)))
 }
 
-/// Attempts to serialize `subject` into `TOML` and returns the string as a `Vec<u8>`.
+/// Attempts to serialise `subject` into `TOML` and returns the string as a `Vec<u8>`.
 #[allow(clippy::missing_errors_doc)]
 #[cfg_attr(doc, doc(cfg(feature = "toml")))]
 #[allow(clippy::missing_errors_doc, unused_variables)]
