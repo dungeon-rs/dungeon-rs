@@ -30,7 +30,7 @@ windows = [
   "serialization/windows"
 ]
 linux = [
-  "serialization/windows"
+  "serialization/linux"
 ]
 macos = [
   "serialization/macos"

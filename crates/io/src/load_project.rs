@@ -23,6 +23,7 @@ pub fn handle_load_project_event(
     mut events: EventReader<LoadProjectEvent>,
     mut commands: Commands,
 ) -> Result<(), BevyError> {
+    // Only handle a single load event per frame, we don't want to cram too much work in a single frame.
     let Some(event) = events.read().next() else {
         return Ok(());
     };
