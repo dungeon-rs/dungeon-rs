@@ -37,6 +37,14 @@ anyhow = "1.0"
 thiserror = "2.0"
 serde = { version = "1.0", features = ["derive"] }
 
+# Workspace packages
+config = { path = "crates/config" }
+data = { path = "crates/data" }
+io = { path = "crates/io" }
+serialization = { path = "crates/serialization" }
+ui = { path = "crates/ui" }
+utils = { path = "crates/utils" }
+
 # Enable a small amount of optimization in the dev profile.
 [profile.dev]
 opt-level = 1

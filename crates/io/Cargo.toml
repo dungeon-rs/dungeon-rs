@@ -14,9 +14,9 @@ publish.workspace = true
 workspace = true
 
 [dependencies]
-data = { path = "../data" }
-serialization = { path = "../serialization" }
-utils = { path = "../utils" }
+data = { workspace = true }
+serialization = { workspace = true }
+utils = { workspace = true }
 bevy = { workspace = true, default-features = false }
 serde = { workspace = true }
 anyhow = { workspace = true }

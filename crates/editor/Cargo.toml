@@ -14,11 +14,11 @@ publish.workspace = true
 workspace = true
 
 [dependencies]
-data = { path = "../data" }
-io = { path = "../io" }
-ui = { path = "../ui" }
-utils = { path = "../utils" }
-config = { path = "../config" }
+data = { workspace = true }
+io = { workspace = true }
+ui = { workspace = true }
+utils = { workspace = true }
+config = { workspace = true }
 bevy = { workspace = true, default-features = false, features = [
   "std",
   "bevy_window",

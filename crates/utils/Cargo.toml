@@ -14,7 +14,7 @@ publish.workspace = true
 workspace = true
 
 [dependencies]
-config = { path = "../config" }
+config = { workspace = true }
 utils_macros = { path = "macros" }
 bevy = { workspace = true, features = ["bevy_log"] }
 crossbeam-channel = "0.5.15"
