@@ -1,0 +1,46 @@
+name: Update documentation
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ master ]
+
+jobs:
+  docs:
+    runs-on: ubuntu-latest
+    name: Generate documentation
+    permissions:
+      contents: write
+      id-token: write
+      pages: write
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: nightly
+
+      - name: Populate cargo cache
+        uses: Leafwing-Studios/cargo-cache@v2
+        with:
+          sweep-cache: true
+
+      - name: Install dependencies
+        run: sudo apt-get update; sudo apt-get install --no-install-recommends libasound2-dev libudev-dev libwayland-dev libxkbcommon-dev
+
+      - name: Build documentation
+        run: cargo +nightly doc --profile=fast --locked --workspace --all-features --features='editor/linux' --document-private-items --no-deps
+        env:
+          RUSTDOCFLAGS: "-Z unstable-options --enable-index-page"
+
+      - name: Upload static files as artefact
+        id: deployment-artifact
+        uses: actions/upload-pages-artifact@v3 # or specific "vX.X.X" version tag for this action
+        with:
+          path: target/doc
+
+      - name: Deploy to GitHub Pages
+        id: deployment-pages
+        uses: actions/deploy-pages@v4

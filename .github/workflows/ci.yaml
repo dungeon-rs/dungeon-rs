@@ -7,6 +7,10 @@ on:
   pull_request:
     branches: [ master ]
 
+concurrency:
+  group: ${{github.workflow}}-${{github.ref}}
+  cancel-in-progress: ${{github.event_name == 'pull_request'}}
+
 jobs:
   test:
     name: Run tests
@@ -18,6 +22,8 @@ jobs:
 
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: nightly
 
       - name: Install dependencies
         run: sudo apt-get update; sudo apt-get install --no-install-recommends libasound2-dev libudev-dev libwayland-dev libxkbcommon-dev
@@ -29,10 +35,14 @@ jobs:
 
       - name: Run tests
         run: |
-          cargo test --locked --workspace --all-features --all-targets --features='editor/linux'
+          cargo +nightly test --locked --workspace --profile=fast --all-features --all-targets --features='editor/linux'
           # Running doc tests separately is a workaround for https://github.com/rust-lang/cargo/issues/6669
           # Setting LD_LIBRARY_PATH is a workaround for https://github.com/TheBevyFlock/bevy_new_2d/pull/318#issuecomment-2585935350
-          LD_LIBRARY_PATH="$(rustc --print target-libdir)" cargo test --locked --workspace --all-features --features='editor/linux' --doc
+          LD_LIBRARY_PATH="$(rustc --print target-libdir)" cargo +nightly test --profile=fast --locked --all-features -p config --doc
+          LD_LIBRARY_PATH="$(rustc --print target-libdir)" cargo +nightly test --profile=fast --locked --all-features -p data --doc
+          LD_LIBRARY_PATH="$(rustc --print target-libdir)" cargo +nightly test --profile=fast --locked --all-features -p io --doc
+          LD_LIBRARY_PATH="$(rustc --print target-libdir)" cargo +nightly test --profile=fast --locked --all-features -p serialization --doc
+          LD_LIBRARY_PATH="$(rustc --print target-libdir)" cargo +nightly test --profile=fast --locked --all-features -p ui --doc
 
   format:
     name: Check formatting
@@ -50,7 +60,7 @@ jobs:
       - name: Run cargo fmt
         run: cargo fmt --all -- --check
       - name: Run cargo clippy
-        run: cargo clippy
+        run: cargo clippy --all-features
   doc:
     name: Build documentation
     runs-on: ubuntu-latest
@@ -70,5 +80,63 @@ jobs:
         with:
           sweep-cache: true
 
-      - name: Check documentation
-        run: cargo doc --locked --workspace --all-features --features='editor/linux' --document-private-items --no-deps
+      - name: Build documentation
+        run: cargo +nightly doc --profile=fast --locked --workspace --all-features --features='editor/linux' --document-private-items --no-deps
+        env:
+          RUSTDOCFLAGS: "-Z unstable-options --enable-index-page"
+  typos:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check for typos
+        uses: crate-ci/typos@v1.29.7
+      - name: Typos info
+        if: failure()
+        run: |
+          echo 'To fix typos, please run `typos -w`'
+          echo 'To check for a diff, run `typos`'
+          echo 'You can find typos here: https://crates.io/crates/typos'
+          echo 'if you use VSCode, you can also install `Typos Spell Checker'
+          echo 'You can find the extension here: https://marketplace.visualstudio.com/items?itemName=tekumara.typos-vscode'
+
+  check_compiles:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    name: Check DungeonRS compiles on stable
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Populate target directory from cache
+        uses: Leafwing-Studios/cargo-cache@v2
+        with:
+          sweep-cache: true
+
+      - name: Run build
+        run: cargo build --workspace --profile=fast --all-features
+
+  advanced_checks:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    name: Advanced CI checks
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Populate target directory from cache
+        uses: Leafwing-Studios/cargo-cache@v2
+        with:
+          sweep-cache: true
+
+      - name: Check for undocumented features
+        working-directory: tools/ci
+        run: |
+          cargo run --profile dev -- documented-features
+          cargo run --profile dev -- required-features

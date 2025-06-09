@@ -2,6 +2,10 @@
     "recommendations": [
         "rust-lang.rust-analyzer",
         "a5huynh.vscode-ron",
-        "JScearcy.rust-doc-viewer"
+        "JScearcy.rust-doc-viewer",
+        "rhaiscript.vscode-rhai",
+        "vadimcn.vscode-lldb",
+        "tamasfe.even-better-toml",
+        "tekumara.typos-vscode"
     ]
 }

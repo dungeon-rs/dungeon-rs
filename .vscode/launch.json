@@ -1,0 +1,72 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Editor",
+            "cwd": "${workspaceFolder}",
+            "osx": {
+                "env": {
+                    "DYLD_FALLBACK_LIBRARY_PATH": "${env:HOME}/.rustup/toolchains/stable-aarch64-apple-darwin/lib/rustlib/aarch64-apple-darwin/lib:${workspaceFolder}/target/debug/deps",
+                    "BEVY_ASSET_ROOT": "${workspaceFolder}"
+                }
+            },
+            "linux": {
+                "env": {
+                    "DYLD_FALLBACK_LIBRARY_PATH": "${env:HOME}/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib/rustlib/x86_64-unknown-linux-gnu/lib:${workspaceFolder}/target/debug/deps",
+                    "BEVY_ASSET_ROOT": "${workspaceFolder}"
+                }
+            },
+            "windows": {
+                "env": {
+                    "DYLD_FALLBACK_LIBRARY_PATH": "${env:HOME}/.rustup/toolchains/stable-x86_64-pc-windows-msvc/lib/rustlib/x86_64-pc-windows-msvc/lib:${workspaceFolder}/target/debug/deps",
+                    "BEVY_ASSET_ROOT": "${workspaceFolder}"
+                }
+            },
+            "cargo": {
+                "args": [
+                    "run",
+                    "--bin",
+                    "editor"
+                ]
+            },
+            "args": []
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Headless",
+            "cwd": "${workspaceFolder}",
+            "osx": {
+                "env": {
+                    "DYLD_FALLBACK_LIBRARY_PATH": "${env:HOME}/.rustup/toolchains/stable-aarch64-apple-darwin/lib/rustlib/aarch64-apple-darwin/lib:${workspaceFolder}/target/debug/deps",
+                    "BEVY_ASSET_ROOT": "${workspaceFolder}"
+                }
+            },
+            "linux": {
+                "env": {
+                    "DYLD_FALLBACK_LIBRARY_PATH": "${env:HOME}/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib/rustlib/x86_64-unknown-linux-gnu/lib:${workspaceFolder}/target/debug/deps",
+                    "BEVY_ASSET_ROOT": "${workspaceFolder}"
+                }
+            },
+            "windows": {
+                "env": {
+                    "DYLD_FALLBACK_LIBRARY_PATH": "${env:HOME}/.rustup/toolchains/stable-x86_64-pc-windows-msvc/lib/rustlib/x86_64-pc-windows-msvc/lib:${workspaceFolder}/target/debug/deps",
+                    "BEVY_ASSET_ROOT": "${workspaceFolder}"
+                }
+            },
+            "cargo": {
+                "args": [
+                    "run",
+                    "--bin",
+                    "headless"
+                ]
+            },
+            "args": []
+        }
+    ]
+}

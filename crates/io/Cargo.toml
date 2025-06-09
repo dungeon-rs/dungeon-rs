@@ -1,0 +1,54 @@
+[package]
+name = "io"
+description = "Handles the I/O processing of saving and loading maps"
+edition.workspace = true
+repository.workspace = true
+version.workspace = true
+readme.workspace = true
+authors.workspace = true
+license-file.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+data = { workspace = true }
+serialization = { workspace = true }
+utils = { workspace = true }
+bevy = { workspace = true, default-features = false }
+serde = { workspace = true }
+anyhow = { workspace = true }
+
+[dev-dependencies]
+tempfile = "3.20"
+
+[features]
+default = []
+dev = [
+  "data/dev",
+  "serialization/dev",
+  "utils/dev",
+  "bevy/bevy_debug_stepping",
+  "bevy/bevy_dev_tools",
+  "bevy/debug_glam_assert",
+  "bevy/dynamic_linking",
+  "bevy/trace",
+  "bevy/track_location"
+]
+windows = [
+  "data/windows",
+  "serialization/windows",
+  "utils/windows"
+]
+linux = [
+  "data/linux",
+  "serialization/linux",
+  "utils/linux"
+]
+macos = [
+  "data/macos",
+  "serialization/macos",
+  "utils/macos"
+]

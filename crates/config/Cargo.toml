@@ -1,0 +1,38 @@
+[package]
+name = "config"
+description = "This crate handles the configuration of other crates"
+edition.workspace = true
+repository.workspace = true
+version.workspace = true
+readme.workspace = true
+authors.workspace = true
+license-file.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+anyhow = { workspace = true }
+serde = { workspace = true }
+serialization = { workspace = true }
+bevy = { workspace = true }
+semver = { version = "1.0.26", features = ["serde"] }
+
+[features]
+default = [
+  "serialization/toml"
+]
+dev = [
+  "serialization/dev"
+]
+windows = [
+  "serialization/windows"
+]
+linux = [
+  "serialization/linux"
+]
+macos = [
+  "serialization/macos"
+]

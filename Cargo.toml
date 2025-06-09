@@ -1,18 +1,49 @@
 [workspace]
 resolver = "3"
-members = ["packages/core", "packages/editor", "packages/headless", "packages/ui"]
+members = ["crates/*", "crates/*/macros"]
+exclude = ["tools"]
 
 [workspace.package]
 edition = "2024"
-repository = "https://github.com/dealloc/dungeon_rs"
 version = "0.0.1"
+license-file = "LICENSE"
 readme = "README.md"
-authors = ["Wannes Gennar <info@dealloc.be>"]
-license = "MIT"
+rust-version = "1.87.0"
+publish = false
+repository = "https://github.com/dealloc/dungeon_rs"
+authors = [
+  "Wannes Gennar <info@dealloc.be>",
+  "Amber Swevers <amber.swevers@hotmail.com>"
+]
+
+[workspace.lints.rust]
+unsafe_code = "forbid"
+missing_docs = "warn"
+
+[workspace.lints.rustdoc]
+private_intra_doc_links = "allow"
+
+[workspace.lints.clippy]
+pedantic = "warn"
+suspicious = "warn"
+complexity = "warn"
+missing_docs_in_private_items = "warn"
+module_name_repetitions = "warn"
+semicolon_if_nothing_returned = "warn"
 
 [workspace.dependencies]
-bevy = { version = "0.16.0", default-features = false, features = [] }
-log = { version = "*", features = ["max_level_debug", "release_max_level_warn"] }
+bevy = { version = "0.16.0", default-features = false, features = ["std"] }
+anyhow = "1.0"
+thiserror = "2.0"
+serde = { version = "1.0", features = ["derive"] }
+
+# Workspace packages
+config = { path = "crates/config" }
+data = { path = "crates/data" }
+io = { path = "crates/io" }
+serialization = { path = "crates/serialization" }
+ui = { path = "crates/ui" }
+utils = { path = "crates/utils" }
 
 # Enable a small amount of optimization in the dev profile.
 [profile.dev]
@@ -30,3 +61,18 @@ codegen-units = 1
 # Do a second optimization pass over the entire program, including dependencies.
 # Slows compile times, marginal improvements.
 lto = "thin"
+
+# We create a separate profile called 'fast' that disables all optimisation in favour of faster compilation for use in CI.
+[profile.fast]
+inherits = "dev"
+opt-level = 0
+codegen-units = 256
+strip = "none"
+debug-assertions = true
+overflow-checks = true
+lto = false
+incremental = true
+
+[profile.fast.package."*"]
+opt-level = 0
+
