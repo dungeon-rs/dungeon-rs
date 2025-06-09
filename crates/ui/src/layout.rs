@@ -13,7 +13,7 @@ use bevy_egui::EguiContexts;
 use egui::{Ui, WidgetText};
 use egui_dock::{DockArea, Style, TabViewer};
 
-/// The different panes that can be shown in the editor UI.
+/// The different panels that can be shown in the editor UI.
 /// If a new panel needs to be available for the user in the UI it needs to be added here,
 /// if it needs to be shown by default, make sure to add it in [`UiState::default`] as well.
 #[derive(Debug)]
