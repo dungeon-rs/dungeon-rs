@@ -1,6 +1,6 @@
 //! This module contains the command to validate that all required features in the workspace are present.
-use anyhow::{Context, Result};
-use cargo_metadata::MetadataCommand;
+use anyhow::Result;
+use cargo_metadata::Metadata;
 use cli_colors::Colorizer;
 use cli_table::format::Justify;
 use cli_table::{Cell, Style, Table, print_stdout};
@@ -9,14 +9,7 @@ use std::collections::HashMap;
 /// The names of features we require to be present in each sub-crate.
 pub const REQUIRED_FEATURES: [&str; 5] = ["default", "dev", "linux", "windows", "macos"];
 
-pub fn execute() -> Result<()> {
-    let colorizer = Colorizer::new();
-    let metadata = MetadataCommand::new()
-        .manifest_path("../../Cargo.toml")
-        .no_deps()
-        .exec()
-        .context("running `cargo metadata` failed")?;
-
+pub fn execute(colorizer: Colorizer, metadata: Metadata) -> Result<()> {
     let mut errors = HashMap::new();
 
     for package in metadata
