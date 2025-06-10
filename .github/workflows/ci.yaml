@@ -140,3 +140,4 @@ jobs:
         run: |
           cargo run --profile dev -- documented-features
           cargo run --profile dev -- required-features
+          cargo run --profile dev -- workspace-features
