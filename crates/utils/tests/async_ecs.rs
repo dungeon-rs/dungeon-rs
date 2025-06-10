@@ -20,6 +20,17 @@ struct FooEvent {
     pub bar: String,
 }
 
+/// Advance the world
+fn advance_world(app: &mut App) {
+    app.update();
+    tick_global_task_pools_on_main_thread();
+    app.world_mut()
+        .resource_mut::<Time<Fixed>>()
+        .advance_by(Duration::from_secs(2));
+    app.world_mut().run_schedule(FixedPostUpdate);
+    app.update();
+}
+
 #[test]
 fn spawn_new_async() {
     let mut app = App::new();
@@ -41,13 +52,7 @@ fn spawn_new_async() {
         },
     ));
 
-    app.update(); // execute spawn of AsyncComponent
-    tick_global_task_pools_on_main_thread(); // run background runners
-    app.world_mut()
-        .resource_mut::<Time<Fixed>>()
-        .advance_by(Duration::from_secs(2)); // "advance" game time
-    app.world_mut().run_schedule(FixedPostUpdate); // force FixedPostUpdate schedule to run
-    app.update(); // run any commands that have been appended by FixedPostUpdate
+    advance_world(&mut app);
 
     let foo: Vec<&FooComponent> = app
         .world_mut()
@@ -86,13 +91,7 @@ fn calls_error_on_failure() {
         },
     ));
 
-    app.update(); // execute spawn of AsyncComponent
-    tick_global_task_pools_on_main_thread(); // run background runners
-    app.world_mut()
-        .resource_mut::<Time<Fixed>>()
-        .advance_by(Duration::from_secs(2)); // "advance" game time
-    app.world_mut().run_schedule(FixedPostUpdate); // force FixedPostUpdate schedule to run
-    app.update(); // run any commands that have been appended by FixedPostUpdate
+    advance_world(&mut app);
 
     let component = app
         .world_mut()
@@ -137,13 +136,7 @@ fn spawn_new_compute() {
         },
     ));
 
-    app.update(); // execute spawn of AsyncComponent
-    tick_global_task_pools_on_main_thread(); // Run background runners
-    app.world_mut()
-        .resource_mut::<Time<Fixed>>()
-        .advance_by(Duration::from_secs(2)); // "Advance" game time
-    app.world_mut().run_schedule(FixedPostUpdate); // Force FixedPostUpdate schedule to run
-    app.update(); // Run any commands that have been appended by FixedPostUpdate
+    advance_world(&mut app);
 
     let foo: Vec<&FooComponent> = app
         .world_mut()
@@ -184,13 +177,7 @@ fn spawn_new_io() {
         },
     ));
 
-    app.update(); // execute spawn of AsyncComponent
-    tick_global_task_pools_on_main_thread(); // Run background runners
-    app.world_mut()
-        .resource_mut::<Time<Fixed>>()
-        .advance_by(Duration::from_secs(2)); // "Advance" game time
-    app.world_mut().run_schedule(FixedPostUpdate); // Force FixedPostUpdate schedule to run
-    app.update(); // Run any commands that have been appended by FixedPostUpdate
+    advance_world(&mut app);
 
     let foo: Vec<&FooComponent> = app
         .world_mut()
