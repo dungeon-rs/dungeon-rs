@@ -1,5 +1,5 @@
-mod validate_documented_features;
-mod validate_required_features;
+mod documented_features;
+mod required_features;
 
 use anyhow::{Context, Result};
 use cargo_metadata::MetadataCommand;
@@ -33,11 +33,7 @@ fn main() -> Result<()> {
         .context("running `cargo metadata` failed")?;
 
     match cli.command {
-        Commands::ValidateDocumentedFeatures => {
-            validate_documented_features::execute(colorizer, metadata)
-        }
-        Commands::ValidateRequiredFeatures => {
-            validate_required_features::execute(colorizer, metadata)
-        }
+        Commands::ValidateDocumentedFeatures => documented_features::execute(colorizer, metadata),
+        Commands::ValidateRequiredFeatures => required_features::execute(colorizer, metadata),
     }
 }

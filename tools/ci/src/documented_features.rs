@@ -1,7 +1,7 @@
 //! This module contains the command to validate that all features in the workspace have been documented.
-use crate::validate_required_features::REQUIRED_FEATURES;
+use crate::required_features::REQUIRED_FEATURES;
 use anyhow::{Context, Result, anyhow};
-use cargo_metadata::{Metadata, MetadataCommand};
+use cargo_metadata::Metadata;
 use cli_colors::Colorizer;
 use cli_table::format::Justify;
 use cli_table::{Cell, Style, Table, print_stdout};
