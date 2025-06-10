@@ -139,5 +139,13 @@ jobs:
         working-directory: tools/ci
         run: |
           cargo run --profile dev -- documented-features
+
+      - name: Check all crates declare required features
+        working-directory: tools/ci
+        run: |
           cargo run --profile dev -- required-features
+
+      - name: Check all crates propagate features
+        working-directory: tools/ci
+        run: |
           cargo run --profile dev -- workspace-features
