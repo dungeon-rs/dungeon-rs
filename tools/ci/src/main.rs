@@ -1,8 +1,10 @@
 mod validate_documented_features;
 mod validate_required_features;
 
-use anyhow::Result;
+use anyhow::{Context, Result};
+use cargo_metadata::MetadataCommand;
 use clap::{Parser, Subcommand};
+use cli_colors::Colorizer;
 
 #[derive(Parser)]
 #[command(version)]
@@ -23,9 +25,19 @@ pub enum Commands {
 
 fn main() -> Result<()> {
     let cli = Cli::parse();
+    let colorizer = Colorizer::new();
+    let metadata = MetadataCommand::new()
+        .manifest_path("../../Cargo.toml")
+        .no_deps()
+        .exec()
+        .context("running `cargo metadata` failed")?;
 
     match cli.command {
-        Commands::ValidateDocumentedFeatures => validate_documented_features::execute(),
-        Commands::ValidateRequiredFeatures => validate_required_features::execute(),
+        Commands::ValidateDocumentedFeatures => {
+            validate_documented_features::execute(colorizer, metadata)
+        }
+        Commands::ValidateRequiredFeatures => {
+            validate_required_features::execute(colorizer, metadata)
+        }
     }
 }

@@ -1,7 +1,7 @@
 //! This module contains the command to validate that all features in the workspace have been documented.
 use crate::validate_required_features::REQUIRED_FEATURES;
 use anyhow::{Context, Result, anyhow};
-use cargo_metadata::MetadataCommand;
+use cargo_metadata::{Metadata, MetadataCommand};
 use cli_colors::Colorizer;
 use cli_table::format::Justify;
 use cli_table::{Cell, Style, Table, print_stdout};
@@ -9,14 +9,7 @@ use std::collections::HashMap;
 use std::fs;
 use std::path::Path;
 
-pub fn execute() -> Result<()> {
-    let colorizer = Colorizer::new();
-    let metadata = MetadataCommand::new()
-        .manifest_path("../../Cargo.toml")
-        .no_deps()
-        .exec()
-        .context("running `cargo metadata` failed")?;
-
+pub fn execute(colorizer: Colorizer, metadata: Metadata) -> Result<()> {
     let mut errors = HashMap::new();
 
     for package in metadata
