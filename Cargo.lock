@@ -1658,6 +1658,7 @@ dependencies = [
  "semver",
  "serde",
  "serialization",
+ "utils",
 ]
 
 [[package]]
@@ -1967,6 +1968,7 @@ dependencies = [
  "data",
  "image",
  "io",
+ "logging",
  "ui",
  "utils",
  "winresource",
@@ -2788,6 +2790,16 @@ name = "log"
 version = "0.4.27"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "13dc2df351e3202783a1fe0d44375f7295ffb4049267b0f3018346dc122a1d94"
+
+[[package]]
+name = "logging"
+version = "0.0.1"
+dependencies = [
+ "bevy",
+ "config",
+ "tracing-appender",
+ "tracing-subscriber",
+]
 
 [[package]]
 name = "loop9"
@@ -4708,10 +4720,8 @@ name = "utils"
 version = "0.0.1"
 dependencies = [
  "bevy",
- "config",
  "crossbeam-channel",
- "tracing-appender",
- "tracing-subscriber",
+ "semver",
  "utils_macros",
 ]
 

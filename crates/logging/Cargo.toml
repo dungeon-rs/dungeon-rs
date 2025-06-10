@@ -1,0 +1,35 @@
+[package]
+name = "logging"
+description = "Handles configuration of the logging used by Bevy and the application itself"
+edition.workspace = true
+repository.workspace = true
+version.workspace = true
+readme.workspace = true
+authors.workspace = true
+license-file.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+config = { workspace = true }
+bevy = { workspace = true }
+tracing-appender = "0.2.3"
+tracing-subscriber = { version = "0.3.19", features = ["json"] }
+
+[features]
+default = []
+dev = [
+  "config/dev"
+]
+windows = [
+  "config/windows"
+]
+linux = [
+  "config/linux"
+]
+macos = [
+  "config/macos"
+]
