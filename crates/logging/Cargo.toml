@@ -1,6 +1,6 @@
 [package]
-name = "utils"
-description = "Crate containing helpers, macros and utilities for use in all other crates"
+name = "logging"
+description = "Handles configuration of the logging used by Bevy and the application itself"
 edition.workspace = true
 repository.workspace = true
 version.workspace = true
@@ -14,22 +14,14 @@ publish.workspace = true
 workspace = true
 
 [dependencies]
-bevy = { workspace = true }
 config = { workspace = true }
-utils_macros = { path = "macros" }
-crossbeam-channel = "0.5.15"
+bevy = { workspace = true }
+tracing-appender = "0.2.3"
+tracing-subscriber = { version = "0.3.19", features = ["json"] }
 
 [features]
 default = []
-dev = [
-  "config/dev"
-]
-windows = [
-  "config/windows"
-]
-linux = [
-  "config/linux"
-]
-macos = [
-  "config/macos"
-]
+dev = []
+windows = []
+linux = []
+macos = []

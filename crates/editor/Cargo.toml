@@ -19,6 +19,7 @@ io = { workspace = true }
 ui = { workspace = true }
 utils = { workspace = true }
 config = { workspace = true }
+logging = { workspace = true }
 bevy = { workspace = true, default-features = false, features = [
   "std",
   "bevy_window",
@@ -37,28 +38,32 @@ dev = [
   "io/dev",
   "ui/dev",
   "utils/dev",
-  "config/dev"
+  "config/dev",
+  "logging/dev"
 ]
 windows = [
   "data/windows",
   "io/windows",
   "ui/windows",
   "utils/windows",
-  "config/windows"
+  "config/windows",
+  "logging/windows"
 ]
 linux = [
   "data/linux",
   "io/linux",
   "ui/linux",
   "utils/linux",
-  "config/linux"
+  "config/linux",
+  "logging/linux"
 ]
 macos = [
   "data/macos",
   "io/macos",
   "ui/macos",
   "utils/macos",
-  "config/macos"
+  "config/macos",
+  "logging/macos"
 ]
 
 # support for various image formats
