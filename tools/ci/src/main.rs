@@ -1,5 +1,6 @@
 mod documented_features;
 mod required_features;
+mod workspace_features;
 
 use anyhow::{Context, Result};
 use cargo_metadata::MetadataCommand;
@@ -21,6 +22,8 @@ pub enum Commands {
     /// Validates that all required features (such as the platform features) have been added
     #[clap(name = "required-features")]
     ValidateRequiredFeatures,
+    #[clap(name = "workspace-features")]
+    ValidateWorkspaceFeatures,
 }
 
 fn main() -> Result<()> {
@@ -35,5 +38,6 @@ fn main() -> Result<()> {
     match cli.command {
         Commands::ValidateDocumentedFeatures => documented_features::execute(colorizer, metadata),
         Commands::ValidateRequiredFeatures => required_features::execute(colorizer, metadata),
+        Commands::ValidateWorkspaceFeatures => workspace_features::execute(colorizer, metadata),
     }
 }
