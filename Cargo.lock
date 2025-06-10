@@ -1658,6 +1658,7 @@ dependencies = [
  "semver",
  "serde",
  "serialization",
+ "utils",
 ]
 
 [[package]]
@@ -4719,8 +4720,8 @@ name = "utils"
 version = "0.0.1"
 dependencies = [
  "bevy",
- "config",
  "crossbeam-channel",
+ "semver",
  "utils_macros",
 ]
 

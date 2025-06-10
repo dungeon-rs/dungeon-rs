@@ -20,8 +20,15 @@ tracing-appender = "0.2.3"
 tracing-subscriber = { version = "0.3.19", features = ["json"] }
 
 [features]
-default = []
-dev = []
-windows = []
-linux = []
-macos = []
+dev = [
+  "config/dev"
+]
+windows = [
+  "config/windows"
+]
+linux = [
+  "config/linux"
+]
+macos = [
+  "config/macos"
+]

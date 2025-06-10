@@ -3,7 +3,7 @@
 use crate::LogConfiguration;
 use anyhow::Context;
 use bevy::prelude::Resource;
-use semver::{BuildMetadata, Prerelease, Version};
+use semver::Version;
 use serialization::{Deserialize, SerializationFormat, Serialize, deserialize, serialize_to};
 use std::collections::HashMap;
 use std::env::current_exe;
@@ -37,13 +37,7 @@ const CONFIG_FILE_NAME: &str = "config.toml";
 impl Default for Configuration {
     fn default() -> Self {
         Self {
-            version: Version::parse(env!("CARGO_PKG_VERSION")).unwrap_or(Version {
-                major: 0,
-                minor: 0,
-                patch: 0,
-                pre: Prerelease::new("").unwrap(),
-                build: BuildMetadata::EMPTY,
-            }),
+            version: utils::version().clone(),
             recents: Vec::new(),
             libraries: HashMap::new(),
             logging: LogConfiguration::default(),

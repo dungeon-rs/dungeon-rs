@@ -15,21 +15,14 @@ workspace = true
 
 [dependencies]
 bevy = { workspace = true }
-config = { workspace = true }
 utils_macros = { path = "macros" }
 crossbeam-channel = "0.5.15"
+semver = { workspace = true }
 
 [features]
 default = []
-dev = [
-  "config/dev"
-]
-windows = [
-  "config/windows"
-]
-linux = [
-  "config/linux"
-]
-macos = [
-  "config/macos"
-]
+dev = []
+windows = []
+linux = []
+macos = []
+

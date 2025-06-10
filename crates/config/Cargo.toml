@@ -14,11 +14,12 @@ publish.workspace = true
 workspace = true
 
 [dependencies]
+utils = { workspace = true }
 anyhow = { workspace = true }
 serde = { workspace = true }
 serialization = { workspace = true }
 bevy = { workspace = true }
-semver = { version = "1.0.26", features = ["serde"] }
+semver = { workspace = true }
 
 [features]
 default = [
