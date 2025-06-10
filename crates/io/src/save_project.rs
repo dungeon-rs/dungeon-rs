@@ -65,21 +65,27 @@ pub fn handle_save_project(
     let entity = event.project;
     let output = event.output.clone();
     let document = Document::new(project, level_query, layer_query);
-    commands.spawn(AsyncComponent::new_io(async move |sender| {
-        let file = File::create(output.clone())
-            .with_context(|| format!("Failed to open {} for writing savefile", output.display()))?;
-        serialize_to(&document, &default(), file)?;
+    commands.spawn(AsyncComponent::new_io(
+        async move |sender| {
+            let file = File::create(output.clone()).with_context(|| {
+                format!("Failed to open {} for writing savefile", output.display())
+            })?;
+            serialize_to(&document, &default(), file)?;
 
-        // Report completion
-        report_progress(
-            &sender,
-            SaveProjectCompleteEvent {
-                project: entity,
-                output,
-            },
-        )?;
-        Ok(())
-    }));
+            // Report completion
+            report_progress(
+                &sender,
+                SaveProjectCompleteEvent {
+                    project: entity,
+                    output,
+                },
+            )?;
+            Ok(())
+        },
+        |_, _| {
+            // TODO: handle errors.
+        },
+    ));
 
     Ok(())
 }

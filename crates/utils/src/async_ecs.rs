@@ -18,7 +18,7 @@ use std::future::Future;
 #[derive(Component)]
 pub struct AsyncComponent {
     /// The task tracking if the asynchronous operation is completed.
-    task: Task<Result<(), BevyError>>,
+    task: Task<()>,
     /// The channel through which updates are emitted.
     ///
     /// Updates are modelled through Bevy's [`CommandQueue`](https://docs.rs/bevy/latest/bevy/ecs/world/struct.CommandQueue.html),
@@ -26,56 +26,61 @@ pub struct AsyncComponent {
     receiver: Receiver<CommandQueue>,
 }
 
-impl AsyncComponent {
-    /// Generates a new [`AsyncComponent`] for the `task`, scheduled on the [`AsyncComputeTaskPool`].
-    /// Like the [`AsyncComputeTaskPool`], this is intended for CPU-intensive work that may span
-    /// across multiple frames.
-    ///
-    /// Given an `async` function that takes a `Sender` this method schedules it on Bevy's
-    /// `TaskPool` and handles polling progress and completion on the main schedule.
-    #[must_use = "async components do nothing unless polled"]
-    pub fn new_async<F, Fut>(task: F) -> Self
-    where
-        F: FnOnce(Sender<CommandQueue>) -> Fut + Send + 'static,
-        Fut: Future<Output = Result<(), BevyError>> + Send + 'static,
-    {
-        let (sender, receiver) = unbounded::<CommandQueue>();
-        let task = AsyncComputeTaskPool::get().spawn(task(sender));
-        AsyncComponent { task, receiver }
-    }
+/// Bevy doesn't implement a common trait for task pools, so we use this macro to generate the implementation
+/// for each task pool.
+macro_rules! new_async_component {
+    ($( #[$meta:meta] )* $fn_name:ident, $pool:ty) => {
+        $( #[$meta] )*
+        #[must_use = "AsyncComponent will not be polled without being spawned"]
+        pub fn $fn_name<F, Fut, EF>(task: F, handler: EF) -> Self
+        where
+            F: FnOnce(Sender<CommandQueue>) -> Fut + Send + 'static,
+            Fut: Future<Output = Result<(), BevyError>> + Send + 'static,
+            EF: FnOnce(BevyError, Sender<CommandQueue>) + Send + 'static,
+        {
+            let (sender, receiver) = unbounded::<CommandQueue>();
 
+            let task = <$pool>::get().spawn(async move {
+                match task(sender.clone()).await {
+                    Ok(()) => (),
+                    Err(error) => handler(error, sender),
+                }
+            });
+
+            AsyncComponent { task, receiver }
+        }
+    };
+}
+
+impl AsyncComponent {
+    new_async_component!(
+        /// Generates a new [`AsyncComponent`] for the `task`, scheduled on the [`AsyncComputeTaskPool`].
+        /// Like the [`AsyncComputeTaskPool`], this is intended for CPU-intensive work that may span
+        /// across multiple frames.
+        ///
+        /// The `handler` passed in will be called if `task` returns an error.
+        /// This allows handling errors within the context of the task.
+        new_async, AsyncComputeTaskPool
+    );
+
+    new_async_component!(
     /// Generates a new [`AsyncComponent`] for the `task`, scheduled on the [`ComputeTaskPool`].
     /// Like the [`ComputeTaskPool`], this is intended for CPU-intensive work that must be completed
     /// to deliver the next frame.
     ///
-    /// Given an `async` function that takes a `Sender` this method schedules it on Bevy's
-    /// `TaskPool` and handles polling progress and completion on the main schedule.
-    #[must_use = "async components do nothing unless polled"]
-    pub fn new_compute<F, Fut>(task: F) -> Self
-    where
-        F: FnOnce(Sender<CommandQueue>) -> Fut + Send + 'static,
-        Fut: Future<Output = Result<(), BevyError>> + Send + 'static,
-    {
-        let (sender, receiver) = unbounded::<CommandQueue>();
-        let task = ComputeTaskPool::get().spawn(task(sender));
-        AsyncComponent { task, receiver }
-    }
+    /// The `handler` passed in will be called if `task` returns an error.
+    /// This allows handling errors within the context of the task.
+        new_compute, ComputeTaskPool
+    );
 
+    new_async_component!(
     /// Generates a new [`AsyncComponent`] for the `task`, scheduled on the [`IoTaskPool`].
     /// Like the [`IoTaskPool`], this is intended for IO-intensive work.
     ///
-    /// Given an `async` function that takes a `Sender` this method schedules it on Bevy's
-    /// `TaskPool` and handles polling progress and completion on the main schedule.
-    #[must_use = "async components do nothing unless polled"]
-    pub fn new_io<F, Fut>(task: F) -> Self
-    where
-        F: FnOnce(Sender<CommandQueue>) -> Fut + Send + 'static,
-        Fut: Future<Output = Result<(), BevyError>> + Send + 'static,
-    {
-        let (sender, receiver) = unbounded::<CommandQueue>();
-        let task = IoTaskPool::get().spawn(task(sender));
-        AsyncComponent { task, receiver }
-    }
+    /// The `handler` passed in will be called if `task` returns an error.
+    /// This allows handling errors within the context of the task.
+        new_io, IoTaskPool
+    );
 }
 
 /// A helper function for reporting progress from a task controlled by [`AsyncComponent`].
@@ -102,7 +107,7 @@ impl AsyncComponent {
 /// #    commands.spawn(AsyncComponent::new_async(async |sender| {
 /// report_progress(&sender, FooEvent)?;
 /// #        Ok(())
-/// #    }));
+/// #    }, |_, _| {}));
 /// # }
 /// ```
 /// # Errors
@@ -141,12 +146,8 @@ pub(crate) fn handle_async_components(
             commands.append(&mut queue);
         }
 
-        if let Some(result) = block_on(future::poll_once(&mut component.task)) {
-            if result.is_ok() {
-                commands.entity(entity).despawn();
-            } else {
-                // TODO: handle errors in async tasks?
-            }
+        if block_on(future::poll_once(&mut component.task)).is_some() {
+            commands.entity(entity).despawn();
         }
     }
 }
