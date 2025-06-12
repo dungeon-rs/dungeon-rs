@@ -12,7 +12,7 @@ Setting up a local development environment requires having [Rust](https://rust-l
     ```
 3. Install additional tools used by `DungeonRS` for linting, analysis etc
     ```bash
-   cargo install cargo-bloat cargo-deny typos-cli
+   cargo install cargo-deny typos-cli committed git-cliff cargo-nextest
     ```
 4. Build the `editor`, this should build all dependent crates too
    (replace `<windows/linux/macos>` with the correct OS you're using):
@@ -39,4 +39,10 @@ cargo fmt
 cargo lint
 # Ensure everything is typed consistently
 typos
+# Check for dependency issues
+cargo deny check
+# Check your commits are properly formatted
+committed origin/master..HEAD
+# Check if the tests run
+cargo nextest run --all-features
 ```
