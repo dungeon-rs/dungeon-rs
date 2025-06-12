@@ -144,9 +144,9 @@ jobs:
     timeout-minutes: 5
     name: Validate commit messages
     steps:
-      - name: Checkout Actions Repository
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
         with:
+          ref: ${{ github.event.pull_request.head.sha }}
           fetch-depth: 0
 
       - uses: taiki-e/install-action@v2
