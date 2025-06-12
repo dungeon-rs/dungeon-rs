@@ -138,3 +138,20 @@ jobs:
         working-directory: tools/ci
         run: |
           cargo run --profile dev -- workspace-features
+
+  validate-commits:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    name: Validate commit messages
+    steps:
+      - name: Checkout Actions Repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: committed
+
+      - name: check commit messages
+        run: committed origin/${{ github.event.repository.default_branch }}..HEAD

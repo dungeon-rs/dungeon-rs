@@ -9,6 +9,7 @@ extend-exclude = [
   ".vscode/extensions.json", # likewise, shouldn't be spellchecked.
   ".vscode/settings.json",   # likewise, shouldn't be spellchecked.
   "tools/ci",                # We don't need the CI tooling to be spellchecked.
+  "committed.toml"           # Config file doesn't need checking
 ]
 ignore-hidden = false
 
