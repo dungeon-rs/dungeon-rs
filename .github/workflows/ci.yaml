@@ -57,9 +57,9 @@ jobs:
       - name: Run cargo fmt
         run: cargo fmt --all -- --check
       - name: Run cargo check
-        run: cargo check
+        run: cargo check --locked --all-features --profile=fast
       - name: Run cargo clippy
-        run: cargo clippy --all-features
+        run: cargo clippy --locked --all-features --profile=fast
 
   doc:
     name: Build documentation
