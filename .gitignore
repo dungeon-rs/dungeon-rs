@@ -16,3 +16,6 @@ output.drs
 
 # --- Ignore log files
 /logs/
+
+# Ignore CHANGELOG.md
+CHANGELOG.md
