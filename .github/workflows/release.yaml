@@ -131,9 +131,12 @@ jobs:
         uses: mfinelli/setup-imagemagick@v6
 
       - name: Update version to ${{ needs.changelog.outputs.version }} in Cargo.toml
+        shell: pwsh
         run: |
-          cargo install cargo-edit --no-default-features --features='set-version'
-          cargo set-version ${{ needs.changelog.outputs.version_without_v }}
+          $ver = '${{ needs.changelog.outputs.version_without_v }}'
+          (Get-Content Cargo.toml -Raw) `
+            -replace '(?m)^version\s*=\s*".*"$', "version = `"$ver`"" |
+            Set-Content Cargo.toml
 
       - name: Build ${{ matrix.label }} binaries
         run: cargo build --release --locked --workspace --target="${{ matrix.target }}" --no-default-features --features='${{ matrix.features }}'
