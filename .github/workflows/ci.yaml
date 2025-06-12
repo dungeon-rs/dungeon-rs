@@ -95,7 +95,6 @@ jobs:
           echo 'if you use VSCode, you can also install `Typos Spell Checker'
           echo 'You can find the extension here: https://marketplace.visualstudio.com/items?itemName=tekumara.typos-vscode'
 
-
   check_compiles:
     runs-on: ubuntu-latest
     timeout-minutes: 30
