@@ -11,6 +11,9 @@ concurrency:
   group: ${{github.workflow}}-${{github.ref}}
   cancel-in-progress: ${{github.event_name == 'pull_request'}}
 
+env:
+  CARGO_TERM_COLOR: always
+
 jobs:
   test:
     name: Run tests
@@ -22,24 +25,16 @@ jobs:
 
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
-        with:
-          toolchain: nightly
 
-      - name: Install dependencies
-        run: sudo apt-get update; sudo apt-get install --no-install-recommends libasound2-dev libudev-dev libwayland-dev libxkbcommon-dev
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: nextest
 
       - uses: Swatinem/rust-cache@v2
 
       - name: Run tests
         run: |
-          cargo +nightly test --locked --workspace --profile=fast --all-features --all-targets --features='editor/linux'
-          # Running doc tests separately is a workaround for https://github.com/rust-lang/cargo/issues/6669
-          # Setting LD_LIBRARY_PATH is a workaround for https://github.com/TheBevyFlock/bevy_new_2d/pull/318#issuecomment-2585935350
-          LD_LIBRARY_PATH="$(rustc --print target-libdir)" cargo +nightly test --profile=fast --locked --all-features -p config --doc
-          LD_LIBRARY_PATH="$(rustc --print target-libdir)" cargo +nightly test --profile=fast --locked --all-features -p data --doc
-          LD_LIBRARY_PATH="$(rustc --print target-libdir)" cargo +nightly test --profile=fast --locked --all-features -p io --doc
-          LD_LIBRARY_PATH="$(rustc --print target-libdir)" cargo +nightly test --profile=fast --locked --all-features -p serialization --doc
-          LD_LIBRARY_PATH="$(rustc --print target-libdir)" cargo +nightly test --profile=fast --locked --all-features -p ui --doc
+          cargo nextest run --all-features --cargo-profile=fast
 
   format:
     name: Check formatting
