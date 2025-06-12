@@ -78,3 +78,6 @@ incremental = true
 [profile.fast.package."*"]
 opt-level = 0
 
+# Remove false positives for Cargo Machete
+[workspace.metadata.cargo-machete]
+ignored = ["serde"]

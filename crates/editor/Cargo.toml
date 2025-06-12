@@ -14,10 +14,8 @@ publish.workspace = true
 workspace = true
 
 [dependencies]
-data = { workspace = true }
 io = { workspace = true }
 ui = { workspace = true }
-utils = { workspace = true }
 config = { workspace = true }
 logging = { workspace = true }
 bevy = { workspace = true, default-features = false, features = [
@@ -34,34 +32,26 @@ winresource = "0.1.20"
 [features]
 default = ["png"]
 dev = [
-  "data/dev",
   "io/dev",
   "ui/dev",
-  "utils/dev",
   "config/dev",
   "logging/dev"
 ]
 windows = [
-  "data/windows",
   "io/windows",
   "ui/windows",
-  "utils/windows",
   "config/windows",
   "logging/windows"
 ]
 linux = [
-  "data/linux",
   "io/linux",
   "ui/linux",
-  "utils/linux",
   "config/linux",
   "logging/linux"
 ]
 macos = [
-  "data/macos",
   "io/macos",
   "ui/macos",
-  "utils/macos",
   "config/macos",
   "logging/macos"
 ]
