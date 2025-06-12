@@ -22,10 +22,7 @@ jobs:
         with:
           toolchain: nightly
 
-      - name: Populate cargo cache
-        uses: Leafwing-Studios/cargo-cache@v2
-        with:
-          sweep-cache: true
+      - uses: Swatinem/rust-cache@v2
 
       - name: Install dependencies
         run: sudo apt-get update; sudo apt-get install --no-install-recommends libasound2-dev libudev-dev libwayland-dev libxkbcommon-dev

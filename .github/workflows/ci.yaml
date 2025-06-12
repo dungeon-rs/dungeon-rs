@@ -28,10 +28,7 @@ jobs:
       - name: Install dependencies
         run: sudo apt-get update; sudo apt-get install --no-install-recommends libasound2-dev libudev-dev libwayland-dev libxkbcommon-dev
 
-      - name: Populate target directory from cache
-        uses: Leafwing-Studios/cargo-cache@v2
-        with:
-          sweep-cache: true
+      - uses: Swatinem/rust-cache@v2
 
       - name: Run tests
         run: |
@@ -75,10 +72,7 @@ jobs:
       - name: Install dependencies
         run: sudo apt-get update; sudo apt-get install --no-install-recommends libasound2-dev libudev-dev libwayland-dev libxkbcommon-dev
 
-      - name: Populate target directory from cache
-        uses: Leafwing-Studios/cargo-cache@v2
-        with:
-          sweep-cache: true
+      - uses: Swatinem/rust-cache@v2
 
       - name: Build documentation
         run: cargo +nightly doc --profile=fast --locked --workspace --all-features --features='editor/linux' --document-private-items --no-deps
@@ -111,10 +105,7 @@ jobs:
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
 
-      - name: Populate target directory from cache
-        uses: Leafwing-Studios/cargo-cache@v2
-        with:
-          sweep-cache: true
+      - uses: Swatinem/rust-cache@v2
 
       - name: Run build
         run: cargo build --workspace --profile=fast --all-features
@@ -130,10 +121,7 @@ jobs:
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
 
-      - name: Populate target directory from cache
-        uses: Leafwing-Studios/cargo-cache@v2
-        with:
-          sweep-cache: true
+      - uses: Swatinem/rust-cache@v2
 
       - name: Check for undocumented features
         working-directory: tools/ci

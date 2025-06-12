@@ -95,10 +95,7 @@ jobs:
         with:
           targets: ${{ matrix.target }}
 
-      - name: Populate cargo cache
-        uses: Leafwing-Studios/cargo-cache@v2
-        with:
-          sweep-cache: true
+      - uses: Swatinem/rust-cache@v2
 
       - name: Setup ImageMagick
         if: ${{ matrix.platform == 'macos' }}
