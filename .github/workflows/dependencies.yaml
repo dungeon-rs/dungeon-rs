@@ -81,7 +81,7 @@ jobs:
 
       - uses: taiki-e/install-action@v2
         with:
-          tool: machete
+          tool: cargo-machete
 
       - name: Check for unused dependencies
         run:
