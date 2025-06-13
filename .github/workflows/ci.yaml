@@ -11,6 +11,13 @@ concurrency:
   group: ${{github.workflow}}-${{github.ref}}
   cancel-in-progress: ${{github.event_name == 'pull_request'}}
 
+env:
+  CARGO_TERM_COLOR: always
+  # Disable incremental compilation for faster from-scratch builds
+  CARGO_INCREMENTAL: 0
+  CARGO_PROFILE_TEST_DEBUG: 0
+
+
 jobs:
   test:
     name: Run tests
@@ -22,27 +29,17 @@ jobs:
 
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
-        with:
-          toolchain: nightly
 
-      - name: Install dependencies
-        run: sudo apt-get update; sudo apt-get install --no-install-recommends libasound2-dev libudev-dev libwayland-dev libxkbcommon-dev
-
-      - name: Populate target directory from cache
-        uses: Leafwing-Studios/cargo-cache@v2
+      - uses: taiki-e/install-action@v2
         with:
-          sweep-cache: true
+          tool: nextest
+
+      - uses: Swatinem/rust-cache@v2
 
       - name: Run tests
         run: |
-          cargo +nightly test --locked --workspace --profile=fast --all-features --all-targets --features='editor/linux'
-          # Running doc tests separately is a workaround for https://github.com/rust-lang/cargo/issues/6669
-          # Setting LD_LIBRARY_PATH is a workaround for https://github.com/TheBevyFlock/bevy_new_2d/pull/318#issuecomment-2585935350
-          LD_LIBRARY_PATH="$(rustc --print target-libdir)" cargo +nightly test --profile=fast --locked --all-features -p config --doc
-          LD_LIBRARY_PATH="$(rustc --print target-libdir)" cargo +nightly test --profile=fast --locked --all-features -p data --doc
-          LD_LIBRARY_PATH="$(rustc --print target-libdir)" cargo +nightly test --profile=fast --locked --all-features -p io --doc
-          LD_LIBRARY_PATH="$(rustc --print target-libdir)" cargo +nightly test --profile=fast --locked --all-features -p serialization --doc
-          LD_LIBRARY_PATH="$(rustc --print target-libdir)" cargo +nightly test --profile=fast --locked --all-features -p ui --doc
+          cargo nextest run --locked --all-features --cargo-profile=fast
+          LD_LIBRARY_PATH="$(rustc --print target-libdir)" cargo test --locked --profile=fast --all-features --doc
 
   format:
     name: Check formatting
@@ -59,8 +56,11 @@ jobs:
 
       - name: Run cargo fmt
         run: cargo fmt --all -- --check
+      - name: Run cargo check
+        run: cargo check --locked --all-features --profile=fast
       - name: Run cargo clippy
-        run: cargo clippy --all-features
+        run: cargo clippy --locked --all-features --profile=fast
+
   doc:
     name: Build documentation
     runs-on: ubuntu-latest
@@ -72,18 +72,13 @@ jobs:
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
 
-      - name: Install dependencies
-        run: sudo apt-get update; sudo apt-get install --no-install-recommends libasound2-dev libudev-dev libwayland-dev libxkbcommon-dev
-
-      - name: Populate target directory from cache
-        uses: Leafwing-Studios/cargo-cache@v2
-        with:
-          sweep-cache: true
+      - uses: Swatinem/rust-cache@v2
 
       - name: Build documentation
         run: cargo +nightly doc --profile=fast --locked --workspace --all-features --features='editor/linux' --document-private-items --no-deps
         env:
           RUSTDOCFLAGS: "-Z unstable-options --enable-index-page"
+
   typos:
     runs-on: ubuntu-latest
     timeout-minutes: 30
@@ -111,13 +106,10 @@ jobs:
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
 
-      - name: Populate target directory from cache
-        uses: Leafwing-Studios/cargo-cache@v2
-        with:
-          sweep-cache: true
+      - uses: Swatinem/rust-cache@v2
 
       - name: Run build
-        run: cargo build --workspace --profile=fast --all-features
+        run: cargo build --locked --workspace --profile=fast --all-features
 
   advanced_checks:
     runs-on: ubuntu-latest
@@ -130,10 +122,7 @@ jobs:
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
 
-      - name: Populate target directory from cache
-        uses: Leafwing-Studios/cargo-cache@v2
-        with:
-          sweep-cache: true
+      - uses: Swatinem/rust-cache@v2
 
       - name: Check for undocumented features
         working-directory: tools/ci
@@ -149,3 +138,20 @@ jobs:
         working-directory: tools/ci
         run: |
           cargo run --profile dev -- workspace-features
+
+  validate-commits:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    name: Validate commit messages
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: committed
+
+      - name: check commit messages
+        run: committed origin/${{ github.event.repository.default_branch }}..HEAD

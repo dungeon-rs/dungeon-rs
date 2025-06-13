@@ -1,0 +1,15 @@
+style = "conventional"
+ignore_author_re = "(dependabot)"
+merge_commit = false
+subject_capitalized = false
+allowed_types = [
+    "fix",
+    "feat",
+    "chore",
+    "docs",
+    "style",
+    "refactor",
+    "perf",
+    "test",
+    "ci"
+]
