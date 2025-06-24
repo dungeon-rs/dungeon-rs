@@ -12,6 +12,10 @@ on:
 
 env:
   app_name: DungeonRS
+  CARGO_TERM_COLOR: always
+  # Disable incremental compilation for faster from-scratch builds
+  CARGO_INCREMENTAL: 0
+  CARGO_PROFILE_TEST_DEBUG: 0
 
   # OSX variables
   app_id: dealloc.dungeon_rs
@@ -23,8 +27,8 @@ jobs:
       issues: read
       pull-requests: read
     outputs:
-      version: ${{ needs.changelog.outputs.version }}
-      version_without_v: ${{ steps.set_version.outputs.version_no_v }}
+      version: ${{ steps.set_version.outputs.version }}
+      version_without_v: ${{ steps.set_version.outputs.version_without_v }}
     steps:
       - name: Set Version
         id: set_version
@@ -40,7 +44,7 @@ jobs:
           echo "VERSION=$VERSION"
           echo "VERSION_WITHOUT_V=$VERSION_WITHOUT_V"
           echo "version=$VERSION" >> $GITHUB_OUTPUT
-          echo "version-without-v=$VERSION_WITHOUT_V" >> $GITHUB_OUTPUT
+          echo "version_without_v=$VERSION_WITHOUT_V" >> $GITHUB_OUTPUT
 
       - uses: actions/checkout@v4
         with: { fetch-depth: 0 }
@@ -63,9 +67,32 @@ jobs:
           name: release-body-md
           path: RELEASE_BODY.md
 
+  licenses:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-about
+
+      - name: Generate THIRD-PARTY-LICENSES.html
+        shell: bash
+        run: cargo about generate about.hbs > THIRD-PARTY-LICENSES.html
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: third-party-licenses-html
+          path: THIRD-PARTY-LICENSES.html
+
   build:
     name: Build ${{ matrix.label }}
-    needs: changelog
+    needs:
+      - changelog
+      - licenses
     permissions:
       contents: write
     runs-on: ${{ matrix.runner }}
@@ -133,13 +160,18 @@ jobs:
       - name: Update version to ${{ needs.changelog.outputs.version }} in Cargo.toml
         shell: pwsh
         run: |
-          $ver = '${{ needs.changelog.outputs.version_without_v }}'
+          $ver = "${{ needs.changelog.outputs.version_without_v }}"
           (Get-Content Cargo.toml -Raw) `
             -replace '(?m)^version\s*=\s*".*"$', "version = `"$ver`"" |
             Set-Content Cargo.toml
 
       - name: Build ${{ matrix.label }} binaries
-        run: cargo build --release --locked --workspace --target="${{ matrix.target }}" --no-default-features --features='${{ matrix.features }}'
+        run: cargo build --release --workspace --target="${{ matrix.target }}" --no-default-features --features='${{ matrix.features }}'
+
+      - name: Download licenses artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: third-party-licenses-html
 
       - name: Generate package files for ${{ matrix.label }}
         run: |
@@ -150,7 +182,9 @@ jobs:
       - name: Package Linux package
         if: ${{ matrix.platform == 'linux' }}
         working-directory: tmp/${{ matrix.label }}/${{ matrix.binary }}
-        run: zip --recurse-paths '${{ matrix.binary }}-${{ matrix.label }}${{ matrix.package_ext }}' '.'
+        run: |
+          cp $GITHUB_WORKSPACE/THIRD-PARTY-LICENSES.html .
+          zip --recurse-paths '${{ matrix.binary }}-${{ matrix.label }}${{ matrix.package_ext }}' '.'
 
       - name: Package OSX package
         if: ${{ matrix.platform == 'macos' }}
@@ -158,6 +192,7 @@ jobs:
         run: |
           mkdir -p /tmp/${{ matrix.label }}/icons.iconset
           mkdir -p '${{ matrix.binary }}${{ matrix.app_suffix }}/../Resources'
+          cp $GITHUB_WORKSPACE/THIRD-PARTY-LICENSES.html '${{ matrix.binary }}${{ matrix.app_suffix }}/../Resources'
           magick ../../../assets/logo.png -resize 16x16     "/tmp/${{ matrix.label }}/icons.iconset/icon_16x16.png"
           magick ../../../assets/logo.png -resize 32x32     "/tmp/${{ matrix.label }}/icons.iconset/icon_16x16@2x.png"
           magick ../../../assets/logo.png -resize 32x32     "/tmp/${{ matrix.label }}/icons.iconset/icon_32x32.png"
@@ -202,6 +237,7 @@ jobs:
                 </dict>
             </plist>
           EOF
+
           ln -s /Applications .
           codesign --deep --force --sign - "${{ matrix.binary }}.app"
           hdiutil create -fs HFS+ -volname ${{ matrix.binary }} -srcfolder . '${{ matrix.binary }}-${{ matrix.label }}${{ matrix.package_ext }}'
@@ -210,7 +246,9 @@ jobs:
         if: ${{ matrix.platform == 'windows' }}
         working-directory: tmp/${{ matrix.label }}/${{ matrix.binary }}
         shell: pwsh
-        run: Compress-Archive -Path ${{ matrix.binary }} -DestinationPath '${{ matrix.binary }}-${{ matrix.label }}${{ matrix.package_ext }}'
+        run: |
+          Copy-Item "$env:GITHUB_WORKSPACE/THIRD-PARTY-LICENSES.html" ${{ matrix.binary }}
+          Compress-Archive -Path ${{ matrix.binary }} -DestinationPath '${{ matrix.binary }}-${{ matrix.label }}${{ matrix.package_ext }}'
 
       - uses: actions/download-artifact@v4
         with:
