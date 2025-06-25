@@ -18,4 +18,6 @@ bevy = { workspace = true, default-features = false, features = ["bevy_render"] 
 
 [features]
 default = []
-dev = []
+dev = [
+    "bevy/track_location"
+]

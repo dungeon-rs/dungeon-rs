@@ -35,7 +35,14 @@ dev = [
   "io/dev",
   "ui/dev",
   "config/dev",
-  "logging/dev"
+  "logging/dev",
+  "bevy/dynamic_linking",
+  "bevy/bevy_debug_stepping",
+  "bevy/bevy_dev_tools",
+  "bevy/debug_glam_assert",
+  "bevy/trace",
+  "bevy/trace_tracy_memory",
+  "bevy/detailed_trace"
 ]
 
 # support for various image formats
