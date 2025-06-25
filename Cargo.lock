@@ -2876,12 +2876,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "microxdg"
-version = "0.2.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cd0ba94daabea2c803df477d4dc1d37a6f15726e4bed53be7067022ddb89328e"
-
-[[package]]
 name = "minimal-lexical"
 version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4735,7 +4729,6 @@ dependencies = [
  "bevy",
  "crossbeam-channel",
  "known-folders",
- "microxdg",
  "semver",
  "thiserror 2.0.12",
  "utils_macros",

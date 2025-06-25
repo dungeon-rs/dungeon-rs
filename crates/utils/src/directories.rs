@@ -71,9 +71,14 @@ fn config_path_macos() -> Result<PathBuf, DirectoryError> {
 #[cfg(target_os = "linux")]
 #[allow(clippy::missing_docs_in_private_items, clippy::missing_errors_doc)]
 fn config_path_linux() -> Result<PathBuf, DirectoryError> {
-    let xdg = microxdg::XdgApp::new("DungeonRS").map_err(|_| DirectoryError::NotFound("home"))?;
+    let path = std::env::var("XDG_CONFIG_HOME")
+        .map(|home| PathBuf::from(home).join("DungeonRS"))
+        .map_err(|_| {
+            std::env::var("HOME").map(|home| PathBuf::from(home).join(".config/DungeonRS"))
+        })
+        .map_err(|_| DirectoryError::NotFound("XDG_CONFIG_HOME"))?;
 
-    Ok(xdg.app_config().unwrap())
+    Ok(path)
 }
 
 #[inline]
@@ -99,9 +104,14 @@ fn cache_path_macos() -> Result<PathBuf, DirectoryError> {
 #[cfg(target_os = "linux")]
 #[allow(clippy::missing_docs_in_private_items, clippy::missing_errors_doc)]
 fn cache_path_linux() -> Result<PathBuf, DirectoryError> {
-    let xdg = microxdg::XdgApp::new("DungeonRS").map_err(|_| DirectoryError::NotFound("home"))?;
+    let path = std::env::var("XDG_CACHE_HOME")
+        .map(|home| PathBuf::from(home).join("DungeonRS"))
+        .map_err(|_| {
+            std::env::var("HOME").map(|home| PathBuf::from(home).join(".cache/DungeonRS"))
+        })
+        .map_err(|_| DirectoryError::NotFound("XDG_CACHE_HOME"))?;
 
-    Ok(xdg.app_cache().unwrap())
+    Ok(path)
 }
 
 #[inline]
