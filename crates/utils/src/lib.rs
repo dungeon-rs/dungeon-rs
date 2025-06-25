@@ -3,6 +3,7 @@
 mod async_ecs;
 mod plugin;
 mod version;
+mod directories;
 
 pub use async_ecs::*;
 pub use plugin::CorePlugin;

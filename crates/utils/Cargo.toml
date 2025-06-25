@@ -18,6 +18,13 @@ bevy = { workspace = true }
 utils_macros = { path = "macros" }
 crossbeam-channel = "0.5.15"
 semver = { workspace = true }
+thiserror = { workspace = true }
+
+[target.'cfg(target_os = "windows")'.dependencies]
+known-folders = "1.2.0"
+
+[target.'cfg(target_os = "linux")'.dependencies]
+microxdg = { version = "0.2.0", default-features = false }
 
 [features]
 default = []
