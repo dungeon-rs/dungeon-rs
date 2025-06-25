@@ -168,7 +168,7 @@ jobs:
       - name: Build ${{ matrix.label }} binaries
         run: cargo build --release --workspace --target="${{ matrix.target }}" --no-default-features --features='${{ matrix.features }}'
 
-      - name: Download licenses artifact
+      - name: Download licenses artefact
         uses: actions/download-artifact@v4
         with:
           name: third-party-licenses-html
