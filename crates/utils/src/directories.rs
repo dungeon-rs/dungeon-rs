@@ -24,7 +24,12 @@ pub enum DirectoryError {
     NotFound(&'static str),
 }
 
-/// The namespace for the application.
+/// Attempts to retrieve the current platform's configuration directory.
+///
+/// # Errors
+///
+/// The underlying reason for this method failing depends on the platform, however it always boils down
+/// to the base directory (`$HOME`, `%APPDATA%`, ...) not being found.
 pub fn config_path() -> Result<PathBuf, DirectoryError> {
     #[cfg(target_os = "macos")]
     return config_path_macos();

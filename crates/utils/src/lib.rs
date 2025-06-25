@@ -1,11 +1,12 @@
 #![doc = include_str!("../README.md")]
 
 mod async_ecs;
+mod directories;
 mod plugin;
 mod version;
-mod directories;
 
 pub use async_ecs::*;
 pub use plugin::CorePlugin;
 pub use utils_macros::*;
 pub use version::version;
+pub use directories::*;
