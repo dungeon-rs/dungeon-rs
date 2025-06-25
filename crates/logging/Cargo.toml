@@ -24,15 +24,6 @@ default = []
 dev = [
   "config/dev"
 ]
-windows = [
-  "config/windows"
-]
-linux = [
-  "config/linux"
-]
-macos = [
-  "config/macos"
-]
 
 # fix false positives for cargo-machete
 [package.metadata.cargo-machete]

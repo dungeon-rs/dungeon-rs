@@ -25,9 +25,6 @@ toml = { version = "0.8.22", optional = true }
 [features]
 default = []
 dev = []
-windows = []
-linux = []
-macos = []
 
 # serialization formats
 msgpack = ["dep:rmp-serde"]

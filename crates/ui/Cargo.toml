@@ -27,12 +27,3 @@ dev = [
   "egui/deadlock_detection",
   "egui/log"
 ]
-windows = [
-  "utils/windows"
-]
-linux = [
-  "utils/linux"
-]
-macos = [
-  "utils/macos"
-]

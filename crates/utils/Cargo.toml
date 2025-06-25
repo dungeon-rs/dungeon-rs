@@ -21,8 +21,7 @@ semver = { workspace = true }
 
 [features]
 default = []
-dev = []
-windows = []
-linux = []
-macos = []
+dev = [
+    "utils_macros/dev"
+]
 
