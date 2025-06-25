@@ -41,20 +41,37 @@ pub fn config_path() -> Result<PathBuf, DirectoryError> {
     return config_path_windows();
 }
 
+/// Attempts to retrieve the current platform's cache directory.
+///
+/// # Errors
+///
+/// The underlying reason for this method failing depends on the platform, however it always boils down
+/// to the base directory (`$HOME`, `%APPDATA%`, ...) not being found.
+pub fn cache_path() -> Result<PathBuf, DirectoryError> {
+    #[cfg(target_os = "macos")]
+    return cache_path_macos();
+
+    #[cfg(target_os = "linux")]
+    return cache_path_linux();
+
+    #[cfg(target_os = "windows")]
+    return cache_path_windows();
+}
+
 #[inline]
 #[cfg(target_os = "macos")]
 #[allow(clippy::missing_docs_in_private_items, clippy::missing_errors_doc)]
 fn config_path_macos() -> Result<PathBuf, DirectoryError> {
     let home = std::env::home_dir().ok_or(DirectoryError::NotFound("home"))?;
 
-    Ok(home.join("Library/Application Support/DungeonRS/config.toml"))
+    Ok(home.join("Library/Application Support/DungeonRS/config"))
 }
 
 #[inline]
 #[cfg(target_os = "linux")]
 #[allow(clippy::missing_docs_in_private_items, clippy::missing_errors_doc)]
 fn config_path_linux() -> Result<PathBuf, DirectoryError> {
-    let xdg = microxdg::XdgApp::new("DungeonRS").ok_or(DirectoryError::NotFound("home"))?;
+    let xdg = microxdg::XdgApp::new("DungeonRS").map_err(|_| DirectoryError::NotFound("home"))?;
 
     Ok(xdg.app_config().unwrap())
 }
@@ -64,7 +81,35 @@ fn config_path_linux() -> Result<PathBuf, DirectoryError> {
 #[allow(clippy::missing_docs_in_private_items, clippy::missing_errors_doc)]
 fn config_path_windows() -> Result<PathBuf, DirectoryError> {
     let home = known_folders::get_known_folder_path(known_folders::KnownFolder::RoamingAppData)
-        .ok_or(DirectoryError::NotFound("RoamingAppData"))?;
+        .ok_or_else(|| DirectoryError::NotFound("RoamingAppData"))?;
 
     Ok(home.join("DungeonRS/config"))
+}
+
+#[inline]
+#[cfg(target_os = "macos")]
+#[allow(clippy::missing_docs_in_private_items, clippy::missing_errors_doc)]
+fn cache_path_macos() -> Result<PathBuf, DirectoryError> {
+    let home = std::env::home_dir().ok_or(DirectoryError::NotFound("home"))?;
+
+    Ok(home.join("Library/Cache/DungeonRS"))
+}
+
+#[inline]
+#[cfg(target_os = "linux")]
+#[allow(clippy::missing_docs_in_private_items, clippy::missing_errors_doc)]
+fn cache_path_linux() -> Result<PathBuf, DirectoryError> {
+    let xdg = microxdg::XdgApp::new("DungeonRS").map_err(|_| DirectoryError::NotFound("home"))?;
+
+    Ok(xdg.app_cache().unwrap())
+}
+
+#[inline]
+#[cfg(target_os = "windows")]
+#[allow(clippy::missing_docs_in_private_items, clippy::missing_errors_doc)]
+fn cache_path_windows() -> Result<PathBuf, DirectoryError> {
+    let home = known_folders::get_known_folder_path(known_folders::KnownFolder::LocalAppData)
+        .ok_or_else(|| DirectoryError::NotFound("LocalAppData"))?;
+
+    Ok(home.join("DungeonRS/cache"))
 }
