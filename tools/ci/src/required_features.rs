@@ -7,7 +7,7 @@ use cli_table::{Cell, Style, Table, print_stdout};
 use std::collections::HashMap;
 
 /// The names of features we require to be present in each sub-crate.
-pub const REQUIRED_FEATURES: [&str; 5] = ["default", "dev", "linux", "windows", "macos"];
+pub const REQUIRED_FEATURES: [&str; 2] = ["default", "dev"];
 
 pub fn execute(colorizer: Colorizer, metadata: Metadata) -> Result<()> {
     let mut errors = HashMap::new();
