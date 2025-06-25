@@ -106,9 +106,7 @@ fn cache_path_macos() -> Result<PathBuf, DirectoryError> {
 fn cache_path_linux() -> Result<PathBuf, DirectoryError> {
     let path = std::env::var("XDG_CACHE_HOME")
         .map(|home| PathBuf::from(home).join("DungeonRS"))
-        .map_err(|_| {
-            std::env::var("HOME").map(|home| PathBuf::from(home).join(".cache/DungeonRS"))
-        })
+        .map_err(|_| std::env::var("HOME").map(|home| PathBuf::from(home).join(".cache/DungeonRS")))
         .map_err(|_| DirectoryError::NotFound("XDG_CACHE_HOME"))?;
 
     Ok(path)
