@@ -32,7 +32,7 @@ module_name_repetitions = "warn"
 semicolon_if_nothing_returned = "warn"
 
 [workspace.dependencies]
-bevy = { version = "0.16.0", default-features = false, features = ["std", "bevy_log"] }
+bevy = { version = "0.16.1", default-features = false, features = ["std", "bevy_log"] }
 anyhow = "1.0"
 thiserror = "2.0"
 serde = { version = "1.0", features = ["derive"] }
