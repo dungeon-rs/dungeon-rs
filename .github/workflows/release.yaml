@@ -76,7 +76,7 @@ jobs:
             label: editor-linux
             binary: editor
             target: x86_64-unknown-linux-gnu
-            features: editor/linux
+            features: editor/png,editor/jpeg,editor/webp
             package_ext: .zip
             runner: ubuntu-latest
 
@@ -84,7 +84,7 @@ jobs:
             label: editor-windows
             binary: editor
             target: x86_64-pc-windows-msvc
-            features: editor/windows
+            features: editor/png,editor/jpeg,editor/webp
             binary_ext: .exe
             package_ext: .zip
             runner: windows-latest
@@ -93,7 +93,7 @@ jobs:
             label: editor-macos
             binary: editor
             target: aarch64-apple-darwin
-            features: editor/macos
+            features: editor/png,editor/jpeg,editor/webp
             app_suffix: .app/Contents/MacOS
             package_ext: .dmg
             runner: macos-latest
