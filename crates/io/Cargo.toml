@@ -29,11 +29,5 @@ default = []
 dev = [
   "data/dev",
   "serialization/dev",
-  "utils/dev",
-  "bevy/bevy_debug_stepping",
-  "bevy/bevy_dev_tools",
-  "bevy/debug_glam_assert",
-  "bevy/dynamic_linking",
-  "bevy/trace",
-  "bevy/track_location"
+  "utils/dev"
 ]
