@@ -21,6 +21,11 @@ extend-ignore-re = [
   "-p serialization"
 ]
 
+[type.hbs]
+extend-ignore-re = [
+  "center"
+]
+
 [default]
 locale = "en-gb"
 extend-ignore-re = [

@@ -17,5 +17,6 @@ output.drs
 # --- Ignore log files
 /logs/
 
-# Ignore CHANGELOG.md
+# Ignore CHANGELOG.md, licenses and other generated files.
 CHANGELOG.md
+THIRD-PARTY-LICENSES.html
