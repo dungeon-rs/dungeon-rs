@@ -29,15 +29,3 @@ dev = [
   "utils/dev",
   "serialization/dev"
 ]
-windows = [
-  "utils/windows",
-  "serialization/windows"
-]
-linux = [
-  "utils/linux",
-  "serialization/linux"
-]
-macos = [
-  "utils/macos",
-  "serialization/macos"
-]

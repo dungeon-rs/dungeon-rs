@@ -37,24 +37,6 @@ dev = [
   "config/dev",
   "logging/dev"
 ]
-windows = [
-  "io/windows",
-  "ui/windows",
-  "config/windows",
-  "logging/windows"
-]
-linux = [
-  "io/linux",
-  "ui/linux",
-  "config/linux",
-  "logging/linux"
-]
-macos = [
-  "io/macos",
-  "ui/macos",
-  "config/macos",
-  "logging/macos"
-]
 
 # support for various image formats
 png = ["bevy/png"]

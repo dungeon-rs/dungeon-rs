@@ -5,7 +5,7 @@ use cargo_metadata::{Dependency, Metadata, Package};
 use cli_colors::Colorizer;
 use cli_table::{Cell, Style, Table, print_stderr};
 
-const PROPAGATED_FEATURES: &[&str] = &["dev", "windows", "linux", "macos"]; // `default` only needs to exist.
+const PROPAGATED_FEATURES: &[&str] = &["dev"]; // `default` only needs to exist.
 
 pub fn execute(colorizer: Colorizer, metadata: Metadata) -> Result<()> {
     let workspace_names: HashSet<_> = metadata

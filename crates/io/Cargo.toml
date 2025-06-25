@@ -37,18 +37,3 @@ dev = [
   "bevy/trace",
   "bevy/track_location"
 ]
-windows = [
-  "data/windows",
-  "serialization/windows",
-  "utils/windows"
-]
-linux = [
-  "data/linux",
-  "serialization/linux",
-  "utils/linux"
-]
-macos = [
-  "data/macos",
-  "serialization/macos",
-  "utils/macos"
-]
