@@ -55,6 +55,10 @@ opt-level = 1
 [profile.dev.package."*"]
 opt-level = 3
 
+# Temporary fix to make Bevy run under OSX 26-beta
+[profile.dev.package.objc2]
+debug-assertions = false
+
 # Enable more optimization in the release profile at the cost of compile time.
 [profile.release]
 # Compile the entire crate as one unit.

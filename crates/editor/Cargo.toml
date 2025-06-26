@@ -25,7 +25,7 @@ bevy = { workspace = true, default-features = false, features = [
   "bevy_asset"
 ] }
 
-[target.'cfg(windows)'.build-dependencies]
+[target.'cfg(target_os = "windows")'.build-dependencies]
 image = { version = "0.25.6", default-features = false, features = ["png", "ico"] }
 winresource = "0.1.22"
 

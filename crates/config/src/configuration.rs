@@ -6,10 +6,10 @@ use bevy::prelude::Resource;
 use semver::Version;
 use serialization::{Deserialize, SerializationFormat, Serialize, deserialize, serialize_to};
 use std::collections::HashMap;
-use std::env::current_exe;
 use std::fs::File;
 use std::io::Read;
 use std::path::PathBuf;
+use utils::config_path;
 
 /// Configuration for the `DungeonRS` application.
 #[derive(Resource, Debug, Serialize, Deserialize)]
@@ -54,11 +54,10 @@ impl Configuration {
     ///
     /// # Errors
     /// The method will return an error in two scenarios:
-    /// - The application failed to retrieve the path to the current executable (`current_exe`)
+    /// - The application failed to retrieve the config path (see [`utils::config_path`]
     /// - The config file failed to deserialise
     pub fn load() -> anyhow::Result<Self> {
-        let mut path = current_exe().with_context(|| "Failed to get current executable path")?;
-        path.pop(); // Remove the executable name
+        let mut path = config_path().with_context(|| "Failed to get configuration path")?;
         path.push(CONFIG_FILE_NAME); // and add the config file name
         let Ok(mut file) = File::open(path) else {
             // If the file doesn't exist, return the default configuration.
@@ -79,8 +78,7 @@ impl Configuration {
     ///   or `File::create` fails.
     /// - [`serialization::SerializationError`] Thrown when a serialisation-related error occurs.
     pub fn save(&self) -> anyhow::Result<()> {
-        let mut path = current_exe().with_context(|| "Failed to get current executable path")?;
-        path.pop(); // Remove the executable name
+        let mut path = config_path().with_context(|| "Failed to get configuration path")?;
         path.push(CONFIG_FILE_NAME); // and add the config file name
         let file = File::create(path).with_context(|| "Failed to create config file")?;
 
