@@ -40,6 +40,7 @@ semver = { version = "1.0.26", features = ["serde"] }
 rfd = { version = "0.15.3" }
 
 # Workspace packages
+assets = { path = "crates/assets" }
 config = { path = "crates/config" }
 data = { path = "crates/data" }
 io = { path = "crates/io" }
