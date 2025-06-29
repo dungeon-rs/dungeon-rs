@@ -32,7 +32,7 @@ pub fn register_panic_handler() {
             .set_title("Unrecoverable Error")
             .set_buttons(MessageButtons::Ok)
             .set_description(format!(
-                "An unrecoverable error has occured, the editor will shut down.
+                "An unrecoverable error has occurred, the editor will shut down.
 The error was: {message}
 
 Error occurred at: {location}
