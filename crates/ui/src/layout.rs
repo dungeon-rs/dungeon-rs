@@ -7,6 +7,7 @@ mod assets;
 mod layers;
 mod levels;
 
+use crate::notifications::Notifications;
 use crate::state::UiState;
 use bevy::prelude::ResMut;
 use bevy_egui::EguiContexts;
@@ -30,9 +31,11 @@ pub enum EditorPanels {
 
 /// Contains the data structures that are available to the [`TabViewer`] when rendering the editor layout.
 /// See [`EditorLayout::ui`] in particular.
-pub struct EditorLayout {}
+pub struct EditorLayout<'a> {
+    pub notifications: &'a mut Notifications,
+}
 
-impl TabViewer for EditorLayout {
+impl TabViewer for EditorLayout<'_> {
     type Tab = EditorPanels;
 
     fn title(&mut self, tab: &mut Self::Tab) -> WidgetText {
@@ -40,7 +43,7 @@ impl TabViewer for EditorLayout {
     }
 
     fn ui(&mut self, ui: &mut Ui, tab: &mut Self::Tab) {
-        match tab {
+        let result = match tab {
             EditorPanels::Editor => {
                 // we don't render anything in the editor view.
                 // Instead, in `clear_background` we make the background transparent so the underlying
@@ -49,10 +52,15 @@ impl TabViewer for EditorLayout {
                 // Later on, we'd want to get the rectangle that this pane is shown in and then update
                 // the Bevy camera to only render to this. That would prevent the camera shifting around
                 // when we move the pane.
+                Ok(())
             }
             EditorPanels::Assets => assets::render(self, ui),
             EditorPanels::Layers => layers::render(self, ui),
             EditorPanels::Levels => levels::render(self, ui),
+        };
+
+        if let Err(error) = result {
+            self.notifications.error(error.to_string());
         }
     }
 
@@ -71,14 +79,23 @@ impl TabViewer for EditorLayout {
 
 /// Handles rendering the [`EditorLayout`] in the `World`.
 #[utils::bevy_system]
-pub fn render_editor_layout(mut contexts: EguiContexts, mut state: ResMut<UiState>) {
-    let Some(context) = contexts.try_ctx_mut() else {
+pub fn render_editor_layout(
+    mut contexts: EguiContexts,
+    mut notifications: ResMut<Notifications>,
+    mut state: ResMut<UiState>,
+) {
+    let Some(mut context) = contexts.try_ctx_mut() else {
         return;
     };
 
+    // Render any pending notifications
+    notifications.ui(&mut context);
+
     // construct an `EditorLayout` using our mutable world reference for rendering.
     // the `EditorLayout` struct has a strict lifetime bound to this scope and may not leak.
-    let mut viewer = EditorLayout {};
+    let mut viewer = EditorLayout {
+        notifications: &mut notifications,
+    };
 
     // Render the `dock_state` in the `UiState` in a DockArea.
     DockArea::new(&mut state.dock_state)
