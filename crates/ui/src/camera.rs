@@ -6,6 +6,7 @@ use bevy::prelude::{
     Bundle, ButtonInput, Camera2d, Commands, Component, Local, MouseButton, Name, Projection, Res,
     Single, Transform, With,
 };
+use bevy_egui::PrimaryEguiContext;
 
 /// Marker component for the UI's camera bundle.
 #[derive(Default, Component)]
@@ -22,7 +23,7 @@ impl UICamera {
     /// Generates a `Bundle` with a [`UICamera`].
     #[must_use]
     pub fn bundle() -> impl Bundle {
-        (Name::new("UI Camera"), Self, Camera2d)
+        (Name::new("UI Camera"), Self, PrimaryEguiContext, Camera2d)
     }
 }
 

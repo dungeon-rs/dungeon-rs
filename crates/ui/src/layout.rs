@@ -9,7 +9,7 @@ mod levels;
 
 use crate::notifications::Notifications;
 use crate::state::UiState;
-use bevy::prelude::ResMut;
+use bevy::prelude::{BevyError, ResMut};
 use bevy_egui::EguiContexts;
 use egui::{Ui, WidgetText};
 use egui_dock::{DockArea, Style, TabViewer};
@@ -83,10 +83,8 @@ pub fn render_editor_layout(
     mut contexts: EguiContexts,
     mut notifications: ResMut<Notifications>,
     mut state: ResMut<UiState>,
-) {
-    let Some(mut context) = contexts.try_ctx_mut() else {
-        return;
-    };
+) -> Result<(), BevyError> {
+    let mut context = contexts.ctx_mut()?;
 
     // Render any pending notifications
     notifications.ui(&mut context);
@@ -101,4 +99,6 @@ pub fn render_editor_layout(
     DockArea::new(&mut state.dock_state)
         .style(Style::from_egui(context.style().as_ref()))
         .show(context, &mut viewer);
+
+    Ok(())
 }
