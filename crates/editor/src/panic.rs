@@ -1,16 +1,28 @@
 //! Registers a custom `panic!` handler that alerts the user of unrecoverable errors.
+//!
+//! The source of this module may read a little weird, but this is in fact an intentional workaround
+//! of how the linters function. When running `cargo clippy` it will run *all* targets, including `test`.
+//!
+//! To get around this, when compiling under `test` we generate an empty function (hinted as inline
+//! to further optimise), and for other targets we generate the full method. The `use` statements
+//! are inlined in the method to prevent `unused import` warnings under `test` target.
 
-use bevy::prelude::error;
-use rfd::{MessageButtons, MessageDialog};
-use std::fs::File;
-use std::io::Write;
-use std::path::PathBuf;
-use sysinfo::System;
+#[cfg(test)]
+#[inline]
+pub fn register_panic_handler() {}
 
 /// Registers a new `panic!` handler that alerts the user of unrecoverable errors.
+#[cfg(not(test))]
+#[allow(clippy::missing_panics_doc)]
 pub fn register_panic_handler() {
+    use bevy::prelude::error;
+    use rfd::{MessageButtons, MessageDialog};
+    use std::fs::File;
+    use std::io::Write;
+    use std::path::PathBuf;
+    use sysinfo::System;
+
     let default_hook = std::panic::take_hook();
-    #[cfg(not(test))]
     std::panic::set_hook(Box::new(move |info| {
         let path = std::env::current_dir()
             .unwrap_or(PathBuf::from("."))
@@ -37,7 +49,8 @@ The error was: {message}
 
 Error occurred at: {location}
 
-A crash file will be generated at {path:?}"
+A crash file will be generated at {}",
+                path.display()
             ))
             .show();
 
@@ -52,7 +65,7 @@ A crash file will be generated at {path:?}"
         .unwrap();
         writeln!(dump_file).unwrap();
         writeln!(dump_file).unwrap();
-        writeln!(dump_file, "Operating System: {}", os_version).unwrap();
+        writeln!(dump_file, "Operating System: {os_version}").unwrap();
         writeln!(
             dump_file,
             "Memory: {}/{}",
@@ -82,12 +95,12 @@ A crash file will be generated at {path:?}"
 
         writeln!(dump_file).unwrap();
         writeln!(dump_file, "---").unwrap();
-        writeln!(dump_file, "Error: {}", message).unwrap();
-        writeln!(dump_file, "Location: {}", location).unwrap();
+        writeln!(dump_file, "Error: {message}").unwrap();
+        writeln!(dump_file, "Location: {location}").unwrap();
         writeln!(dump_file, "---").unwrap();
-        writeln!(dump_file, "Raw: {:?}", info).unwrap();
+        writeln!(dump_file, "Raw: {info:?}").unwrap();
 
-        dump_file.flush();
+        dump_file.sync_all().unwrap();
         default_hook(info);
     }));
 }
