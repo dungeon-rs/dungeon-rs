@@ -192,6 +192,15 @@ impl AssetLibrary {
     /// If `None` is returned the pack either doesn't exist or hasn't been loaded yet (see [`AssetLibrary::load_pack`]).
     #[inline]
     #[must_use]
+    pub fn get_pack(&self, id: &String) -> Option<&AssetPack> {
+        self.loaded_packs.get(id)
+    }
+
+    /// Attempts to retrieve an previously loaded [`AssetPack`] from the current library.
+    ///
+    /// If `None` is returned the pack either doesn't exist or hasn't been loaded yet (see [`AssetLibrary::load_pack`]).
+    #[inline]
+    #[must_use]
     pub fn get_pack_mut(&mut self, id: &String) -> Option<&mut AssetPack> {
         self.loaded_packs.get_mut(id)
     }

@@ -5011,11 +5011,13 @@ dependencies = [
 name = "ui"
 version = "0.0.1"
 dependencies = [
+ "assets",
  "bevy",
  "bevy_egui",
  "egui",
  "egui-notify",
  "egui_dock",
+ "rfd",
  "utils",
 ]
 
