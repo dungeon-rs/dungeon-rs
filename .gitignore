@@ -2,6 +2,9 @@
 target/
 **/*.rs.bk
 
+# --- Ignored config files
+.cargo/config.toml
+
 # --- Bevy Assets -----------------------------------------------------------
 /assets/**/.*
 /assets/cache/
