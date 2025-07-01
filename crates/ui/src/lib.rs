@@ -2,6 +2,7 @@
 
 mod camera;
 mod layout;
+mod notifications;
 mod plugin;
 mod state;
 

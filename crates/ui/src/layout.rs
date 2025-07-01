@@ -6,9 +6,13 @@
 mod assets;
 mod layers;
 mod levels;
+mod settings;
+mod status_bar;
+mod toolbar;
 
+use crate::notifications::Notifications;
 use crate::state::UiState;
-use bevy::prelude::ResMut;
+use bevy::prelude::{BevyError, ResMut};
 use bevy_egui::EguiContexts;
 use egui::{Ui, WidgetText};
 use egui_dock::{DockArea, Style, TabViewer};
@@ -26,6 +30,8 @@ pub enum EditorPanels {
     Layers,
     /// Shows the levels available in the currently selected project.
     Levels,
+    /// Shows the settings related to the UI and application.
+    Settings,
 }
 
 /// Contains the data structures that are available to the [`TabViewer`] when rendering the editor layout.
@@ -53,6 +59,7 @@ impl TabViewer for EditorLayout {
             EditorPanels::Assets => assets::render(self, ui),
             EditorPanels::Layers => layers::render(self, ui),
             EditorPanels::Levels => levels::render(self, ui),
+            EditorPanels::Settings => settings::render(self, ui),
         }
     }
 
@@ -71,10 +78,18 @@ impl TabViewer for EditorLayout {
 
 /// Handles rendering the [`EditorLayout`] in the `World`.
 #[utils::bevy_system]
-pub fn render_editor_layout(mut contexts: EguiContexts, mut state: ResMut<UiState>) {
-    let Some(context) = contexts.try_ctx_mut() else {
-        return;
-    };
+pub fn render_editor_layout(
+    mut contexts: EguiContexts,
+    mut notifications: ResMut<Notifications>,
+    mut state: ResMut<UiState>,
+) -> Result<(), BevyError> {
+    let context = contexts.ctx_mut()?;
+
+    // Render any pending notifications
+    notifications.ui(context);
+
+    toolbar::render(context);
+    status_bar::render(context);
 
     // construct an `EditorLayout` using our mutable world reference for rendering.
     // the `EditorLayout` struct has a strict lifetime bound to this scope and may not leak.
@@ -84,4 +99,6 @@ pub fn render_editor_layout(mut contexts: EguiContexts, mut state: ResMut<UiStat
     DockArea::new(&mut state.dock_state)
         .style(Style::from_egui(context.style().as_ref()))
         .show(context, &mut viewer);
+
+    Ok(())
 }
