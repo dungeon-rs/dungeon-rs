@@ -107,6 +107,43 @@ impl AssetLibrary {
             .map_err(AssetLibraryError::Serialisation)
     }
 
+    /// Recursively removes all cache and config of all packs and the library itself.
+    /// To clean up a specific [`AssetPack`], use [`AssetLibrary::delete_pack`].
+    ///
+    /// # Errors
+    /// See errors returned by [`AssetLibrary::delete_pack`].
+    pub fn delete(&mut self) -> Result<(), AssetLibraryError> {
+        let ids = self.iter().map(|(id, _)| id.clone()).collect::<Vec<_>>();
+        for id in ids {
+            self.delete_pack(&id)?;
+        }
+
+        let path = Self::get_path(None)?.join(LIBRARY_FILE_NAME);
+        let _ = std::fs::remove_file(path);
+        Ok(())
+    }
+
+    /// Attempts to delete cache and config files of a given [`AssetPack`] and then unregisters it
+    /// from the library.
+    ///
+    /// # Errors
+    /// If any IO related errors occur while removing the pack, this method can return a
+    /// [`AssetLibraryError::OpenAssetPack`].
+    pub fn delete_pack(&mut self, id: &String) -> Result<(), AssetLibraryError> {
+        if !self.is_pack_loaded(id) {
+            self.load_pack(id)?;
+        }
+
+        if let Some(pack) = self.get_pack_mut(id) {
+            pack.delete()?;
+
+            self.loaded_packs.remove(id);
+            self.registered_packs.remove(id);
+        }
+
+        Ok(())
+    }
+
     /// Saves the asset library.
     ///
     /// # Errors

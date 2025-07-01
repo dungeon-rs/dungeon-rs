@@ -115,6 +115,18 @@ impl AssetPack {
         })
     }
 
+    /// Deletes all cache and config for this [`AssetPack`].
+    ///
+    /// # Errors
+    /// Can return [`AssetPackError::ManifestFile`] when it fails to clean up any files.
+    pub(crate) fn delete(&self) -> Result<(), AssetPackError> {
+        let config_file = self.root.join(MANIFEST_FILE_NAME);
+
+        std::fs::remove_file(config_file)?;
+        std::fs::remove_dir_all(self.meta_dir.clone())?;
+        Ok(())
+    }
+
     /// Attempts to save the manifest for this [`AssetPack`] to disk.
     /// The resulting file will be written under [`AssetPack::root`].
     ///
