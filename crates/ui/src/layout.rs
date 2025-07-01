@@ -38,7 +38,9 @@ pub enum EditorPanels {
 /// Contains the data structures that are available to the [`TabViewer`] when rendering the editor layout.
 /// See [`EditorLayout::ui`] in particular.
 pub struct EditorLayout<'a> {
+    /// The notifications resource to dispatch toasts in the UI
     pub notifications: &'a mut Notifications,
+    /// The asset library resource for querying and modifying assets.
     pub asset_library: &'a mut AssetLibrary,
 }
 

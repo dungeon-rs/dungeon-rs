@@ -152,7 +152,7 @@ impl DocumentLayer {
 }
 
 impl DocumentItem {
-    /// Createa a new [`DocumentItem`] from the given [`data::Element`] and it's meta components.
+    /// Create a new [`DocumentItem`] from the given [`data::Element`] and it's meta components.
     ///
     /// # Panics
     /// This method can panic if the [`data::Element`] is an unsupported type.

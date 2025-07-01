@@ -18,25 +18,25 @@ impl Notifications {
     pub fn ui(&mut self, ctx: &Context) {
         self.toasts.show(ctx);
     }
-    
+
     /// Renders an *info* level notification.
     pub fn info(&mut self, text: impl Into<WidgetText>) {
         let toast = Toast::info(text);
-    
+
         self.toasts.add(toast);
     }
-    
+
     /// Renders an *warn* level notification.
     pub fn warn(&mut self, text: impl Into<WidgetText>) {
         let toast = Toast::warning(text);
-    
+
         self.toasts.add(toast);
     }
-    
+
     /// Renders an *error* level notification.
     pub fn error(&mut self, text: impl Into<WidgetText>) {
         let toast = Toast::error(text);
-    
+
         self.toasts.add(toast);
     }
 }

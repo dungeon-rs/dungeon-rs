@@ -32,4 +32,7 @@ tempfile = { workspace = true }
 default = [
     "serialization/toml"
 ]
-dev = []
+dev = [
+    "utils/dev",
+    "serialization/dev",
+]
