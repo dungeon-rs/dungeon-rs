@@ -1,7 +1,7 @@
 //! A library serves as a device-wide registry of asset packs.
 
 use crate::{AssetPack, AssetPackError};
-use bevy::prelude::Resource;
+use bevy::prelude::{Resource, debug, info};
 use semver::Version;
 use serialization::{Deserialize, SerializationFormat, Serialize, deserialize, serialize_to};
 use std::collections::HashMap;
@@ -81,7 +81,10 @@ impl AssetLibrary {
     /// See [`AssetLibrary::load`].
     pub fn load_or_default(path: Option<PathBuf>) -> Result<Self, AssetLibraryError> {
         match Self::load(path) {
-            Err(AssetLibraryError::ReadFile(_)) => Ok(Self::default()),
+            Err(AssetLibraryError::ReadFile(_)) => {
+                debug!("Failed to load library, using default");
+                Ok(Self::default())
+            }
             result => result,
         }
     }
@@ -98,6 +101,7 @@ impl AssetLibrary {
     pub fn load(path: Option<PathBuf>) -> Result<Self, AssetLibraryError> {
         let path = Self::get_path(path)?.join(LIBRARY_FILE_NAME);
 
+        debug!("Attempting to load {}", path.display());
         let mut file = File::open(path).map_err(AssetLibraryError::ReadFile)?;
         let mut contents = String::new();
         file.read_to_string(&mut contents)
@@ -113,6 +117,7 @@ impl AssetLibrary {
     /// # Errors
     /// See errors returned by [`AssetLibrary::delete_pack`].
     pub fn delete(&mut self) -> Result<(), AssetLibraryError> {
+        info!("Running delete on asset library");
         let ids = self.iter().map(|(id, _)| id.clone()).collect::<Vec<_>>();
         for id in ids {
             self.delete_pack(&id)?;
@@ -130,6 +135,7 @@ impl AssetLibrary {
     /// If any IO related errors occur while removing the pack, this method can return a
     /// [`AssetLibraryError::OpenAssetPack`].
     pub fn delete_pack(&mut self, id: &String) -> Result<(), AssetLibraryError> {
+        debug!("Deleting pack {}", id);
         if !self.is_pack_loaded(id) {
             self.load_pack(id)?;
         }
@@ -155,6 +161,7 @@ impl AssetLibrary {
     pub fn save(&self, path: Option<PathBuf>) -> Result<(), AssetLibraryError> {
         let path = Self::get_path(path)?;
 
+        debug!("Saving library to {}", path.display());
         create_dir_all(&path)?; // Ensure the directory exists.
         let file =
             File::create(path.join(LIBRARY_FILE_NAME)).map_err(AssetLibraryError::ReadFile)?;
@@ -186,6 +193,8 @@ impl AssetLibrary {
 
         self.registered_packs.insert(pack_id.clone(), entry);
         self.loaded_packs.insert(pack_id.clone(), pack);
+
+        info!("Registered pack {}", pack_id);
         Ok(pack_id)
     }
 
@@ -203,6 +212,7 @@ impl AssetLibrary {
         let pack = AssetPack::load_manifest(entry.root.as_path(), entry.index.as_path())?;
         self.loaded_packs.insert(id.clone(), pack);
 
+        debug!("Loaded pack {}", id);
         self.loaded_packs
             .get_mut(id)
             .ok_or(AssetLibraryError::NotFound(id.clone()))

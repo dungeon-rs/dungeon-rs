@@ -1,6 +1,6 @@
 //! An asset pack is a single root folder that contains asset and subfolders.
 
-use bevy::prelude::{Asset, AssetServer, Component, Handle};
+use bevy::prelude::{Asset, AssetServer, Component, Handle, debug, info};
 use serialization::{Deserialize, SerializationFormat, Serialize, deserialize, serialize_to};
 use std::collections::HashMap;
 use std::fs::File;
@@ -104,6 +104,7 @@ impl AssetPack {
             .or_else(|| file_name(&root))
             .unwrap_or_else(|| id.clone());
 
+        info!("Created new asset pack with ID: {}", id);
         Ok(Self {
             state: AssetPackState::Created,
             id: id.clone(),
@@ -120,6 +121,7 @@ impl AssetPack {
     /// # Errors
     /// Can return [`AssetPackError::ManifestFile`] when it fails to clean up any files.
     pub(crate) fn delete(&self) -> Result<(), AssetPackError> {
+        info!("Deleting asset pack: {}", self.id);
         let config_file = self.root.join(MANIFEST_FILE_NAME);
 
         std::fs::remove_file(config_file)?;
@@ -134,6 +136,7 @@ impl AssetPack {
     /// - [`AssetPackError::ManifestFile`] when the file/folder for the manifest couldn't be created.
     /// - [`AssetPackError::Serialisation`] when serialising the manifest fails.
     pub fn save_manifest(&self) -> Result<(), AssetPackError> {
+        debug!("Saving manifest for {}", self.id);
         let config = _AssetPack::from(self);
         let manifest = self.root.join(MANIFEST_FILE_NAME);
         let manifest = File::create(manifest).map_err(AssetPackError::ManifestFile)?;
@@ -150,10 +153,12 @@ impl AssetPack {
     /// - [`AssetPackError::Serialisation`] when serialising the manifest fails.
     pub fn load_manifest(root: &Path, meta_dir: &Path) -> Result<Self, AssetPackError> {
         let manifest = root.join(MANIFEST_FILE_NAME);
+        debug!("Loading manifest for {}", manifest.display());
         let manifest = File::open(manifest).map_err(AssetPackError::ManifestFile)?;
         let manifest = read_to_string(manifest).map_err(AssetPackError::ManifestFile)?;
 
         let manifest: _AssetPack = deserialize(manifest.as_bytes(), &SerializationFormat::Toml)?;
+        info!("Loaded manifest for {}", manifest.id);
         Ok(Self {
             state: AssetPackState::Created,
             id: manifest.id,
@@ -170,18 +175,30 @@ impl AssetPack {
     pub fn index(&mut self) {
         let walker = WalkDir::new(&self.root);
 
-        for entry in walker.into_iter().flatten() {
-            let path = entry.path().to_path_buf();
-            let path = path.strip_prefix(&self.root).unwrap();
-            let key = blake3::hash(path.as_os_str().as_encoded_bytes()).to_string();
+        {
+            #[cfg(feature = "dev")]
+            let _span = bevy::prelude::info_span!("Indexing", name = "indexing").entered();
 
-            self.index.insert(key, path.to_path_buf());
+            let mut count = 0;
+            for entry in walker.into_iter().flatten() {
+                let path = entry.path().to_path_buf();
+                let path = path.strip_prefix(&self.root).unwrap();
+                let key = blake3::hash(path.as_os_str().as_encoded_bytes()).to_string();
+
+                self.index.insert(key, path.to_path_buf());
+                count += 1;
+            }
+
+            info!("Finished indexing {count} assets");
         }
+
+        self.save_manifest().unwrap();
     }
 
     /// Attempts to resolve the given identifier into a [`PathBuf`].
     #[must_use]
     pub fn resolve(&self, id: &String) -> Option<PathBuf> {
+        debug!("{} is resolving asset {}", self.id, id);
         self.index.get(id).map(|path| self.root.join(path))
     }
 

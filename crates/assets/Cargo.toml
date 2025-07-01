@@ -35,4 +35,5 @@ default = [
 dev = [
     "utils/dev",
     "serialization/dev",
+    "bevy/trace",
 ]
