@@ -1,48 +1,35 @@
 # Contributing to DungeonRS
 
 Setting up a local development environment requires having [Rust](https://rust-lang.org) installed.
-
-1. Clone the repository
-    ```bash
-   git clone https://github.com/dealloc/dungeon_rs.git
-    ```
-2. Ensure you have the correct toolchain installed, `Rustup` can take care of this for you:
-    ```bash
-   rustup show
-    ```
-3. Install additional tools used by `DungeonRS` for linting, analysis etc
-    ```bash
-   cargo install cargo-deny typos-cli committed git-cliff cargo-nextest
-    ```
-4. Build the `editor`, this should build all dependent crates too
-   (replace `<windows/linux/macos>` with the correct OS you're using):
-    ```bash
-   cargo build -p editor --features editor/<windows/linux/macos>
-    ```
-5. Run the editor using:
-    ```bash
-   cargo run -p editor --features editor/<windows/linux/macos>
-    ```
-The editor should pop up and you can start developing!
-
-> [!IMPORTANT]
-> DungeonRS has very strict linting to ensure consistent and idiomatic code.
-> Before opening a PR (or pushing your commits), ensure you run the commands
-> below to check your code conforms
-
-### Linting, spell check and analysis
-It's highly recommended running the commands below before opening/updating a PR:
+DungeonRS provides a `rust-toolchain.toml` file, so after cloning the repository, you can simply run:
 ```bash
-# Run the formatter to make sure everything is formatted consistently
-cargo fmt
-# Run Clippy to detect syntax / code smells
-cargo lint
-# Ensure everything is typed consistently
-typos
-# Check for dependency issues
-cargo deny check
-# Check your commits are properly formatted
-committed origin/master..HEAD
-# Check if the tests run
-cargo nextest run --all-features
+rustup show
 ```
+This will cause `rustup` to automatically install the version and targets required.
+
+In the meanwhile, you can install the helper tools DungeonRS uses.
+We provide a `justfile` which is essentially a `Makefile` (you can read more about them [here](https://just.systems)).
+
+To install `just` run:
+```bash
+cargo install just
+```
+Then, you can use `just` to install all other dependencies using:
+```bash
+just setup
+```
+
+If you want to see which `just` commands are available, you can run `just --list`.
+Some handy commands you'll probably use often are:
+- linting: `just lint`
+- testing: `just test`
+- run: `just run`
+
+If you are about to make a commit and want to run (almost) the same checks as the CI will run on your PR, you can simply
+run `just` (which will automatically run `just ci`).
+
+### Improving compile times
+By default DungeonRS has sensible defaults that work on most platforms to provide reasonable compile times.
+However, Rust isn't known for it's fast compile times, so depending on your platform there's a few tricks you can try to
+improve the compile times.
+Check out `.cargo/config_fast_build.toml` for ways to do so.

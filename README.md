@@ -9,10 +9,10 @@ DungeonRS is a small map-making editor (think DungeonDraft) written in Rust and 
 2. `cargo build` to fetch dependencies and compile (might take a while)
 3. Run the editor using
     ```bash
-   BEVY_ASSET_ROOT=. cargo run -p editor
+   BEVY_ASSET_ROOT=. cargo run -p editor --features=editor/dev
    ```
 
 If you're not interested in the debug features, you can build for release using:
 ```bash
-cargo build --release --locked --workspace --no-default-features --features='editor/<windows/linux/macos>'
+cargo build --release --locked --workspace
 ```
