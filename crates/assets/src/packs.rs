@@ -7,6 +7,7 @@ use std::fs::File;
 use std::io::read_to_string;
 use std::path::Path;
 use std::path::PathBuf;
+use rhai::{Engine, OptimizationLevel, Scope};
 use thiserror::Error;
 use utils::file_name;
 use walkdir::WalkDir;
@@ -174,6 +175,10 @@ impl AssetPack {
     #[allow(clippy::missing_panics_doc, reason = "Temporary implementation")]
     pub fn index(&mut self) {
         let walker = WalkDir::new(&self.root);
+        let engine = Engine::new();
+        let mut scope = Scope::new();
+        let script = engine.compile(include_str!("../scripts/filter.rhai")).unwrap();
+        let script = engine.optimize_ast(&scope, script, OptimizationLevel::Full);
 
         {
             #[cfg(feature = "dev")]
@@ -181,6 +186,10 @@ impl AssetPack {
 
             let mut count = 0;
             for entry in walker.into_iter().flatten() {
+                if !engine.call_fn::<bool>(&mut scope, &script, "filter", (String::new(),)).unwrap() {
+                    continue;
+                }
+
                 let path = entry.path().to_path_buf();
                 let path = path.strip_prefix(&self.root).unwrap();
                 let key = blake3::hash(path.as_os_str().as_encoded_bytes()).to_string();
