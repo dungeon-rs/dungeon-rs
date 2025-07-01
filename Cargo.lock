@@ -4906,7 +4906,6 @@ dependencies = [
 name = "ui"
 version = "0.0.1"
 dependencies = [
- "anyhow",
  "bevy",
  "bevy_egui",
  "egui",

@@ -10,7 +10,7 @@ use egui_notify::Toasts;
 #[derive(Resource, Default)]
 pub struct Notifications {
     /// The underlyling handle to the `egui-notify` crate.
-    toasts: Toasts
+    toasts: Toasts,
 }
 
 impl Notifications {

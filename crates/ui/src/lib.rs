@@ -2,8 +2,8 @@
 
 mod camera;
 mod layout;
+mod notifications;
 mod plugin;
 mod state;
-mod notifications;
 
 pub use plugin::UIPlugin;

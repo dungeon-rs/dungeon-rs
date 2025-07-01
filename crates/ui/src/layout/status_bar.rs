@@ -1,6 +1,6 @@
 //! Renders the status bar at the bottom of the screen.
 
-use egui::{warn_if_debug_build, Context, TopBottomPanel};
+use egui::{Context, TopBottomPanel, warn_if_debug_build};
 
 /// Handles the rendering of the toolbar.
 pub(super) fn render(context: &mut Context) {
