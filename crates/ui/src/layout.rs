@@ -12,6 +12,7 @@ mod toolbar;
 
 use crate::notifications::Notifications;
 use crate::state::UiState;
+use ::assets::AssetLibrary;
 use bevy::prelude::{BevyError, ResMut};
 use bevy_egui::EguiContexts;
 use egui::{Ui, WidgetText};
@@ -36,9 +37,14 @@ pub enum EditorPanels {
 
 /// Contains the data structures that are available to the [`TabViewer`] when rendering the editor layout.
 /// See [`EditorLayout::ui`] in particular.
-pub struct EditorLayout {}
+pub struct EditorLayout<'a> {
+    /// The notifications resource to dispatch toasts in the UI
+    pub notifications: &'a mut Notifications,
+    /// The asset library resource for querying and modifying assets.
+    pub asset_library: &'a mut AssetLibrary,
+}
 
-impl TabViewer for EditorLayout {
+impl TabViewer for EditorLayout<'_> {
     type Tab = EditorPanels;
 
     fn title(&mut self, tab: &mut Self::Tab) -> WidgetText {
@@ -81,6 +87,7 @@ impl TabViewer for EditorLayout {
 pub fn render_editor_layout(
     mut contexts: EguiContexts,
     mut notifications: ResMut<Notifications>,
+    mut asset_library: ResMut<AssetLibrary>,
     mut state: ResMut<UiState>,
 ) -> Result<(), BevyError> {
     let context = contexts.ctx_mut()?;
@@ -93,7 +100,10 @@ pub fn render_editor_layout(
 
     // construct an `EditorLayout` using our mutable world reference for rendering.
     // the `EditorLayout` struct has a strict lifetime bound to this scope and may not leak.
-    let mut viewer = EditorLayout {};
+    let mut viewer = EditorLayout {
+        notifications: notifications.as_mut(),
+        asset_library: asset_library.as_mut(),
+    };
 
     // Render the `dock_state` in the `UiState` in a DockArea.
     DockArea::new(&mut state.dock_state)

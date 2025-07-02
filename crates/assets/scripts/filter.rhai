@@ -1,0 +1,3 @@
+fn filter(text) {
+    true
+}

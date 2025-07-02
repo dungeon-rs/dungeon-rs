@@ -13,16 +13,19 @@ publish.workspace = true
 workspace = true
 
 [dependencies]
+assets = { workspace = true }
 utils = { workspace = true }
 egui = { version = "0.31.1", default-features = false, features = ["mint", "accesskit", "rayon"] }
 bevy_egui = { version = "0.35.0", default-features = false, features = ["render", "default_fonts"] }
 bevy = { workspace = true, features = ["bevy_core_pipeline", "bevy_asset", "bevy_sprite"] }
 egui_dock = "0.16.0"
 egui-notify = "0.19.0"
+rfd = { workspace = true }
 
 [features]
 default = []
 dev = [
+  "assets/dev",
   "utils/dev",
   "egui/deadlock_detection",
   "egui/log"

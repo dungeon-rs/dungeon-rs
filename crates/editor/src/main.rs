@@ -1,6 +1,7 @@
 #![doc = include_str!("../README.md")]
 
 mod panic;
+use assets::AssetPlugin;
 
 use bevy::prelude::*;
 use config::Configuration;
@@ -25,6 +26,7 @@ fn main() -> AppExit {
             DefaultPlugins.set(log_plugin(&config.logging)),
             IOPlugin,
             UIPlugin,
+            AssetPlugin,
         ))
         .insert_resource(config)
         .run()
