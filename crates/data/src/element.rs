@@ -38,7 +38,7 @@ use bevy::prelude::Visibility;
 ///             children![(
 ///                 Layer::new("Walls", Transform::IDENTITY),
 ///                 children![(
-///                     Element::new_object("<hash-of-resolvable-asset"),
+///                     Element::new_object(String::from("<hash-of-resolvable-asset")),
 ///                 )]
 ///             )]
 ///         )]
