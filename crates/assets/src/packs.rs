@@ -1,13 +1,13 @@
 //! An asset pack is a single root folder that contains asset and subfolders.
 
 use bevy::prelude::{Asset, AssetServer, Component, Handle, debug, info};
+use rhai::{Engine, OptimizationLevel, Scope};
 use serialization::{Deserialize, SerializationFormat, Serialize, deserialize, serialize_to};
 use std::collections::HashMap;
 use std::fs::File;
 use std::io::read_to_string;
 use std::path::Path;
 use std::path::PathBuf;
-use rhai::{Engine, OptimizationLevel, Scope};
 use thiserror::Error;
 use utils::file_name;
 use walkdir::WalkDir;
@@ -177,7 +177,9 @@ impl AssetPack {
         let walker = WalkDir::new(&self.root);
         let engine = Engine::new();
         let mut scope = Scope::new();
-        let script = engine.compile(include_str!("../scripts/filter.rhai")).unwrap();
+        let script = engine
+            .compile(include_str!("../scripts/filter.rhai"))
+            .unwrap();
         let script = engine.optimize_ast(&scope, script, OptimizationLevel::Full);
 
         {
@@ -186,7 +188,10 @@ impl AssetPack {
 
             let mut count = 0;
             for entry in walker.into_iter().flatten() {
-                if !engine.call_fn::<bool>(&mut scope, &script, "filter", (String::new(),)).unwrap() {
+                if !engine
+                    .call_fn::<bool>(&mut scope, &script, "filter", (String::new(),))
+                    .unwrap()
+                {
                     continue;
                 }
 

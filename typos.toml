@@ -38,5 +38,7 @@ extend-ignore-re = [
   "\\[\\`[^\\`]+\\`\\]",
   "serialization::",
   "`serialization`",
-  # Ignore lines that have spellchecker:disable-line
+  # Rhai has some optimisation levels
+  "OptimizationLevel",
+  "optimize_*"
 ]
