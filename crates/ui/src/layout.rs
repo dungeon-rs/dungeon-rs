@@ -10,6 +10,7 @@ mod settings;
 mod status_bar;
 mod toolbar;
 
+use crate::dialogs::Dialogs;
 use crate::notifications::Notifications;
 use crate::state::UiState;
 use ::assets::AssetLibrary;
@@ -88,6 +89,7 @@ pub fn render_editor_layout(
     mut contexts: EguiContexts,
     mut notifications: ResMut<Notifications>,
     mut asset_library: ResMut<AssetLibrary>,
+    mut dialogs: ResMut<Dialogs>,
     mut state: ResMut<UiState>,
 ) -> Result<(), BevyError> {
     let context = contexts.ctx_mut()?;
@@ -95,7 +97,10 @@ pub fn render_editor_layout(
     // Render any pending notifications
     notifications.ui(context);
 
-    toolbar::render(context, state.as_mut());
+    // Render any dialogs that are open
+    dialogs.render(context);
+
+    toolbar::render(context, dialogs.as_mut());
     status_bar::render(context);
 
     // construct an `EditorLayout` using our mutable world reference for rendering.

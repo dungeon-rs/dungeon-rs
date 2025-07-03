@@ -1,6 +1,7 @@
 //! Defines the [`UIPlugin`] which inserts all UI related functionality into the bevy `App`.
 
 use crate::camera::{camera_control_system, setup_ui_camera};
+use crate::dialogs::Dialogs;
 use crate::layout::render_editor_layout;
 use crate::notifications::Notifications;
 use crate::state::UiState;
@@ -14,7 +15,8 @@ pub struct UIPlugin;
 impl Plugin for UIPlugin {
     fn build(&self, app: &mut App) {
         app.add_plugins(EguiPlugin::default())
-            .insert_resource(Notifications::default());
+            .insert_resource(Notifications::default())
+            .insert_resource(Dialogs::default());
 
         // Camera controls
         app.add_systems(PostUpdate, camera_control_system)
