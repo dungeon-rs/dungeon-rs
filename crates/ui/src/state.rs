@@ -1,6 +1,10 @@
 //! We need to share various bits and bops throughout the different UI layers, we define a singleton
 //! resource that contains this code.
+
+mod new_map_state;
+
 use crate::layout::EditorPanels;
+pub(crate) use crate::state::new_map_state::NewMapState;
 use bevy::prelude::Resource;
 use egui_dock::{DockState, NodeIndex};
 
@@ -12,6 +16,7 @@ pub struct UiState {
     /// The [`DockState`](https://docs.rs/egui_dock/latest/egui_dock/dock_state/struct.DockState.html)
     /// that controls most of the general layout.
     pub dock_state: DockState<EditorPanels>,
+    pub new_map_state: Option<NewMapState>,
 }
 
 impl Default for UiState {
@@ -26,6 +31,9 @@ impl Default for UiState {
         );
         let [_, _settings] = surface.split_below(layers, 0.6, vec![EditorPanels::Settings]);
 
-        Self { dock_state: state }
+        Self {
+            dock_state: state,
+            new_map_state: None,
+        }
     }
 }

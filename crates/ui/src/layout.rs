@@ -95,7 +95,7 @@ pub fn render_editor_layout(
     // Render any pending notifications
     notifications.ui(context);
 
-    toolbar::render(context);
+    toolbar::render(context, state.as_mut());
     status_bar::render(context);
 
     // construct an `EditorLayout` using our mutable world reference for rendering.
