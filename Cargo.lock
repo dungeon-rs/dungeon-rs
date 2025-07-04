@@ -2076,6 +2076,7 @@ dependencies = [
  "assets",
  "bevy",
  "config",
+ "i18n",
  "image",
  "io",
  "logging",
@@ -2824,6 +2825,7 @@ checksum = "dfa686283ad6dd069f105e5ab091b04c62850d3e4cf5d67debad1933f55023df"
 name = "i18n"
 version = "0.0.1"
 dependencies = [
+ "bevy",
  "fluent-templates",
  "sys-locale",
  "unic-langid",

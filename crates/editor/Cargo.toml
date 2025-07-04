@@ -15,6 +15,7 @@ workspace = true
 
 [dependencies]
 assets = { workspace = true }
+i18n = { workspace = true }
 io = { workspace = true }
 ui = { workspace = true }
 config = { workspace = true }

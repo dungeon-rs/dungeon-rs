@@ -16,7 +16,7 @@
 macro_rules! t {
     // Simple case: t!("message-id")
     ($id:expr) => {
-        $crate::LOCALE.read().map_or_else(|_| String::from($id), |l| l.translate($id))
+        $crate::LOCALE.translate($id)
     };
 
     // With arguments: t!("message-id", "key" => value, "key2" => value2)
@@ -28,6 +28,6 @@ macro_rules! t {
                 fluent_templates::fluent_bundle::FluentValue::from($value)
             );
         )+
-        $crate::LOCALE.read().map_or_else(|_| String::from($id), |l| l.translate_with_arguments($id, &args))
+        $crate::LOCALE.translate_with_arguments($id, &args)
     }};
 }

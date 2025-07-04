@@ -10,6 +10,7 @@ repository.workspace = true
 authors.workspace = true
 
 [dependencies]
+bevy = { workspace = true }
 fluent-templates = { version = "0.13.0", features = ["walkdir"] }
 sys-locale = "0.3.2"
 unic-langid = "0.9.6"

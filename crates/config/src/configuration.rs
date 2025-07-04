@@ -16,6 +16,10 @@ use utils::config_path;
 pub struct Configuration {
     /// The version of the software that created the configuration file.
     pub version: Version,
+    /// The language identifier that the application should use when displaying text.
+    ///
+    /// If set to `None` it will attempt to use the system language and falls back to English.
+    pub language: Option<String>,
     /// A list of recently opened files,
     /// used in the UI to show recently opened projects.
     pub recents: Vec<PathBuf>,
@@ -27,7 +31,7 @@ pub struct Configuration {
     pub libraries: HashMap<String, PathBuf>,
     /// Controls how the application should handle logging.
     ///
-    /// Note that some configuration requires additional features to be enabled to work.
+    /// Note that some configurations require additional features to be enabled to work.
     pub logging: LogConfiguration,
 }
 
@@ -38,6 +42,7 @@ impl Default for Configuration {
     fn default() -> Self {
         Self {
             version: utils::version().clone(),
+            language: None,
             recents: Vec::new(),
             libraries: HashMap::new(),
             logging: LogConfiguration::default(),
