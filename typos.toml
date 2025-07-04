@@ -40,5 +40,9 @@ extend-ignore-re = [
   "`serialization`",
   # Rhai has some optimisation levels
   "OptimizationLevel",
-  "optimize_*"
+  "optimize_*",
+  # Keep in line with egui's API
+  "(d|D)ialog(s?)",
+  # Ignore Bevy's API surface
+  "Align::Center",
 ]

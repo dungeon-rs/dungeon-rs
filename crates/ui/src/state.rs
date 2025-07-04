@@ -1,5 +1,6 @@
 //! We need to share various bits and bops throughout the different UI layers, we define a singleton
 //! resource that contains this code.
+
 use crate::layout::EditorPanels;
 use bevy::prelude::Resource;
 use egui_dock::{DockState, NodeIndex};
