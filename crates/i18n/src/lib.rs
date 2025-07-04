@@ -3,7 +3,6 @@
 mod macros;
 mod plugin;
 
-use fluent_templates::fluent_bundle::FluentValue;
 use fluent_templates::{ArcLoader, LanguageIdentifier, Loader};
 use std::borrow::Cow;
 use std::collections::HashMap;
@@ -11,6 +10,7 @@ use std::str::FromStr;
 use std::sync::{LazyLock, RwLock};
 
 pub use plugin::I18nPlugin;
+pub use fluent_templates::fluent_bundle::FluentValue;
 
 /// The fallback language to use by default.
 const FALLBACK: LanguageIdentifier = unic_langid::langid!("en-GB");

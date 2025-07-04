@@ -25,7 +25,7 @@ macro_rules! t {
         $(
             args.insert(
                 std::borrow::Cow::Borrowed($key),
-                fluent_templates::fluent_bundle::FluentValue::from($value)
+                i18n::FluentValue::from($value)
             );
         )+
         $crate::LOCALE.translate_with_arguments($id, &args)
