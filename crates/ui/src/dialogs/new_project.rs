@@ -1,6 +1,6 @@
 //! Contains the code related to the "new project" dialog and form.
 use crate::dialogs::RenderableDialog;
-use egui::{Align, Context, DragValue, Layout, TextEdit, Window};
+use egui::{Context, DragValue, TextEdit, Window};
 use egui_form::garde::{GardeReport, field_path};
 use egui_form::{Form, FormField};
 use garde::Validate;
@@ -36,12 +36,15 @@ fn multiple_of_4(value: &u32, _context: &&&()) -> garde::Result {
 }
 
 impl RenderableDialog for NewProject {
-    fn render(&mut self, context: &mut Context, keep_open: &mut bool) {
+    fn render(&mut self, context: &mut Context) -> bool {
         let validation = self.validate();
         let mut form = Form::new().add_report(GardeReport::new(validation.clone()));
 
+        let mut keep_open = true;
+        // `.open` takes exclusive ownership, so we create a second flag that the buttons/UI can use.
+        let mut keep_open_inner = true;
         Window::new("New Project")
-            .open(keep_open)
+            .open(&mut keep_open)
             .resizable(false)
             .show(context, |ui| {
                 FormField::new(&mut form, field_path!("name"))
@@ -63,9 +66,11 @@ impl RenderableDialog for NewProject {
 
                 ui.add_enabled_ui(validation.is_ok(), |ui| {
                     if ui.button("Create").clicked() {
-                        // TODO: Emit creation event or handle result
+                        keep_open_inner = false;
                     }
                 });
             });
+
+        keep_open && keep_open_inner
     }
 }

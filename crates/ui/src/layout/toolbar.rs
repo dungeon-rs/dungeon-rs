@@ -10,7 +10,7 @@ pub(super) fn render(context: &mut Context, dialogs: &mut Dialogs) {
             ui.style_mut().visuals.button_frame = false;
 
             if ui.button("New").clicked() {
-                dialogs.add(crate::dialogs::NewProject::default());
+                dialogs.show_new_project();
             }
 
             let _ = ui.button("Open");
