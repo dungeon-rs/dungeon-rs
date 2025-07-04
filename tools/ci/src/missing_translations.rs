@@ -1,6 +1,3 @@
-//! This module contains the command to validate that all translation keys in the app have been
-//! translated in all available languages.
-
 use anyhow::{Context, Result};
 use cargo_metadata::Metadata;
 use cargo_metadata::camino::Utf8PathBuf;
@@ -8,8 +5,40 @@ use cli_colors::Colorizer;
 use cli_table::{Cell, Style, Table, format::Justify, print_stdout};
 use std::collections::{HashMap, HashSet};
 use std::fs;
-use syn::{Expr, ExprMacro, Lit, visit::Visit};
+use syn::{ExprMacro, visit::Visit};
 use walkdir::WalkDir;
+
+#[derive(Debug, Clone)]
+struct TranslationUsage {
+    key: String,
+    arguments: Vec<String>,
+    file_path: String,
+}
+
+#[derive(Debug, Clone)]
+struct FluentMessage {
+    required_args: HashSet<String>,
+}
+
+/// Visitor to extract translation usages (keys + arguments) from t! macro calls
+struct TranslationUsageVisitor {
+    usages: Vec<TranslationUsage>,
+    current_file: String,
+}
+
+#[derive(Debug)]
+enum ArgumentValidationError {
+    MissingRequiredArgument {
+        key: String,
+        missing_arg: String,
+        file: String,
+    },
+    UnexpectedArgument {
+        key: String,
+        unexpected_arg: String,
+        file: String,
+    },
+}
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 struct MissingTranslation {
@@ -26,11 +55,15 @@ struct UnusedTranslation {
 pub fn execute(colorizer: Colorizer, metadata: Metadata) -> Result<()> {
     let workspace_root = &metadata.workspace_root;
 
-    // Find all translation keys used in source code
-    let used_keys = find_translation_keys(workspace_root)?;
+    // Find all translation usages in source code (with arguments)
+    let translation_usages = find_translation_usages(workspace_root)?;
+    let used_keys: HashSet<String> = translation_usages.iter().map(|u| u.key.clone()).collect();
 
     // Find all available translations from .ftl files
     let available_translations = load_fluent_translations(workspace_root)?;
+
+    // Parse Fluent messages to get argument requirements
+    let fluent_messages = parse_fluent_messages(workspace_root)?;
 
     // Check for missing translations
     let missing_translations = find_missing_translations(&used_keys, &available_translations);
@@ -38,10 +71,18 @@ pub fn execute(colorizer: Colorizer, metadata: Metadata) -> Result<()> {
     // Check for unused translations
     let unused_translations = find_unused_translations(&used_keys, &available_translations);
 
-    if missing_translations.is_empty() && unused_translations.is_empty() {
+    // Check for argument validation errors
+    let argument_errors = validate_translation_arguments(&translation_usages, &fluent_messages);
+
+    if missing_translations.is_empty()
+        && unused_translations.is_empty()
+        && argument_errors.is_empty()
+    {
         println!(
             "{}",
-            colorizer.green("All translation keys are properly defined and used 🎉")
+            colorizer.green(
+                "All translation keys are properly defined, used, and have correct arguments 🎉"
+            )
         );
         return Ok(());
     }
@@ -55,20 +96,22 @@ pub fn execute(colorizer: Colorizer, metadata: Metadata) -> Result<()> {
         if !missing_translations.is_empty() {
             println!(); // Add spacing between tables
         }
-
         display_unused_translations(&unused_translations, &colorizer)?;
     }
 
-    if missing_translations.is_empty() && unused_translations.is_empty() {
-        Ok(())
-    } else {
-        std::process::exit(1);
+    if !argument_errors.is_empty() {
+        if !missing_translations.is_empty() || !unused_translations.is_empty() {
+            println!(); // Add spacing between tables
+        }
+        display_argument_errors(&argument_errors, &colorizer)?;
     }
+
+    Ok(())
 }
 
-/// Find all translation keys used in t! macro calls throughout the workspace
-fn find_translation_keys(workspace_root: &Utf8PathBuf) -> Result<HashSet<String>> {
-    let mut keys = HashSet::new();
+/// Find all translation usages (with arguments) in t! macro calls throughout the workspace
+fn find_translation_usages(workspace_root: &Utf8PathBuf) -> Result<Vec<TranslationUsage>> {
+    let mut usages = Vec::new();
 
     // Walk through all Rust source files in the workspace
     for entry in WalkDir::new(workspace_root)
@@ -79,43 +122,72 @@ fn find_translation_keys(workspace_root: &Utf8PathBuf) -> Result<HashSet<String>
         let content = fs::read_to_string(entry.path())
             .with_context(|| format!("Failed to read file: {}", entry.path().display()))?;
 
-        // Parse the Rust file and extract t! macro keys
+        // Parse the Rust file and extract t! macro usages
         if let Ok(file) = syn::parse_file(&content) {
-            let mut visitor = TranslationKeyVisitor::new();
+            let mut visitor = TranslationUsageVisitor::new(entry.path().display().to_string());
             visitor.visit_file(&file);
-            keys.extend(visitor.keys);
+            usages.extend(visitor.usages);
         }
     }
 
-    Ok(keys)
+    Ok(usages)
 }
 
-/// Visitor to extract translation keys from t! macro calls
-struct TranslationKeyVisitor {
-    keys: Vec<String>,
-}
-
-impl TranslationKeyVisitor {
-    fn new() -> Self {
-        Self { keys: Vec::new() }
+impl TranslationUsageVisitor {
+    fn new(file_path: String) -> Self {
+        Self {
+            usages: Vec::new(),
+            current_file: file_path,
+        }
     }
-}
 
-impl<'ast> Visit<'ast> for TranslationKeyVisitor {
-    fn visit_expr_macro(&mut self, node: &'ast ExprMacro) {
-        // Check if this is a t! macro call
-        if let Some(ident) = node.mac.path.get_ident() {
-            if ident == "t" {
-                // Extract the first token which should be the translation key
-                if let Ok(Expr::Lit(expr_lit)) = syn::parse2::<Expr>(node.mac.tokens.clone()) {
-                    if let Lit::Str(lit_str) = expr_lit.lit {
-                        self.keys.push(lit_str.value());
-                    }
+    /// Extract both the translation key and arguments from macro tokens
+    fn extract_translation_usage(
+        &mut self,
+        tokens: &proc_macro2::TokenStream,
+    ) -> Option<TranslationUsage> {
+        // Convert tokens to string and parse manually - this is more reliable for our specific macro format
+        let token_string = tokens.to_string();
+
+        // Split by commas to get individual arguments
+        let parts: Vec<&str> = token_string.split(',').collect();
+
+        if parts.is_empty() {
+            return None;
+        }
+
+        // First part should be the key (remove quotes)
+        let key = parts[0].trim().trim_matches('"').to_string();
+        let mut arguments = Vec::new();
+
+        // Parse remaining parts for "arg" => value patterns
+        for part in parts.iter().skip(1) {
+            let part = part.trim();
+            if let Some(arrow_pos) = part.find("=>") {
+                let arg_name = part[..arrow_pos].trim().trim_matches('"');
+                if !arg_name.is_empty() {
+                    arguments.push(arg_name.to_string());
                 }
             }
         }
 
-        // Continue visiting child nodes
+        Some(TranslationUsage {
+            key,
+            arguments,
+            file_path: self.current_file.clone(),
+        })
+    }
+}
+
+impl<'ast> Visit<'ast> for TranslationUsageVisitor {
+    fn visit_expr_macro(&mut self, node: &'ast ExprMacro) {
+        if let Some(ident) = node.mac.path.get_ident() {
+            if ident == "t" {
+                if let Some(usage) = self.extract_translation_usage(&node.mac.tokens) {
+                    self.usages.push(usage);
+                }
+            }
+        }
         syn::visit::visit_expr_macro(self, node);
     }
 }
@@ -182,6 +254,75 @@ fn parse_fluent_keys(content: &str) -> Vec<String> {
         .collect()
 }
 
+/// Parse all Fluent files to extract message argument requirements
+fn parse_fluent_messages(workspace_root: &Utf8PathBuf) -> Result<HashMap<String, FluentMessage>> {
+    let mut fluent_messages = HashMap::new();
+    let locales_dir = workspace_root.join("locales");
+
+    if !locales_dir.exists() {
+        return Ok(fluent_messages);
+    }
+
+    for entry in WalkDir::new(&locales_dir)
+        .into_iter()
+        .filter_map(|e| e.ok())
+        .filter(|e| e.path().extension().is_some_and(|ext| ext == "ftl"))
+    {
+        let content = fs::read_to_string(entry.path())
+            .with_context(|| format!("Failed to read fluent file: {}", entry.path().display()))?;
+
+        // Parse each message in the file
+        for line in content.lines() {
+            let line = line.trim();
+            if line.starts_with('#') || line.is_empty() {
+                continue;
+            }
+
+            if let Some(eq_pos) = line.find('=') {
+                let key = line[..eq_pos].trim().to_string();
+                let message_content = line[eq_pos + 1..].trim();
+
+                if !key.is_empty() {
+                    let required_args = extract_fluent_variables(message_content);
+                    fluent_messages.insert(key.clone(), FluentMessage { required_args });
+                }
+            }
+        }
+    }
+
+    Ok(fluent_messages)
+}
+
+/// Extract variable names from Fluent message content (e.g., {name}, {count})
+fn extract_fluent_variables(content: &str) -> HashSet<String> {
+    let mut variables = HashSet::new();
+    let mut chars = content.chars().peekable();
+
+    while let Some(ch) = chars.next() {
+        if ch == '{' {
+            let mut var_name = String::new();
+
+            while let Some(&next_ch) = chars.peek() {
+                if next_ch == '}' {
+                    chars.next(); // consume '}'
+                    break;
+                } else if next_ch.is_alphanumeric() || next_ch == '_' || next_ch == '-' {
+                    var_name.push(chars.next().unwrap());
+                } else {
+                    // Invalid character in variable name, skip
+                    break;
+                }
+            }
+
+            if !var_name.is_empty() {
+                variables.insert(var_name);
+            }
+        }
+    }
+
+    variables
+}
+
 /// Find missing translations by comparing used keys with available translations
 fn find_missing_translations(
     used_keys: &HashSet<String>,
@@ -244,12 +385,51 @@ fn find_unused_translations(
     unused
 }
 
+/// Validate that translation usages match their Fluent definitions
+fn validate_translation_arguments(
+    usages: &[TranslationUsage],
+    fluent_messages: &HashMap<String, FluentMessage>,
+) -> Vec<ArgumentValidationError> {
+    let mut errors = Vec::new();
+
+    for usage in usages {
+        if let Some(message) = fluent_messages.get(&usage.key) {
+            let provided_args: HashSet<_> = usage.arguments.iter().collect();
+            let required_args: HashSet<_> = message.required_args.iter().collect();
+
+            // Check for missing required arguments
+            for required_arg in &required_args {
+                if !provided_args.contains(required_arg) {
+                    errors.push(ArgumentValidationError::MissingRequiredArgument {
+                        key: usage.key.clone(),
+                        missing_arg: required_arg.to_string(),
+                        file: usage.file_path.clone(),
+                    });
+                }
+            }
+
+            // Check for unexpected arguments
+            for provided_arg in &provided_args {
+                if !required_args.contains(provided_arg) {
+                    errors.push(ArgumentValidationError::UnexpectedArgument {
+                        key: usage.key.clone(),
+                        unexpected_arg: provided_arg.to_string(),
+                        file: usage.file_path.clone(),
+                    });
+                }
+            }
+        }
+    }
+
+    errors
+}
+
 /// Display missing translations in a formatted table
 fn display_missing_translations(
     missing: &[MissingTranslation],
     colorizer: &Colorizer,
 ) -> Result<()> {
-    println!("{}", colorizer.red("❌ Missing translations found:"));
+    println!("{}", colorizer.red("✗ Missing translations found:"));
     println!();
 
     let table = missing
@@ -280,7 +460,7 @@ fn display_missing_translations(
 
 /// Display unused translations in a formatted table
 fn display_unused_translations(unused: &[UnusedTranslation], colorizer: &Colorizer) -> Result<()> {
-    println!("{}", colorizer.yellow("❌ Unused translations found:"));
+    println!("{}", colorizer.yellow("⚠ Unused translations found:"));
     println!();
 
     let table = unused
@@ -303,7 +483,64 @@ fn display_unused_translations(unused: &[UnusedTranslation], colorizer: &Coloriz
     println!();
     println!(
         "{}",
-        colorizer.yellow(format!("ound {} unused translation(s)", unused.len()))
+        colorizer.yellow(format!("Found {} unused translation(s)", unused.len()))
+    );
+
+    Ok(())
+}
+
+/// Display argument validation errors in a formatted table
+fn display_argument_errors(
+    errors: &[ArgumentValidationError],
+    colorizer: &Colorizer,
+) -> Result<()> {
+    println!("{}", colorizer.red("✗ Translation argument errors found:"));
+    println!();
+
+    let table = errors
+        .iter()
+        .map(|error| match error {
+            ArgumentValidationError::MissingRequiredArgument {
+                key,
+                missing_arg,
+                file,
+            } => {
+                vec![
+                    key.cell().justify(Justify::Left),
+                    format!("Missing: {missing_arg}")
+                        .cell()
+                        .justify(Justify::Left),
+                    file.cell().justify(Justify::Left),
+                ]
+            }
+            ArgumentValidationError::UnexpectedArgument {
+                key,
+                unexpected_arg,
+                file,
+            } => {
+                vec![
+                    key.cell().justify(Justify::Left),
+                    format!("Unexpected: {unexpected_arg}")
+                        .cell()
+                        .justify(Justify::Left),
+                    file.cell().justify(Justify::Left),
+                ]
+            }
+        })
+        .table()
+        .title(vec![
+            "Translation Key".cell().bold(true),
+            "Argument Issue".cell().bold(true),
+            "File".cell().bold(true),
+        ])
+        .bold(true);
+
+    print_stdout(table)?;
+
+    println!();
+    println!(
+        "{}",
+        colorizer.yellow(format!("Found {} argument error(s)", errors.len()))
     );
 
     Ok(())

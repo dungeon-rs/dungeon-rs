@@ -122,6 +122,7 @@ dependencies = [
  "clap",
  "cli-colors",
  "cli-table",
+ "proc-macro2",
  "strum",
  "syn",
  "walkdir",
