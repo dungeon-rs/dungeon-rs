@@ -13,7 +13,10 @@ pub(super) fn render(context: &mut Context, dialogs: &mut Dialogs) {
                 dialogs.show_new_project();
             }
 
-            let _ = ui.button("Open");
+            if ui.button("Open").clicked() {
+                dialogs.show_open_project();
+            }
+
             ui.add_enabled_ui(false, |ui| ui.button("Save"));
         });
     });
