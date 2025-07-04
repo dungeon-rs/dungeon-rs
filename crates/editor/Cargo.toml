@@ -37,6 +37,7 @@ winresource = "0.1.22"
 default = ["png"]
 dev = [
   "assets/dev",
+  "i18n/dev",
   "io/dev",
   "ui/dev",
   "config/dev",

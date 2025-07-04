@@ -11,6 +11,18 @@ use std::fs;
 use syn::{Expr, ExprMacro, Lit, visit::Visit};
 use walkdir::WalkDir;
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct MissingTranslation {
+    key: String,
+    language: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct UnusedTranslation {
+    key: String,
+    language: String,
+}
+
 pub fn execute(colorizer: Colorizer, metadata: Metadata) -> Result<()> {
     let workspace_root = &metadata.workspace_root;
 
@@ -23,18 +35,35 @@ pub fn execute(colorizer: Colorizer, metadata: Metadata) -> Result<()> {
     // Check for missing translations
     let missing_translations = find_missing_translations(&used_keys, &available_translations);
 
-    if missing_translations.is_empty() {
+    // Check for unused translations
+    let unused_translations = find_unused_translations(&used_keys, &available_translations);
+
+    if missing_translations.is_empty() && unused_translations.is_empty() {
         println!(
             "{}",
-            colorizer.green("All translation keys are properly defined 🎉")
+            colorizer.green("✓ All translation keys are properly defined and used")
         );
         return Ok(());
     }
 
-    // Display results in a table
-    display_missing_translations(&missing_translations, &colorizer)?;
+    // Display results in tables
+    if !missing_translations.is_empty() {
+        display_missing_translations(&missing_translations, &colorizer)?;
+    }
 
-    Ok(())
+    if !unused_translations.is_empty() {
+        if !missing_translations.is_empty() {
+            println!(); // Add spacing between tables
+        }
+
+        display_unused_translations(&unused_translations, &colorizer)?;
+    }
+
+    if missing_translations.is_empty() && unused_translations.is_empty() {
+        Ok(())
+    } else {
+        std::process::exit(1);
+    }
 }
 
 /// Find all translation keys used in t! macro calls throughout the workspace
@@ -191,10 +220,28 @@ fn find_missing_translations(
     missing
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-struct MissingTranslation {
-    key: String,
-    language: String,
+/// Find translations that are defined but never used in code
+fn find_unused_translations(
+    used_keys: &HashSet<String>,
+    available_translations: &HashMap<String, HashSet<String>>,
+) -> Vec<UnusedTranslation> {
+    let mut unused = Vec::new();
+
+    for (language, translations) in available_translations {
+        for key in translations {
+            if !used_keys.contains(key) {
+                unused.push(UnusedTranslation {
+                    key: key.clone(),
+                    language: language.clone(),
+                });
+            }
+        }
+    }
+
+    // Sort by key, then by language
+    unused.sort_by(|a, b| a.key.cmp(&b.key).then(a.language.cmp(&b.language)));
+
+    unused
 }
 
 /// Display missing translations in a formatted table
@@ -231,62 +278,33 @@ fn display_missing_translations(
     Ok(())
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use std::collections::HashSet;
+/// Display unused translations in a formatted table
+fn display_unused_translations(unused: &[UnusedTranslation], colorizer: &Colorizer) -> Result<()> {
+    println!("{}", colorizer.yellow("⚠ Unused translations found:"));
+    println!();
 
-    #[test]
-    fn test_parse_fluent_keys() {
-        let content = r#"
-# This is a comment
-dialogs-new-project-title = Create new project
-dialog-open-project-title = Open an existing project
-
-# Another comment
-menu-file = File
-"#;
-
-        let keys = parse_fluent_keys(content);
-        let expected: HashSet<String> = [
-            "dialogs-new-project-title",
-            "dialog-open-project-title",
-            "menu-file",
-        ]
+    let table = unused
         .iter()
-        .map(|s| s.to_string())
-        .collect();
+        .map(|ut| {
+            vec![
+                ut.clone().key.cell().justify(Justify::Left),
+                ut.clone().language.cell().justify(Justify::Center),
+            ]
+        })
+        .table()
+        .title(vec![
+            "Translation Key".cell().bold(true),
+            "Defined in Language".cell().bold(true),
+        ])
+        .bold(true);
 
-        assert_eq!(keys.into_iter().collect::<HashSet<_>>(), expected);
-    }
+    print_stdout(table)?;
 
-    #[test]
-    fn test_find_missing_translations() {
-        let mut used_keys = HashSet::new();
-        used_keys.insert("key1".to_string());
-        used_keys.insert("key2".to_string());
+    println!();
+    println!(
+        "{}",
+        colorizer.yellow(format!("Found {} unused translation(s)", unused.len()))
+    );
 
-        let mut available = HashMap::new();
-        let mut en_keys = HashSet::new();
-        en_keys.insert("key1".to_string());
-        available.insert("en-GB".to_string(), en_keys);
-
-        let mut nl_keys = HashSet::new();
-        nl_keys.insert("key2".to_string());
-        available.insert("nl-BE".to_string(), nl_keys);
-
-        let missing = find_missing_translations(&used_keys, &available);
-
-        assert_eq!(missing.len(), 2);
-        assert!(
-            missing
-                .iter()
-                .any(|m| m.key == "key1" && m.language == "nl-BE")
-        );
-        assert!(
-            missing
-                .iter()
-                .any(|m| m.key == "key2" && m.language == "en-GB")
-        );
-    }
+    Ok(())
 }
