@@ -9,8 +9,8 @@ use std::collections::HashMap;
 use std::str::FromStr;
 use std::sync::{LazyLock, RwLock};
 
-pub use plugin::I18nPlugin;
 pub use fluent_templates::fluent_bundle::FluentValue;
+pub use plugin::I18nPlugin;
 
 /// The fallback language to use by default.
 const FALLBACK: LanguageIdentifier = unic_langid::langid!("en-GB");

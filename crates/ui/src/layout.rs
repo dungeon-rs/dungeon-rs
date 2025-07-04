@@ -56,7 +56,8 @@ impl TabViewer for EditorLayout<'_> {
             EditorPanels::Layers => t!("layout-tabs-layers"),
             EditorPanels::Levels => t!("layout-tabs-levels"),
             EditorPanels::Settings => t!("layout-tabs-settings"),
-        }.into()
+        }
+        .into()
     }
 
     fn ui(&mut self, ui: &mut Ui, tab: &mut Self::Tab) {

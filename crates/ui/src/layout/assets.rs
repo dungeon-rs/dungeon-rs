@@ -1,8 +1,8 @@
 //! Contains the rendering logic for the [`crate::layout::EditorPanels::Assets`] pane.
 use crate::layout::EditorLayout;
 use egui::Ui;
-use rfd::FileDialog;
 use i18n::t;
+use rfd::FileDialog;
 
 /// Handles the rendering of the [`crate::layout::EditorPanels::Assets`] tab.
 pub(super) fn render(viewer: &mut EditorLayout, ui: &mut Ui) {
@@ -22,10 +22,12 @@ pub(super) fn render(viewer: &mut EditorLayout, ui: &mut Ui) {
                 .add_pack(&path, None)
                 .and_then(|id| viewer.asset_library.save(None).map(|()| id))
             {
-                Ok(id) => viewer.notifications.info(t!("assets-add_pack-added-notification", "name" => id)),
-                Err(error) => viewer
+                Ok(id) => viewer
                     .notifications
-                    .error(t!("assets-add_pack-adding_failed-notification", "error" => error.to_string())),
+                    .info(t!("assets-add_pack-added-notification", "name" => id)),
+                Err(error) => viewer.notifications.error(
+                    t!("assets-add_pack-adding_failed-notification", "error" => error.to_string()),
+                ),
             }
         }
     }

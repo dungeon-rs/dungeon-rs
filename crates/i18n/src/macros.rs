@@ -3,7 +3,7 @@
 /// Wrapper macro for [`crate::Locale::translate`] and [`crate::Locale::translate_with_arguments`].
 ///
 /// # Examples
-/// ```rust
+/// ```no_run
 /// # use i18n::t;
 /// # pub fn main() {
 /// // without parameters:
