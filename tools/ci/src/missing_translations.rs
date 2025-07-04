@@ -41,7 +41,7 @@ pub fn execute(colorizer: Colorizer, metadata: Metadata) -> Result<()> {
     if missing_translations.is_empty() && unused_translations.is_empty() {
         println!(
             "{}",
-            colorizer.green("✓ All translation keys are properly defined and used")
+            colorizer.green("All translation keys are properly defined and used 🎉")
         );
         return Ok(());
     }
@@ -249,7 +249,7 @@ fn display_missing_translations(
     missing: &[MissingTranslation],
     colorizer: &Colorizer,
 ) -> Result<()> {
-    println!("{}", colorizer.red("✗ Missing translations found:"));
+    println!("{}", colorizer.red("❌ Missing translations found:"));
     println!();
 
     let table = missing
@@ -280,7 +280,7 @@ fn display_missing_translations(
 
 /// Display unused translations in a formatted table
 fn display_unused_translations(unused: &[UnusedTranslation], colorizer: &Colorizer) -> Result<()> {
-    println!("{}", colorizer.yellow("⚠ Unused translations found:"));
+    println!("{}", colorizer.yellow("❌ Unused translations found:"));
     println!();
 
     let table = unused
@@ -303,7 +303,7 @@ fn display_unused_translations(unused: &[UnusedTranslation], colorizer: &Coloriz
     println!();
     println!(
         "{}",
-        colorizer.yellow(format!("Found {} unused translation(s)", unused.len()))
+        colorizer.yellow(format!("ound {} unused translation(s)", unused.len()))
     );
 
     Ok(())

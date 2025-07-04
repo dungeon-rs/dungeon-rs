@@ -43,9 +43,13 @@ impl Locale {
     /// Return an error if it's unable to fetch the system's locale, unable to parse it or unable to set it.
     ///
     /// See also error conditions for [`Locale::set_language`].
-    pub fn initialize_language(&self, language: &Option<String>) -> Result<LanguageIdentifier, String> {
+    pub fn initialise_language(
+        &self,
+        language: &Option<String>,
+    ) -> Result<LanguageIdentifier, String> {
         if let Some(language) = language {
-            let language = LanguageIdentifier::from_str(language).map_err(|_| "Failed to parse locale")?;
+            let language =
+                LanguageIdentifier::from_str(language).map_err(|_| "Failed to parse locale")?;
             self.set_language(language)?;
         }
 

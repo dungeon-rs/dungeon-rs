@@ -1,2 +1,1 @@
 dialogs-new-project-title = Create new project
-inalid-test = ELlo!
