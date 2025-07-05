@@ -5,6 +5,7 @@ use assets::AssetPlugin;
 
 use bevy::prelude::*;
 use config::Configuration;
+use i18n::I18nPlugin;
 use io::IOPlugin;
 use logging::log_plugin;
 use ui::UIPlugin;
@@ -24,6 +25,7 @@ fn main() -> AppExit {
     App::new()
         .add_plugins((
             DefaultPlugins.set(log_plugin(&config.logging)),
+            I18nPlugin::new(&config.language),
             IOPlugin,
             UIPlugin,
             AssetPlugin,

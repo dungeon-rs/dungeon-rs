@@ -18,6 +18,7 @@ use bevy::prelude::{BevyError, ResMut};
 use bevy_egui::EguiContexts;
 use egui::{Ui, WidgetText};
 use egui_dock::{DockArea, Style, TabViewer};
+use i18n::t;
 
 /// The different panels that can be shown in the editor UI.
 /// If a new panel needs to be available for the user in the UI it needs to be added here,
@@ -49,7 +50,14 @@ impl TabViewer for EditorLayout<'_> {
     type Tab = EditorPanels;
 
     fn title(&mut self, tab: &mut Self::Tab) -> WidgetText {
-        format!("{tab:?}").into()
+        match tab {
+            EditorPanels::Editor => t!("layout-tabs-editor"),
+            EditorPanels::Assets => t!("layout-tabs-assets"),
+            EditorPanels::Layers => t!("layout-tabs-layers"),
+            EditorPanels::Levels => t!("layout-tabs-levels"),
+            EditorPanels::Settings => t!("layout-tabs-settings"),
+        }
+        .into()
     }
 
     fn ui(&mut self, ui: &mut Ui, tab: &mut Self::Tab) {

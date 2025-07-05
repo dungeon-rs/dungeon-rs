@@ -4,6 +4,7 @@ use egui::{Context, DragValue, TextEdit, Window};
 use egui_form::garde::{GardeReport, field_path};
 use egui_form::{Form, FormField};
 use garde::Validate;
+use i18n::t;
 
 /// Defines all form data required for creating a new project.
 #[derive(Default, Debug, Validate)]
@@ -43,7 +44,7 @@ impl RenderableDialog for NewProject {
         let mut keep_open = true;
         // `.open` takes exclusive ownership, so we create a second flag that the buttons/UI can use.
         let mut keep_open_inner = true;
-        Window::new("New Project")
+        Window::new(t!("dialogs-new-project-title"))
             .open(&mut keep_open)
             .resizable(false)
             .show(context, |ui| {

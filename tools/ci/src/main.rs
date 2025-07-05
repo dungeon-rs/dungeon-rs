@@ -1,4 +1,5 @@
 mod documented_features;
+mod missing_translations;
 mod required_features;
 mod workspace_features;
 
@@ -29,6 +30,9 @@ pub enum Commands {
     /// Validates that all features in the workspace are correctly propagated.
     #[clap(name = "workspace-features")]
     ValidateWorkspaceFeatures,
+    /// Validates that all translation keys (tracked with the `t!` macro) are translated.
+    #[clap(name = "translations")]
+    ValidateTranslations,
 }
 
 fn main() -> Result<()> {
@@ -51,6 +55,7 @@ fn execute(command: Commands) -> Result<()> {
         Commands::ValidateDocumentedFeatures => documented_features::execute(colorizer, metadata),
         Commands::ValidateRequiredFeatures => required_features::execute(colorizer, metadata),
         Commands::ValidateWorkspaceFeatures => workspace_features::execute(colorizer, metadata),
+        Commands::ValidateTranslations => missing_translations::execute(colorizer, metadata),
     }
 }
 

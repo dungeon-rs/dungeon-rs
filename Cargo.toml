@@ -44,6 +44,7 @@ rfd = { version = "0.15.3" }
 assets = { path = "crates/assets" }
 config = { path = "crates/config" }
 data = { path = "crates/data" }
+i18n = { path = "crates/i18n" }
 io = { path = "crates/io" }
 logging = { path = "crates/logging" }
 serialization = { path = "crates/serialization" }

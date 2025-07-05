@@ -15,6 +15,7 @@ workspace = true
 
 [dependencies]
 assets = { workspace = true }
+i18n = { workspace = true }
 io = { workspace = true }
 ui = { workspace = true }
 config = { workspace = true }
@@ -36,6 +37,7 @@ winresource = "0.1.22"
 default = ["png"]
 dev = [
   "assets/dev",
+  "i18n/dev",
   "io/dev",
   "ui/dev",
   "config/dev",
