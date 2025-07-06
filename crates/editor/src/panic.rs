@@ -29,6 +29,8 @@ pub fn register_panic_handler() {
             .join("crash_report.txt");
         let message = if let Some(message) = info.payload().downcast_ref::<&'static str>() {
             String::from(*message)
+        } else if let Some(message) = info.payload().downcast_ref::<String>() {
+            message.clone()
         } else {
             String::from("An unrecoverable error has occurred.")
         };
