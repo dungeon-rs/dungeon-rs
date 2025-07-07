@@ -51,6 +51,9 @@ dev = [
   "bevy/detailed_trace"
 ]
 
+# Disables showing the console window, only works on Windows.
+no_console = []
+
 # support for various image formats
 png = ["bevy/png"]
 webp = ["bevy/webp"]

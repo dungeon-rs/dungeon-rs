@@ -72,6 +72,12 @@ codegen-units = 1
 # Slows compile times, marginal improvements.
 lto = "thin"
 
+# Special profile of the release build that adds debug symbols (for backtrace) and unwinding panics
+[profile.release-report]
+inherits = "release"
+debug = "full"
+panic = "unwind"
+
 # We create a separate profile called 'fast' that disables all optimisation in favour of faster compilation for use in CI.
 [profile.fast]
 inherits = "dev"
