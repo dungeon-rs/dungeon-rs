@@ -195,6 +195,8 @@ jobs:
           mkdir -p /tmp/${{ matrix.label }}/icons.iconset
           mkdir -p '${{ matrix.binary }}${{ matrix.app_suffix }}/../Resources'
           cp $GITHUB_WORKSPACE/THIRD-PARTY-LICENSES.html '${{ matrix.binary }}${{ matrix.app_suffix }}/../Resources'
+          mv '${{ matrix.binary }}${{ matrix.app_suffix }}/assets' '${{ matrix.binary }}${{ matrix.app_suffix }}/../Resources'
+          mv '${{ matrix.binary }}${{ matrix.app_suffix }}/locales' '${{ matrix.binary }}${{ matrix.app_suffix }}/../Resources'
           magick ../../../assets/logo.png -resize 16x16     "/tmp/${{ matrix.label }}/icons.iconset/icon_16x16.png"
           magick ../../../assets/logo.png -resize 32x32     "/tmp/${{ matrix.label }}/icons.iconset/icon_16x16@2x.png"
           magick ../../../assets/logo.png -resize 32x32     "/tmp/${{ matrix.label }}/icons.iconset/icon_32x32.png"
