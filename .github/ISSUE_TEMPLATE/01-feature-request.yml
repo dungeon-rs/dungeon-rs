@@ -1,0 +1,189 @@
+name: "✨ Feature request"
+description: Suggest a new feature or enhancement for DungeonRS
+title: "[FEATURE]: "
+labels: ["enhancement"]
+body:
+    - type: markdown
+      attributes:
+          value: |
+              **Before You Start...**
+
+              This form is for requesting new features or enhancements to DungeonRS. Please:
+
+              - Check [existing issues](https://github.com/dungeon-rs/dungeon-rs/issues) to avoid duplicates
+              - Search [GitHub Discussions](https://github.com/dungeon-rs/dungeon-rs/discussions) for similar requests
+              - Consider if this is truly a new feature or if it's a bug in existing functionality
+
+              **Note:** Feature requests are evaluated based on community interest, alignment with project goals, and development resources.
+
+    - type: dropdown
+      id: feature-category
+      attributes:
+          label: Feature Category
+          description: What area of DungeonRS would this feature affect?
+          options:
+              - "Map editing (brushes, tools, drawing)"
+              - "Asset management (import, organisation, search)"
+              - "Layer system (visibility, ordering, effects)"
+              - "Export/rendering (formats, quality, automation)"
+              - "User interface (panels, workflows, accessibility)"
+              - "Performance (speed, memory, large projects)"
+              - "File formats (import/export support)"
+              - "Scripting/automation (Rhai scripts, batch operations)"
+              - "Project management (templates, recent files, backup)"
+              - "Other (specify in description)"
+      validations:
+          required: true
+
+    - type: textarea
+      id: feature-summary
+      attributes:
+          label: Feature Summary
+          description: |
+              Provide a clear, concise summary of the feature you're requesting.
+              What should DungeonRS be able to do that it currently can't?
+          placeholder: "e.g., Add support for animated textures in brush patterns"
+      validations:
+          required: true
+
+    - type: textarea
+      id: use-case
+      attributes:
+          label: Use Case & Problem
+          description: |
+              Describe the specific problem or need this feature would address.
+              What workflow or task would this improve?
+          placeholder: |
+              I'm creating animated water effects for my maps and currently have to...
+              This would help me because...
+              Without this feature, I have to work around it by...
+      validations:
+          required: true
+
+    - type: textarea
+      id: proposed-solution
+      attributes:
+          label: Proposed Solution
+          description: |
+              Describe your ideal solution. How would you like this feature to work?
+              Be as specific as possible about the user experience.
+          placeholder: |
+              I envision a new brush option that...
+              The interface could have...
+              When I do X, it should...
+      validations:
+          required: true
+
+    - type: textarea
+      id: alternatives
+      attributes:
+          label: Alternative Solutions
+          description: |
+              Have you considered other ways to solve this problem?
+              Are there alternative approaches or workarounds?
+          placeholder: |
+              Other map editors handle this by...
+              An alternative approach could be...
+              Currently I work around this by...
+
+    - type: dropdown
+      id: similar-software
+      attributes:
+          label: Similar Features in Other Software
+          description: Does this feature exist in other map editors or similar tools?
+          options:
+              - "Yes, in Dungeondraft"
+              - "Yes, in other map editors"
+              - "Yes, in general graphics software"
+              - "No, this would be unique to DungeonRS"
+              - "Not sure"
+
+    - type: textarea
+      id: examples
+      attributes:
+          label: Examples or References
+          description: |
+              If this feature exists elsewhere, please provide examples, screenshots, or links.
+              You can drag and drop images or files here.
+          placeholder: |
+              Here's how Dungeondraft handles this...
+              Similar to this feature in Photoshop...
+              Example image: [drag and drop here]
+
+    - type: dropdown
+      id: user-type
+      attributes:
+          label: User Type
+          description: What best describes your use case?
+          options:
+              - "Hobbyist/Personal use"
+              - "Professional map maker"
+              - "Content creator/Streamer"
+              - "Game developer"
+              - "Educational use"
+              - "Other"
+
+    - type: dropdown
+      id: priority
+      attributes:
+          label: Priority
+          description: How important is this feature to your workflow?
+          options:
+              - "Critical - blocks my current workflow"
+              - "High - would significantly improve my workflow"
+              - "Medium - would be a nice enhancement"
+              - "Low - minor quality of life improvement"
+      validations:
+          required: true
+
+    - type: textarea
+      id: implementation-thoughts
+      attributes:
+          label: Implementation Thoughts
+          description: |
+              If you have technical knowledge, do you have thoughts on how this might be implemented?
+              (This is optional and intended for developers or technically-minded users)
+          placeholder: |
+              This might require changes to...
+              Could potentially use the existing... system
+              Might be challenging because...
+
+    - type: checkboxes
+      id: contribution
+      attributes:
+          label: Contribution
+          description: Would you be willing to help implement this feature?
+          options:
+              - label: "I'm willing to help with design/UX feedback"
+              - label: "I'm willing to help with testing"
+              - label: "I'm willing to help with documentation"
+              - label: "I'm willing to help with code implementation"
+              - label: "I'm willing to help with funding/sponsorship"
+
+    - type: textarea
+      id: additional-context
+      attributes:
+          label: Additional Context
+          description: |
+              Any other information, screenshots, mockups, or context that would help us understand your request.
+              You can drag and drop files here.
+          placeholder: |
+              Mockup image showing the proposed UI...
+              Link to community discussion about this...
+              Related to issue #123...
+
+    - type: markdown
+      attributes:
+          value: |
+              ---
+
+              **What Happens Next?**
+
+              1. **Community Discussion**: Feature requests are often discussed in the community before implementation
+              2. **Evaluation**: We'll evaluate the request based on project goals, technical feasibility, and resources
+              3. **Roadmap**: Accepted features will be added to our roadmap and assigned to future milestones
+              4. **Updates**: We'll keep you informed of the status and any decisions made
+
+              **Note:** Not all feature requests can be implemented immediately. We prioritise based on community needs, project direction, and available development time.
+
+              Thank you for helping make DungeonRS better! 🗺️

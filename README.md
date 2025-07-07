@@ -1,6 +1,6 @@
 # dungeon_rs (/ˈdʌnʒənˌrʌʃ/)
-[![CI](https://github.com/dealloc/dungeon_rs/actions/workflows/ci.yaml/badge.svg)](https://github.com/dealloc/dungeon_rs/actions/workflows/ci.yaml)
-[![Release](https://github.com/dealloc/dungeon_rs/actions/workflows/release.yaml/badge.svg)](https://github.com/dealloc/dungeon_rs/actions/workflows/release.yaml)
+[![CI](https://github.com/dungeon-rs/dungeon-rs/actions/workflows/ci.yaml/badge.svg)](https://github.com/dungeon-rs/dungeon-rs/actions/workflows/ci.yaml)
+[![Release](https://github.com/dungeon-rs/dungeon-rs/actions/workflows/release.yaml/badge.svg)](https://github.com/dungeon-rs/dungeon-rs/actions/workflows/release.yaml)
 
 DungeonRS is a small map-making editor (think DungeonDraft) written in Rust and Bevy.
 
