@@ -1,0 +1,86 @@
+# .github/dependabot.yml
+version: 2
+updates:
+    - package-ecosystem: "cargo"
+      directory: "/"
+      schedule:
+          interval: "weekly"
+          day: "monday"
+          time: "09:00"
+      open-pull-requests-limit: 10
+      groups:
+          # Group Bevy ecosystem updates together
+          bevy-ecosystem:
+              patterns:
+                  - "bevy*"
+                  - "bevy_*"
+
+          # Group egui ecosystem
+          egui-ecosystem:
+              patterns:
+                  - "egui*"
+                  - "bevy_egui"
+                  - "egui_dock"
+                  - "egui-notify"
+
+          # Group serde ecosystem
+          serde-ecosystem:
+              patterns:
+                  - "serde*"
+                  - "serde_*"
+                  - "rmp-serde"
+
+          # Group image processing
+          image-processing:
+              patterns:
+                  - "image"
+                  - "winresource"
+
+          # Group development dependencies
+          dev-dependencies:
+              dependency-type: "development"
+              patterns:
+                  - "*"
+
+          # Group minor/patch updates for stable crates
+          minor-updates:
+              update-types:
+                  - "minor"
+                  - "patch"
+              patterns:
+                  - "anyhow"
+                  - "thiserror"
+                  - "semver"
+                  - "tempfile"
+                  - "walkdir"
+                  - "crossbeam-channel"
+                  - "blake3"
+                  - "rhai"
+                  - "known-folders"
+                  - "sysinfo"
+                  - "rfd"
+
+        # Don't update these automatically (require manual review)
+      ignore:
+          # Major version updates that might need migration work
+          - dependency-name: "bevy"
+            update-types: ["version-update:semver-major"]
+          - dependency-name: "rhai"
+            update-types: ["version-update:semver-major"]
+
+        # Custom commit message format
+      commit-message:
+          prefix: "deps"
+          prefix-development: "deps(dev)"
+          include: "scope"
+
+    # Also check GitHub Actions
+    - package-ecosystem: "github-actions"
+      directory: "/.github/workflows"
+      schedule:
+          interval: "weekly"
+          day: "monday"
+          time: "10:00"
+      open-pull-requests-limit: 5
+      commit-message:
+          prefix: "ci"
