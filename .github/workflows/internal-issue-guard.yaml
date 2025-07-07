@@ -1,5 +1,4 @@
-# .github/workflows/technical-issue-guard.yml
-name: Technical Issue Guard
+name: Internal Issue Guard
 on:
   issues:
     types: [opened]
@@ -7,7 +6,7 @@ on:
 jobs:
   check-technical-issues:
     runs-on: ubuntu-latest
-    if: contains(github.event.issue.labels.*.name, 'technical')
+    if: contains(github.event.issue.labels.*.name, 'internal')
     steps:
       - name: Check if user has write permission
         id: check-permission
@@ -33,15 +32,12 @@ jobs:
               }
             }
 
-      - name: Close non-maintainer technical issues
+      - name: Close Issue
         if: steps.check-permission.outputs.has-access == 'false'
-        uses: actions-cool/issues-helper@v3
+        uses: peter-evans/close-issue@v3
         with:
-          actions: 'close-issues'
-          token: ${{ secrets.GITHUB_TOKEN }}
           issue-number: ${{ github.event.issue.number }}
-
-          body: |
+          comment: |
             Thanks for your interest in DungeonRS!
 
             The **Technical/Internal** template is reserved for project maintainers and contributors with write access.
@@ -51,4 +47,4 @@ jobs:
             - ✨ [**Feature Request**](https://github.com/dungeon-rs/dungeon-rs/issues/new?template=feature-request.yml) - if you'd like to suggest an enhancement
             - 💬 [**Discussions**](https://github.com/dungeon-rs/dungeon-rs/discussions) - for questions or general discussion
 
-            This helps us keep technical issues organized and ensures your feedback gets the attention it deserves in the right place.
+            This helps us keep technical issues organised and ensures your feedback gets the attention it deserves in the right place.
