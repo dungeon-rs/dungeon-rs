@@ -1,4 +1,5 @@
 #![doc = include_str!("../README.md")]
+#![cfg_attr(feature = "no_console", windows_subsystem = "windows")]
 
 mod panic;
 use assets::AssetPlugin;

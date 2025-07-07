@@ -112,7 +112,7 @@ jobs:
             binary: editor
             profile: release
             target: x86_64-unknown-linux-gnu
-            features: editor/jpeg,editor/webp
+            features: editor/no_console,editor/jpeg,editor/webp
             package_ext: .zip
             runner: ubuntu-latest
 
@@ -121,7 +121,7 @@ jobs:
             binary: editor
             profile: release
             target: x86_64-pc-windows-msvc
-            features: editor/jpeg,editor/webp
+            features: editor/no_console,editor/jpeg,editor/webp
             binary_ext: .exe
             package_ext: .zip
             runner: windows-latest
@@ -131,7 +131,7 @@ jobs:
             binary: editor
             profile: release
             target: aarch64-apple-darwin
-            features: editor/jpeg,editor/webp
+            features: editor/no_console,editor/jpeg,editor/webp
             app_suffix: .app/Contents/MacOS
             package_ext: .dmg
             runner: macos-latest
