@@ -167,7 +167,7 @@ jobs:
             Set-Content Cargo.toml
 
       - name: Build ${{ matrix.label }} binaries
-        run: cargo build --release --locked --workspace --target="${{ matrix.target }}" --features='${{ matrix.features }}'
+        run: cargo build --release --workspace --target="${{ matrix.target }}" --features='${{ matrix.features }}'
 
       - name: Download licenses artefact
         uses: actions/download-artifact@v4
