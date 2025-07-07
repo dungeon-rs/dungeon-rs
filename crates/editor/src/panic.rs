@@ -49,8 +49,6 @@ pub fn register_panic_handler() {
                 "An unrecoverable error has occurred, the editor will shut down.
 The error was: {message}
 
-Error occurred at: {location}
-
 A crash file will be generated at {}",
                 path.display()
             ))
@@ -59,6 +57,7 @@ A crash file will be generated at {}",
         let system = System::new_all();
         let os_version = System::long_os_version().unwrap_or(String::from("Unknown"));
         let mut dump_file = File::create(path).expect("Failed to create dump file");
+        let backtrace = std::backtrace::Backtrace::force_capture();
         writeln!(dump_file, "--- DungeonRS Crash Report ---").unwrap();
         writeln!(
             dump_file,
@@ -99,6 +98,7 @@ A crash file will be generated at {}",
         writeln!(dump_file, "---").unwrap();
         writeln!(dump_file, "Error: {message}").unwrap();
         writeln!(dump_file, "Location: {location}").unwrap();
+        writeln!(dump_file, "Backtrace: {backtrace}").unwrap();
         writeln!(dump_file, "---").unwrap();
         writeln!(dump_file, "Raw: {info:?}").unwrap();
 
