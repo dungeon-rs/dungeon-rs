@@ -63,5 +63,5 @@ topo_order = false
 sort_commits = "newest"
 
 link_parsers = [
-    { pattern = "#(\\d+)", href = "https://github.com/dealloc/dungeon_rs/issues/$1" },
+    { pattern = "#(\\d+)", href = "https://github.com/dungeon-rs/dungeon-rs/issues/$1" },
 ]
