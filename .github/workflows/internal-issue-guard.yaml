@@ -1,0 +1,54 @@
+# .github/workflows/technical-issue-guard.yml
+name: Technical Issue Guard
+on:
+  issues:
+    types: [opened]
+
+jobs:
+  check-technical-issues:
+    runs-on: ubuntu-latest
+    if: contains(github.event.issue.labels.*.name, 'technical')
+    steps:
+      - name: Check if user has write permission
+        id: check-permission
+        uses: actions/github-script@v7
+        with:
+          script: |
+            try {
+              const { data: permission } = await github.rest.repos.getCollaboratorPermissionLevel({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                username: context.payload.issue.user.login
+              });
+
+              const hasWriteAccess = ['write', 'admin'].includes(permission.permission);
+              core.setOutput('has-access', hasWriteAccess);
+
+            } catch (error) {
+              // If user is not a collaborator, the API returns 404
+              if (error.status === 404) {
+                core.setOutput('has-access', false);
+              } else {
+                throw error;
+              }
+            }
+
+      - name: Close non-maintainer technical issues
+        if: steps.check-permission.outputs.has-access == 'false'
+        uses: actions-cool/issues-helper@v3
+        with:
+          actions: 'close-issues'
+          token: ${{ secrets.GITHUB_TOKEN }}
+          issue-number: ${{ github.event.issue.number }}
+
+          body: |
+            Thanks for your interest in DungeonRS!
+
+            The **Technical/Internal** template is reserved for project maintainers and contributors with write access.
+
+            For your issue, please use one of these templates instead:
+            - 🐛 [**Bug Report**](https://github.com/dungeon-rs/dungeon-rs/issues/new?template=bug-report.yml) - if something isn't working correctly
+            - ✨ [**Feature Request**](https://github.com/dungeon-rs/dungeon-rs/issues/new?template=feature-request.yml) - if you'd like to suggest an enhancement
+            - 💬 [**Discussions**](https://github.com/dungeon-rs/dungeon-rs/discussions) - for questions or general discussion
+
+            This helps us keep technical issues organized and ensures your feedback gets the attention it deserves in the right place.
