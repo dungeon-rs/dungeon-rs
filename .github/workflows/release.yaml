@@ -103,7 +103,7 @@ jobs:
             label: editor-linux
             binary: editor
             target: x86_64-unknown-linux-gnu
-            features: editor/png,editor/jpeg,editor/webp
+            features: editor/jpeg,editor/webp
             package_ext: .zip
             runner: ubuntu-latest
 
@@ -111,7 +111,7 @@ jobs:
             label: editor-windows
             binary: editor
             target: x86_64-pc-windows-msvc
-            features: editor/png,editor/jpeg,editor/webp
+            features: editor/jpeg,editor/webp
             binary_ext: .exe
             package_ext: .zip
             runner: windows-latest
@@ -120,7 +120,7 @@ jobs:
             label: editor-macos
             binary: editor
             target: aarch64-apple-darwin
-            features: editor/png,editor/jpeg,editor/webp
+            features: editor/jpeg,editor/webp
             app_suffix: .app/Contents/MacOS
             package_ext: .dmg
             runner: macos-latest
@@ -128,6 +128,7 @@ jobs:
     #          - platform: macos
     #            label: macos-x64
     #            target: x86_64-apple-darwin
+    #            features: editor/jpeg,editor/webp
     #            profile: release
     #            app_suffix: .app/Contents/MacOS
     #            package_ext: .dmg
@@ -166,7 +167,7 @@ jobs:
             Set-Content Cargo.toml
 
       - name: Build ${{ matrix.label }} binaries
-        run: cargo build --release --workspace --target="${{ matrix.target }}" --no-default-features --features='${{ matrix.features }}'
+        run: cargo build --release --workspace --target="${{ matrix.target }}" --features='${{ matrix.features }}'
 
       - name: Download licenses artefact
         uses: actions/download-artifact@v4
@@ -177,13 +178,14 @@ jobs:
         run: |
           mkdir -p tmp/${{ matrix.label }}/${{ matrix.binary }}/${{ matrix.binary }}${{ matrix.app_suffix }}
           cp -r ./assets tmp/${{ matrix.label }}/${{ matrix.binary }}/${{ matrix.binary }}${{ matrix.app_suffix }}
+          cp -r ./locales tmp/${{ matrix.label }}/${{ matrix.binary }}/${{ matrix.binary }}${{ matrix.app_suffix }}
           mv target/${{ matrix.target }}/release/${{ matrix.binary }}${{ matrix.binary_ext }} tmp/${{ matrix.label }}/${{ matrix.binary }}/${{ matrix.binary }}${{ matrix.app_suffix }}
 
       - name: Package Linux package
         if: ${{ matrix.platform == 'linux' }}
         working-directory: tmp/${{ matrix.label }}/${{ matrix.binary }}
         run: |
-          cp $GITHUB_WORKSPACE/THIRD-PARTY-LICENSES.html .
+          cp $GITHUB_WORKSPACE/THIRD-PARTY-LICENSES.html ${{ matrix.binary }}
           zip --recurse-paths '${{ matrix.binary }}-${{ matrix.label }}${{ matrix.package_ext }}' '.'
 
       - name: Package OSX package
@@ -193,6 +195,8 @@ jobs:
           mkdir -p /tmp/${{ matrix.label }}/icons.iconset
           mkdir -p '${{ matrix.binary }}${{ matrix.app_suffix }}/../Resources'
           cp $GITHUB_WORKSPACE/THIRD-PARTY-LICENSES.html '${{ matrix.binary }}${{ matrix.app_suffix }}/../Resources'
+          mv '${{ matrix.binary }}${{ matrix.app_suffix }}/assets' '${{ matrix.binary }}${{ matrix.app_suffix }}/../Resources'
+          mv '${{ matrix.binary }}${{ matrix.app_suffix }}/locales' '${{ matrix.binary }}${{ matrix.app_suffix }}/../Resources'
           magick ../../../assets/logo.png -resize 16x16     "/tmp/${{ matrix.label }}/icons.iconset/icon_16x16.png"
           magick ../../../assets/logo.png -resize 32x32     "/tmp/${{ matrix.label }}/icons.iconset/icon_16x16@2x.png"
           magick ../../../assets/logo.png -resize 32x32     "/tmp/${{ matrix.label }}/icons.iconset/icon_32x32.png"
