@@ -32,6 +32,8 @@ impl Plugin for UIPlugin {
     }
 }
 
+/// Test system that spawns an image, used to validate resource loading.
+#[utils::bevy_system]
 fn spawn_demo_asset(mut commands: Commands, asset_server: ResMut<AssetServer>) {
     commands.spawn(Sprite::from_image(asset_server.load("logo.png")));
 }

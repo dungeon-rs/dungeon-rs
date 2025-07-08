@@ -3,14 +3,14 @@
 mod macros;
 mod plugin;
 
+use anyhow::Context;
+pub use fluent_templates::fluent_bundle::FluentValue;
 use fluent_templates::{ArcLoader, LanguageIdentifier, Loader};
+pub use plugin::I18nPlugin;
 use std::borrow::Cow;
 use std::collections::HashMap;
 use std::str::FromStr;
 use std::sync::{LazyLock, RwLock};
-
-pub use fluent_templates::fluent_bundle::FluentValue;
-pub use plugin::I18nPlugin;
 
 /// The fallback language to use by default.
 const FALLBACK: LanguageIdentifier = unic_langid::langid!("en-GB");
@@ -19,7 +19,19 @@ const FALLBACK: LanguageIdentifier = unic_langid::langid!("en-GB");
 ///
 /// See [`Locale`].
 pub static LOCALE: LazyLock<Locale> = LazyLock::new(|| {
-    let loader = ArcLoader::builder("locales", FALLBACK).build().unwrap();
+    let locales_path = utils::resource_path()
+        .with_context(|| "Failed to resolve resources path")
+        .unwrap()
+        .join("locales");
+
+    let loader = ArcLoader::builder(locales_path.as_path(), FALLBACK)
+        .build()
+        .unwrap_or_else(|_| {
+            panic!(
+                "Failed to build locale loader for {}",
+                locales_path.display()
+            )
+        });
 
     Locale {
         language: RwLock::new(FALLBACK),

@@ -40,6 +40,7 @@ dev = [
   "assets/dev",
   "i18n/dev",
   "io/dev",
+  "utils/dev",
   "ui/dev",
   "config/dev",
   "logging/dev",
