@@ -4,9 +4,13 @@ on:
     types: [opened, closed]
   issues:
     types: [opened]
+permissions:
+  issues: write
+  pull-requests: write
 jobs:
   greet-if-new:
     runs-on: ubuntu-latest
+    continue-on-error: true
     if: ${{ ! contains(github.event.issue.labels.*.name, 'internal') }}
     steps:
       - uses: wow-actions/welcome@v1
