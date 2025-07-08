@@ -100,11 +100,24 @@ pub fn resource_path() -> Result<PathBuf, DirectoryError> {
     let exe_path =
         std::env::current_exe().map_err(|_| DirectoryError::NotFound("executable path"))?;
 
-    // Default: Return executable directory
-    exe_path
-        .parent()
-        .map(|p| p.to_path_buf())
-        .ok_or(DirectoryError::NotFound("executable directory"))
+    // Specifically for OSX: we'll fetch the `Resources` folder in the app bundle.
+    #[cfg(target_os = "macos")]
+    {
+        exe_path // *.app/Contents/MacOS/binary
+            .parent() // *.app/Contents/MacOS
+            .and_then(std::path::Path::parent) // *.app/Contents
+            .map(|path| path.join("Resources"))
+            .ok_or(DirectoryError::NotFound("resources"))
+    }
+
+    #[cfg(not(target_os = "macos"))]
+    {
+        // Default: Return executable directory
+        exe_path
+            .parent()
+            .map(|p| p.to_path_buf())
+            .ok_or(DirectoryError::NotFound("executable directory"))
+    }
 }
 
 #[inline]
