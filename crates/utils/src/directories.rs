@@ -58,6 +58,55 @@ pub fn cache_path() -> Result<PathBuf, DirectoryError> {
     return cache_path_windows();
 }
 
+/// Attempts to retrieve the path to the resource bundle of the application.
+/// For most platforms this is the path where the executable is located, but under OSX this is a
+/// separate `Resources` folder.
+///
+/// When running in the cargo workspace (typically in a development environment), this method will
+/// return the path to the cargo root, as that's where all resources (should be) located.
+///
+/// Under all operating systems this folder should be considered read-only, even if under some it is not.
+///
+/// # Errors
+///
+/// This method may fail when it cannot determine the location of the current executable.
+pub fn resource_path() -> Result<PathBuf, DirectoryError> {
+    // When running in dev, and we have `CARGO_MANIFEST_DIR` set (auto set by Cargo),
+    // we can attempt to resolve the workspace root, it's dirty, but it works (and won't make it to
+    // a release build anyway).
+    #[cfg(feature = "dev")]
+    if let Ok(manifest_dir) = std::env::var("CARGO_MANIFEST_DIR") {
+        let start_path = PathBuf::from(manifest_dir);
+
+        // Walk up the directory tree looking for the workspace root
+        for ancestor in start_path.ancestors() {
+            let cargo_toml = ancestor.join("Cargo.toml");
+
+            if cargo_toml.exists() {
+                // Check if this is a workspace root by reading the file
+                if let Ok(content) = std::fs::read_to_string(&cargo_toml) {
+                    if content.contains("[workspace]") {
+                        return Ok(ancestor.to_path_buf());
+                    }
+                }
+            }
+        }
+
+        // If no workspace found, return the original manifest dir
+        return Ok(start_path);
+    }
+
+    // Production: Get an executable path
+    let exe_path =
+        std::env::current_exe().map_err(|_| DirectoryError::NotFound("executable path"))?;
+
+    // Default: Return executable directory
+    exe_path
+        .parent()
+        .map(|p| p.to_path_buf())
+        .ok_or(DirectoryError::NotFound("executable directory"))
+}
+
 #[inline]
 #[cfg(target_os = "macos")]
 #[allow(clippy::missing_docs_in_private_items, clippy::missing_errors_doc)]

@@ -6,7 +6,8 @@ use crate::layout::render_editor_layout;
 use crate::notifications::Notifications;
 use crate::state::UiState;
 use bevy::app::App;
-use bevy::prelude::{Plugin, PostUpdate, Startup};
+use bevy::asset::AssetServer;
+use bevy::prelude::{Commands, Plugin, PostUpdate, ResMut, Sprite, Startup};
 use bevy_egui::{EguiPlugin, EguiPrimaryContextPass};
 
 /// A [Bevy](https://bevyengine.org/) plugin that adds UI to the app it's added to.
@@ -25,5 +26,12 @@ impl Plugin for UIPlugin {
         // editor docking layout
         app.insert_resource(UiState::default())
             .add_systems(EguiPrimaryContextPass, render_editor_layout);
+
+        // for testing purposes.
+        app.add_systems(Startup, spawn_demo_asset);
     }
+}
+
+fn spawn_demo_asset(mut commands: Commands, asset_server: ResMut<AssetServer>) {
+    commands.spawn(Sprite::from_image(asset_server.load("logo.png")));
 }
