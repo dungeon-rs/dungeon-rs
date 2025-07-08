@@ -23,9 +23,15 @@ fn main() -> AppExit {
         Err(err) => panic!("Failed to load configuration: {err:?}"),
     };
 
+    let resource_path = utils::resource_path().expect("Failed to get resource path");
     App::new()
         .add_plugins((
-            DefaultPlugins.set(log_plugin(&config.logging)),
+            DefaultPlugins
+                .set(log_plugin(&config.logging))
+                .set(bevy::asset::AssetPlugin {
+                    file_path: utils::to_string(&resource_path.join("assets")),
+                    ..default()
+                }),
             I18nPlugin::new(&config.language),
             IOPlugin,
             UIPlugin,
