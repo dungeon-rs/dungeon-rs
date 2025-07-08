@@ -2,10 +2,14 @@ name: Internal Issue Guard
 on:
   issues:
     types: [opened]
+permissions:
+  issues: write
+  pull-requests: write
 
 jobs:
   check-technical-issues:
     runs-on: ubuntu-latest
+    continue-on-error: true
     if: contains(github.event.issue.labels.*.name, 'internal')
     steps:
       - name: Check if user has write permission
