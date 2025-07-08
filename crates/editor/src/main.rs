@@ -29,7 +29,7 @@ fn main() -> AppExit {
             DefaultPlugins
                 .set(log_plugin(&config.logging))
                 .set(bevy::asset::AssetPlugin {
-                    file_path: resource_path.join("assets").to_string_lossy().to_string(),
+                    file_path: utils::to_string(&resource_path.join("assets")),
                     ..default()
                 }),
             I18nPlugin::new(&config.language),
