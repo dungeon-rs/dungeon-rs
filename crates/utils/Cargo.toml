@@ -24,7 +24,10 @@ thiserror = { workspace = true }
 known-folders = "1.2.0"
 
 [features]
-default = []
+default = [
+  "bevy/async_executor",
+  "bevy/multi_threaded"
+]
 dev = [
     "utils_macros/dev"
 ]

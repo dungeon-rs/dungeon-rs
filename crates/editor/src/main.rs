@@ -2,7 +2,9 @@
 #![cfg_attr(feature = "no_console", windows_subsystem = "windows")]
 
 mod panic;
+
 use assets::AssetPlugin;
+use bevy::diagnostic::LogDiagnosticsPlugin;
 
 use bevy::prelude::*;
 use config::Configuration;
@@ -24,19 +26,21 @@ fn main() -> AppExit {
     };
 
     let resource_path = utils::resource_path().expect("Failed to get resource path");
+    let plugin_builder = DefaultPlugins
+        .build()
+        .add(LogDiagnosticsPlugin::default())
+        .add(I18nPlugin::new(&config.language))
+        .add(IOPlugin)
+        .add(UIPlugin)
+        .add_before::<bevy::prelude::AssetPlugin>(AssetPlugin)
+        .set(log_plugin(&config.logging))
+        .set(bevy::asset::AssetPlugin {
+            file_path: utils::to_string(&resource_path.join("assets")),
+            ..default()
+        });
+
     App::new()
-        .add_plugins((
-            DefaultPlugins
-                .set(log_plugin(&config.logging))
-                .set(bevy::asset::AssetPlugin {
-                    file_path: utils::to_string(&resource_path.join("assets")),
-                    ..default()
-                }),
-            I18nPlugin::new(&config.language),
-            IOPlugin,
-            UIPlugin,
-            AssetPlugin,
-        ))
+        .add_plugins(plugin_builder)
         .insert_resource(config)
         .run()
 }

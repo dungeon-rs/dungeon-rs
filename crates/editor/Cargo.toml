@@ -21,12 +21,7 @@ utils = { workspace = true }
 ui = { workspace = true }
 config = { workspace = true }
 logging = { workspace = true }
-bevy = { workspace = true, default-features = false, features = [
-  "std",
-  "bevy_window",
-  "bevy_winit",
-  "bevy_asset"
-] }
+bevy = { workspace = true }
 rfd = { workspace = true }
 sysinfo = { version = "0.35.2", default-features = false, features = ["system"] }
 

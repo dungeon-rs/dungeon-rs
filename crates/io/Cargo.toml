@@ -17,7 +17,7 @@ workspace = true
 data = { workspace = true }
 serialization = { workspace = true }
 utils = { workspace = true }
-bevy = { workspace = true, default-features = false }
+bevy = { workspace = true }
 serde = { workspace = true }
 anyhow = { workspace = true }
 
