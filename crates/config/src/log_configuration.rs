@@ -11,6 +11,7 @@ pub struct LogConfiguration {
     ///
     /// For syntax and information, see [`EnvFilter`](https://docs.rs/tracing-subscriber/latest/tracing_subscriber/filter/struct.EnvFilter.html)
     pub filter: String,
+
     /// The minimum log level for logs to be emitted.
     ///
     /// The following values are valid:
@@ -23,6 +24,13 @@ pub struct LogConfiguration {
     /// Invalid or missing values will fall back to `info`.
     /// The `level` values are case-insensitive.
     pub level: String,
+
+    /// Optional: the path where the logfiles should be written to, software will attempt to create
+    /// this path if it doesn't exist.
+    ///
+    /// Defaults to the current working directory of the application if not set (or if it's relative,
+    /// will be relative to the working directory).
+    pub output: Option<String>,
 }
 
 impl Default for LogConfiguration {
@@ -30,6 +38,7 @@ impl Default for LogConfiguration {
         Self {
             filter: String::from("io=trace"),
             level: String::from("info"),
+            output: None,
         }
     }
 }

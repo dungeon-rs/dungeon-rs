@@ -44,8 +44,7 @@ dev = [
   "bevy/bevy_dev_tools",
   "bevy/debug_glam_assert",
   "bevy/trace",
-  "bevy/trace_tracy_memory",
-  "bevy/detailed_trace"
+  "bevy/trace_tracy_memory"
 ]
 
 # Disables showing the console window, only works on Windows.

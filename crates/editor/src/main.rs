@@ -4,7 +4,6 @@
 mod panic;
 
 use assets::AssetPlugin;
-use bevy::diagnostic::LogDiagnosticsPlugin;
 
 use bevy::prelude::*;
 use config::Configuration;
@@ -28,7 +27,6 @@ fn main() -> AppExit {
     let resource_path = utils::resource_path().expect("Failed to get resource path");
     let plugin_builder = DefaultPlugins
         .build()
-        .add(LogDiagnosticsPlugin::default())
         .add(I18nPlugin::new(&config.language))
         .add(IOPlugin)
         .add(UIPlugin)
