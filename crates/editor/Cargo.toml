@@ -27,7 +27,7 @@ sysinfo = { version = "0.35.2", default-features = false, features = ["system"] 
 
 [target.'cfg(target_os = "windows")'.build-dependencies]
 image = { version = "0.25.6", default-features = false, features = ["png", "ico"] }
-winresource = "0.1.22"
+winresource = "0.1.23"
 
 [features]
 default = ["png"]
