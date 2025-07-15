@@ -2,7 +2,7 @@
 use crate::layout::EditorLayout;
 use egui::Ui;
 use i18n::t;
-use rfd::FileDialog;
+use native_dialog::DialogBuilder;
 
 /// Handles the rendering of the [`crate::layout::EditorPanels::Assets`] tab.
 pub(super) fn render(viewer: &mut EditorLayout, ui: &mut Ui) {
@@ -16,7 +16,9 @@ pub(super) fn render(viewer: &mut EditorLayout, ui: &mut Ui) {
     });
 
     if ui.button(t!("assets-add_pack-add_button")).clicked() {
-        if let Some(path) = FileDialog::new().pick_folder() {
+        let dialog = DialogBuilder::file().set_location("~").open_single_dir();
+
+        if let Ok(Some(path)) = dialog.show() {
             match viewer
                 .asset_library
                 .add_pack(&path, None)

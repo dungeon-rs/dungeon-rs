@@ -59,10 +59,7 @@ impl RenderableDialog for OpenProject {
                         .ui(ui, TextEdit::singleline(&mut self.path));
 
                     if ui.button("…").clicked() {
-                        self.path = rfd::FileDialog::new()
-                            // TODO: add filters for extensions
-                            .pick_file()
-                            .map_or_else(String::new, |path| path.to_string_lossy().to_string());
+                        // TODO: pick file.
                     }
                 });
 

@@ -21,7 +21,7 @@ bevy_egui = { version = "0.35.1", default-features = false, features = ["render"
 bevy = { workspace = true, features = ["bevy_core_pipeline", "bevy_window", "bevy_winit"] }
 egui_dock = "0.16.0"
 egui-notify = "0.19.0"
-rfd = { workspace = true }
+native-dialog = { workspace = true }
 egui_form = { version = "0.5.0", features = ["validator_garde"] }
 garde = { version = "0.22.0", features = ["derive"] }
 
