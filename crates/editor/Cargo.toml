@@ -22,7 +22,7 @@ ui = { workspace = true }
 config = { workspace = true }
 logging = { workspace = true }
 bevy = { workspace = true }
-rfd = { workspace = true }
+native-dialog = { workspace = true }
 sysinfo = { version = "0.36.0", default-features = false, features = ["system"] }
 
 [target.'cfg(target_os = "windows")'.build-dependencies]

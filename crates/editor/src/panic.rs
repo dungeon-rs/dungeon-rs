@@ -16,7 +16,7 @@ pub fn register_panic_handler() {}
 #[allow(clippy::missing_panics_doc)]
 pub fn register_panic_handler() {
     use bevy::prelude::error;
-    use rfd::{MessageButtons, MessageDialog};
+    use native_dialog::{DialogBuilder, MessageLevel};
     use std::fs::File;
     use std::io::Write;
     use std::path::PathBuf;
@@ -41,18 +41,19 @@ pub fn register_panic_handler() {
         };
 
         error!("An unrecoverable error has occurred: {:?}", info);
-        MessageDialog::new()
-            .set_level(rfd::MessageLevel::Error)
+        DialogBuilder::message()
+            .set_level(MessageLevel::Error)
             .set_title("Unrecoverable Error")
-            .set_buttons(MessageButtons::Ok)
-            .set_description(format!(
+            .set_text(format!(
                 "An unrecoverable error has occurred, the editor will shut down.
 The error was: {message}
 
 A crash file will be generated at {}",
                 path.display()
             ))
-            .show();
+            .alert()
+            .show()
+            .expect("Failed to show error dialog");
 
         let system = System::new_all();
         let os_version = System::long_os_version().unwrap_or(String::from("Unknown"));
