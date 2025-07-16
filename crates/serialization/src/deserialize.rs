@@ -79,10 +79,7 @@ where
 
     #[cfg(feature = "toml")]
     {
-        let str = String::from_utf8_lossy(subject);
-        let deserializer = toml::Deserializer::new(&str);
-
-        T::deserialize(deserializer)
+        toml::from_slice::<T>(subject)
             .map_err(|error| SerializationError::Deserialize(Error::from(error)))
     }
 }
