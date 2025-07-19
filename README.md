@@ -1,6 +1,7 @@
 # dungeon_rs (/ˈdʌnʒənˌrʌʃ/)
 [![CI](https://github.com/dungeon-rs/dungeon-rs/actions/workflows/ci.yaml/badge.svg)](https://github.com/dungeon-rs/dungeon-rs/actions/workflows/ci.yaml)
 [![Release](https://github.com/dungeon-rs/dungeon-rs/actions/workflows/release.yaml/badge.svg)](https://github.com/dungeon-rs/dungeon-rs/actions/workflows/release.yaml)
+[![Bevy](https://img.shields.io/deps-rs/bevy/0.16.1)]([[https://crate.io]()](https://crates.io/crates/bevy))
 
 DungeonRS is a small map-making editor (think DungeonDraft) written in Rust and Bevy.
 
