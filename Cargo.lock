@@ -1561,6 +1561,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "cli"
+version = "0.0.1"
+
+[[package]]
 name = "codespan-reporting"
 version = "0.11.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
