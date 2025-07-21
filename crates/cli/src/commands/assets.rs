@@ -6,17 +6,19 @@ use clap::{Args, Subcommand};
 #[command(flatten_help = true)]
 pub struct AssetsArgs {
     #[command(subcommand)]
-    command: Option<AssetsCommands>,
+    command: AssetsCommands,
 }
 
 /// All commands available for assets.
 #[derive(Debug, Subcommand)]
 pub enum AssetsCommands {
     /// List all asset packs.
-    List
+    List,
 }
 
+/// Executes the asset commands in the correct way.
 pub fn execute(AssetsArgs { command }: AssetsArgs) -> anyhow::Result<()> {
-    println!("{:?}", command);
-    Ok(())
+    match command {
+        AssetsCommands::List => Ok(())
+    }
 }

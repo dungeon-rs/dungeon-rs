@@ -17,3 +17,7 @@ indicatif = { version = "0.18.0", features = [] }
 
 [lints]
 workspace = true
+
+[features]
+default = []
+dev = []
