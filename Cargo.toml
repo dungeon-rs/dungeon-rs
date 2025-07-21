@@ -34,9 +34,9 @@ semicolon_if_nothing_returned = "warn"
 [workspace.dependencies]
 bevy = { version = "0.16.1", default-features = false, features = ["std", "bevy_log"] }
 log = { version = "*", features = ["max_level_debug", "release_max_level_warn"] }
-anyhow = "1.0"
-thiserror = "2.0"
-serde = { version = "1.0", features = ["derive"] }
+anyhow = "1.0.98"
+thiserror = "2.0.12"
+serde = { version = "1.0.219", features = ["derive"] }
 semver = { version = "1.0.26", features = ["serde"] }
 tempfile = { version = "3.20.0" }
 native-dialog = { version = "0.9.0", default-features = false, features = ["windows_dpi_awareness", "windows_visual_styles"] }
