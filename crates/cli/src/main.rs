@@ -12,7 +12,7 @@ use crate::commands::Commands;
 struct Cli {
     #[command(subcommand)]
     /// Commands comment
-    command: commands::Commands,
+    command: Commands,
 }
 
 #[allow(missing_docs)]
@@ -20,6 +20,11 @@ struct Cli {
 #[allow(clippy::missing_errors_doc)]
 #[allow(clippy::missing_docs_in_private_items)]
 fn main() -> anyhow::Result<()> {
+    simple_logger::SimpleLogger::new()
+        .env()
+        .without_timestamps()
+        .init()?;
+
     let args = Cli::parse();
     match args.command {
         Commands::Assets(args) => commands::assets::execute(args)?

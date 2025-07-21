@@ -1,4 +1,7 @@
+use std::path::PathBuf;
 use clap::{Args, Subcommand};
+use log::info;
+use assets::AssetLibrary;
 
 /// Manage asset library and packs
 #[derive(Debug, Args)]
@@ -13,12 +16,22 @@ pub struct AssetsArgs {
 #[derive(Debug, Subcommand)]
 pub enum AssetsCommands {
     /// List all asset packs.
-    List,
+    List {
+        path: Option<PathBuf>
+    },
 }
 
 /// Executes the asset commands in the correct way.
 pub fn execute(AssetsArgs { command }: AssetsArgs) -> anyhow::Result<()> {
     match command {
-        AssetsCommands::List => Ok(())
+        AssetsCommands::List { path} => {
+            info!("Loading asset library");
+            let library = AssetLibrary::load_or_default(path)?;
+            for (name, path) in library.iter() {
+                println!("{}: {}", name, path.display());
+            }
+
+            Ok(())
+        }
     }
 }

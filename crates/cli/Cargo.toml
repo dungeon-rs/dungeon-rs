@@ -10,14 +10,19 @@ repository.workspace = true
 authors.workspace = true
 
 [dependencies]
+assets = { workspace = true }
 clap = { version = "4.5.41", features = ["derive"] }
 anyhow = { workspace = true }
+log = { workspace = true }
 dialoguer = { version = "0.11.0", default-features = false, features = [] }
 indicatif = { version = "0.18.0", features = [] }
+simple_logger = "5.0.0"
 
 [lints]
 workspace = true
 
 [features]
 default = []
-dev = []
+dev = [
+    "assets/dev"
+]
