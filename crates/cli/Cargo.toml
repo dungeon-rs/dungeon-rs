@@ -10,6 +10,10 @@ repository.workspace = true
 authors.workspace = true
 
 [dependencies]
+clap = { version = "4.5.41", features = ["derive"] }
+anyhow = { workspace = true }
+dialoguer = { version = "0.11.0", default-features = false, features = [] }
+indicatif = { version = "0.18.0", features = [] }
 
 [lints]
 workspace = true
