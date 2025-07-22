@@ -1,7 +1,8 @@
-use std::path::PathBuf;
+use anyhow::Context;
+use assets::AssetLibrary;
 use clap::{Args, Subcommand};
 use log::info;
-use assets::AssetLibrary;
+use std::path::PathBuf;
 
 /// Manage asset library and packs
 #[derive(Debug, Args)]
@@ -17,14 +18,17 @@ pub struct AssetsArgs {
 pub enum AssetsCommands {
     /// List all asset packs.
     List {
-        path: Option<PathBuf>
+        path: Option<PathBuf>,
+    },
+    CleanUp {
+        path: Option<PathBuf>,
     },
 }
 
 /// Executes the asset commands in the correct way.
 pub fn execute(AssetsArgs { command }: AssetsArgs) -> anyhow::Result<()> {
     match command {
-        AssetsCommands::List { path} => {
+        AssetsCommands::List { path } => {
             info!("Loading asset library");
             let library = AssetLibrary::load_or_default(path)?;
             for (name, path) in library.iter() {
@@ -32,6 +36,11 @@ pub fn execute(AssetsArgs { command }: AssetsArgs) -> anyhow::Result<()> {
             }
 
             Ok(())
+        }
+        AssetsCommands::CleanUp { path } => {
+            let library = AssetLibrary::load(path)?;
+
+            library.delete().context("Failed to delete asset library")
         }
     }
 }

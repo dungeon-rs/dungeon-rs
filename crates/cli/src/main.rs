@@ -2,8 +2,8 @@
 
 mod commands;
 
-use clap::Parser;
 use crate::commands::Commands;
+use clap::Parser;
 
 /// A command line interface with DungeonRS.
 #[derive(Debug, Parser)]
@@ -27,7 +27,7 @@ fn main() -> anyhow::Result<()> {
 
     let args = Cli::parse();
     match args.command {
-        Commands::Assets(args) => commands::assets::execute(args)?
+        Commands::Assets(args) => commands::assets::execute(args)?,
     }
 
     Ok(())

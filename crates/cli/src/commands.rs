@@ -3,10 +3,10 @@
 
 pub mod assets;
 
-use clap::Subcommand;
 use crate::commands::assets::AssetsArgs;
+use clap::Subcommand;
 
 #[derive(Debug, Subcommand)]
 pub enum Commands {
-    Assets(AssetsArgs)
+    Assets(AssetsArgs),
 }
