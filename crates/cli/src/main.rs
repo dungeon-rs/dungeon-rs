@@ -5,7 +5,7 @@ mod commands;
 use crate::commands::Commands;
 use clap::Parser;
 
-/// A command line interface with DungeonRS.
+/// A command line interface with `DungeonRS`.
 #[derive(Debug, Parser)]
 #[command(name = "drs-cli")]
 #[command(about, long_about = None)]
