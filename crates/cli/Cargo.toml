@@ -1,13 +1,13 @@
 [package]
 name = "cli"
-edition = "2024"
+edition.workspace = true
+repository.workspace = true
 version.workspace = true
-license-file.workspace = true
 readme.workspace = true
+authors.workspace = true
+license-file.workspace = true
 rust-version.workspace = true
 publish.workspace = true
-repository.workspace = true
-authors.workspace = true
 
 [dependencies]
 assets = { workspace = true }
