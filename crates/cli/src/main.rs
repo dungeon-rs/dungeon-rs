@@ -5,6 +5,7 @@ mod commands;
 use crate::commands::Commands;
 use clap::Parser;
 use clap_verbosity_flag::{InfoLevel, Verbosity};
+use tracing_subscriber::FmtSubscriber;
 
 /// A command line interface with `DungeonRS`.
 #[derive(Debug, Parser)]
@@ -25,11 +26,11 @@ struct Cli {
 #[allow(clippy::missing_docs_in_private_items)]
 fn main() -> anyhow::Result<()> {
     let args = Cli::parse();
-    simple_logger::SimpleLogger::new()
-        .env()
-        .without_timestamps()
-        .with_level(args.verbosity.into())
-        .init()?;
+    FmtSubscriber::builder()
+        .with_max_level(args.verbosity)
+        .without_time()
+        .compact()
+        .init();
 
     match args.command {
         Commands::Assets(args) => commands::assets::execute(args)?,
