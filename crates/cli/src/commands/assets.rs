@@ -11,6 +11,10 @@ use tracing::{debug, info};
 #[command(args_conflicts_with_subcommands = true)]
 #[command(flatten_help = true)]
 pub struct Args {
+    /// The library configuration file to use.
+    /// If left empty, it uses the default asset library.
+    #[arg(long, short, global = true)]
+    library: Option<PathBuf>,
     /// Asset command.
     #[command(subcommand)]
     command: Commands,
@@ -21,10 +25,7 @@ pub struct Args {
 pub enum Commands {
     /// Add an asset pack to the asset library.
     Add {
-        /// The library configuration file to add this asset pack to.
-        /// If left empty, it uses the default asset library.
-        #[arg(short, long)]
-        library: Option<PathBuf>,
+        /// If passed, the asset pack will not be indexed during addition.
         #[arg(short, long)]
         no_index: bool,
         /// The directory to add as an asset pack.
@@ -32,34 +33,31 @@ pub enum Commands {
         /// Optional name for the asset pack to add.
         name: Option<String>,
     },
+    /// Removes an asset pack from the library.
+    Remove {
+        /// The ID of the asset pack to remove.
+        id: String,
+    },
     /// List all asset packs.
-    List {
-        /// An optional path to the asset library configuration.
-        #[arg(short, long)]
-        path: Option<PathBuf>,
-    },
+    List,
     /// Cleans up the given asset library.
-    CleanUp {
-        /// An optional path to the asset library configuration.
-        #[arg(short, long)]
-        path: Option<PathBuf>,
-    },
+    CleanUp,
 }
 
 /// Executes the asset commands in the correct way.
 ///
 /// # Errors
 /// See the implementations of the command implementations for respective errors.
-pub fn execute(Args { command }: Args) -> anyhow::Result<()> {
+pub fn execute(Args { command, library }: Args) -> anyhow::Result<()> {
     match command {
-        Commands::List { path } => execute_list(path),
-        Commands::CleanUp { path } => execute_cleanup(path),
+        Commands::List => execute_list(library),
+        Commands::CleanUp => execute_cleanup(library),
         Commands::Add {
-            library,
             path,
             name,
             no_index,
         } => execute_add(library, &path, name, no_index),
+        Commands::Remove { id } => execute_remove(library, id),
     }
 }
 
@@ -117,5 +115,18 @@ fn execute_add(
 
     let name = name.unwrap_or_else(|| path.to_string_lossy().to_string());
     info!("Added {name} as '{added_pack}' to library");
+    Ok(())
+}
+
+/// Remove an existing asset pack from the library.
+///
+/// # Errors
+/// Return an error when the asset library fails to load.
+fn execute_remove(library: Option<PathBuf>, id: String) -> anyhow::Result<()> {
+    let mut asset_library = AssetLibrary::load(library).context("Failed to load asset library")?;
+    asset_library
+        .delete_pack(&id)
+        .context("Failed to delete asset pack")?;
+
     Ok(())
 }
