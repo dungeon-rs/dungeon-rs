@@ -4,6 +4,7 @@ mod commands;
 
 use crate::commands::Commands;
 use clap::Parser;
+use clap_verbosity_flag::{InfoLevel, Verbosity};
 
 /// A command line interface with `DungeonRS`.
 #[derive(Debug, Parser)]
@@ -12,7 +13,7 @@ use clap::Parser;
 struct Cli {
     /// Verbosity of the command line.
     #[command(flatten)]
-    verbosity: clap_verbosity_flag::Verbosity,
+    verbosity: Verbosity<InfoLevel>,
     #[command(subcommand)]
     /// Commands comment
     command: Commands,

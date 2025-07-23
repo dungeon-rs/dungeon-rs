@@ -27,6 +27,8 @@ pub enum Commands {
         library: Option<PathBuf>,
         /// The directory to add as an asset pack.
         path: PathBuf,
+        /// Optional name for the asset pack to add.
+        name: Option<String>,
     },
     /// List all asset packs.
     List {
@@ -50,7 +52,7 @@ pub fn execute(Args { command }: Args) -> anyhow::Result<()> {
     match command {
         Commands::List { path } => execute_list(path),
         Commands::CleanUp { path } => execute_cleanup(path),
-        Commands::Add { library, path } => execute_add(library, &path),
+        Commands::Add { library, path, name } => execute_add(library, &path, name),
     }
 }
 
@@ -83,13 +85,13 @@ fn execute_cleanup(path: Option<PathBuf>) -> anyhow::Result<()> {
 ///
 /// # Errors
 /// Return an error when the asset library fails to load.
-fn execute_add(library: Option<PathBuf>, path: &Path) -> anyhow::Result<()> {
+fn execute_add(library: Option<PathBuf>, path: &Path, name: Option<String>) -> anyhow::Result<()> {
     debug!("Attempting to load asset library");
     let mut asset_library =
         AssetLibrary::load_or_default(library.clone()).context("Failed to load asset library")?;
 
     let added_pack = asset_library
-        .add_pack(path, None)
+        .add_pack(path, name.clone())
         .context("Failed to add asset pack to asset library")?;
 
     debug!("Attempting to save asset library");
@@ -97,6 +99,7 @@ fn execute_add(library: Option<PathBuf>, path: &Path) -> anyhow::Result<()> {
         .save(library)
         .context("Failed to save asset library")?;
 
-    info!("Added {} as '{}' to library", path.display(), added_pack);
+    let name = name.unwrap_or_else(|| path.to_string_lossy().to_string());
+    info!("Added {name} as '{added_pack}' to library");
     Ok(())
 }
