@@ -91,10 +91,10 @@ pub enum AssetPackError {
     #[error("An error occurred while serialising the asset pack manifest")]
     Serialisation(#[from] serialization::SerializationError),
     /// Thrown when a Rhai script fails to compile (usually syntax errors)
-    #[error("An error occured while compiling the asset pack indexing script")]
+    #[error("An error occurred while compiling the asset pack indexing script")]
     CompileScript(#[from] rhai::ParseError),
     /// Thrown when a Rhai script fails to execute
-    #[error("An error occured while running the asset pack indexing script")]
+    #[error("An error occurred while running the asset pack indexing script")]
     RunScript(#[from] Box<EvalAltResult>),
 }
 
@@ -179,6 +179,7 @@ impl AssetPack {
 
     /// TODO: TEMPORARY IMPLEMENTATION
     #[allow(clippy::missing_panics_doc, reason = "Temporary implementation")]
+    #[allow(clippy::missing_errors_doc, reason = "Temporary implementation")]
     pub fn index(&mut self) -> Result<(), AssetPackError> {
         let walker = WalkDir::new(&self.root);
         let engine = Engine::new();

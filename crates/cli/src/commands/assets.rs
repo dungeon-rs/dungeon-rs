@@ -57,7 +57,7 @@ pub fn execute(Args { command, library }: Args) -> anyhow::Result<()> {
             name,
             no_index,
         } => execute_add(library, &path, name, no_index),
-        Commands::Remove { id } => execute_remove(library, id),
+        Commands::Remove { id } => execute_remove(library, &id),
     }
 }
 
@@ -122,10 +122,10 @@ fn execute_add(
 ///
 /// # Errors
 /// Return an error when the asset library fails to load.
-fn execute_remove(library: Option<PathBuf>, id: String) -> anyhow::Result<()> {
+fn execute_remove(library: Option<PathBuf>, id: &String) -> anyhow::Result<()> {
     let mut asset_library = AssetLibrary::load(library).context("Failed to load asset library")?;
     asset_library
-        .delete_pack(&id)
+        .delete_pack(id)
         .context("Failed to delete asset pack")?;
 
     Ok(())
