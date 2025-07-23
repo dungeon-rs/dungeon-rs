@@ -43,29 +43,50 @@ pub enum Commands {
 }
 
 /// Executes the asset commands in the correct way.
+///
+/// # Errors
+/// See the implementations of the command implementations for respective errors.
 pub fn execute(Args { command }: Args) -> anyhow::Result<()> {
     match command {
-        Commands::List { path } => {
-            debug!("Attempting to load asset library");
-            let library = AssetLibrary::load_or_default(path)?;
-            for (name, path) in library.iter() {
-                println!("{}: {}", name, path.display());
-            }
-
-            Ok(())
-        }
-        Commands::CleanUp { path } => {
-            let library = AssetLibrary::load(path)?;
-
-            library.delete().context("Failed to delete asset library")
-        }
-        Commands::Add { library, path } => {
-            let mut asset_library = AssetLibrary::load_or_default(library.clone())?;
-            let added_pack = asset_library.add_pack(path.as_path(), None)?;
-            asset_library.save(library)?;
-
-            info!("Added {} as '{}' to library", path.display(), added_pack);
-            Ok(())
-        }
+        Commands::List { path } => execute_list(path),
+        Commands::CleanUp { path } => execute_cleanup(path),
+        Commands::Add { library, path } => execute_add(library, path),
     }
+}
+
+/// Lists all asset packs in the given asset library.
+///
+/// # Errors
+/// Return an error when the asset library fails to load.
+fn execute_list(path : Option<PathBuf>) -> anyhow::Result<()> {
+    debug!("Attempting to load asset library");
+    let library = AssetLibrary::load_or_default(path)?;
+    for (name, path) in library.iter() {
+        println!("{}: {}", name, path.display());
+    }
+
+    Ok(())
+}
+
+/// Cleans up the given asset library.
+///
+/// # Errors
+/// Return an error when the asset library fails to load.
+fn execute_cleanup(path: Option<PathBuf>) -> anyhow::Result<()> {
+    let library = AssetLibrary::load(path)?;
+
+    library.delete().context("Failed to delete asset library")
+}
+
+/// Add a new asset pack to the library.
+///
+/// # Errors
+/// Return an error when the asset library fails to load.
+fn execute_add(library: Option<PathBuf>, path: PathBuf) -> anyhow::Result<()> {
+    let mut asset_library = AssetLibrary::load_or_default(library.clone())?;
+    let added_pack = asset_library.add_pack(path.as_path(), None)?;
+    asset_library.save(library)?;
+
+    info!("Added {} as '{}' to library", path.display(), added_pack);
+    Ok(())
 }
