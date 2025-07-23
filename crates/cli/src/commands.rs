@@ -3,10 +3,12 @@
 
 pub mod assets;
 
-use crate::commands::assets::AssetsArgs;
 use clap::Subcommand;
 
+/// All commands available in the CLI.
 #[derive(Debug, Subcommand)]
+#[non_exhaustive]
 pub enum Commands {
-    Assets(AssetsArgs),
+    /// Manage asset library and packs
+    Assets(assets::Args),
 }

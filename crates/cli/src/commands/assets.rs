@@ -1,22 +1,24 @@
+//! Implementation of the `assets` subcommand.
+
 use anyhow::Context;
 use assets::AssetLibrary;
-use clap::{Args, Subcommand};
+use clap::Subcommand;
 use log::info;
 use std::path::PathBuf;
 
 /// Manage asset library and packs
-#[derive(Debug, Args)]
+#[derive(Debug, clap::Args)]
 #[command(args_conflicts_with_subcommands = true)]
 #[command(flatten_help = true)]
-pub struct AssetsArgs {
+pub struct Args {
     /// Asset command.
     #[command(subcommand)]
-    command: AssetsCommands,
+    command: Commands,
 }
 
 /// All commands available for assets.
 #[derive(Debug, Subcommand)]
-pub enum AssetsCommands {
+pub enum Commands {
     /// Add an asset pack to the asset library.
     Add {
         /// The library configuration file to add this asset pack to.
@@ -41,9 +43,9 @@ pub enum AssetsCommands {
 }
 
 /// Executes the asset commands in the correct way.
-pub fn execute(AssetsArgs { command }: AssetsArgs) -> anyhow::Result<()> {
+pub fn execute(Args { command }: Args) -> anyhow::Result<()> {
     match command {
-        AssetsCommands::List { path } => {
+        Commands::List { path } => {
             info!("Loading asset library");
             let library = AssetLibrary::load_or_default(path)?;
             for (name, path) in library.iter() {
@@ -52,12 +54,12 @@ pub fn execute(AssetsArgs { command }: AssetsArgs) -> anyhow::Result<()> {
 
             Ok(())
         }
-        AssetsCommands::CleanUp { path } => {
+        Commands::CleanUp { path } => {
             let library = AssetLibrary::load(path)?;
 
             library.delete().context("Failed to delete asset library")
         }
-        AssetsCommands::Add { library, path } => {
+        Commands::Add { library, path } => {
             let mut asset_library = AssetLibrary::load_or_default(library.clone())?;
             let added_pack = asset_library.add_pack(path.as_path(), None)?;
             asset_library.save(library)?;
