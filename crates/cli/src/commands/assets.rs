@@ -3,7 +3,7 @@
 use anyhow::Context;
 use assets::AssetLibrary;
 use clap::Subcommand;
-use log::info;
+use log::{debug, info};
 use std::path::PathBuf;
 
 /// Manage asset library and packs
@@ -46,7 +46,7 @@ pub enum Commands {
 pub fn execute(Args { command }: Args) -> anyhow::Result<()> {
     match command {
         Commands::List { path } => {
-            info!("Loading asset library");
+            debug!("Attempting to load asset library");
             let library = AssetLibrary::load_or_default(path)?;
             for (name, path) in library.iter() {
                 println!("{}: {}", name, path.display());

@@ -10,6 +10,9 @@ use clap::Parser;
 #[command(name = "drs-cli")]
 #[command(about, long_about = None)]
 struct Cli {
+    /// Verbosity of the command line.
+    #[command(flatten)]
+    verbosity: clap_verbosity_flag::Verbosity,
     #[command(subcommand)]
     /// Commands comment
     command: Commands,
@@ -20,12 +23,13 @@ struct Cli {
 #[allow(clippy::missing_errors_doc)]
 #[allow(clippy::missing_docs_in_private_items)]
 fn main() -> anyhow::Result<()> {
+    let args = Cli::parse();
     simple_logger::SimpleLogger::new()
         .env()
         .without_timestamps()
+        .with_level(args.verbosity.into())
         .init()?;
 
-    let args = Cli::parse();
     match args.command {
         Commands::Assets(args) => commands::assets::execute(args)?,
     }

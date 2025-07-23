@@ -12,6 +12,7 @@ authors.workspace = true
 [dependencies]
 assets = { workspace = true }
 clap = { version = "4.5.41", features = ["derive"] }
+clap-verbosity-flag = { version = "3.0.3", default-features = false, features = ["log"] }
 anyhow = { workspace = true }
 log = { workspace = true }
 dialoguer = { version = "0.11.0", default-features = false, features = [] }
