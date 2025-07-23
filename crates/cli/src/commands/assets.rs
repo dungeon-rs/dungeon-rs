@@ -96,7 +96,7 @@ fn execute_add(
     library: Option<PathBuf>,
     path: &Path,
     name: Option<String>,
-    _no_index: bool,
+    no_index: bool,
 ) -> anyhow::Result<()> {
     debug!("Attempting to load asset library");
     let mut asset_library =
@@ -105,6 +105,10 @@ fn execute_add(
     let added_pack = asset_library
         .add_pack(path, name.clone())
         .context("Failed to add asset pack to asset library")?;
+
+    if !no_index && let Some(pack) = asset_library.get_pack_mut(&added_pack) {
+        pack.index()?;
+    }
 
     debug!("Attempting to save asset library");
     asset_library

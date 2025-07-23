@@ -1,7 +1,7 @@
 //! An asset pack is a single root folder that contains asset and subfolders.
 
-use bevy::prelude::{Asset, AssetServer, Component, Handle, debug, info};
-use rhai::{Engine, OptimizationLevel, Scope};
+use bevy::prelude::{Asset, AssetServer, Component, Handle, debug, info, trace};
+use rhai::{Engine, EvalAltResult, OptimizationLevel, Scope};
 use serialization::{Deserialize, SerializationFormat, Serialize, deserialize, serialize_to};
 use std::collections::HashMap;
 use std::fs::File;
@@ -90,6 +90,12 @@ pub enum AssetPackError {
     /// Thrown when the serialisation of an asset pack manifest fails.
     #[error("An error occurred while serialising the asset pack manifest")]
     Serialisation(#[from] serialization::SerializationError),
+    /// Thrown when a Rhai script fails to compile (usually syntax errors)
+    #[error("An error occured while compiling the asset pack indexing script")]
+    CompileScript(#[from] rhai::ParseError),
+    /// Thrown when a Rhai script fails to execute
+    #[error("An error occured while running the asset pack indexing script")]
+    RunScript(#[from] Box<EvalAltResult>),
 }
 
 impl AssetPack {
@@ -173,13 +179,11 @@ impl AssetPack {
 
     /// TODO: TEMPORARY IMPLEMENTATION
     #[allow(clippy::missing_panics_doc, reason = "Temporary implementation")]
-    pub fn index(&mut self) {
+    pub fn index(&mut self) -> Result<(), AssetPackError> {
         let walker = WalkDir::new(&self.root);
         let engine = Engine::new();
         let mut scope = Scope::new();
-        let script = engine
-            .compile(include_str!("../scripts/filter.rhai"))
-            .unwrap();
+        let script = engine.compile(include_str!("../scripts/filter.rhai"))?;
         let script = engine.optimize_ast(&scope, script, OptimizationLevel::Full);
 
         {
@@ -187,11 +191,9 @@ impl AssetPack {
             let _span = bevy::prelude::info_span!("Indexing", name = "indexing").entered();
 
             let mut count = 0;
-            for entry in walker.into_iter().flatten() {
-                if !engine
-                    .call_fn::<bool>(&mut scope, &script, "filter", (String::new(),))
-                    .unwrap()
-                {
+            for entry in walker.sort_by_file_name().into_iter().flatten() {
+                if !engine.call_fn::<bool>(&mut scope, &script, "filter", (String::new(),))? {
+                    trace!("Skipping {path}", path = entry.path().display());
                     continue;
                 }
 
@@ -199,14 +201,19 @@ impl AssetPack {
                 let path = path.strip_prefix(&self.root).unwrap();
                 let key = blake3::hash(path.as_os_str().as_encoded_bytes()).to_string();
 
+                trace!(
+                    "Indexed {path} as {key}",
+                    path = path.display(),
+                    key = key.as_str()
+                );
                 self.index.insert(key, path.to_path_buf());
                 count += 1;
             }
 
-            info!("Finished indexing {count} assets");
+            debug!("Finished indexing {count} assets");
         }
 
-        self.save_manifest().unwrap();
+        self.save_manifest()
     }
 
     /// Attempts to resolve the given identifier into a [`PathBuf`].

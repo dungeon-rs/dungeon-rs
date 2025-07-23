@@ -29,6 +29,7 @@ fn main() -> anyhow::Result<()> {
     FmtSubscriber::builder()
         .with_max_level(args.verbosity)
         .without_time()
+        .with_target(false)
         .compact()
         .init();
 
