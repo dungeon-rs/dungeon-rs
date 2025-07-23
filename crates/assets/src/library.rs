@@ -116,7 +116,7 @@ impl AssetLibrary {
     ///
     /// # Errors
     /// See errors returned by [`AssetLibrary::delete_pack`].
-    pub fn delete(&mut self) -> Result<(), AssetLibraryError> {
+    pub fn delete(mut self) -> Result<(), AssetLibraryError> {
         info!("Running delete on asset library");
         let ids = self.iter().map(|(id, _)| id.clone()).collect::<Vec<_>>();
         for id in ids {

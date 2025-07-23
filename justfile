@@ -54,6 +54,10 @@ fix:
 run:
     cargo run -p editor --features=editor/dev
 
+# Run the CLI in development mode
+cli:
+    cargo run -p cli --features=cli/dev
+
 # Install all tools used for this repo's CI and other tools
 setup:
     cargo install cargo-deny
