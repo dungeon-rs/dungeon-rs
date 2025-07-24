@@ -1,7 +1,7 @@
 //! An asset pack is a single root folder that contains asset and subfolders.
 
 use bevy::prelude::{Asset, AssetServer, Component, Handle, debug, info, trace};
-use rhai::{Engine, EvalAltResult, OptimizationLevel, Scope};
+use rhai::{Engine, OptimizationLevel, Scope};
 use serialization::{Deserialize, SerializationFormat, Serialize, deserialize, serialize_to};
 use std::collections::HashMap;
 use std::fs::File;
@@ -91,11 +91,11 @@ pub enum AssetPackError {
     #[error("An error occurred while serialising the asset pack manifest")]
     Serialisation(#[from] serialization::SerializationError),
     /// Thrown when a Rhai script fails to compile (usually syntax errors)
-    #[error("An error occurred while compiling the asset pack indexing script")]
-    CompileScript(#[from] rhai::ParseError),
+    #[error("An error occurred while compiling index script: {0}")]
+    CompileScript(String),
     /// Thrown when a Rhai script fails to execute
-    #[error("An error occurred while running the asset pack indexing script")]
-    RunScript(#[from] Box<EvalAltResult>),
+    #[error("An error occurred while executing index script: {0}")]
+    RunScript(String),
 }
 
 impl AssetPack {
@@ -184,7 +184,9 @@ impl AssetPack {
         let walker = WalkDir::new(&self.root);
         let engine = Engine::new();
         let mut scope = Scope::new();
-        let script = engine.compile(include_str!("../scripts/filter.rhai"))?;
+        let script = engine
+            .compile(include_str!("../scripts/filter.rhai"))
+            .map_err(|error| AssetPackError::CompileScript(error.to_string()))?;
         let script = engine.optimize_ast(&scope, script, OptimizationLevel::Full);
 
         {
@@ -193,7 +195,10 @@ impl AssetPack {
 
             let mut count = 0;
             for entry in walker.sort_by_file_name().into_iter().flatten() {
-                if !engine.call_fn::<bool>(&mut scope, &script, "filter", (String::new(),))? {
+                if !engine
+                    .call_fn::<bool>(&mut scope, &script, "filter", (String::new(),))
+                    .map_err(|error| AssetPackError::RunScript(error.to_string()))?
+                {
                     trace!("Skipping {path}", path = entry.path().display());
                     continue;
                 }
