@@ -1,7 +1,7 @@
 //! An asset pack is a single root folder that contains asset and subfolders.
 
-use bevy::prelude::{Asset, AssetServer, Handle, debug, info, trace};
-use rhai::{Engine, OptimizationLevel, Scope};
+use bevy::prelude::{Asset, AssetServer, Handle, debug, info, trace, warn};
+use rhai::{Func, OptimizationLevel, Scope};
 use serialization::{Deserialize, SerializationFormat, Serialize, deserialize, serialize_to};
 use std::collections::HashMap;
 use std::fs::File;
@@ -14,6 +14,12 @@ use walkdir::WalkDir;
 
 /// The filename of the asset pack manifests.
 const MANIFEST_FILE_NAME: &str = "asset_pack.toml";
+
+/// The default script for filtering when no custom script was passed into the `AssetPack`.
+const DEFAULT_FILTER_SCRIPT: &str = include_str!("../scripts/filter.rhai");
+
+/// The default script for indexing when no custom script was passed into the `AssetPack`.
+const DEFAULT_INDEX_SCRIPT: &str = include_str!("../scripts/index.rhai");
 
 /// An [`AssetPack`] is a single root folder that contains assets and subfolders.
 ///
@@ -48,9 +54,16 @@ pub struct AssetPack {
     ///
     /// Each path value is relative to the [`AssetPack::root`].
     index: HashMap<String, PathBuf>,
+    /// A [Rhai](https://rhai.rs/) script that is used during indexing operations to filter whether
+    /// an asset should be included in the pack or not.
+    ///
+    /// When set to `None` the pack will use the embedded script for filtering.
+    filter_script: Option<String>,
     /// A [Rhai](https://rhai.rs/) script that is used during indexing operations to assist in categorising
     /// the assets in the pack.
-    script: Option<String>,
+    ///
+    /// When set to `None` the pack will use the embedded script for indexing.
+    index_script: Option<String>,
 }
 
 /// Internal "copy" of the [`AssetPack`] struct intended for saving/loading to disk.
@@ -63,7 +76,8 @@ struct _AssetPack {
     pub id: String,
     pub name: String,
     index: HashMap<String, PathBuf>,
-    script: Option<String>,
+    filter_script: Option<String>,
+    index_script: Option<String>,
 }
 
 /// Describes the current state of an [`AssetPack`].
@@ -91,11 +105,11 @@ pub enum AssetPackError {
     #[error("An error occurred while serialising the asset pack manifest")]
     Serialisation(#[from] serialization::SerializationError),
     /// Thrown when a Rhai script fails to compile (usually syntax errors)
-    #[error("An error occurred while compiling index script: {0}")]
-    CompileScript(String),
+    #[error("An error occurred while compiling {0} script: {1}")]
+    CompileScript(&'static str, String),
     /// Thrown when a Rhai script fails to execute
-    #[error("An error occurred while executing index script: {0}")]
-    RunScript(String),
+    #[error("An error occurred while executing {0} script: {1}")]
+    RunScript(&'static str, String),
 }
 
 impl AssetPack {
@@ -119,7 +133,8 @@ impl AssetPack {
             root,
             meta_dir: meta_dir.to_path_buf(),
             index: HashMap::new(),
-            script: None,
+            filter_script: None,
+            index_script: None,
         })
     }
 
@@ -173,7 +188,8 @@ impl AssetPack {
             root: root.to_path_buf(),
             meta_dir: meta_dir.to_path_buf(),
             index: manifest.index,
-            script: manifest.script,
+            filter_script: manifest.filter_script,
+            index_script: manifest.index_script,
         })
     }
 
@@ -182,12 +198,24 @@ impl AssetPack {
     #[allow(clippy::missing_errors_doc, reason = "Temporary implementation")]
     pub fn index(&mut self) -> Result<(), AssetPackError> {
         let walker = WalkDir::new(&self.root);
-        let engine = Engine::new();
+        let engine = crate::scripting::build_engine();
         let mut scope = Scope::new();
-        let script = engine
-            .compile(include_str!("../scripts/filter.rhai"))
-            .map_err(|error| AssetPackError::CompileScript(error.to_string()))?;
-        let script = engine.optimize_ast(&scope, script, OptimizationLevel::Full);
+
+        let filter_script = self
+            .filter_script
+            .as_deref()
+            .unwrap_or(DEFAULT_FILTER_SCRIPT);
+        let filter_script = engine
+            .compile(filter_script)
+            .map_err(|error| AssetPackError::CompileScript("filter", error.to_string()))?;
+
+        let index_script = self.index_script.as_deref().unwrap_or(DEFAULT_INDEX_SCRIPT);
+        let index_script = engine
+            .compile(index_script)
+            .map_err(|error| AssetPackError::CompileScript("index", error.to_string()))?;
+
+        let filter_script = engine.optimize_ast(&scope, filter_script, OptimizationLevel::Full);
+        let index_script = engine.optimize_ast(&scope, index_script, OptimizationLevel::Full);
 
         {
             #[cfg(feature = "dev")]
@@ -195,17 +223,38 @@ impl AssetPack {
 
             let mut count = 0;
             for entry in walker.sort_by_file_name().into_iter().flatten() {
+                let Some(file_name) = file_name(&entry.path()) else {
+                    warn!(
+                        "Automatically skipping invalid entry: '{path:?}', this is most likely a bug.",
+                        path = entry.path()
+                    );
+                    continue;
+                };
+
                 if !engine
-                    .call_fn::<bool>(&mut scope, &script, "filter", (String::new(),))
-                    .map_err(|error| AssetPackError::RunScript(error.to_string()))?
+                    .call_fn::<bool>(&mut scope, &filter_script, "filter", (file_name.clone(),))
+                    .map_err(|error| AssetPackError::RunScript("filter", error.to_string()))?
                 {
-                    trace!("Skipping {path}", path = entry.path().display());
+                    trace!(
+                        "Skipping {path} because filter script returned false",
+                        path = entry.path().display()
+                    );
                     continue;
                 }
 
                 let path = entry.path().to_path_buf();
                 let path = path.strip_prefix(&self.root).unwrap();
                 let key = blake3::hash(path.as_os_str().as_encoded_bytes()).to_string();
+
+                let result = engine
+                    .call_fn::<crate::scripting::IndexEntry>(
+                        &mut scope,
+                        &index_script,
+                        "index",
+                        (file_name,),
+                    )
+                    .map_err(|error| AssetPackError::RunScript("index", error.to_string()))?;
+                info!("Indexing returned {result:?}", result = result);
 
                 trace!(
                     "Indexed {path} as {key}",
@@ -249,7 +298,8 @@ impl From<&AssetPack> for _AssetPack {
             id: pack.id.clone(),
             name: pack.name.clone(),
             index: pack.index.clone(),
-            script: pack.script.clone(),
+            filter_script: pack.filter_script.clone(),
+            index_script: pack.index_script.clone(),
         }
     }
 }
