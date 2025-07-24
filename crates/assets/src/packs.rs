@@ -1,7 +1,7 @@
 //! An asset pack is a single root folder that contains asset and subfolders.
 
 use bevy::prelude::{Asset, AssetServer, Handle, debug, info, trace, warn};
-use rhai::{Func, OptimizationLevel, Scope};
+use rhai::{OptimizationLevel, Scope};
 use serialization::{Deserialize, SerializationFormat, Serialize, deserialize, serialize_to};
 use std::collections::HashMap;
 use std::fs::File;

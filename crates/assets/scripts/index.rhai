@@ -1,3 +1,8 @@
 fn index(text) {
-    new_index_entry(text)
+    index_entry(text, [
+        text,
+        1,
+        true,
+        "string"
+    ])
 }

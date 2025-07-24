@@ -3,7 +3,7 @@
 //! DungeonRS provides a way to index your assets packs using custom logic in case the default script doesn't properly
 //! index the asset structure of your files.
 
-use rhai::{CustomType, Engine, TypeBuilder};
+use rhai::{Array, CustomType, Dynamic, Engine, EvalAltResult, ImmutableString, TypeBuilder};
 
 /// This builds a Rhai engine with all functions in this module registered so they are available to
 /// the scripts.
@@ -18,19 +18,31 @@ pub fn build_engine() -> Engine {
 /// Generates a hash from the given `value`.
 ///
 /// This implementation currently uses Blake3, but callers should not rely on this.
-fn hash(value: String) -> String {
-    blake3::hash(value.as_bytes()).to_string()
+fn hash(value: ImmutableString) -> ImmutableString {
+    blake3::hash(value.as_bytes()).to_string().into()
 }
 
+/// Represents the result of a Rhai indexing script.
+///
+/// This type exposes Rhai specific types on purpose to minimise marshalling overhead.
 #[derive(Debug, Clone)]
 pub struct IndexEntry {
-    pub name: String,
+    /// The human-readable name of this asset as it will appear in the asset browser.
+    pub name: ImmutableString,
+    /// A list of categories under which this asset can be classified.
+    /// Categories are essentially alternative keywords by which this asset can be discovered.
+    ///
+    /// Examples would be "Aquatic", "Mountain", "Water", "Foam", ...
+    pub categories: Array,
 }
 
 impl CustomType for IndexEntry {
     fn build(mut builder: TypeBuilder<Self>) {
         builder
             .with_name("IndexEntry")
-            .with_fn("index_entry", |name| IndexEntry { name });
+            .with_fn("index_entry", |name, categories| IndexEntry {
+                name,
+                categories,
+            });
     }
 }
