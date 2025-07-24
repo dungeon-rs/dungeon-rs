@@ -3,17 +3,23 @@
 use bevy::prelude::{Asset, AssetServer, Handle, debug, info, trace, warn};
 use rhai::{OptimizationLevel, Scope};
 use serialization::{Deserialize, SerializationFormat, Serialize, deserialize, serialize_to};
-use std::collections::HashMap;
-use std::fs::File;
+use std::fs::{File, create_dir_all};
 use std::io::read_to_string;
 use std::path::Path;
 use std::path::PathBuf;
+use tantivy::collector::TopDocs;
+use tantivy::query::QueryParser;
+use tantivy::schema::{STORED, Schema, TEXT, Value};
+use tantivy::{Index, IndexWriter, TantivyDocument, TantivyError, doc};
 use thiserror::Error;
 use utils::file_name;
 use walkdir::WalkDir;
 
 /// The filename of the asset pack manifests.
 const MANIFEST_FILE_NAME: &str = "asset_pack.toml";
+
+/// The directory name inside the meta_dir where the Tantivy index lives.
+const INDEX_DIR_NAME: &str = "index";
 
 /// The default script for filtering when no custom script was passed into the `AssetPack`.
 const DEFAULT_FILTER_SCRIPT: &str = include_str!("../scripts/filter.rhai");
@@ -53,7 +59,7 @@ pub struct AssetPack {
     /// Internal mapping table between asset identifiers and their physical paths.
     ///
     /// Each path value is relative to the [`AssetPack::root`].
-    index: HashMap<String, PathBuf>,
+    index: Index,
     /// A [Rhai](https://rhai.rs/) script that is used during indexing operations to filter whether
     /// an asset should be included in the pack or not.
     ///
@@ -75,7 +81,6 @@ pub struct AssetPack {
 struct _AssetPack {
     pub id: String,
     pub name: String,
-    index: HashMap<String, PathBuf>,
     filter_script: Option<String>,
     index_script: Option<String>,
 }
@@ -110,6 +115,9 @@ pub enum AssetPackError {
     /// Thrown when a Rhai script fails to execute
     #[error("An error occurred while executing {0} script: {1}")]
     RunScript(&'static str, String),
+    /// Thrown when Tantivy throws an error, usually during indexing or reading.
+    #[error("An error occurred while indexing the asset pack")]
+    Indexing(#[from] TantivyError),
 }
 
 impl AssetPack {
@@ -120,10 +128,14 @@ impl AssetPack {
     /// the root path.
     pub fn new(root: &Path, meta_dir: &Path, name: Option<String>) -> Result<Self, AssetPackError> {
         let root = root.canonicalize()?;
+        let index_dir = meta_dir.join(INDEX_DIR_NAME);
         let id = blake3::hash(root.as_os_str().as_encoded_bytes()).to_string();
         let name = name
             .or_else(|| file_name(&root))
             .unwrap_or_else(|| id.clone());
+
+        // Tantivy requires that the directory exists already.
+        create_dir_all(&index_dir)?;
 
         info!("Created new asset pack with ID: {}", id);
         Ok(Self {
@@ -132,7 +144,7 @@ impl AssetPack {
             name,
             root,
             meta_dir: meta_dir.to_path_buf(),
-            index: HashMap::new(),
+            index: Index::create_in_dir(meta_dir.join(INDEX_DIR_NAME), Self::build_schema())?,
             filter_script: None,
             index_script: None,
         })
@@ -187,7 +199,7 @@ impl AssetPack {
             name: manifest.name,
             root: root.to_path_buf(),
             meta_dir: meta_dir.to_path_buf(),
-            index: manifest.index,
+            index: Index::open_in_dir(meta_dir.join(INDEX_DIR_NAME))?,
             filter_script: manifest.filter_script,
             index_script: manifest.index_script,
         })
@@ -222,6 +234,9 @@ impl AssetPack {
             let _span = bevy::prelude::info_span!("Indexing", name = "indexing").entered();
 
             let mut count = 0;
+            let schema = Self::build_schema();
+            let mut writer: IndexWriter = self.index.writer(100_000_000)?;
+
             for entry in walker.sort_by_file_name().into_iter().flatten() {
                 let Some(file_name) = file_name(&entry.path()) else {
                     warn!(
@@ -261,10 +276,25 @@ impl AssetPack {
                     path = path.display(),
                     key = key.as_str()
                 );
-                self.index.insert(key, path.to_path_buf());
+
+                let mut document = doc!(
+                    schema.get_field("name")? => result.name.to_string(),
+                    schema.get_field("path")? => path.to_string_lossy().to_string()
+                );
+
+                for category in result.categories {
+                    // TODO: remove unwrap
+                    document.add_text(
+                        schema.get_field("categories")?,
+                        category.into_string().unwrap(),
+                    );
+                }
+
+                writer.add_document(document)?;
                 count += 1;
             }
 
+            writer.commit()?;
             debug!("Finished indexing {count} assets");
         }
 
@@ -275,7 +305,28 @@ impl AssetPack {
     #[must_use]
     pub fn resolve(&self, id: &String) -> Option<PathBuf> {
         debug!("{} is resolving asset {}", self.id, id);
-        self.index.get(id).map(|path| self.root.join(path))
+        let reader = self.index.reader().unwrap();
+        let searcher = reader.searcher();
+        let schema = Self::build_schema();
+
+        let query_parser =
+            QueryParser::for_index(&self.index, vec![schema.get_field("name").unwrap()]);
+
+        let query = query_parser.parse_query(id).unwrap();
+        let top_docs = searcher.search(&query, &TopDocs::with_limit(1)).unwrap();
+        for (_, doc) in top_docs {
+            let document: TantivyDocument = searcher.doc(doc).unwrap();
+
+            return Some(PathBuf::from(
+                document
+                    .get_first(schema.get_field("path").unwrap())
+                    .unwrap()
+                    .as_str()
+                    .unwrap(),
+            ));
+        }
+
+        None
     }
 
     /// Attempts to load the asset associated with the given path.
@@ -290,6 +341,15 @@ impl AssetPack {
 
         None
     }
+
+    fn build_schema() -> Schema {
+        let mut builder = Schema::builder();
+        builder.add_text_field("name", TEXT | STORED);
+        builder.add_text_field("categories", TEXT);
+        builder.add_text_field("path", TEXT);
+
+        builder.build()
+    }
 }
 
 impl From<&AssetPack> for _AssetPack {
@@ -297,7 +357,6 @@ impl From<&AssetPack> for _AssetPack {
         Self {
             id: pack.id.clone(),
             name: pack.name.clone(),
-            index: pack.index.clone(),
             filter_script: pack.filter_script.clone(),
             index_script: pack.index_script.clone(),
         }

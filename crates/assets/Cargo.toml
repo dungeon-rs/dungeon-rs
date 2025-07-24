@@ -23,6 +23,7 @@ serde = { workspace = true }
 serialization = { workspace = true }
 thiserror = { workspace = true }
 blake3 = "1.8.2"
+tantivy = "0.24.2"
 
 [dev-dependencies]
 anyhow = { workspace = true }

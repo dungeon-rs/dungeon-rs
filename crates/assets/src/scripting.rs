@@ -3,12 +3,14 @@
 //! DungeonRS provides a way to index your assets packs using custom logic in case the default script doesn't properly
 //! index the asset structure of your files.
 
-use rhai::{Array, CustomType, Dynamic, Engine, EvalAltResult, ImmutableString, TypeBuilder};
+use bevy::prelude::debug;
+use rhai::{Array, CustomType, Engine, ImmutableString, TypeBuilder};
 
 /// This builds a Rhai engine with all functions in this module registered so they are available to
 /// the scripts.
 pub fn build_engine() -> Engine {
     let mut engine = Engine::new();
+    engine.on_print(|message| debug!(message));
     engine.build_type::<IndexEntry>();
     engine.register_fn("hash", hash);
 
