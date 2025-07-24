@@ -128,8 +128,9 @@ impl AssetPack {
     /// the root path.
     pub fn new(root: &Path, meta_dir: &Path, name: Option<String>) -> Result<Self, AssetPackError> {
         let root = root.canonicalize()?;
-        let index_dir = meta_dir.join(INDEX_DIR_NAME);
         let id = blake3::hash(root.as_os_str().as_encoded_bytes()).to_string();
+        let meta_dir = meta_dir.join(id.clone());
+        let index_dir = meta_dir.join(INDEX_DIR_NAME);
         let name = name
             .or_else(|| file_name(&root))
             .unwrap_or_else(|| id.clone());
@@ -193,13 +194,16 @@ impl AssetPack {
 
         let manifest: _AssetPack = deserialize(manifest.as_bytes(), &SerializationFormat::Toml)?;
         info!("Loaded manifest for {}", manifest.id);
+
+        let meta_dir = meta_dir.join(manifest.id.clone());
+        let index_dir = meta_dir.join(INDEX_DIR_NAME);
         Ok(Self {
             state: AssetPackState::Created,
             id: manifest.id,
             name: manifest.name,
             root: root.to_path_buf(),
             meta_dir: meta_dir.to_path_buf(),
-            index: Index::open_in_dir(meta_dir.join(INDEX_DIR_NAME))?,
+            index: Index::open_in_dir(index_dir)?,
             filter_script: manifest.filter_script,
             index_script: manifest.index_script,
         })

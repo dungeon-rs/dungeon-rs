@@ -38,8 +38,9 @@ struct AssetLibraryEntry {
     ///
     /// Currently only filesystem packs are supported (e.g., no network-backed protocols like HTTP, FTP, ...)
     root: PathBuf,
-    /// The location of the asset pack's index, this allows storing the index in a different location than the pack itself.
-    index: PathBuf,
+    /// The location of the asset pack's cache.
+    /// The asset pack itself determines what is stored here; this includes the index.
+    cache: PathBuf,
 }
 
 /// The errors that can occur when loading or saving the [`AssetLibrary`].
@@ -188,7 +189,7 @@ impl AssetLibrary {
         let pack_id = pack.id.clone();
         let entry = AssetLibraryEntry {
             root: root.to_path_buf(),
-            index: meta_dir.clone(),
+            cache: pack.meta_dir.clone(),
         };
 
         self.registered_packs.insert(pack_id.clone(), entry);
@@ -209,7 +210,7 @@ impl AssetLibrary {
             return Err(AssetLibraryError::NotFound(id.clone()));
         };
 
-        let pack = AssetPack::load_manifest(entry.root.as_path(), entry.index.as_path())?;
+        let pack = AssetPack::load_manifest(entry.root.as_path(), entry.cache.as_path())?;
         self.loaded_packs.insert(id.clone(), pack);
 
         debug!("Loaded pack {}", id);
