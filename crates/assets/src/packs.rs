@@ -1,6 +1,6 @@
 //! An asset pack is a single root folder that contains asset and subfolders.
 
-use bevy::prelude::{Asset, AssetServer, Component, Handle, debug, info, trace};
+use bevy::prelude::{Asset, AssetServer, Handle, debug, info, trace};
 use rhai::{Engine, OptimizationLevel, Scope};
 use serialization::{Deserialize, SerializationFormat, Serialize, deserialize, serialize_to};
 use std::collections::HashMap;
@@ -18,7 +18,7 @@ const MANIFEST_FILE_NAME: &str = "asset_pack.toml";
 /// An [`AssetPack`] is a single root folder that contains assets and subfolders.
 ///
 /// The asset pack handles the indexing, categorising and loading the assets.
-#[derive(Component, Debug)]
+#[derive(Debug)]
 pub struct AssetPack {
     /// The state the pack is currently in.
     ///
