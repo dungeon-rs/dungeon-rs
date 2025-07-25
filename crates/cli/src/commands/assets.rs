@@ -145,11 +145,11 @@ fn execute_index(library: Option<PathBuf>, id: &String) -> anyhow::Result<()> {
     let mut asset_library = AssetLibrary::load(library).context("Failed to load asset library")?;
     asset_library
         .load_pack(id)
-        .with_context(|| format!("Failed to get pack with id '{}'", id))?;
+        .with_context(|| format!("Failed to get pack with id '{id}'"))?;
 
     asset_library
         .get_pack_mut(id)
-        .with_context(|| format!("Failed to get pack with id '{}'", id))?
+        .with_context(|| format!("Failed to get pack with id '{id}'"))?
         .index()?;
 
     Ok(())

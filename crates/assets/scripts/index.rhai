@@ -1,3 +1,3 @@
 fn index(text) {
-    index_entry(text, [text])
+    index_entry(text, text.split("_"))
 }

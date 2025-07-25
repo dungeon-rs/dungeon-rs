@@ -1,12 +1,15 @@
 //! The actual indexation logic of the [`AssetPack`] is split out in this module to keep it separate
 //! from the rest of the resolution logic.
 
+use bevy::prelude::{trace, warn};
+use rhai::{AST, Engine, OptimizationLevel, Scope};
 use std::path::{Path, PathBuf};
 use tantivy::collector::TopDocs;
 use tantivy::query::TermQuery;
 use tantivy::schema::{Field, IndexRecordOption, STORED, STRING, Schema, TEXT, Value};
-use tantivy::{Index, TantivyDocument, Term};
+use tantivy::{Index, IndexWriter, TantivyDocument, TantivyError, Term};
 use thiserror::Error;
+use utils::file_name;
 use walkdir::WalkDir;
 
 /// The default script for filtering when no custom script was passed into the `AssetPack`.
@@ -20,11 +23,14 @@ const DEFAULT_INDEX_SCRIPT: &str = include_str!("../../scripts/index.rhai");
 pub enum AssetPackIndexError {
     /// An error occurred while creating the underlying index.
     #[error("Failed to create index at {0}")]
-    CreateIndex(PathBuf, #[source] tantivy::TantivyError),
+    CreateIndex(PathBuf, #[source] TantivyError),
 
     /// An error occurred while opening the underlying index.
     #[error("Failed to open index at {0}")]
-    OpenIndex(PathBuf, #[source] tantivy::TantivyError),
+    OpenIndex(PathBuf, #[source] TantivyError),
+
+    #[error("An error or occured indexing {0}")]
+    Index(PathBuf, #[source] TantivyError),
 
     /// Thrown when a Rhai script fails to compile (usually syntax errors)
     #[error("An error occurred while compiling {0} script: {1}")]
@@ -83,7 +89,62 @@ impl AssetPackIndex {
         })
     }
 
-    pub fn index(&self, _root: &Path) -> Result<(), AssetPackIndexError> {
+    /// TODO.
+    ///
+    /// # Errors
+    /// TODO.
+    pub fn index(
+        &self,
+        root: &Path,
+        filter_script: Option<&String>,
+        index_script: Option<&String>,
+    ) -> Result<(), AssetPackIndexError> {
+        let walker = WalkDir::new(root);
+        let (engine, filter_script, index_script) = self.scripting(filter_script, index_script)?;
+        let mut scope = Scope::new();
+
+        let mut writer: IndexWriter = self
+            .index
+            .writer(100_000_000)
+            .map_err(|error| AssetPackIndexError::Index(root.to_path_buf(), error))?;
+        for entry in walker.sort_by_file_name().into_iter().flatten() {
+            let Some(file_name) = file_name(entry.path()) else {
+                warn!(
+                    "Automatically skipping invalid entry: '{path:?}', this is most likely a bug.",
+                    path = entry.path()
+                );
+                continue;
+            };
+
+            if !engine
+                .call_fn::<bool>(&mut scope, &filter_script, "filter", (file_name.clone(),))
+                .map_err(|error| AssetPackIndexError::RunScript("filter", error.to_string()))?
+            {
+                trace!(
+                    "Skipping {path} because filter script returned false",
+                    path = entry.path().display()
+                );
+                continue;
+            }
+
+            {
+                #[cfg(feature = "dev")]
+                let _span = bevy::prelude::info_span!("Indexing", name = "indexing").entered();
+
+                let _result = engine
+                    .call_fn::<crate::scripting::IndexEntry>(
+                        &mut scope,
+                        &index_script,
+                        "index",
+                        (file_name,),
+                    )
+                    .map_err(|error| AssetPackIndexError::RunScript("index", error.to_string()))?;
+            }
+        }
+
+        writer
+            .commit()
+            .map_err(|error| AssetPackIndexError::Index(root.to_path_buf(), error))?;
         Ok(())
     }
 
@@ -131,5 +192,36 @@ impl AssetPackIndex {
         let path = builder.add_text_field("path", TEXT | STORED);
 
         (builder.build(), name, categories, path)
+    }
+
+    /// Builds a Rhai scripting engine and pre-compiles the filter and indexation script.
+    ///
+    /// It also performs optimisation passes on the passed scripts.
+    ///
+    /// # Errors
+    /// This method compiles either the given `filter_script` or `index_script`s, or the built-in ones.
+    /// When an error occurs during compilation (syntax errors, missing variables, ...) it will propagate.
+    fn scripting(
+        &self,
+        filter_script: Option<&String>,
+        index_script: Option<&String>,
+    ) -> Result<(Engine, AST, AST), AssetPackIndexError> {
+        let engine = crate::scripting::build_engine();
+        let scope = Scope::new();
+
+        let filter_script = filter_script.map_or(DEFAULT_FILTER_SCRIPT, |string| string.as_str());
+        let filter_script = engine
+            .compile(filter_script)
+            .map_err(|error| AssetPackIndexError::CompileScript("filter", error.to_string()))?;
+
+        let index_script = index_script.map_or(DEFAULT_INDEX_SCRIPT, |string| string.as_str());
+        let index_script = engine
+            .compile(index_script)
+            .map_err(|error| AssetPackIndexError::CompileScript("index", error.to_string()))?;
+
+        let filter_script = engine.optimize_ast(&scope, filter_script, OptimizationLevel::Full);
+        let index_script = engine.optimize_ast(&scope, index_script, OptimizationLevel::Full);
+
+        Ok((engine, filter_script, index_script))
     }
 }

@@ -15,7 +15,7 @@ use utils::file_name;
 /// The filename of the asset pack manifests.
 const MANIFEST_FILE_NAME: &str = "asset_pack.toml";
 
-/// The directory name inside the meta_dir where the Tantivy index lives.
+/// The directory name inside the `meta_dir` where the Tantivy index lives.
 const INDEX_DIR_NAME: &str = "index";
 
 /// An [`AssetPack`] is a single root folder that contains assets and subfolders.
@@ -212,9 +212,18 @@ impl AssetPack {
     /// # Errors
     /// For specific details on what can cause indexing to fail, see [`AssetPackIndex::index`].
     #[inline(always)]
-    #[allow(clippy::inline_always, reason = "Wrapper function for AssetPackIndex::index")]
+    #[allow(
+        clippy::inline_always,
+        reason = "Wrapper function for AssetPackIndex::index"
+    )]
     pub fn index(&self) -> Result<(), AssetPackError> {
-        self.index.index(&self.root).map_err(AssetPackError::Indexing)
+        self.index
+            .index(
+                &self.root,
+                self.index_script.as_ref(),
+                self.filter_script.as_ref(),
+            )
+            .map_err(AssetPackError::Indexing)
     }
 
     // /// TODO: TEMPORARY IMPLEMENTATION

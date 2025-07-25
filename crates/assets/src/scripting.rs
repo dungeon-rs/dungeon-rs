@@ -1,6 +1,6 @@
-//! # DungeonRS scripting
+//! # `DungeonRS` scripting
 //!
-//! DungeonRS provides a way to index your assets packs using custom logic in case the default script doesn't properly
+//! `DungeonRS` provides a way to index your assets packs using custom logic in case the default script doesn't properly
 //! index the asset structure of your files.
 
 use bevy::prelude::debug;
@@ -20,7 +20,7 @@ pub fn build_engine() -> Engine {
 /// Generates a hash from the given `value`.
 ///
 /// This implementation currently uses Blake3, but callers should not rely on this.
-fn hash(value: ImmutableString) -> ImmutableString {
+fn hash(value: &mut ImmutableString) -> ImmutableString {
     blake3::hash(value.as_bytes()).to_string().into()
 }
 
