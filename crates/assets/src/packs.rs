@@ -1,31 +1,22 @@
 //! An asset pack is a single root folder that contains asset and subfolders.
 
-use bevy::prelude::{Asset, AssetServer, Handle, debug, info, trace, warn};
-use rhai::{OptimizationLevel, Scope};
+mod index;
+
+use crate::packs::index::{AssetPackIndex, AssetPackIndexError};
+use bevy::prelude::{Asset, AssetServer, Handle, debug, info, trace};
 use serialization::{Deserialize, SerializationFormat, Serialize, deserialize, serialize_to};
 use std::fs::{File, create_dir_all};
 use std::io::read_to_string;
 use std::path::Path;
 use std::path::PathBuf;
-use tantivy::collector::TopDocs;
-use tantivy::query::QueryParser;
-use tantivy::schema::{STORED, Schema, TEXT, Value};
-use tantivy::{Index, IndexWriter, TantivyDocument, TantivyError, doc};
 use thiserror::Error;
 use utils::file_name;
-use walkdir::WalkDir;
 
 /// The filename of the asset pack manifests.
 const MANIFEST_FILE_NAME: &str = "asset_pack.toml";
 
 /// The directory name inside the meta_dir where the Tantivy index lives.
 const INDEX_DIR_NAME: &str = "index";
-
-/// The default script for filtering when no custom script was passed into the `AssetPack`.
-const DEFAULT_FILTER_SCRIPT: &str = include_str!("../scripts/filter.rhai");
-
-/// The default script for indexing when no custom script was passed into the `AssetPack`.
-const DEFAULT_INDEX_SCRIPT: &str = include_str!("../scripts/index.rhai");
 
 /// An [`AssetPack`] is a single root folder that contains assets and subfolders.
 ///
@@ -37,34 +28,39 @@ pub struct AssetPack {
     /// This is used to track whether a pack needs to perform operations to be usable, whether some
     /// operations failed and so forth.
     pub state: AssetPackState,
+
     /// The identifier of this string, usually a hash or short ID defined by the creator of the asset
     /// pack represented.
     ///
     /// This ID is used when referring to files under [`AssetPack::root`].
     pub id: String,
+
     /// The human-readable name of this [`AssetPack`].
     ///
     /// This is not guaranteed to be unique! If you need to identify this pack, please use [`AssetPack::id`].
     pub name: String,
+
     /// The "root" directory under which the assets live for this pack.
     ///
     /// This is used internally to generate relative paths (that are portable) from absolute paths
     /// used in the asset loader.
     pub root: PathBuf,
+
     /// The directory in which metadata about the [`AssetPack`] is kept.
     /// This ranges from index metadata, scripts to thumbnails, this directory is not guaranteed to
     /// exist between runs and may be cleaned to recover disk space. The operations in this directory
     /// should be ephemeral by design.
     pub meta_dir: PathBuf,
-    /// Internal mapping table between asset identifiers and their physical paths.
-    ///
-    /// Each path value is relative to the [`AssetPack::root`].
-    index: Index,
+
+    /// Contains the actual indexation logic for this `AssetPack`.
+    index: AssetPackIndex,
+
     /// A [Rhai](https://rhai.rs/) script that is used during indexing operations to filter whether
     /// an asset should be included in the pack or not.
     ///
     /// When set to `None` the pack will use the embedded script for filtering.
     filter_script: Option<String>,
+
     /// A [Rhai](https://rhai.rs/) script that is used during indexing operations to assist in categorising
     /// the assets in the pack.
     ///
@@ -92,10 +88,13 @@ pub enum AssetPackState {
     /// Additional processing is required to validate the pack's state before it can be used.
     #[default]
     Created,
+
     /// The asset pack is currently (re)indexing its contents.
     Indexing,
+
     /// Something went wrong during processing, leaving this pack in an invalid state.
     Invalid(String),
+
     /// The pack is ready to use.
     Ready,
 }
@@ -106,18 +105,14 @@ pub enum AssetPackError {
     /// Thrown when creating/opening the asset pack manifest fails.
     #[error("An IO error occurred while reading/writing the asset pack manifest")]
     ManifestFile(#[from] std::io::Error),
+
     /// Thrown when the serialisation of an asset pack manifest fails.
     #[error("An error occurred while serialising the asset pack manifest")]
     Serialisation(#[from] serialization::SerializationError),
-    /// Thrown when a Rhai script fails to compile (usually syntax errors)
-    #[error("An error occurred while compiling {0} script: {1}")]
-    CompileScript(&'static str, String),
-    /// Thrown when a Rhai script fails to execute
-    #[error("An error occurred while executing {0} script: {1}")]
-    RunScript(&'static str, String),
+
     /// Thrown when Tantivy throws an error, usually during indexing or reading.
     #[error("An error occurred while indexing the asset pack")]
-    Indexing(#[from] TantivyError),
+    Indexing(#[from] AssetPackIndexError),
 }
 
 impl AssetPack {
@@ -141,11 +136,11 @@ impl AssetPack {
         info!("Created new asset pack with ID: {}", id);
         Ok(Self {
             state: AssetPackState::Created,
-            id: id.clone(),
+            id,
             name,
             root,
-            meta_dir: meta_dir.to_path_buf(),
-            index: Index::create_in_dir(meta_dir.join(INDEX_DIR_NAME), Self::build_schema())?,
+            meta_dir,
+            index: AssetPackIndex::new(index_dir)?,
             filter_script: None,
             index_script: None,
         })
@@ -193,7 +188,7 @@ impl AssetPack {
         let manifest = read_to_string(manifest).map_err(AssetPackError::ManifestFile)?;
 
         let manifest: _AssetPack = deserialize(manifest.as_bytes(), &SerializationFormat::Toml)?;
-        info!("Loaded manifest for {}", manifest.id);
+        debug!("Loaded manifest for {}", manifest.id);
 
         let meta_dir = meta_dir.join(manifest.id.clone());
         let index_dir = meta_dir.join(INDEX_DIR_NAME);
@@ -202,135 +197,128 @@ impl AssetPack {
             id: manifest.id,
             name: manifest.name,
             root: root.to_path_buf(),
-            meta_dir: meta_dir.to_path_buf(),
-            index: Index::open_in_dir(index_dir)?,
+            meta_dir,
+            index: AssetPackIndex::open(index_dir)?,
             filter_script: manifest.filter_script,
             index_script: manifest.index_script,
         })
     }
 
-    /// TODO: TEMPORARY IMPLEMENTATION
-    #[allow(clippy::missing_panics_doc, reason = "Temporary implementation")]
-    #[allow(clippy::missing_errors_doc, reason = "Temporary implementation")]
-    pub fn index(&mut self) -> Result<(), AssetPackError> {
-        let walker = WalkDir::new(&self.root);
-        let engine = crate::scripting::build_engine();
-        let mut scope = Scope::new();
-
-        let filter_script = self
-            .filter_script
-            .as_deref()
-            .unwrap_or(DEFAULT_FILTER_SCRIPT);
-        let filter_script = engine
-            .compile(filter_script)
-            .map_err(|error| AssetPackError::CompileScript("filter", error.to_string()))?;
-
-        let index_script = self.index_script.as_deref().unwrap_or(DEFAULT_INDEX_SCRIPT);
-        let index_script = engine
-            .compile(index_script)
-            .map_err(|error| AssetPackError::CompileScript("index", error.to_string()))?;
-
-        let filter_script = engine.optimize_ast(&scope, filter_script, OptimizationLevel::Full);
-        let index_script = engine.optimize_ast(&scope, index_script, OptimizationLevel::Full);
-
-        {
-            #[cfg(feature = "dev")]
-            let _span = bevy::prelude::info_span!("Indexing", name = "indexing").entered();
-
-            let mut count = 0;
-            let schema = Self::build_schema();
-            let mut writer: IndexWriter = self.index.writer(100_000_000)?;
-
-            for entry in walker.sort_by_file_name().into_iter().flatten() {
-                let Some(file_name) = file_name(&entry.path()) else {
-                    warn!(
-                        "Automatically skipping invalid entry: '{path:?}', this is most likely a bug.",
-                        path = entry.path()
-                    );
-                    continue;
-                };
-
-                if !engine
-                    .call_fn::<bool>(&mut scope, &filter_script, "filter", (file_name.clone(),))
-                    .map_err(|error| AssetPackError::RunScript("filter", error.to_string()))?
-                {
-                    trace!(
-                        "Skipping {path} because filter script returned false",
-                        path = entry.path().display()
-                    );
-                    continue;
-                }
-
-                let path = entry.path().to_path_buf();
-                let path = path.strip_prefix(&self.root).unwrap();
-                let key = blake3::hash(path.as_os_str().as_encoded_bytes()).to_string();
-
-                let result = engine
-                    .call_fn::<crate::scripting::IndexEntry>(
-                        &mut scope,
-                        &index_script,
-                        "index",
-                        (file_name,),
-                    )
-                    .map_err(|error| AssetPackError::RunScript("index", error.to_string()))?;
-                info!("Indexing returned {result:?}", result = result);
-
-                trace!(
-                    "Indexed {path} as {key}",
-                    path = path.display(),
-                    key = key.as_str()
-                );
-
-                let mut document = doc!(
-                    schema.get_field("name")? => result.name.to_string(),
-                    schema.get_field("path")? => path.to_string_lossy().to_string()
-                );
-
-                for category in result.categories {
-                    // TODO: remove unwrap
-                    document.add_text(
-                        schema.get_field("categories")?,
-                        category.into_string().unwrap(),
-                    );
-                }
-
-                writer.add_document(document)?;
-                count += 1;
-            }
-
-            writer.commit()?;
-            debug!("Finished indexing {count} assets");
-        }
-
-        self.save_manifest()
+    /// This forces the underlying index for this [`AssetPack`] to be rebuilt from scratch.
+    ///
+    /// Note that this is an expensive operation that may take several seconds to minutes to complete
+    /// and will use a lot of CPU (indexing, hashing and thumbnail generation).
+    ///
+    /// # Errors
+    /// For specific details on what can cause indexing to fail, see [`AssetPackIndex::index`].
+    #[inline(always)]
+    #[allow(clippy::inline_always, reason = "Wrapper function for AssetPackIndex::index")]
+    pub fn index(&self) -> Result<(), AssetPackError> {
+        self.index.index(&self.root).map_err(AssetPackError::Indexing)
     }
+
+    // /// TODO: TEMPORARY IMPLEMENTATION
+    // #[allow(clippy::missing_panics_doc, reason = "Temporary implementation")]
+    // #[allow(clippy::missing_errors_doc, reason = "Temporary implementation")]
+    // pub fn index(&mut self) -> Result<(), AssetPackError> {
+    //     let walker = WalkDir::new(&self.root);
+    //     let engine = crate::scripting::build_engine();
+    //     let mut scope = Scope::new();
+    //
+    //     let filter_script = self
+    //         .filter_script
+    //         .as_deref()
+    //         .unwrap_or(DEFAULT_FILTER_SCRIPT);
+    //     let filter_script = engine
+    //         .compile(filter_script)
+    //         .map_err(|error| AssetPackError::CompileScript("filter", error.to_string()))?;
+    //
+    //     let index_script = self.index_script.as_deref().unwrap_or(DEFAULT_INDEX_SCRIPT);
+    //     let index_script = engine
+    //         .compile(index_script)
+    //         .map_err(|error| AssetPackError::CompileScript("index", error.to_string()))?;
+    //
+    //     let filter_script = engine.optimize_ast(&scope, filter_script, OptimizationLevel::Full);
+    //     let index_script = engine.optimize_ast(&scope, index_script, OptimizationLevel::Full);
+    //
+    //     {
+    //         #[cfg(feature = "dev")]
+    //         let _span = bevy::prelude::info_span!("Indexing", name = "indexing").entered();
+    //
+    //         let mut count = 0;
+    //         let schema = Self::build_schema();
+    //         let mut writer: IndexWriter = self.index.writer(100_000_000)?;
+    //
+    //         for entry in walker.sort_by_file_name().into_iter().flatten() {
+    //             let Some(file_name) = file_name(&entry.path()) else {
+    //                 warn!(
+    //                     "Automatically skipping invalid entry: '{path:?}', this is most likely a bug.",
+    //                     path = entry.path()
+    //                 );
+    //                 continue;
+    //             };
+    //
+    //             if !engine
+    //                 .call_fn::<bool>(&mut scope, &filter_script, "filter", (file_name.clone(),))
+    //                 .map_err(|error| AssetPackError::RunScript("filter", error.to_string()))?
+    //             {
+    //                 trace!(
+    //                     "Skipping {path} because filter script returned false",
+    //                     path = entry.path().display()
+    //                 );
+    //                 continue;
+    //             }
+    //
+    //             let path = entry.path().to_path_buf();
+    //             let path = path.strip_prefix(&self.root).unwrap();
+    //             let key = blake3::hash(path.as_os_str().as_encoded_bytes()).to_string();
+    //
+    //             let result = engine
+    //                 .call_fn::<crate::scripting::IndexEntry>(
+    //                     &mut scope,
+    //                     &index_script,
+    //                     "index",
+    //                     (file_name,),
+    //                 )
+    //                 .map_err(|error| AssetPackError::RunScript("index", error.to_string()))?;
+    //             info!("Indexing returned {result:?}", result = result);
+    //
+    //             trace!(
+    //                 "Indexed {path} as {key}",
+    //                 path = path.display(),
+    //                 key = key.as_str()
+    //             );
+    //
+    //             let mut document = doc!(
+    //                 schema.get_field("name")? => result.name.to_string(),
+    //                 schema.get_field("path")? => path.to_string_lossy().to_string()
+    //             );
+    //
+    //             for category in result.categories {
+    //                 // TODO: remove unwrap
+    //                 document.add_text(
+    //                     schema.get_field("categories")?,
+    //                     category.into_string().unwrap(),
+    //                 );
+    //             }
+    //
+    //             writer.add_document(document)?;
+    //             count += 1;
+    //         }
+    //
+    //         writer.commit()?;
+    //         debug!("Finished indexing {count} assets");
+    //     }
+    //
+    //     self.save_manifest()
+    // }
 
     /// Attempts to resolve the given identifier into a [`PathBuf`].
     #[must_use]
     pub fn resolve(&self, id: &String) -> Option<PathBuf> {
-        debug!("{} is resolving asset {}", self.id, id);
-        let reader = self.index.reader().unwrap();
-        let searcher = reader.searcher();
-        let schema = Self::build_schema();
+        trace!("{} is resolving asset {}", self.id, id);
 
-        let query_parser =
-            QueryParser::for_index(&self.index, vec![schema.get_field("name").unwrap()]);
-
-        let query = query_parser.parse_query(id).unwrap();
-        let top_docs = searcher.search(&query, &TopDocs::with_limit(1)).unwrap();
-        for (_, doc) in top_docs {
-            let document: TantivyDocument = searcher.doc(doc).unwrap();
-
-            return Some(PathBuf::from(
-                document
-                    .get_first(schema.get_field("path").unwrap())
-                    .unwrap()
-                    .as_str()
-                    .unwrap(),
-            ));
-        }
-
-        None
+        self.index.find_by_id(id)
     }
 
     /// Attempts to load the asset associated with the given path.
@@ -344,15 +332,6 @@ impl AssetPack {
         }
 
         None
-    }
-
-    fn build_schema() -> Schema {
-        let mut builder = Schema::builder();
-        builder.add_text_field("name", TEXT | STORED);
-        builder.add_text_field("categories", TEXT);
-        builder.add_text_field("path", TEXT);
-
-        builder.build()
     }
 }
 
