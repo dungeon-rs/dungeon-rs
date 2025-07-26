@@ -102,7 +102,7 @@ impl AssetLibrary {
     pub fn load(path: Option<PathBuf>) -> Result<Self, AssetLibraryError> {
         let path = Self::get_path(path)?.join(LIBRARY_FILE_NAME);
 
-        debug!("Attempting to load {}", path.display());
+        debug!("Attempting to load library at {}", path.display());
         let mut file = File::open(path).map_err(AssetLibraryError::ReadFile)?;
         let mut contents = String::new();
         file.read_to_string(&mut contents)

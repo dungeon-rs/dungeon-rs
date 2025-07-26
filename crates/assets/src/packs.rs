@@ -122,6 +122,7 @@ impl AssetPack {
     /// This method may return an error if it fails to [canonicalize](https://doc.rust-lang.org/std/fs/fn.canonicalize.html)
     /// the root path.
     pub fn new(root: &Path, meta_dir: &Path, name: Option<String>) -> Result<Self, AssetPackError> {
+        trace!("Creating new asset pack from {root}", root = root.display());
         let root = root.canonicalize()?;
         let id = blake3::hash(root.as_os_str().as_encoded_bytes()).to_string();
         let meta_dir = meta_dir.join(id.clone());
@@ -131,6 +132,7 @@ impl AssetPack {
             .unwrap_or_else(|| id.clone());
 
         // Tantivy requires that the directory exists already.
+        trace!("Creating meta directory {meta_dir}", meta_dir = meta_dir.display());
         create_dir_all(&index_dir)?;
 
         info!("Created new asset pack with ID: {}", id);
