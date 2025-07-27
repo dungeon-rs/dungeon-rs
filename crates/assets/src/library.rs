@@ -38,8 +38,9 @@ struct AssetLibraryEntry {
     ///
     /// Currently only filesystem packs are supported (e.g., no network-backed protocols like HTTP, FTP, ...)
     root: PathBuf,
-    /// The location of the asset pack's index, this allows storing the index in a different location than the pack itself.
-    index: PathBuf,
+    /// The location of the asset pack's cache.
+    /// The asset pack itself determines what is stored here; this includes the index.
+    cache: PathBuf,
 }
 
 /// The errors that can occur when loading or saving the [`AssetLibrary`].
@@ -101,7 +102,7 @@ impl AssetLibrary {
     pub fn load(path: Option<PathBuf>) -> Result<Self, AssetLibraryError> {
         let path = Self::get_path(path)?.join(LIBRARY_FILE_NAME);
 
-        debug!("Attempting to load {}", path.display());
+        debug!("Attempting to load library at {}", path.display());
         let mut file = File::open(path).map_err(AssetLibraryError::ReadFile)?;
         let mut contents = String::new();
         file.read_to_string(&mut contents)
@@ -132,7 +133,7 @@ impl AssetLibrary {
     /// from the library.
     ///
     /// # Errors
-    /// If any IO related errors occur while removing the pack, this method can return a
+    /// If any IO-related errors occur while removing the pack, this method can return a
     /// [`AssetLibraryError::OpenAssetPack`].
     pub fn delete_pack(&mut self, id: &String) -> Result<(), AssetLibraryError> {
         debug!("Deleting pack {}", id);
@@ -140,7 +141,7 @@ impl AssetLibrary {
             self.load_pack(id)?;
         }
 
-        if let Some(pack) = self.get_pack_mut(id) {
+        if let Some(pack) = self.loaded_packs.remove(id) {
             pack.delete()?;
 
             self.loaded_packs.remove(id);
@@ -188,7 +189,7 @@ impl AssetLibrary {
         let pack_id = pack.id.clone();
         let entry = AssetLibraryEntry {
             root: root.to_path_buf(),
-            index: meta_dir.clone(),
+            cache: pack.meta_dir.clone(),
         };
 
         self.registered_packs.insert(pack_id.clone(), entry);
@@ -209,7 +210,7 @@ impl AssetLibrary {
             return Err(AssetLibraryError::NotFound(id.clone()));
         };
 
-        let pack = AssetPack::load_manifest(entry.root.as_path(), entry.index.as_path())?;
+        let pack = AssetPack::load_manifest(entry.root.as_path(), entry.cache.as_path())?;
         self.loaded_packs.insert(id.clone(), pack);
 
         debug!("Loaded pack {}", id);
@@ -258,6 +259,20 @@ impl AssetLibrary {
         self.registered_packs
             .iter()
             .map(|(key, value)| (key, &value.root))
+    }
+
+    /// Attempts to resolve a given `id` from all currently loaded asset packs.
+    ///
+    /// If no asset packs are loaded, or the ID is not known to a loaded pack, this method returns `None`.
+    #[must_use]
+    pub fn resolve(&self, id: String) -> Option<PathBuf> {
+        for pack in self.loaded_packs.values() {
+            if let Some(result) = pack.resolve(&id) {
+                return Some(result);
+            }
+        }
+
+        None
     }
 
     /// Either returns `path` or `config_path()` if `path` is `None`.

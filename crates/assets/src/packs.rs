@@ -1,56 +1,71 @@
 //! An asset pack is a single root folder that contains asset and subfolders.
 
-use bevy::prelude::{Asset, AssetServer, Component, Handle, debug, info, trace};
-use rhai::{Engine, EvalAltResult, OptimizationLevel, Scope};
+mod index;
+
+use crate::packs::index::{AssetPackIndex, AssetPackIndexError};
+use bevy::prelude::{Asset, AssetServer, Handle, debug, info, trace};
 use serialization::{Deserialize, SerializationFormat, Serialize, deserialize, serialize_to};
-use std::collections::HashMap;
-use std::fs::File;
+use std::fs::{File, create_dir_all};
 use std::io::read_to_string;
 use std::path::Path;
 use std::path::PathBuf;
 use thiserror::Error;
 use utils::file_name;
-use walkdir::WalkDir;
 
 /// The filename of the asset pack manifests.
 const MANIFEST_FILE_NAME: &str = "asset_pack.toml";
 
+/// The directory name inside the `meta_dir` where the Tantivy index lives.
+const INDEX_DIR_NAME: &str = "index";
+
 /// An [`AssetPack`] is a single root folder that contains assets and subfolders.
 ///
 /// The asset pack handles the indexing, categorising and loading the assets.
-#[derive(Component, Debug)]
+#[derive(Debug)]
 pub struct AssetPack {
     /// The state the pack is currently in.
     ///
     /// This is used to track whether a pack needs to perform operations to be usable, whether some
     /// operations failed and so forth.
     pub state: AssetPackState,
+
     /// The identifier of this string, usually a hash or short ID defined by the creator of the asset
     /// pack represented.
     ///
     /// This ID is used when referring to files under [`AssetPack::root`].
     pub id: String,
+
     /// The human-readable name of this [`AssetPack`].
     ///
     /// This is not guaranteed to be unique! If you need to identify this pack, please use [`AssetPack::id`].
     pub name: String,
+
     /// The "root" directory under which the assets live for this pack.
     ///
     /// This is used internally to generate relative paths (that are portable) from absolute paths
     /// used in the asset loader.
     pub root: PathBuf,
+
     /// The directory in which metadata about the [`AssetPack`] is kept.
     /// This ranges from index metadata, scripts to thumbnails, this directory is not guaranteed to
     /// exist between runs and may be cleaned to recover disk space. The operations in this directory
     /// should be ephemeral by design.
     pub meta_dir: PathBuf,
-    /// Internal mapping table between asset identifiers and their physical paths.
+
+    /// Contains the actual indexation logic for this `AssetPack`.
+    index: AssetPackIndex,
+
+    /// A [Rhai](https://rhai.rs/) script that is used during indexing operations to filter whether
+    /// an asset should be included in the pack or not.
     ///
-    /// Each path value is relative to the [`AssetPack::root`].
-    index: HashMap<String, PathBuf>,
+    /// When set to `None` the pack will use the embedded script for filtering.
+    filter_script: Option<String>,
+
     /// A [Rhai](https://rhai.rs/) script that is used during indexing operations to assist in categorising
     /// the assets in the pack.
-    script: Option<String>,
+    ///
+    /// When set to `None` the pack will use the embedded script for indexing.
+    index_script: Option<String>,
 }
 
 /// Internal "copy" of the [`AssetPack`] struct intended for saving/loading to disk.
@@ -62,8 +77,8 @@ pub struct AssetPack {
 struct _AssetPack {
     pub id: String,
     pub name: String,
-    index: HashMap<String, PathBuf>,
-    script: Option<String>,
+    filter_script: Option<String>,
+    index_script: Option<String>,
 }
 
 /// Describes the current state of an [`AssetPack`].
@@ -73,10 +88,13 @@ pub enum AssetPackState {
     /// Additional processing is required to validate the pack's state before it can be used.
     #[default]
     Created,
+
     /// The asset pack is currently (re)indexing its contents.
     Indexing,
+
     /// Something went wrong during processing, leaving this pack in an invalid state.
     Invalid(String),
+
     /// The pack is ready to use.
     Ready,
 }
@@ -87,15 +105,14 @@ pub enum AssetPackError {
     /// Thrown when creating/opening the asset pack manifest fails.
     #[error("An IO error occurred while reading/writing the asset pack manifest")]
     ManifestFile(#[from] std::io::Error),
+
     /// Thrown when the serialisation of an asset pack manifest fails.
     #[error("An error occurred while serialising the asset pack manifest")]
     Serialisation(#[from] serialization::SerializationError),
-    /// Thrown when a Rhai script fails to compile (usually syntax errors)
-    #[error("An error occurred while compiling the asset pack indexing script")]
-    CompileScript(#[from] rhai::ParseError),
-    /// Thrown when a Rhai script fails to execute
-    #[error("An error occurred while running the asset pack indexing script")]
-    RunScript(#[from] Box<EvalAltResult>),
+
+    /// Thrown when Tantivy throws an error, usually during indexing or reading.
+    #[error("An error occurred while indexing the asset pack")]
+    Indexing(#[from] AssetPackIndexError),
 }
 
 impl AssetPack {
@@ -105,21 +122,32 @@ impl AssetPack {
     /// This method may return an error if it fails to [canonicalize](https://doc.rust-lang.org/std/fs/fn.canonicalize.html)
     /// the root path.
     pub fn new(root: &Path, meta_dir: &Path, name: Option<String>) -> Result<Self, AssetPackError> {
+        trace!("Creating new asset pack from {root}", root = root.display());
         let root = root.canonicalize()?;
         let id = blake3::hash(root.as_os_str().as_encoded_bytes()).to_string();
+        let meta_dir = meta_dir.join(id.clone());
+        let index_dir = meta_dir.join(INDEX_DIR_NAME);
         let name = name
             .or_else(|| file_name(&root))
             .unwrap_or_else(|| id.clone());
 
+        // Tantivy requires that the directory exists already.
+        trace!(
+            "Creating meta directory {meta_dir}",
+            meta_dir = meta_dir.display()
+        );
+        create_dir_all(&index_dir)?;
+
         info!("Created new asset pack with ID: {}", id);
         Ok(Self {
             state: AssetPackState::Created,
-            id: id.clone(),
+            id,
             name,
             root,
-            meta_dir: meta_dir.to_path_buf(),
-            index: HashMap::new(),
-            script: None,
+            meta_dir,
+            index: AssetPackIndex::new(index_dir)?,
+            filter_script: None,
+            index_script: None,
         })
     }
 
@@ -127,7 +155,7 @@ impl AssetPack {
     ///
     /// # Errors
     /// Can return [`AssetPackError::ManifestFile`] when it fails to clean up any files.
-    pub(crate) fn delete(&self) -> Result<(), AssetPackError> {
+    pub(crate) fn delete(self) -> Result<(), AssetPackError> {
         info!("Deleting asset pack: {}", self.id);
         let config_file = self.root.join(MANIFEST_FILE_NAME);
 
@@ -165,63 +193,50 @@ impl AssetPack {
         let manifest = read_to_string(manifest).map_err(AssetPackError::ManifestFile)?;
 
         let manifest: _AssetPack = deserialize(manifest.as_bytes(), &SerializationFormat::Toml)?;
-        info!("Loaded manifest for {}", manifest.id);
+        debug!("Loaded manifest for {}", manifest.id);
+
+        let meta_dir = meta_dir.join(manifest.id.clone());
+        let index_dir = meta_dir.join(INDEX_DIR_NAME);
         Ok(Self {
             state: AssetPackState::Created,
             id: manifest.id,
             name: manifest.name,
             root: root.to_path_buf(),
-            meta_dir: meta_dir.to_path_buf(),
-            index: manifest.index,
-            script: manifest.script,
+            meta_dir,
+            index: AssetPackIndex::open(index_dir)?,
+            filter_script: manifest.filter_script,
+            index_script: manifest.index_script,
         })
     }
 
-    /// TODO: TEMPORARY IMPLEMENTATION
-    #[allow(clippy::missing_panics_doc, reason = "Temporary implementation")]
-    #[allow(clippy::missing_errors_doc, reason = "Temporary implementation")]
-    pub fn index(&mut self) -> Result<(), AssetPackError> {
-        let walker = WalkDir::new(&self.root);
-        let engine = Engine::new();
-        let mut scope = Scope::new();
-        let script = engine.compile(include_str!("../scripts/filter.rhai"))?;
-        let script = engine.optimize_ast(&scope, script, OptimizationLevel::Full);
-
-        {
-            #[cfg(feature = "dev")]
-            let _span = bevy::prelude::info_span!("Indexing", name = "indexing").entered();
-
-            let mut count = 0;
-            for entry in walker.sort_by_file_name().into_iter().flatten() {
-                if !engine.call_fn::<bool>(&mut scope, &script, "filter", (String::new(),))? {
-                    trace!("Skipping {path}", path = entry.path().display());
-                    continue;
-                }
-
-                let path = entry.path().to_path_buf();
-                let path = path.strip_prefix(&self.root).unwrap();
-                let key = blake3::hash(path.as_os_str().as_encoded_bytes()).to_string();
-
-                trace!(
-                    "Indexed {path} as {key}",
-                    path = path.display(),
-                    key = key.as_str()
-                );
-                self.index.insert(key, path.to_path_buf());
-                count += 1;
-            }
-
-            debug!("Finished indexing {count} assets");
-        }
-
-        self.save_manifest()
+    /// This forces the underlying index for this [`AssetPack`] to be rebuilt from scratch.
+    ///
+    /// Note that this is an expensive operation that may take several seconds to minutes to complete
+    /// and will use a lot of CPU (indexing, hashing and thumbnail generation).
+    ///
+    /// # Errors
+    /// For specific details on what can cause indexing to fail, see [`AssetPackIndex::index`].
+    #[inline(always)]
+    #[allow(
+        clippy::inline_always,
+        reason = "Wrapper function for AssetPackIndex::index"
+    )]
+    pub fn index(&self) -> Result<(), AssetPackError> {
+        self.index
+            .index(
+                &self.root,
+                self.index_script.as_ref(),
+                self.filter_script.as_ref(),
+            )
+            .map_err(AssetPackError::Indexing)
     }
 
     /// Attempts to resolve the given identifier into a [`PathBuf`].
     #[must_use]
     pub fn resolve(&self, id: &String) -> Option<PathBuf> {
-        debug!("{} is resolving asset {}", self.id, id);
-        self.index.get(id).map(|path| self.root.join(path))
+        trace!("{} is resolving asset {}", self.id, id);
+
+        self.index.find_by_id(id)
     }
 
     /// Attempts to load the asset associated with the given path.
@@ -243,8 +258,8 @@ impl From<&AssetPack> for _AssetPack {
         Self {
             id: pack.id.clone(),
             name: pack.name.clone(),
-            index: pack.index.clone(),
-            script: pack.script.clone(),
+            filter_script: pack.filter_script.clone(),
+            index_script: pack.index_script.clone(),
         }
     }
 }
@@ -258,12 +273,21 @@ mod tests {
     use tempfile::tempdir;
 
     #[test]
-    fn new_asset_pack_id_is_stable() {
-        let path = Path::new(".");
-        let pack = AssetPack::new(path, path, None).unwrap();
-        let pack2 = AssetPack::new(path, path, None).unwrap();
+    fn new_asset_pack_id_is_stable() -> anyhow::Result<()> {
+        let path = tempdir()?;
+        let subpath = path.path().join("new_asset_pack_id_is_stable");
+        create_dir_all(&subpath)?;
 
-        assert_eq!(pack.id, pack2.id);
+        let pack = AssetPack::new(&subpath, &subpath, None)?;
+        let pack_id = pack.id.clone();
+        pack.save_manifest()?;
+        pack.delete()?;
+        create_dir_all(&subpath)?;
+
+        let pack2 = AssetPack::new(&subpath, &subpath, None)?;
+
+        assert_eq!(pack_id, pack2.id);
+        Ok(())
     }
 
     #[test]
@@ -282,5 +306,13 @@ mod tests {
     fn new_asset_error_on_invalid_path() {
         let path = Path::new("./does/not/exist");
         AssetPack::new(path, path, None).expect("Should fail to create asset pack");
+    }
+
+    #[test]
+    #[should_panic = "IndexAlreadyExists"]
+    fn new_asset_pack_error_on_existing() {
+        let path = tempdir().unwrap();
+        AssetPack::new(path.path(), path.path(), None).unwrap();
+        AssetPack::new(path.path(), path.path(), None).unwrap();
     }
 }

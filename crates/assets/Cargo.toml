@@ -15,7 +15,7 @@ workspace = true
 
 [dependencies]
 bevy = { workspace = true, features = ["bevy_asset"] }
-rhai = { version = "1.22.2", features = ["no_time", "sync"] }
+rhai = { version = "1.22.2", features = ["no_time"] }
 walkdir = "2.5.0"
 utils = { workspace = true }
 semver = { workspace = true, features = ["serde"] }
@@ -23,6 +23,7 @@ serde = { workspace = true }
 serialization = { workspace = true }
 thiserror = { workspace = true }
 blake3 = "1.8.2"
+tantivy = "0.24.2"
 
 [dev-dependencies]
 anyhow = { workspace = true }

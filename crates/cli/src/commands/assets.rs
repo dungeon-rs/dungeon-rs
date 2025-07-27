@@ -42,6 +42,11 @@ pub enum Commands {
     List,
     /// Cleans up the given asset library.
     CleanUp,
+    /// Forces a re-index of the given asset pack.
+    Index {
+        /// The ID of the asset pack to index.
+        pack: String,
+    },
 }
 
 /// Executes the asset commands in the correct way.
@@ -58,6 +63,7 @@ pub fn execute(Args { command, library }: Args) -> anyhow::Result<()> {
             no_index,
         } => execute_add(library, &path, name, no_index),
         Commands::Remove { id } => execute_remove(library, &id),
+        Commands::Index { pack } => execute_index(library, &pack),
     }
 }
 
@@ -127,6 +133,24 @@ fn execute_remove(library: Option<PathBuf>, id: &String) -> anyhow::Result<()> {
     asset_library
         .delete_pack(id)
         .context("Failed to delete asset pack")?;
+
+    Ok(())
+}
+
+/// Re-indexes an asset pack from the library.
+///
+/// # Errors
+/// Return an error when the asset library fails to load.
+fn execute_index(library: Option<PathBuf>, id: &String) -> anyhow::Result<()> {
+    let mut asset_library = AssetLibrary::load(library).context("Failed to load asset library")?;
+    asset_library
+        .load_pack(id)
+        .with_context(|| format!("Failed to get pack with id '{id}'"))?;
+
+    asset_library
+        .get_pack_mut(id)
+        .with_context(|| format!("Failed to get pack with id '{id}'"))?
+        .index()?;
 
     Ok(())
 }
