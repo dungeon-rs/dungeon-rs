@@ -275,11 +275,16 @@ mod tests {
     #[test]
     fn new_asset_pack_id_is_stable() -> anyhow::Result<()> {
         let path = tempdir()?;
-        let pack = AssetPack::new(path.path(), path.path(), None)?;
-        let pack_id = pack.id.clone();
-        pack.delete()?;
+        let subpath = path.path().join("new_asset_pack_id_is_stable");
+        create_dir_all(&subpath)?;
 
-        let pack2 = AssetPack::new(path.path(), path.path(), None)?;
+        let pack = AssetPack::new(&subpath, &subpath, None)?;
+        let pack_id = pack.id.clone();
+        pack.save_manifest()?;
+        pack.delete()?;
+        create_dir_all(&subpath)?;
+
+        let pack2 = AssetPack::new(&subpath, &subpath, None)?;
 
         assert_eq!(pack_id, pack2.id);
         Ok(())
