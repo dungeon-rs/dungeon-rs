@@ -2,7 +2,7 @@
 //! from the rest of the resolution logic.
 
 use bevy::prelude::{trace, warn};
-use rhai::{AST, Engine, OptimizationLevel, Scope};
+use rhai::{AST, Array, Engine, OptimizationLevel, Scope};
 use std::path::{Path, PathBuf};
 use tantivy::collector::TopDocs;
 use tantivy::query::TermQuery;
@@ -131,12 +131,18 @@ impl AssetPackIndex {
                 #[cfg(feature = "dev")]
                 let _span = bevy::prelude::info_span!("Indexing", name = "indexing").entered();
 
+                // Explicitly cast to an `Array` to avoid interop problems
+                let components: Array = root
+                    .components()
+                    .map(|c| c.as_os_str().to_string_lossy().to_string().into())
+                    .collect::<Vec<_>>();
+
                 let _result = engine
                     .call_fn::<crate::scripting::IndexEntry>(
                         &mut scope,
                         &index_script,
                         "index",
-                        (file_name,),
+                        (file_name, components),
                     )
                     .map_err(|error| AssetPackIndexError::RunScript("index", error.to_string()))?;
             }

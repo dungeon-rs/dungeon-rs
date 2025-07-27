@@ -1,3 +1,3 @@
-fn index(text) {
-    index_entry(text, text.split("_"))
+fn index(text, path) {
+    index_entry(text, path)
 }
