@@ -133,7 +133,7 @@ impl AssetLibrary {
     /// from the library.
     ///
     /// # Errors
-    /// If any IO related errors occur while removing the pack, this method can return a
+    /// If any IO-related errors occur while removing the pack, this method can return a
     /// [`AssetLibraryError::OpenAssetPack`].
     pub fn delete_pack(&mut self, id: &String) -> Result<(), AssetLibraryError> {
         debug!("Deleting pack {}", id);
@@ -259,6 +259,20 @@ impl AssetLibrary {
         self.registered_packs
             .iter()
             .map(|(key, value)| (key, &value.root))
+    }
+
+    /// Attempts to resolve a given `id` from all currently loaded asset packs.
+    ///
+    /// If no asset packs are loaded, or the ID is not known to a loaded pack, this method returns `None`.
+    #[must_use]
+    pub fn resolve(&self, id: String) -> Option<PathBuf> {
+        for pack in self.loaded_packs.values() {
+            if let Some(result) = pack.resolve(&id) {
+                return Some(result);
+            }
+        }
+
+        None
     }
 
     /// Either returns `path` or `config_path()` if `path` is `None`.
