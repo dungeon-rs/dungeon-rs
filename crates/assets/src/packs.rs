@@ -302,4 +302,12 @@ mod tests {
         let path = Path::new("./does/not/exist");
         AssetPack::new(path, path, None).expect("Should fail to create asset pack");
     }
+
+    #[test]
+    #[should_panic = "IndexAlreadyExists"]
+    fn new_asset_pack_error_on_existing() {
+        let path = tempdir().unwrap();
+        AssetPack::new(path.path(), path.path(), None).unwrap();
+        AssetPack::new(path.path(), path.path(), None).unwrap();
+    }
 }
