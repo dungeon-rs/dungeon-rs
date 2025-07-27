@@ -30,7 +30,7 @@ pub enum AssetPackIndexError {
     #[error("Failed to open index at {0}")]
     OpenIndex(PathBuf, #[source] TantivyError),
 
-    #[error("An error or occured indexing {0}")]
+    #[error("An error or occurred indexing {0}")]
     Index(PathBuf, #[source] TantivyError),
 
     /// Thrown when a Rhai script fails to compile (usually syntax errors)
