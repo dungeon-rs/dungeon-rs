@@ -7,10 +7,11 @@ use std::path::{Path, PathBuf};
 use tantivy::collector::TopDocs;
 use tantivy::query::TermQuery;
 use tantivy::schema::{Field, IndexRecordOption, STORED, STRING, Schema, TEXT, Value};
-use tantivy::{Index, IndexWriter, TantivyDocument, TantivyError, Term};
+use tantivy::{doc, Index, IndexWriter, TantivyDocument, TantivyError, Term};
 use thiserror::Error;
 use utils::file_name;
 use walkdir::WalkDir;
+use crate::scripting::IndexEntry;
 
 /// The default script for filtering when no custom script was passed into the `AssetPack`.
 const DEFAULT_FILTER_SCRIPT: &str = include_str!("../../scripts/filter.rhai");
@@ -137,14 +138,18 @@ impl AssetPackIndex {
                     .map(|c| c.as_os_str().to_string_lossy().to_string().into())
                     .collect::<Vec<_>>();
 
-                let _result = engine
-                    .call_fn::<crate::scripting::IndexEntry>(
+                let result = engine
+                    .call_fn::<IndexEntry>(
                         &mut scope,
                         &index_script,
                         "index",
                         (file_name, components),
                     )
                     .map_err(|error| AssetPackIndexError::RunScript("index", error.to_string()))?;
+
+                trace!("Indexing {entry} as {result:?}", entry = entry.path().display(), result = result);
+                writer.add_document(self.to_document(&result))
+                    .map_err(|error| AssetPackIndexError::Index(entry.path().to_path_buf(), error))?;
             }
         }
 
@@ -198,6 +203,13 @@ impl AssetPackIndex {
         let path = builder.add_text_field("path", TEXT | STORED);
 
         (builder.build(), name, categories, path)
+    }
+
+    /// Generates a `TantivyDocument` from the [`IndexEntry`].
+    ///
+    /// This method converts the scripts indexing to Tantivy's indexing.
+    fn to_document(&self, entry: &IndexEntry) -> TantivyDocument {
+        doc!()
     }
 
     /// Builds a Rhai scripting engine and pre-compiles the filter and indexation script.
