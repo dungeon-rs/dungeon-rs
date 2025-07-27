@@ -141,7 +141,7 @@ impl AssetLibrary {
             self.load_pack(id)?;
         }
 
-        if let Some(pack) = self.get_pack_mut(id) {
+        if let Some(pack) = self.loaded_packs.remove(id) {
             pack.delete()?;
 
             self.loaded_packs.remove(id);

@@ -31,6 +31,7 @@ fn hash(value: &mut ImmutableString) -> ImmutableString {
 pub struct IndexEntry {
     /// The human-readable name of this asset as it will appear in the asset browser.
     pub name: ImmutableString,
+
     /// A list of categories under which this asset can be classified.
     /// Categories are essentially alternative keywords by which this asset can be discovered.
     ///

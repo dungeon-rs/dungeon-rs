@@ -1,17 +1,17 @@
 //! The actual indexation logic of the [`AssetPack`] is split out in this module to keep it separate
 //! from the rest of the resolution logic.
 
+use crate::scripting::IndexEntry;
 use bevy::prelude::{trace, warn};
 use rhai::{AST, Array, Engine, OptimizationLevel, Scope};
 use std::path::{Path, PathBuf};
 use tantivy::collector::TopDocs;
 use tantivy::query::TermQuery;
 use tantivy::schema::{Field, IndexRecordOption, STORED, STRING, Schema, TEXT, Value};
-use tantivy::{doc, Index, IndexWriter, TantivyDocument, TantivyError, Term};
+use tantivy::{Index, IndexWriter, TantivyDocument, TantivyError, Term, doc};
 use thiserror::Error;
 use utils::file_name;
 use walkdir::WalkDir;
-use crate::scripting::IndexEntry;
 
 /// The default script for filtering when no custom script was passed into the `AssetPack`.
 const DEFAULT_FILTER_SCRIPT: &str = include_str!("../../scripts/filter.rhai");
@@ -147,9 +147,16 @@ impl AssetPackIndex {
                     )
                     .map_err(|error| AssetPackIndexError::RunScript("index", error.to_string()))?;
 
-                trace!("Indexing {entry} as {result:?}", entry = entry.path().display(), result = result);
-                writer.add_document(self.to_document(&result))
-                    .map_err(|error| AssetPackIndexError::Index(entry.path().to_path_buf(), error))?;
+                trace!(
+                    "Indexing {entry} as {result:?}",
+                    entry = entry.path().display(),
+                    result = result
+                );
+                writer
+                    .add_document(self.to_document(result))
+                    .map_err(|error| {
+                        AssetPackIndexError::Index(entry.path().to_path_buf(), error)
+                    })?;
             }
         }
 
@@ -208,8 +215,26 @@ impl AssetPackIndex {
     /// Generates a `TantivyDocument` from the [`IndexEntry`].
     ///
     /// This method converts the scripts indexing to Tantivy's indexing.
-    fn to_document(&self, entry: &IndexEntry) -> TantivyDocument {
-        doc!()
+    fn to_document(&self, entry: IndexEntry) -> TantivyDocument {
+        let mut document = doc!(
+            self.name => entry.name.as_str(),
+        );
+
+        // Add all categories
+        for category in entry.categories {
+            match category.into_string() {
+                Ok(value) => {
+                    document.add_text(self.categories, value);
+                }
+                Err(error) => {
+                    warn!(
+                        "Script returned an invalid string value in categories: '{error}', it will be skipped in the index."
+                    );
+                }
+            }
+        }
+
+        document
     }
 
     /// Builds a Rhai scripting engine and pre-compiles the filter and indexation script.
