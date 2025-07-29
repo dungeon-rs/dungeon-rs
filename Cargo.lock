@@ -298,6 +298,7 @@ dependencies = [
  "tantivy",
  "tempfile",
  "thiserror 2.0.12",
+ "tracing-indicatif",
  "utils",
  "walkdir",
 ]

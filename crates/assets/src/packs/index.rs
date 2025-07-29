@@ -10,6 +10,8 @@ use tantivy::query::TermQuery;
 use tantivy::schema::{Field, IndexRecordOption, STORED, STRING, Schema, TEXT, Value};
 use tantivy::{Index, IndexWriter, TantivyDocument, TantivyError, Term, doc};
 use thiserror::Error;
+use tracing_indicatif::span_ext::IndicatifSpanExt;
+use tracing_indicatif::style::ProgressStyle;
 use utils::file_name;
 use walkdir::WalkDir;
 
@@ -105,11 +107,22 @@ impl AssetPackIndex {
         let (engine, filter_script, index_script) = Self::scripting(filter_script, index_script)?;
         let mut scope = Scope::new();
 
+        let span =
+            bevy::prelude::info_span!("Indexing", path = root.to_path_buf().display().to_string());
+        span.pb_set_style(&ProgressStyle::with_template("{wide_bar} {pos}/{len} {msg}").unwrap());
+        span.pb_set_length(WalkDir::new(root).into_iter().count() as u64);
+        let _guard = span.enter();
+
         let mut writer: IndexWriter = self
             .index
             .writer(100_000_000)
             .map_err(|error| AssetPackIndexError::Index(root.to_path_buf(), error))?;
+
+        let mut current: u64 = 0;
         for entry in walker.sort_by_file_name().into_iter().flatten() {
+            span.pb_set_position(current); // If we're logging to consoles, this will properly set the progressbar.
+            current += 1;
+
             let Some(file_name) = file_name(entry.path()) else {
                 warn!(
                     "Automatically skipping invalid entry: '{path:?}', this is most likely a bug.",
@@ -130,9 +143,6 @@ impl AssetPackIndex {
             }
 
             {
-                #[cfg(feature = "dev")]
-                let _span = bevy::prelude::info_span!("Indexing", name = "indexing").entered();
-
                 // Explicitly cast to an `Array` to avoid interop problems
                 let components: Array = root
                     .components()
