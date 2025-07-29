@@ -10,12 +10,14 @@ rust-version.workspace = true
 publish.workspace = true
 
 [dependencies]
+bevy = { workspace = true }
+utils = { workspace = true }
 assets = { workspace = true }
+logging = { workspace = true, features = ["console"] }
+config = { workspace = true }
 clap = { version = "4.5.41", features = ["derive"] }
 clap-verbosity-flag = { version = "3.0.3", default-features = false, features = ["tracing"] }
 anyhow = { workspace = true }
-tracing = "0.1.41"
-tracing-subscriber = "0.3.19"
 
 [lints]
 workspace = true
@@ -23,5 +25,8 @@ workspace = true
 [features]
 default = []
 dev = [
-    "assets/dev"
+    "assets/dev",
+    "config/dev",
+    "logging/dev",
+    "utils/dev"
 ]

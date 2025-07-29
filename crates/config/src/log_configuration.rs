@@ -31,6 +31,12 @@ pub struct LogConfiguration {
     /// Defaults to the current working directory of the application if not set (or if it's relative,
     /// will be relative to the working directory).
     pub output: Option<String>,
+
+    /// Flag that tracks whether the logs will be written to a logfile.
+    /// Setting this flag to `false` will cause `output` to be ignored.
+    ///
+    /// Defaults to `true`.
+    pub write_file: bool,
 }
 
 impl Default for LogConfiguration {
@@ -39,6 +45,7 @@ impl Default for LogConfiguration {
             filter: String::from("io=trace"),
             level: String::from("info"),
             output: None,
+            write_file: true,
         }
     }
 }

@@ -10,6 +10,8 @@ use tantivy::query::TermQuery;
 use tantivy::schema::{Field, IndexRecordOption, STORED, STRING, Schema, TEXT, Value};
 use tantivy::{Index, IndexWriter, TantivyDocument, TantivyError, Term, doc};
 use thiserror::Error;
+use tracing_indicatif::span_ext::IndicatifSpanExt;
+use tracing_indicatif::style::ProgressStyle;
 use utils::file_name;
 use walkdir::WalkDir;
 
@@ -30,6 +32,7 @@ pub enum AssetPackIndexError {
     #[error("Failed to open index at {0}")]
     OpenIndex(PathBuf, #[source] TantivyError),
 
+    /// An error occurred while indexing or reading.
     #[error("An error or occurred indexing {0}")]
     Index(PathBuf, #[source] TantivyError),
 
@@ -101,14 +104,25 @@ impl AssetPackIndex {
         index_script: Option<&String>,
     ) -> Result<(), AssetPackIndexError> {
         let walker = WalkDir::new(root);
-        let (engine, filter_script, index_script) = self.scripting(filter_script, index_script)?;
+        let (engine, filter_script, index_script) = Self::scripting(filter_script, index_script)?;
         let mut scope = Scope::new();
+
+        let span =
+            bevy::prelude::info_span!("Indexing", path = root.to_path_buf().display().to_string());
+        span.pb_set_style(&ProgressStyle::with_template("{wide_bar} {pos}/{len} {msg}").unwrap());
+        span.pb_set_length(WalkDir::new(root).into_iter().count() as u64);
+        let _guard = span.enter();
 
         let mut writer: IndexWriter = self
             .index
             .writer(100_000_000)
             .map_err(|error| AssetPackIndexError::Index(root.to_path_buf(), error))?;
+
+        let mut current: u64 = 0;
         for entry in walker.sort_by_file_name().into_iter().flatten() {
+            span.pb_set_position(current); // If we're logging to consoles, this will properly set the progressbar.
+            current += 1;
+
             let Some(file_name) = file_name(entry.path()) else {
                 warn!(
                     "Automatically skipping invalid entry: '{path:?}', this is most likely a bug.",
@@ -129,9 +143,6 @@ impl AssetPackIndex {
             }
 
             {
-                #[cfg(feature = "dev")]
-                let _span = bevy::prelude::info_span!("Indexing", name = "indexing").entered();
-
                 // Explicitly cast to an `Array` to avoid interop problems
                 let components: Array = root
                     .components()
@@ -245,7 +256,6 @@ impl AssetPackIndex {
     /// This method compiles either the given `filter_script` or `index_script`s, or the built-in ones.
     /// When an error occurs during compilation (syntax errors, missing variables, ...) it will propagate.
     fn scripting(
-        &self,
         filter_script: Option<&String>,
         index_script: Option<&String>,
     ) -> Result<(Engine, AST, AST), AssetPackIndexError> {

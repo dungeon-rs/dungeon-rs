@@ -1,7 +1,7 @@
 //! A library serves as a device-wide registry of asset packs.
 
 use crate::{AssetPack, AssetPackError};
-use bevy::prelude::{Resource, debug, info};
+use bevy::prelude::{Resource, debug, debug_span, info, info_span};
 use semver::Version;
 use serialization::{Deserialize, SerializationFormat, Serialize, deserialize, serialize_to};
 use std::collections::HashMap;
@@ -118,6 +118,7 @@ impl AssetLibrary {
     /// # Errors
     /// See errors returned by [`AssetLibrary::delete_pack`].
     pub fn delete(mut self) -> Result<(), AssetLibraryError> {
+        let _ = info_span!("delete_library").entered();
         info!("Running delete on asset library");
         let ids = self.iter().map(|(id, _)| id.clone()).collect::<Vec<_>>();
         for id in ids {
@@ -136,7 +137,7 @@ impl AssetLibrary {
     /// If any IO-related errors occur while removing the pack, this method can return a
     /// [`AssetLibraryError::OpenAssetPack`].
     pub fn delete_pack(&mut self, id: &String) -> Result<(), AssetLibraryError> {
-        debug!("Deleting pack {}", id);
+        let _ = debug_span!("delete_pack", ?id).entered();
         if !self.is_pack_loaded(id) {
             self.load_pack(id)?;
         }
@@ -184,6 +185,7 @@ impl AssetLibrary {
         root: &Path,
         name: Option<String>,
     ) -> Result<String, AssetLibraryError> {
+        let _ = info_span!("add_pack", ?name).entered();
         let meta_dir = cache_path()?;
         let pack = AssetPack::new(root, meta_dir.as_path(), name)?;
         let pack_id = pack.id.clone();
@@ -265,9 +267,9 @@ impl AssetLibrary {
     ///
     /// If no asset packs are loaded, or the ID is not known to a loaded pack, this method returns `None`.
     #[must_use]
-    pub fn resolve(&self, id: String) -> Option<PathBuf> {
+    pub fn resolve(&self, id: impl AsRef<str>) -> Option<PathBuf> {
         for pack in self.loaded_packs.values() {
-            if let Some(result) = pack.resolve(&id) {
+            if let Some(result) = pack.resolve(id.as_ref()) {
                 return Some(result);
             }
         }

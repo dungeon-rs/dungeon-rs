@@ -115,7 +115,7 @@ pub fn resource_path() -> Result<PathBuf, DirectoryError> {
         // Default: Return executable directory
         exe_path
             .parent()
-            .map(|p| p.to_path_buf())
+            .map(std::path::Path::to_path_buf)
             .ok_or(DirectoryError::NotFound("executable directory"))
     }
 }
@@ -148,7 +148,7 @@ fn config_path_linux() -> Result<PathBuf, DirectoryError> {
 #[allow(clippy::missing_docs_in_private_items, clippy::missing_errors_doc)]
 fn config_path_windows() -> Result<PathBuf, DirectoryError> {
     let home = known_folders::get_known_folder_path(known_folders::KnownFolder::RoamingAppData)
-        .ok_or_else(|| DirectoryError::NotFound("RoamingAppData"))?;
+        .ok_or(DirectoryError::NotFound("RoamingAppData"))?;
 
     Ok(home.join("DungeonRS/config"))
 }
@@ -179,7 +179,7 @@ fn cache_path_linux() -> Result<PathBuf, DirectoryError> {
 #[allow(clippy::missing_docs_in_private_items, clippy::missing_errors_doc)]
 fn cache_path_windows() -> Result<PathBuf, DirectoryError> {
     let home = known_folders::get_known_folder_path(known_folders::KnownFolder::LocalAppData)
-        .ok_or_else(|| DirectoryError::NotFound("LocalAppData"))?;
+        .ok_or(DirectoryError::NotFound("LocalAppData"))?;
 
     Ok(home.join("DungeonRS/cache"))
 }
