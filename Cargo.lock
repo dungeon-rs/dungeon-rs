@@ -1736,10 +1736,13 @@ version = "0.0.1"
 dependencies = [
  "anyhow",
  "assets",
+ "bevy",
  "clap",
  "clap-verbosity-flag",
- "tracing",
- "tracing-subscriber",
+ "config",
+ "crossbeam-channel",
+ "logging",
+ "utils",
 ]
 
 [[package]]

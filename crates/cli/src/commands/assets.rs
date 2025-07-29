@@ -2,9 +2,9 @@
 
 use anyhow::Context;
 use assets::AssetLibrary;
+use bevy::prelude::{World, debug, info};
 use clap::Subcommand;
 use std::path::{Path, PathBuf};
-use tracing::{debug, info};
 
 /// Manage asset library and packs
 #[derive(Debug, clap::Args)]
@@ -53,7 +53,7 @@ pub enum Commands {
 ///
 /// # Errors
 /// See the implementations of the command implementations for respective errors.
-pub fn execute(Args { command, library }: Args) -> anyhow::Result<()> {
+pub fn execute(Args { command, library }: Args, _world: &mut World) -> anyhow::Result<()> {
     match command {
         Commands::List => execute_list(library),
         Commands::CleanUp => execute_cleanup(library),

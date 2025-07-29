@@ -16,7 +16,7 @@ workspace = true
 [dependencies]
 bevy = { workspace = true }
 utils_macros = { path = "macros" }
-crossbeam-channel = "0.5.15"
+crossbeam-channel = { workspace = true }
 semver = { workspace = true }
 thiserror = { workspace = true }
 
