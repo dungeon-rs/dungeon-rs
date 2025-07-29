@@ -20,9 +20,6 @@ struct Cli {
     /// Verbosity of the command line.
     #[command(flatten)]
     verbosity: Verbosity<InfoLevel>,
-    /// If set, logs will (also) be written to the given output file.
-    #[arg(long, short)]
-    log_file: Option<String>,
     #[command(subcommand)]
     /// Commands comment
     command: Commands,
@@ -39,9 +36,9 @@ fn main() -> anyhow::Result<()> {
     let mut app = App::new();
     app.add_plugins(DefaultPlugins.set(log_plugin(&LogConfiguration {
         filter: String::from("tantivy=warn,bevy_app=warn"),
-        output: args.log_file.clone(),
+        output: None,
         level: args.verbosity.to_string(),
-        write_file: args.log_file.is_some(),
+        write_file: false,
     })))
     .add_plugins(CorePlugin)
     .add_plugins(AssetPlugin);

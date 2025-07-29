@@ -4,9 +4,8 @@ use bevy::log::tracing_subscriber::Layer;
 use bevy::log::tracing_subscriber::fmt::layer;
 use bevy::log::{BoxedLayer, DEFAULT_FILTER, Level, LogPlugin};
 use bevy::prelude::App;
-use config::{Configuration, LogConfiguration};
+use config::LogConfiguration;
 use std::str::FromStr;
-use tracing_appender::rolling::daily;
 
 /// Builds the [`LogPlugin`] for the application.
 #[must_use]
@@ -25,23 +24,18 @@ pub fn log_plugin(config: &LogConfiguration) -> LogPlugin {
     clippy::unnecessary_wraps,
     reason = "Bevy's API requires wrapping in an Option<T>"
 )]
-fn custom_layer(app: &mut App) -> Option<BoxedLayer> {
-    let configuration = app.world().get_resource::<Configuration>();
-
-    let output = configuration
-        .and_then(|config| config.logging.output.clone())
-        .unwrap_or(String::from("logs"));
-
+fn custom_layer(_app: &mut App) -> Option<BoxedLayer> {
+    #[allow(unused_mut, reason = "Needs to be mutable in console + dev feature")]
     let mut layer = layer()
         .with_file(false)
         .with_thread_names(true)
         .with_thread_ids(true)
         .with_level(true);
 
+    // Console feature takes precedence - return early
     #[cfg(feature = "console")]
     {
         let indicatif_layer = tracing_indicatif::IndicatifLayer::new();
-
         return Some(Box::new(vec![
             layer
                 .with_writer(indicatif_layer.get_stdout_writer())
@@ -50,18 +44,28 @@ fn custom_layer(app: &mut App) -> Option<BoxedLayer> {
         ]));
     }
 
-    #[cfg(feature = "dev")]
+    // Only execute when console feature is disabled
+    #[cfg(not(feature = "console"))]
     {
-        layer = layer.with_ansi(true).with_file(true).with_line_number(true);
-    }
+        #[cfg(feature = "dev")]
+        {
+            layer = layer.with_ansi(true).with_file(true).with_line_number(true);
+        }
 
-    if let Some(configuration) = configuration
-        && configuration.logging.write_file
-    {
-        return Some(Box::new(vec![
-            layer.with_writer(daily(output, "dungeonrs")).json(),
-        ]));
+        let configuration = _app.world().get_resource::<config::Configuration>();
+        let output = configuration
+            .and_then(|config| config.logging.output.clone())
+            .unwrap_or(String::from("logs"));
+        if let Some(configuration) = configuration
+            && configuration.logging.write_file
+        {
+            Some(Box::new(vec![
+                layer
+                    .with_writer(tracing_appender::rolling::daily(output, "dungeonrs"))
+                    .json(),
+            ]))
+        } else {
+            Some(Box::new(vec![layer.boxed()]))
+        }
     }
-
-    Some(Box::new(vec![layer.boxed()]))
 }
