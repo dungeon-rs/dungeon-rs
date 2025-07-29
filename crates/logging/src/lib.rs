@@ -26,9 +26,9 @@ pub fn log_plugin(config: &LogConfiguration) -> LogPlugin {
     reason = "Bevy's API requires wrapping in an Option<T>"
 )]
 fn custom_layer(app: &mut App) -> Option<BoxedLayer> {
-    let output = app
-        .world()
-        .get_resource::<Configuration>()
+    let configuration = app.world().get_resource::<Configuration>();
+
+    let output = configuration
         .and_then(|config| config.logging.output.clone())
         .unwrap_or(String::from("logs"));
 
@@ -36,15 +36,20 @@ fn custom_layer(app: &mut App) -> Option<BoxedLayer> {
         .with_file(false)
         .with_thread_names(true)
         .with_thread_ids(true)
-        .with_writer(daily(output, "dungeonrs"))
-        .json();
+        .with_level(true);
 
     #[cfg(feature = "dev")]
     {
         layer = layer.with_ansi(true).with_file(true).with_line_number(true);
     }
 
-    layer = layer.with_level(true);
+    if let Some(configuration) = configuration
+        && configuration.logging.write_file
+    {
+        return Some(Box::new(vec![
+            layer.with_writer(daily(output, "dungeonrs")).json(),
+        ]));
+    }
 
     Some(Box::new(vec![layer.boxed()]))
 }
