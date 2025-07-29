@@ -2,7 +2,7 @@
 # Some recipes are duplicated as they use the 'fast' profile which doesn't work under Windows due to linker limits.
 
 # Run (almost) every check the CI will run
-ci: format features test lint typos dependencies commits
+ci: format features lint typos dependencies commits test
 
 # Check if code is formatted correctly
 format:

@@ -265,9 +265,9 @@ impl AssetLibrary {
     ///
     /// If no asset packs are loaded, or the ID is not known to a loaded pack, this method returns `None`.
     #[must_use]
-    pub fn resolve(&self, id: String) -> Option<PathBuf> {
+    pub fn resolve(&self, id: impl AsRef<str>) -> Option<PathBuf> {
         for pack in self.loaded_packs.values() {
-            if let Some(result) = pack.resolve(&id) {
+            if let Some(result) = pack.resolve(id.as_ref()) {
                 return Some(result);
             }
         }

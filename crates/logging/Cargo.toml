@@ -26,7 +26,9 @@ dev = [
   "config/dev"
 ]
 
-console = ["tracing-indicatif"]
+console = [
+  "dep:tracing-indicatif"
+]
 
 # fix false positives for cargo-machete
 [package.metadata.cargo-machete]

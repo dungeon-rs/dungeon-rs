@@ -30,6 +30,7 @@ pub enum AssetPackIndexError {
     #[error("Failed to open index at {0}")]
     OpenIndex(PathBuf, #[source] TantivyError),
 
+    /// An error occurred while indexing or reading.
     #[error("An error or occurred indexing {0}")]
     Index(PathBuf, #[source] TantivyError),
 
@@ -101,7 +102,7 @@ impl AssetPackIndex {
         index_script: Option<&String>,
     ) -> Result<(), AssetPackIndexError> {
         let walker = WalkDir::new(root);
-        let (engine, filter_script, index_script) = self.scripting(filter_script, index_script)?;
+        let (engine, filter_script, index_script) = Self::scripting(filter_script, index_script)?;
         let mut scope = Scope::new();
 
         let mut writer: IndexWriter = self
@@ -245,7 +246,6 @@ impl AssetPackIndex {
     /// This method compiles either the given `filter_script` or `index_script`s, or the built-in ones.
     /// When an error occurs during compilation (syntax errors, missing variables, ...) it will propagate.
     fn scripting(
-        &self,
         filter_script: Option<&String>,
         index_script: Option<&String>,
     ) -> Result<(Engine, AST, AST), AssetPackIndexError> {

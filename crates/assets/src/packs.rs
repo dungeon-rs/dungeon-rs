@@ -233,7 +233,7 @@ impl AssetPack {
 
     /// Attempts to resolve the given identifier into a [`PathBuf`].
     #[must_use]
-    pub fn resolve(&self, id: &String) -> Option<PathBuf> {
+    pub fn resolve(&self, id: &str) -> Option<PathBuf> {
         trace!("{} is resolving asset {}", self.id, id);
 
         self.index.find_by_id(id)
@@ -241,11 +241,11 @@ impl AssetPack {
 
     /// Attempts to load the asset associated with the given path.
     #[must_use = "Unused asset handle would be dropped immediately"]
-    pub fn load<T>(&self, asset_server: &AssetServer, id: &String) -> Option<Handle<T>>
+    pub fn load<T>(&self, asset_server: &AssetServer, id: impl AsRef<str>) -> Option<Handle<T>>
     where
         T: Asset,
     {
-        if let Some(path) = self.resolve(id) {
+        if let Some(path) = self.resolve(id.as_ref()) {
             return Some(asset_server.load::<T>(path));
         }
 

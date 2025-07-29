@@ -36,12 +36,12 @@ fn custom_layer(_app: &mut App) -> Option<BoxedLayer> {
     #[cfg(feature = "console")]
     {
         let indicatif_layer = tracing_indicatif::IndicatifLayer::new();
-        return Some(Box::new(vec![
+        Some(Box::new(vec![
             layer
                 .with_writer(indicatif_layer.get_stdout_writer())
                 .boxed(),
             indicatif_layer.boxed(),
-        ]));
+        ]))
     }
 
     // Only execute when console feature is disabled
