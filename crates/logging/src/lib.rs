@@ -38,6 +38,18 @@ fn custom_layer(app: &mut App) -> Option<BoxedLayer> {
         .with_thread_ids(true)
         .with_level(true);
 
+    #[cfg(feature = "console")]
+    {
+        let indicatif_layer = tracing_indicatif::IndicatifLayer::new();
+
+        return Some(Box::new(vec![
+            layer
+                .with_writer(indicatif_layer.get_stdout_writer())
+                .boxed(),
+            indicatif_layer.boxed(),
+        ]));
+    }
+
     #[cfg(feature = "dev")]
     {
         layer = layer.with_ansi(true).with_file(true).with_line_number(true);
