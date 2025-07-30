@@ -109,7 +109,11 @@ impl AssetPackIndex {
 
         let span =
             bevy::prelude::info_span!("Indexing", path = root.to_path_buf().display().to_string());
-        span.pb_set_style(&ProgressStyle::with_template("{wide_bar} {pos}/{len} {msg}").unwrap());
+        #[allow(clippy::missing_panics_doc)]
+        span.pb_set_style(
+            &ProgressStyle::with_template("{wide_bar} {pos}/{len} {msg}")
+                .expect("Invalid template"),
+        );
         span.pb_set_length(WalkDir::new(root).into_iter().count() as u64);
         let _guard = span.enter();
 
@@ -123,6 +127,7 @@ impl AssetPackIndex {
             .map_err(|error| AssetPackIndexError::Index(root.to_path_buf(), error))?;
 
         let mut current: u64 = 0;
+        #[allow(clippy::explicit_counter_loop)]
         for entry in walker.sort_by_file_name().into_iter().flatten() {
             span.pb_set_position(current); // If we're logging to consoles, this will properly set the progressbar.
             current += 1;
