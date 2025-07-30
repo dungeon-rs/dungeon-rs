@@ -118,6 +118,10 @@ impl AssetPackIndex {
             .writer(100_000_000)
             .map_err(|error| AssetPackIndexError::Index(root.to_path_buf(), error))?;
 
+        writer
+            .delete_all_documents()
+            .map_err(|error| AssetPackIndexError::Index(root.to_path_buf(), error))?;
+
         let mut current: u64 = 0;
         for entry in walker.sort_by_file_name().into_iter().flatten() {
             span.pb_set_position(current); // If we're logging to consoles, this will properly set the progressbar.
