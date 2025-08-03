@@ -117,12 +117,11 @@ impl AssetPackIndex {
         let (engine, filter_script, index_script) = Self::scripting(filter_script, index_script)?;
         let mut scope = Scope::new();
 
-        let span = bevy::prelude::info_span!(
+        let span = utils::info_span!(
             "Indexing",
-            path = index_root.to_path_buf().display().to_string()
+            path = index_root.to_path_buf().display().to_string(),
+            length = WalkDir::new(index_root).into_iter().count() as u64
         );
-        span.pb_set_style(&ProgressStyle::with_template("{wide_bar} {pos}/{len} {msg}").unwrap());
-        span.pb_set_length(WalkDir::new(index_root).into_iter().count() as u64);
         let _guard = span.enter();
 
         let mut writer: IndexWriter = self
