@@ -40,3 +40,8 @@ dev = [
     "serialization/dev",
     "bevy/trace",
 ]
+
+# support for various image formats
+png = ["image/png"]
+webp = ["image/webp"]
+jpeg = ["image/jpeg"]

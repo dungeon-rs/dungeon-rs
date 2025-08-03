@@ -150,6 +150,7 @@ impl AssetPack {
             meta_dir = meta_dir.display()
         );
         create_dir_all(&index_dir)?;
+        create_dir_all(&thumbnails_dir)?;
 
         info!("Created new asset pack with ID: {}", id);
         Ok(Self {

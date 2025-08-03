@@ -156,6 +156,13 @@ impl AssetPackIndex {
                     path = entry.path().display()
                 );
                 continue;
+            } else if !entry.path().is_file() {
+                trace!(
+                    "Skipping {path} because it's not a file",
+                    path = entry.path().display()
+                );
+
+                continue;
             }
 
             {

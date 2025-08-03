@@ -1,6 +1,6 @@
 //! Contains the specific logic for generating thumbnails of assets within a given [`AssetPack`].
 
-use bevy::prelude::UVec2;
+use bevy::prelude::{UVec2, debug, trace};
 use image::{ImageFormat, ImageReader};
 use std::fs::File;
 use std::io::{BufWriter, Write};
@@ -19,8 +19,8 @@ pub enum AssetPackThumbnailError {
     /// An error occurred while reading/writing the thumbnail, this only relates to IO errors itself.
     ///
     /// For encoding or decoding the image, see [`AssetPackThumbnailError::EncodingError`].
-    #[error("An IO error occurred while reading/writing the thumbnail: {0}")]
-    IO(#[from] std::io::Error),
+    #[error("An IO error occurred while reading/writing the thumbnail for {0}: {1}")]
+    IO(PathBuf, #[source] std::io::Error),
 
     /// An error occurred when encoding or decoding the thumbnail.
     #[error("An error occurred while encoding/decoding the image at {1:?}")]
@@ -87,27 +87,39 @@ impl AssetPackThumbnails {
             path = asset_path.as_ref().to_path_buf().display().to_string()
         )
         .entered();
-        let image = ImageReader::open(asset_path.as_ref())?
+
+        debug!(
+            "Opening asset {:?} for thumbnail generation",
+            asset_path.as_ref().display()
+        );
+        let image = ImageReader::open(asset_path.as_ref())
+            .map_err(|error| AssetPackThumbnailError::IO(asset_path.as_ref().to_path_buf(), error))?
             .decode()
             .map_err(|e| {
                 AssetPackThumbnailError::EncodingError(e, asset_path.as_ref().to_path_buf())
             })?;
+
+        trace!(
+            "Resizing asset to thumbnail {}x{}",
+            self.resolution.x, self.resolution.y
+        );
         let thumbnail = image.thumbnail(self.resolution.x, self.resolution.y);
 
-        let output = asset_path
-            .as_ref()
-            .join(id)
-            .with_extension(self.extension());
+        let output = self.root.join(id).with_extension(self.extension());
 
         {
-            let mut output = File::create(output)?;
-            let mut buffer = BufWriter::new(&mut output);
+            let mut output_file = File::create(output.clone())
+                .map_err(|error| AssetPackThumbnailError::IO(output.to_path_buf(), error))?;
+            let mut buffer = BufWriter::new(&mut output_file);
 
+            trace!("Writing thumbnail to {:?}", output.display());
             thumbnail.write_to(&mut buffer, self.format).map_err(|e| {
                 AssetPackThumbnailError::EncodingError(e, asset_path.as_ref().to_path_buf())
             })?;
 
-            buffer.flush()?;
+            buffer
+                .flush()
+                .map_err(|error| AssetPackThumbnailError::IO(output.to_path_buf(), error))?;
         }
         Ok(())
     }

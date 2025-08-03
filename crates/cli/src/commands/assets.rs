@@ -26,13 +26,13 @@ pub enum Commands {
     /// Add an asset pack to the asset library.
     Add {
         /// If passed, the asset pack will not be indexed during addition.
-        #[arg(short, long)]
+        #[arg(long)]
         no_index: bool,
 
         /// If passed, thumbnail generation will be skipped.
         ///
         /// Ignored if `--no-index` if passed.
-        #[arg(short, long)]
+        #[arg(long)]
         no_thumbnail: bool,
 
         /// The directory to add as an asset pack.
