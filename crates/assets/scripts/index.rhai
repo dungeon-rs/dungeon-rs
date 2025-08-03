@@ -1,3 +1,3 @@
 fn index(text, path) {
-    index_entry(text, path)
+    index_entry(text, path, text)
 }

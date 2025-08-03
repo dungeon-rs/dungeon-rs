@@ -291,6 +291,7 @@ dependencies = [
  "anyhow",
  "bevy",
  "blake3",
+ "image",
  "rhai",
  "semver",
  "serde",
