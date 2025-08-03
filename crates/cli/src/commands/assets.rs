@@ -111,7 +111,7 @@ fn execute_add(
         .context("Failed to add asset pack to asset library")?;
 
     if !no_index && let Some(pack) = asset_library.get_pack_mut(&added_pack) {
-        pack.index()?;
+        pack.index(false)?;
     }
 
     debug!("Attempting to save asset library");
@@ -150,7 +150,7 @@ fn execute_index(library: Option<PathBuf>, id: &String) -> anyhow::Result<()> {
     asset_library
         .get_pack_mut(id)
         .with_context(|| format!("Failed to get pack with id '{id}'"))?
-        .index()?;
+        .index(false)?;
 
     Ok(())
 }

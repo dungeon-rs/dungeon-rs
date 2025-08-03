@@ -226,6 +226,7 @@ impl AssetPack {
     }
 
     /// This forces the underlying index for this [`AssetPack`] to be rebuilt from scratch.
+    /// If `generate_thumbnails` is set to `true`, indexing will also generate thumbnails.
     ///
     /// Note that this is an expensive operation that may take several seconds to minutes to complete
     /// and will use a lot of CPU (indexing, hashing and thumbnail generation).
@@ -237,11 +238,15 @@ impl AssetPack {
         clippy::inline_always,
         reason = "Wrapper function for AssetPackIndex::index"
     )]
-    pub fn index(&self) -> Result<(), AssetPackError> {
+    pub fn index(&self, generate_thumbnails: bool) -> Result<(), AssetPackError> {
         self.index
             .index(
                 &self.root,
-                Some(&self.thumbnails),
+                if generate_thumbnails {
+                    Some(&self.thumbnails)
+                } else {
+                    None
+                },
                 self.index_script.as_ref(),
                 self.filter_script.as_ref(),
             )
