@@ -163,6 +163,13 @@ impl AssetPackIndex {
                 );
 
                 continue;
+            } else if !AssetPackThumbnails::is_supported(entry.path()) {
+                warn!(
+                    "Skipping {path} because it's format is not supported by thumbnail generation",
+                    path = entry.path().display()
+                );
+
+                continue;
             }
 
             {

@@ -82,22 +82,25 @@ impl AssetPackThumbnails {
         asset_path: impl AsRef<Path>,
         id: String,
     ) -> Result<(), AssetPackThumbnailError> {
+        let asset_path = asset_path.as_ref();
         let _ = bevy::prelude::info_span!(
             "Thumbnail",
-            path = asset_path.as_ref().to_path_buf().display().to_string()
+            path = asset_path.to_path_buf().display().to_string()
         )
         .entered();
 
+        if !Self::is_supported(asset_path) {
+            return Err(AssetPackThumbnailError::UnsupportedImageFormat(self.format));
+        }
+
         debug!(
             "Opening asset {:?} for thumbnail generation",
-            asset_path.as_ref().display()
+            asset_path.display()
         );
-        let image = ImageReader::open(asset_path.as_ref())
-            .map_err(|error| AssetPackThumbnailError::IO(asset_path.as_ref().to_path_buf(), error))?
+        let image = ImageReader::open(asset_path)
+            .map_err(|error| AssetPackThumbnailError::IO(asset_path.to_path_buf(), error))?
             .decode()
-            .map_err(|e| {
-                AssetPackThumbnailError::EncodingError(e, asset_path.as_ref().to_path_buf())
-            })?;
+            .map_err(|e| AssetPackThumbnailError::EncodingError(e, asset_path.to_path_buf()))?;
 
         trace!(
             "Resizing asset to thumbnail {}x{}",
@@ -113,15 +116,28 @@ impl AssetPackThumbnails {
             let mut buffer = BufWriter::new(&mut output_file);
 
             trace!("Writing thumbnail to {:?}", output.display());
-            thumbnail.write_to(&mut buffer, self.format).map_err(|e| {
-                AssetPackThumbnailError::EncodingError(e, asset_path.as_ref().to_path_buf())
-            })?;
+            thumbnail
+                .write_to(&mut buffer, self.format)
+                .map_err(|e| AssetPackThumbnailError::EncodingError(e, asset_path.to_path_buf()))?;
 
             buffer
                 .flush()
                 .map_err(|error| AssetPackThumbnailError::IO(output.to_path_buf(), error))?;
         }
         Ok(())
+    }
+
+    /// Checks whether the given `path` is in a supported format.
+    pub fn is_supported(path: impl AsRef<Path>) -> bool {
+        if let Ok(format) = ImageFormat::from_path(path.as_ref()) {
+            return format.can_read() && format.can_write();
+        }
+
+        trace!(
+            "Failed to resolve image format for {path}",
+            path = path.as_ref().display()
+        );
+        false
     }
 
     /// Attempts to resolve the thumbnail for a given ID.
