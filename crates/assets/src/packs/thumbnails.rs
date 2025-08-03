@@ -24,7 +24,7 @@ pub enum AssetPackThumbnailError {
 
     /// An error occurred when encoding or decoding the thumbnail.
     #[error("An error occurred while encoding/decoding the image at {1:?}")]
-    EncodingError(#[source] image::ImageError, PathBuf),
+    EncodingError(#[source] Box<image::ImageError>, PathBuf),
 }
 
 /// Encapsulates all the thumbnail-related data structures for an [`AssetPack`].
@@ -56,7 +56,7 @@ impl AssetPackThumbnails {
         resolution: Option<UVec2>,
         format: Option<ImageFormat>,
     ) -> Result<Self, AssetPackThumbnailError> {
-        let format = format.unwrap_or_else(|| ImageFormat::WebP);
+        let format = format.unwrap_or(ImageFormat::WebP);
         let resolution = resolution.unwrap_or_else(|| UVec2::splat(128));
 
         if !format.reading_enabled() || !format.writing_enabled() {
@@ -100,7 +100,9 @@ impl AssetPackThumbnails {
         let image = ImageReader::open(asset_path)
             .map_err(|error| AssetPackThumbnailError::IO(asset_path.to_path_buf(), error))?
             .decode()
-            .map_err(|e| AssetPackThumbnailError::EncodingError(e, asset_path.to_path_buf()))?;
+            .map_err(|error| {
+                AssetPackThumbnailError::EncodingError(Box::new(error), asset_path.to_path_buf())
+            })?;
 
         trace!(
             "Resizing asset to thumbnail {}x{}",
@@ -112,17 +114,22 @@ impl AssetPackThumbnails {
 
         {
             let mut output_file = File::create(output.clone())
-                .map_err(|error| AssetPackThumbnailError::IO(output.to_path_buf(), error))?;
+                .map_err(|error| AssetPackThumbnailError::IO(output.clone(), error))?;
             let mut buffer = BufWriter::new(&mut output_file);
 
             trace!("Writing thumbnail to {:?}", output.display());
             thumbnail
                 .write_to(&mut buffer, self.format)
-                .map_err(|e| AssetPackThumbnailError::EncodingError(e, asset_path.to_path_buf()))?;
+                .map_err(|error| {
+                    AssetPackThumbnailError::EncodingError(
+                        Box::new(error),
+                        asset_path.to_path_buf(),
+                    )
+                })?;
 
             buffer
                 .flush()
-                .map_err(|error| AssetPackThumbnailError::IO(output.to_path_buf(), error))?;
+                .map_err(|error| AssetPackThumbnailError::IO(output.clone(), error))?;
         }
         Ok(())
     }
@@ -143,6 +150,7 @@ impl AssetPackThumbnails {
     /// Attempts to resolve the thumbnail for a given ID.
     ///
     /// The thumbnail must be in the `root` directory and have been generated with the same image format.
+    #[allow(dead_code, reason = "Feature that uses hasn't been implemented yet")]
     pub fn resolve(&self, id: &str) -> Option<PathBuf> {
         let path = self.root.join(id).with_extension(self.extension());
 

@@ -135,6 +135,10 @@ impl AssetPackIndex {
             .map_err(|error| AssetPackIndexError::Index(index_root.to_path_buf(), error))?;
 
         let mut current: u64 = 0;
+        #[allow(
+            clippy::explicit_counter_loop,
+            reason = "The suggested syntax reads very awkward and is just obtuse for no reason"
+        )]
         for entry in walker.sort_by_file_name().into_iter().flatten() {
             span.pb_set_position(current); // If we're logging to consoles, this will properly set the progressbar.
             current += 1;
@@ -208,7 +212,7 @@ impl AssetPackIndex {
                         .generate(entry.path(), thumbnail_id)
                         .map_err(|error| {
                             AssetPackIndexError::Thumbnail(entry.path().to_path_buf(), error)
-                        })?
+                        })?;
                 }
             }
         }
