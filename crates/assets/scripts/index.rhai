@@ -1,3 +1,5 @@
 fn index(text, path) {
-    index_entry(text, path)
+    let thumbnail = hash(text);
+
+    index_entry(text, path, thumbnail)
 }

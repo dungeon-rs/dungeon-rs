@@ -51,6 +51,6 @@ dev = [
 no_console = []
 
 # support for various image formats
-png = ["bevy/png"]
-webp = ["bevy/webp"]
-jpeg = ["bevy/jpeg"]
+png = ["bevy/png", "assets/png"]
+webp = ["bevy/webp", "assets/webp"]
+jpeg = ["bevy/jpeg", "assets/jpeg"]

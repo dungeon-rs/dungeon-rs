@@ -37,15 +37,21 @@ pub struct IndexEntry {
     ///
     /// Examples would be "Aquatic", "Mountain", "Water", "Foam", ...
     pub categories: Array,
+
+    /// An internal (unique) identifier that indicates the thumbnail.
+    ///
+    /// Note that this thumbnail file may or may not exist.
+    pub thumbnail: ImmutableString,
 }
 
 impl CustomType for IndexEntry {
     fn build(mut builder: TypeBuilder<Self>) {
         builder
             .with_name("IndexEntry")
-            .with_fn("index_entry", |name, categories| IndexEntry {
+            .with_fn("index_entry", |name, categories, thumbnail| IndexEntry {
                 name,
                 categories,
+                thumbnail,
             });
     }
 }

@@ -1,8 +1,10 @@
 //! An asset pack is a single root folder that contains asset and subfolders.
 
 mod index;
+mod thumbnails;
 
 use crate::packs::index::{AssetPackIndex, AssetPackIndexError};
+use crate::packs::thumbnails::{AssetPackThumbnailError, AssetPackThumbnails};
 use bevy::prelude::{Asset, AssetServer, Handle, debug, info, trace};
 use serialization::{Deserialize, SerializationFormat, Serialize, deserialize, serialize_to};
 use std::fs::{File, create_dir_all};
@@ -17,6 +19,9 @@ const MANIFEST_FILE_NAME: &str = "asset_pack.toml";
 
 /// The directory name inside the `meta_dir` where the Tantivy index lives.
 const INDEX_DIR_NAME: &str = "index";
+
+/// The directory name inside the `meta_dir` where the thumbnails are generated into.
+const THUMBNAIL_DIR_NAME: &str = "thumbnails";
 
 /// An [`AssetPack`] is a single root folder that contains assets and subfolders.
 ///
@@ -54,6 +59,9 @@ pub struct AssetPack {
 
     /// Contains the actual indexation logic for this `AssetPack`.
     index: AssetPackIndex,
+
+    /// Contains the actual thumbnail generation and resolve logic for this [`AssetPack`].
+    thumbnails: AssetPackThumbnails,
 
     /// A [Rhai](https://rhai.rs/) script that is used during indexing operations to filter whether
     /// an asset should be included in the pack or not.
@@ -113,6 +121,10 @@ pub enum AssetPackError {
     /// Thrown when Tantivy throws an error, usually during indexing or reading.
     #[error("An error occurred while indexing the asset pack")]
     Indexing(#[from] AssetPackIndexError),
+
+    /// Thrown when thumbnail generation or resolution throws an error.
+    #[error("An error occurred while generating thumbnails")]
+    Thumbnails(#[from] AssetPackThumbnailError),
 }
 
 impl AssetPack {
@@ -127,6 +139,7 @@ impl AssetPack {
         let id = blake3::hash(root.as_os_str().as_encoded_bytes()).to_string();
         let meta_dir = meta_dir.join(id.clone());
         let index_dir = meta_dir.join(INDEX_DIR_NAME);
+        let thumbnails_dir = meta_dir.join(THUMBNAIL_DIR_NAME);
         let name = name
             .or_else(|| file_name(&root))
             .unwrap_or_else(|| id.clone());
@@ -137,6 +150,7 @@ impl AssetPack {
             meta_dir = meta_dir.display()
         );
         create_dir_all(&index_dir)?;
+        create_dir_all(&thumbnails_dir)?;
 
         info!("Created new asset pack with ID: {}", id);
         Ok(Self {
@@ -146,6 +160,7 @@ impl AssetPack {
             root,
             meta_dir,
             index: AssetPackIndex::new(index_dir)?,
+            thumbnails: AssetPackThumbnails::new(thumbnails_dir, None, None)?,
             filter_script: None,
             index_script: None,
         })
@@ -197,6 +212,7 @@ impl AssetPack {
 
         let meta_dir = meta_dir.join(manifest.id.clone());
         let index_dir = meta_dir.join(INDEX_DIR_NAME);
+        let thumbnails_dir = meta_dir.join(THUMBNAIL_DIR_NAME);
         Ok(Self {
             state: AssetPackState::Created,
             id: manifest.id,
@@ -204,12 +220,14 @@ impl AssetPack {
             root: root.to_path_buf(),
             meta_dir,
             index: AssetPackIndex::open(index_dir)?,
+            thumbnails: AssetPackThumbnails::new(thumbnails_dir, None, None)?,
             filter_script: manifest.filter_script,
             index_script: manifest.index_script,
         })
     }
 
     /// This forces the underlying index for this [`AssetPack`] to be rebuilt from scratch.
+    /// If `generate_thumbnails` is set to `true`, indexing will also generate thumbnails.
     ///
     /// Note that this is an expensive operation that may take several seconds to minutes to complete
     /// and will use a lot of CPU (indexing, hashing and thumbnail generation).
@@ -221,10 +239,15 @@ impl AssetPack {
         clippy::inline_always,
         reason = "Wrapper function for AssetPackIndex::index"
     )]
-    pub fn index(&self) -> Result<(), AssetPackError> {
+    pub fn index(&self, generate_thumbnails: bool) -> Result<(), AssetPackError> {
         self.index
             .index(
                 &self.root,
+                if generate_thumbnails {
+                    Some(&self.thumbnails)
+                } else {
+                    None
+                },
                 self.index_script.as_ref(),
                 self.filter_script.as_ref(),
             )

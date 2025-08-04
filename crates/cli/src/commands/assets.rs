@@ -26,10 +26,18 @@ pub enum Commands {
     /// Add an asset pack to the asset library.
     Add {
         /// If passed, the asset pack will not be indexed during addition.
-        #[arg(short, long)]
+        #[arg(long)]
         no_index: bool,
+
+        /// If passed, thumbnail generation will be skipped.
+        ///
+        /// Ignored if `--no-index` if passed.
+        #[arg(long)]
+        no_thumbnail: bool,
+
         /// The directory to add as an asset pack.
         path: PathBuf,
+
         /// Optional name for the asset pack to add.
         name: Option<String>,
     },
@@ -61,7 +69,8 @@ pub fn execute(Args { command, library }: Args, _world: &mut World) -> anyhow::R
             path,
             name,
             no_index,
-        } => execute_add(library, &path, name, no_index),
+            no_thumbnail,
+        } => execute_add(library, &path, name, no_index, no_thumbnail),
         Commands::Remove { id } => execute_remove(library, &id),
         Commands::Index { pack } => execute_index(library, &pack),
     }
@@ -101,6 +110,7 @@ fn execute_add(
     path: &Path,
     name: Option<String>,
     no_index: bool,
+    no_thumbnail: bool,
 ) -> anyhow::Result<()> {
     debug!("Attempting to load asset library");
     let mut asset_library =
@@ -111,7 +121,7 @@ fn execute_add(
         .context("Failed to add asset pack to asset library")?;
 
     if !no_index && let Some(pack) = asset_library.get_pack_mut(&added_pack) {
-        pack.index()?;
+        pack.index(!no_thumbnail)?;
     }
 
     debug!("Attempting to save asset library");
@@ -150,7 +160,7 @@ fn execute_index(library: Option<PathBuf>, id: &String) -> anyhow::Result<()> {
     asset_library
         .get_pack_mut(id)
         .with_context(|| format!("Failed to get pack with id '{id}'"))?
-        .index()?;
+        .index(true)?;
 
     Ok(())
 }

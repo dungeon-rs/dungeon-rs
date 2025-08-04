@@ -30,3 +30,9 @@ dev = [
     "logging/dev",
     "utils/dev"
 ]
+
+# support for various image formats
+png = ["bevy/png", "assets/png"]
+webp = ["bevy/webp", "assets/webp"]
+jpeg = ["bevy/jpeg", "assets/jpeg"]
+
