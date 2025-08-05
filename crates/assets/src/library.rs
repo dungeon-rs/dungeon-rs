@@ -1,7 +1,7 @@
 //! A library serves as a device-wide registry of asset packs.
 
 use crate::{AssetPack, AssetPackError};
-use bevy::prelude::{Resource, debug, debug_span, info, info_span};
+use bevy::prelude::{Resource, debug, debug_span, info, info_span, trace};
 use semver::Version;
 use serialization::{Deserialize, SerializationFormat, Serialize, deserialize, serialize_to};
 use std::collections::HashMap;
@@ -152,7 +152,7 @@ impl AssetLibrary {
         Ok(())
     }
 
-    /// Saves the asset library.
+    /// Saves the asset library and all loaded asset packs.
     ///
     /// # Errors
     /// An error can be returned for the following situations:
@@ -161,7 +161,14 @@ impl AssetLibrary {
     ///   [`AssetLibraryError::LocateConfigFolder`]
     /// - The file was found, could be read but failed to deserialize: [`AssetLibraryError::Serialization`].
     pub fn save(&self, path: Option<PathBuf>) -> Result<(), AssetLibraryError> {
+        let _ = utils::debug_span!("saving-library").entered();
         let path = Self::get_path(path)?;
+
+        for (id, pack) in &self.loaded_packs {
+            trace!("Saving AssetPack {id}");
+
+            pack.save_manifest()?;
+        }
 
         debug!("Saving library to {}", path.display());
         create_dir_all(&path)?; // Ensure the directory exists.
@@ -186,19 +193,21 @@ impl AssetLibrary {
         name: Option<String>,
     ) -> Result<String, AssetLibraryError> {
         let _ = info_span!("add_pack", ?name).entered();
-        let meta_dir = cache_path()?;
-        let pack = AssetPack::new(root, meta_dir.as_path(), name)?;
-        let pack_id = pack.id.clone();
+
+        let id = utils::hash_path(root);
+        let meta_dir = cache_path()?.join(id.clone());
+
+        let pack = AssetPack::new(id.clone(), root, meta_dir.as_path(), name)?;
         let entry = AssetLibraryEntry {
             root: root.to_path_buf(),
             cache: pack.meta_dir.clone(),
         };
 
-        self.registered_packs.insert(pack_id.clone(), entry);
-        self.loaded_packs.insert(pack_id.clone(), pack);
+        self.registered_packs.insert(id.clone(), entry);
+        self.loaded_packs.insert(id.clone(), pack);
 
-        info!("Registered pack {}", pack_id);
-        Ok(pack_id)
+        info!("Registered pack {}", id);
+        Ok(id)
     }
 
     /// Attempt to load a previously registered [`AssetPack`].
@@ -219,6 +228,24 @@ impl AssetLibrary {
         self.loaded_packs
             .get_mut(id)
             .ok_or(AssetLibraryError::NotFound(id.clone()))
+    }
+
+    /// Attempts to load all packs that are currently not loaded.
+    /// This loops over all registered packs and calls [`AssetLibrary::load_pack`] on each of them.
+    ///
+    /// # Errors
+    /// This method propagates the errors returned from [`AssetLibrary::load_pack`].
+    pub fn load_all(&mut self) -> Result<(), AssetLibraryError> {
+        // We take an owned clone of the keys, otherwise we run into a double borrow later on.
+        let keys = self.registered_packs.keys().cloned().collect::<Vec<_>>();
+
+        for id in keys {
+            if !self.is_pack_loaded(&id) {
+                self.load_pack(&id)?;
+            }
+        }
+
+        Ok(())
     }
 
     /// Adds a method to check if a given [`AssetPack`] is already loaded in the current library.
@@ -277,6 +304,18 @@ impl AssetLibrary {
         None
     }
 
+    /// Will index all currently loaded asset packs.
+    ///
+    /// # Errors
+    /// This method will forward any errors thrown by [`AssetPack::index`].
+    pub fn index(&self, generate_thumbnails: bool) -> Result<(), AssetLibraryError> {
+        for pack in self.loaded_packs.values() {
+            pack.index(generate_thumbnails)?;
+        }
+
+        Ok(())
+    }
+
     /// Either returns `path` or `config_path()` if `path` is `None`.
     ///
     /// # Errors
@@ -328,7 +367,8 @@ mod tests {
     fn load_asset_pack_requires_registration() -> anyhow::Result<()> {
         let tmp = tempfile::tempdir()?;
         let mut library = AssetLibrary::default();
-        let pack = AssetPack::new(tmp.path(), tmp.path(), None)?;
+        let id = utils::hash_path(tmp.path());
+        let pack = AssetPack::new(id, tmp.path(), tmp.path(), None)?;
 
         library
             .load_pack(&pack.id)

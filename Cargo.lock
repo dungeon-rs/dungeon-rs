@@ -316,7 +316,6 @@ version = "0.0.1"
 dependencies = [
  "anyhow",
  "bevy",
- "blake3",
  "image",
  "rhai",
  "semver",
@@ -325,7 +324,6 @@ dependencies = [
  "tantivy",
  "tempfile",
  "thiserror 2.0.12",
- "tracing-indicatif",
  "utils",
  "walkdir",
 ]
@@ -6052,10 +6050,12 @@ name = "utils"
 version = "0.0.1"
 dependencies = [
  "bevy",
+ "blake3",
  "crossbeam-channel",
  "known-folders",
  "semver",
  "thiserror 2.0.12",
+ "tracing-indicatif",
  "utils_macros",
 ]
 

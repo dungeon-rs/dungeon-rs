@@ -11,9 +11,7 @@ use tantivy::query::TermQuery;
 use tantivy::schema::{Field, IndexRecordOption, STORED, STRING, Schema, TEXT, Value};
 use tantivy::{Index, IndexWriter, TantivyDocument, TantivyError, Term, doc};
 use thiserror::Error;
-use tracing_indicatif::span_ext::IndicatifSpanExt;
-use tracing_indicatif::style::ProgressStyle;
-use utils::file_name;
+use utils::{IndicatifSpanExt, file_name};
 use walkdir::WalkDir;
 
 /// The default script for filtering when no custom script was passed into the `AssetPack`.
@@ -108,6 +106,7 @@ impl AssetPackIndex {
     /// TODO.
     pub fn index(
         &self,
+        id: &String,
         index_root: &Path,
         thumbnails: Option<&AssetPackThumbnails>,
         filter_script: Option<&String>,
@@ -118,7 +117,8 @@ impl AssetPackIndex {
         let mut scope = Scope::new();
 
         let span = utils::info_span!(
-            "Indexing",
+            "indexing",
+            id = id,
             path = index_root.to_path_buf().display().to_string(),
             length = WalkDir::new(index_root).into_iter().count() as u64
         );
