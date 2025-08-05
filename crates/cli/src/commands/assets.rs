@@ -122,7 +122,7 @@ fn execute_add(
         AssetLibrary::load_or_default(library.clone()).context("Failed to load asset library")?;
 
     let added_pack = asset_library
-        .add_pack(path, name.clone())
+        .add_pack(path, None, name.clone())
         .context("Failed to add asset pack to asset library")?;
 
     if !no_index && let Some(pack) = asset_library.get_pack_mut(&added_pack) {

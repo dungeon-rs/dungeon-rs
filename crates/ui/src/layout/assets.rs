@@ -21,7 +21,7 @@ pub(super) fn render(viewer: &mut EditorLayout, ui: &mut Ui) {
         if let Ok(Some(path)) = dialog.show() {
             match viewer
                 .asset_library
-                .add_pack(&path, None)
+                .add_pack(&path, None, None)
                 .and_then(|id| viewer.asset_library.save(None).map(|()| id))
             {
                 Ok(id) => viewer
