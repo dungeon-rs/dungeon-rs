@@ -164,7 +164,7 @@ impl AssetLibrary {
         let _ = utils::debug_span!("saving-library").entered();
         let path = Self::get_path(path)?;
 
-        for (id, pack) in self.loaded_packs.iter() {
+        for (id, pack) in &self.loaded_packs {
             trace!("Saving AssetPack {id}");
 
             pack.save_manifest()?;
@@ -309,8 +309,8 @@ impl AssetLibrary {
     /// # Errors
     /// This method will forward any errors thrown by [`AssetPack::index`].
     pub fn index(&self, generate_thumbnails: bool) -> Result<(), AssetLibraryError> {
-        for (_id, pack) in self.loaded_packs.iter() {
-            pack.index(generate_thumbnails)?
+        for pack in self.loaded_packs.values() {
+            pack.index(generate_thumbnails)?;
         }
 
         Ok(())
