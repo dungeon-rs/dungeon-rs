@@ -41,6 +41,7 @@ jobs:
       - name: Run tests
         run: |
           cargo nextest run --locked --all-features --cargo-profile=fast
+          cargo nextest run --locked --all-features --cargo-profile=fast --benches
           LD_LIBRARY_PATH="$(rustc --print target-libdir)" cargo test --locked --profile=fast --all-features --doc
 
   format:
