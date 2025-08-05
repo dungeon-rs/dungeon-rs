@@ -17,22 +17,19 @@ const LIBRARY_FILE_NAME: &str = "library.toml";
 /// An [`AssetLibrary`] is a device-wide registry of packs that save files can refer to.
 /// It handles as the bridge between relative paths within an asset pack and the actual paths on
 /// a user's device.
-#[derive(Resource, Debug, Serialize, Deserialize)]
+#[derive(Resource, Default, Debug)]
 pub struct AssetLibrary {
-    /// The version of the software that last touched the library, used to help with future migrations.
-    version: Version,
     /// A map of asset packs, keyed by their (public) identifiers.
     registered_packs: HashMap<String, AssetLibraryEntry>,
     /// A map of currently loaded asset packs, keyed by their (public) identifiers.
     ///
     /// Given that this map is only persisted for the runtime of the application,
     /// it's possible that an [`AssetPack`] is 'known' but not loaded.
-    #[serde(skip)]
     loaded_packs: HashMap<String, AssetPack>,
 }
 
 /// Represents an entry in the library, containing additional metadata about an asset pack.
-#[derive(Default, Debug, Serialize, Deserialize)]
+#[derive(Default, Debug, Clone, Serialize, Deserialize)]
 struct AssetLibraryEntry {
     /// Location of the asset pack on disk.
     ///
@@ -41,6 +38,16 @@ struct AssetLibraryEntry {
     /// The location of the asset pack's cache.
     /// The asset pack itself determines what is stored here; this includes the index.
     cache: PathBuf,
+}
+
+/// Internal "copy" of the [`AssetLibrary`] struct intended for saving/loading to disk.
+#[derive(Debug, Serialize, Deserialize)]
+struct _AssetLibrary {
+    /// The version of the software that last touched the library, used to help with future migrations.
+    version: Version,
+
+    /// All packs that have been registered in the [`AssetLibrary`].
+    packs: HashMap<String, AssetLibraryEntry>,
 }
 
 /// The errors that can occur when loading or saving the [`AssetLibrary`].
@@ -61,16 +68,6 @@ pub enum AssetLibraryError {
     /// The requested asset pack was not loaded or registered, depending on the operation.
     #[error("Could not resolve AssetPack with ID '{0}'")]
     NotFound(String),
-}
-
-impl Default for AssetLibrary {
-    fn default() -> Self {
-        Self {
-            version: utils::version().clone(),
-            registered_packs: HashMap::new(),
-            loaded_packs: HashMap::new(),
-        }
-    }
 }
 
 impl AssetLibrary {
@@ -108,8 +105,15 @@ impl AssetLibrary {
         file.read_to_string(&mut contents)
             .map_err(AssetLibraryError::ReadFile)?;
 
-        deserialize(contents.as_bytes(), &SerializationFormat::Toml)
-            .map_err(AssetLibraryError::Serialisation)
+        let library: _AssetLibrary = deserialize(contents.as_bytes(), &SerializationFormat::Toml)
+            .map_err(AssetLibraryError::Serialisation)?;
+
+        // TODO: validate `library`'s version for compatibility.
+
+        Ok(Self {
+            registered_packs: library.packs,
+            loaded_packs: HashMap::new(),
+        })
     }
 
     /// Recursively removes all cache and config of all packs and the library itself.
@@ -174,7 +178,8 @@ impl AssetLibrary {
         create_dir_all(&path)?; // Ensure the directory exists.
         let file =
             File::create(path.join(LIBRARY_FILE_NAME)).map_err(AssetLibraryError::ReadFile)?;
-        serialize_to(self, &SerializationFormat::Toml, &file)?;
+        let library: _AssetLibrary = self.into();
+        serialize_to(&library, &SerializationFormat::Toml, &file)?;
         Ok(())
     }
 
@@ -312,6 +317,8 @@ impl AssetLibrary {
     /// # Errors
     /// This method will forward any errors thrown by [`AssetPack::index`].
     pub fn index(&self, generate_thumbnails: bool) -> Result<(), AssetLibraryError> {
+        let _ = utils::info_span!("index_library").entered();
+
         for pack in self.loaded_packs.values() {
             pack.index(generate_thumbnails)?;
         }
@@ -331,6 +338,15 @@ impl AssetLibrary {
         };
 
         Ok(path)
+    }
+}
+
+impl From<&AssetLibrary> for _AssetLibrary {
+    fn from(value: &AssetLibrary) -> Self {
+        Self {
+            version: utils::version().clone(),
+            packs: value.registered_packs.clone(),
+        }
     }
 }
 
