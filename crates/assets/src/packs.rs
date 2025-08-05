@@ -242,6 +242,7 @@ impl AssetPack {
     pub fn index(&self, generate_thumbnails: bool) -> Result<(), AssetPackError> {
         self.index
             .index(
+                &self.id,
                 &self.root,
                 if generate_thumbnails {
                     Some(&self.thumbnails)

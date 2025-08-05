@@ -86,15 +86,15 @@ pub fn wrapped_span(level: &str, input: TokenStream) -> TokenStream {
         // Custom logic when length is present
         quote! {
             {
+                use utils::IndicatifSpanExt;
+                use utils::ProgressStyle;
+
                 let span = bevy::prelude::#span_fn!(
                     #name,
                     length = #length,
                     #(#field_tokens),*
                 );
                 span.pb_set_length(#length);
-                if let Ok(template) = ProgressStyle::with_template("{wide_bar} {pos}/{len} {msg}") {
-                    span.pb_set_style(&template);
-                }
 
                 span
             }
