@@ -179,6 +179,8 @@ impl AssetLibrary {
     }
 
     /// Registers a new [`AssetPack`] in the library and returns the [`AssetPack`]'s ID.
+    /// If `meta_dir` is passed as `None`, the cache directory will be used (namespaced to the pack).
+    /// You usually won't pass a specific path for `meta_dir`, but it's there for debugging and tests.
     ///
     /// Note that you should only use this to create a *new* pack, not to load an existing one.
     ///
@@ -190,12 +192,13 @@ impl AssetLibrary {
     pub fn add_pack(
         &mut self,
         root: &Path,
+        meta_dir: Option<PathBuf>,
         name: Option<String>,
     ) -> Result<String, AssetLibraryError> {
         let _ = info_span!("add_pack", ?name).entered();
 
         let id = utils::hash_path(root);
-        let meta_dir = cache_path()?.join(id.clone());
+        let meta_dir = meta_dir.unwrap_or(cache_path()?.join(id.clone()));
 
         let pack = AssetPack::new(id.clone(), root, meta_dir.as_path(), name)?;
         let entry = AssetLibraryEntry {
@@ -337,12 +340,14 @@ mod tests {
     #![allow(clippy::missing_errors_doc)]
 
     use super::*;
+    use tempfile::TempDir;
 
     #[test]
     fn add_pack_creates_asset_pack() -> anyhow::Result<()> {
-        let tmp = tempfile::tempdir()?;
+        let tmp = TempDir::with_prefix("dungeon_rs-assets")?;
+        let cache = TempDir::with_prefix("dungeon_rs-assets")?;
         let mut library = AssetLibrary::default();
-        let pack_id = library.add_pack(tmp.path(), None)?;
+        let pack_id = library.add_pack(tmp.path(), Some(cache.path().to_path_buf()), None)?;
 
         assert_eq!(library.registered_packs.len(), 1);
         assert!(library.registered_packs.contains_key(&pack_id));
@@ -351,9 +356,11 @@ mod tests {
 
     #[test]
     fn save_and_load_library() -> anyhow::Result<()> {
-        let tmp = tempfile::tempdir()?;
+        let tmp = TempDir::with_prefix("dungeon_rs-assets")?;
+        let cache = TempDir::with_prefix("dungeon_rs-assets")?;
+
         let mut library = AssetLibrary::default();
-        let pack_id = library.add_pack(tmp.path(), None)?;
+        let pack_id = library.add_pack(tmp.path(), Some(cache.path().to_path_buf()), None)?;
 
         library.save(Some(tmp.path().to_path_buf()))?;
         let library = AssetLibrary::load_or_default(Some(tmp.path().to_path_buf()))?;
@@ -365,7 +372,7 @@ mod tests {
 
     #[test]
     fn load_asset_pack_requires_registration() -> anyhow::Result<()> {
-        let tmp = tempfile::tempdir()?;
+        let tmp = TempDir::with_prefix("dungeon_rs-assets")?;
         let mut library = AssetLibrary::default();
         let id = utils::hash_path(tmp.path());
         let pack = AssetPack::new(id, tmp.path(), tmp.path(), None)?;
@@ -381,8 +388,9 @@ mod tests {
     #[test]
     fn iterate_registered_packs() -> anyhow::Result<()> {
         let tmp = tempfile::tempdir()?;
+        let cache = tempfile::tempdir()?;
         let mut library = AssetLibrary::default();
-        let pack_id = library.add_pack(tmp.path(), None)?;
+        let pack_id = library.add_pack(tmp.path(), Some(cache.path().to_path_buf()), None)?;
         library.loaded_packs.clear();
 
         for (id, entry) in library.iter() {
