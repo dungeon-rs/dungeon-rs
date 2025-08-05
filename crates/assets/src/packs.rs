@@ -186,9 +186,11 @@ impl AssetPack {
     /// - [`AssetPackError::ManifestFile`] when the file/folder for the manifest couldn't be created.
     /// - [`AssetPackError::Serialisation`] when serialising the manifest fails.
     pub fn save_manifest(&self) -> Result<(), AssetPackError> {
-        debug!("Saving manifest for {}", self.id);
+        let _ = utils::debug_span!("saving-pack", pack = self.id).entered();
         let config = _AssetPack::from(self);
         let manifest = self.root.join(MANIFEST_FILE_NAME);
+
+        debug!("Saving manifest to {}", manifest.display());
         let manifest = File::create(manifest).map_err(AssetPackError::ManifestFile)?;
 
         serialize_to(&config, &SerializationFormat::Toml, manifest)

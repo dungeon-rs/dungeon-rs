@@ -1,7 +1,7 @@
 //! A library serves as a device-wide registry of asset packs.
 
 use crate::{AssetPack, AssetPackError};
-use bevy::prelude::{Resource, debug, debug_span, info, info_span};
+use bevy::prelude::{Resource, debug, debug_span, info, info_span, trace};
 use semver::Version;
 use serialization::{Deserialize, SerializationFormat, Serialize, deserialize, serialize_to};
 use std::collections::HashMap;
@@ -152,7 +152,7 @@ impl AssetLibrary {
         Ok(())
     }
 
-    /// Saves the asset library.
+    /// Saves the asset library and all loaded asset packs.
     ///
     /// # Errors
     /// An error can be returned for the following situations:
@@ -161,7 +161,14 @@ impl AssetLibrary {
     ///   [`AssetLibraryError::LocateConfigFolder`]
     /// - The file was found, could be read but failed to deserialize: [`AssetLibraryError::Serialization`].
     pub fn save(&self, path: Option<PathBuf>) -> Result<(), AssetLibraryError> {
+        let _ = utils::debug_span!("saving-library").entered();
         let path = Self::get_path(path)?;
+
+        for (id, pack) in self.loaded_packs.iter() {
+            trace!("Saving AssetPack {id}");
+
+            pack.save_manifest()?;
+        }
 
         debug!("Saving library to {}", path.display());
         create_dir_all(&path)?; // Ensure the directory exists.
