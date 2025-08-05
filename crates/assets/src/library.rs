@@ -193,21 +193,21 @@ impl AssetLibrary {
         name: Option<String>,
     ) -> Result<String, AssetLibraryError> {
         let _ = info_span!("add_pack", ?name).entered();
-        let meta_dir = cache_path()?;
 
         let id = utils::hash_path(root);
-        let pack = AssetPack::new(id, root, meta_dir.as_path(), name)?;
-        let pack_id = pack.id.clone();
+        let meta_dir = cache_path()?.join(id.clone());
+
+        let pack = AssetPack::new(id.clone(), root, meta_dir.as_path(), name)?;
         let entry = AssetLibraryEntry {
             root: root.to_path_buf(),
             cache: pack.meta_dir.clone(),
         };
 
-        self.registered_packs.insert(pack_id.clone(), entry);
-        self.loaded_packs.insert(pack_id.clone(), pack);
+        self.registered_packs.insert(id.clone(), entry);
+        self.loaded_packs.insert(id.clone(), pack);
 
-        info!("Registered pack {}", pack_id);
-        Ok(pack_id)
+        info!("Registered pack {}", id);
+        Ok(id)
     }
 
     /// Attempt to load a previously registered [`AssetPack`].

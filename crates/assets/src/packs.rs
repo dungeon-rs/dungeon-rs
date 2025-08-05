@@ -145,7 +145,6 @@ impl AssetPack {
             root = root.display()
         );
         let root = root.canonicalize()?;
-        let meta_dir = meta_dir.join(id.clone());
         let index_dir = meta_dir.join(INDEX_DIR_NAME);
         let thumbnails_dir = meta_dir.join(THUMBNAIL_DIR_NAME);
         let name = name
@@ -166,7 +165,7 @@ impl AssetPack {
             id,
             name,
             root,
-            meta_dir,
+            meta_dir: meta_dir.to_path_buf(),
             index: AssetPackIndex::new(index_dir)?,
             thumbnails: AssetPackThumbnails::new(thumbnails_dir, None, None)?,
             filter_script: None,
@@ -220,7 +219,6 @@ impl AssetPack {
         let manifest: _AssetPack = deserialize(manifest.as_bytes(), &SerializationFormat::Toml)?;
         debug!("Loaded manifest for {}", manifest.id);
 
-        let meta_dir = meta_dir.join(manifest.id.clone());
         let index_dir = meta_dir.join(INDEX_DIR_NAME);
         let thumbnails_dir = meta_dir.join(THUMBNAIL_DIR_NAME);
         Ok(Self {
@@ -228,7 +226,7 @@ impl AssetPack {
             id: manifest.id,
             name: manifest.name,
             root: root.to_path_buf(),
-            meta_dir,
+            meta_dir: meta_dir.to_path_buf(),
             index: AssetPackIndex::open(index_dir)?,
             thumbnails: AssetPackThumbnails::new(thumbnails_dir, None, None)?,
             filter_script: manifest.filter_script,
