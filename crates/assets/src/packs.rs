@@ -310,7 +310,7 @@ mod tests {
     #[should_panic = "Should fail to create asset pack"]
     fn new_asset_error_on_invalid_path() {
         let path = Path::new("./does/not/exist");
-        let id = blake3::hash(path.as_os_str().as_encoded_bytes()).to_string();
+        let id = utils::hash_path(path).to_string();
         AssetPack::new(id, path, path, None).expect("Should fail to create asset pack");
     }
 
@@ -318,7 +318,7 @@ mod tests {
     #[should_panic = "IndexAlreadyExists"]
     fn new_asset_pack_error_on_existing() {
         let path = tempdir().unwrap();
-        let id = blake3::hash(path.path().as_os_str().as_encoded_bytes()).to_string();
+        let id = utils::hash_path(path.path()).to_string();
 
         AssetPack::new(id.clone(), path.path(), path.path(), None).unwrap();
         AssetPack::new(id, path.path(), path.path(), None).unwrap();

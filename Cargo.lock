@@ -316,7 +316,6 @@ version = "0.0.1"
 dependencies = [
  "anyhow",
  "bevy",
- "blake3",
  "image",
  "rhai",
  "semver",
@@ -6051,6 +6050,7 @@ name = "utils"
 version = "0.0.1"
 dependencies = [
  "bevy",
+ "blake3",
  "crossbeam-channel",
  "known-folders",
  "semver",

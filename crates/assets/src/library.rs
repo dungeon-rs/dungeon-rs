@@ -195,7 +195,7 @@ impl AssetLibrary {
         let _ = info_span!("add_pack", ?name).entered();
         let meta_dir = cache_path()?;
 
-        let id = blake3::hash(root.as_os_str().as_encoded_bytes()).to_string();
+        let id = utils::hash_path(root);
         let pack = AssetPack::new(id, root, meta_dir.as_path(), name)?;
         let pack_id = pack.id.clone();
         let entry = AssetLibraryEntry {
@@ -367,7 +367,7 @@ mod tests {
     fn load_asset_pack_requires_registration() -> anyhow::Result<()> {
         let tmp = tempfile::tempdir()?;
         let mut library = AssetLibrary::default();
-        let id = blake3::hash(tmp.path().as_os_str().as_encoded_bytes()).to_string();
+        let id = utils::hash_path(tmp.path());
         let pack = AssetPack::new(id, tmp.path(), tmp.path(), None)?;
 
         library

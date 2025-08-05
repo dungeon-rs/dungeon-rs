@@ -22,7 +22,6 @@ semver = { workspace = true, features = ["serde"] }
 serde = { workspace = true }
 serialization = { workspace = true }
 thiserror = { workspace = true }
-blake3 = "1.8.2"
 tantivy = "0.24.2"
 image = { version = "0.25.6", default-features = false, features = ["rayon"] }
 
