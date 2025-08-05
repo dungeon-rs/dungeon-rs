@@ -221,6 +221,24 @@ impl AssetLibrary {
             .ok_or(AssetLibraryError::NotFound(id.clone()))
     }
 
+    /// Attempts to load all packs that are currently not loaded.
+    /// This loops over all registered packs and calls [`AssetLibrary::load_pack`] on each of them.
+    ///
+    /// # Errors
+    /// This method propagates the errors returned from [`AssetLibrary::load_pack`].
+    pub fn load_all(&mut self) -> Result<(), AssetLibraryError> {
+        // We take an owned clone of the keys, otherwise we run into a double borrow later on.
+        let keys = self.registered_packs.keys().cloned().collect::<Vec<_>>();
+
+        for id in keys {
+            if !self.is_pack_loaded(&id) {
+                self.load_pack(&id)?;
+            }
+        }
+
+        Ok(())
+    }
+
     /// Adds a method to check if a given [`AssetPack`] is already loaded in the current library.
     #[inline]
     #[must_use]
@@ -275,6 +293,18 @@ impl AssetLibrary {
         }
 
         None
+    }
+
+    /// Will index all currently loaded asset packs.
+    ///
+    /// # Errors
+    /// This method will forward any errors thrown by [`AssetPack::index`].
+    pub fn index(&self, generate_thumbnails: bool) -> Result<(), AssetLibraryError> {
+        for (_id, pack) in self.loaded_packs.iter() {
+            pack.index(generate_thumbnails)?
+        }
+
+        Ok(())
     }
 
     /// Either returns `path` or `config_path()` if `path` is `None`.

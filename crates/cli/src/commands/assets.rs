@@ -53,7 +53,12 @@ pub enum Commands {
     /// Forces a re-index of the given asset pack.
     Index {
         /// The ID of the asset pack to index.
-        pack: String,
+        /// If omitted, all asset packs will be indexed.
+        pack: Option<String>,
+
+        /// If passed, thumbnails will be generated.
+        #[arg(long)]
+        thumbnails: bool,
     },
 }
 
@@ -72,7 +77,7 @@ pub fn execute(Args { command, library }: Args, _world: &mut World) -> anyhow::R
             no_thumbnail,
         } => execute_add(library, &path, name, no_index, no_thumbnail),
         Commands::Remove { id } => execute_remove(library, &id),
-        Commands::Index { pack } => execute_index(library, &pack),
+        Commands::Index { pack, thumbnails } => execute_index(library, pack, thumbnails),
     }
 }
 
@@ -151,16 +156,32 @@ fn execute_remove(library: Option<PathBuf>, id: &String) -> anyhow::Result<()> {
 ///
 /// # Errors
 /// Return an error when the asset library fails to load.
-fn execute_index(library: Option<PathBuf>, id: &String) -> anyhow::Result<()> {
+fn execute_index(
+    library: Option<PathBuf>,
+    id: Option<String>,
+    generate_thumbnails: bool,
+) -> anyhow::Result<()> {
     let mut asset_library = AssetLibrary::load(library).context("Failed to load asset library")?;
-    asset_library
-        .load_pack(id)
-        .with_context(|| format!("Failed to get pack with id '{id}'"))?;
+    if let Some(id) = id.clone() {
+        asset_library
+            .load_pack(&id)
+            .with_context(|| format!("Failed to get pack with id '{id}'"))?;
+    } else {
+        asset_library
+            .load_all()
+            .context("Failed to load asset packs")?;
+    }
 
-    asset_library
-        .get_pack_mut(id)
-        .with_context(|| format!("Failed to get pack with id '{id}'"))?
-        .index(true)?;
+    if let Some(id) = id {
+        asset_library
+            .get_pack_mut(&id)
+            .with_context(|| format!("Failed to get pack with id '{id}'"))?
+            .index(generate_thumbnails)?;
+    } else {
+        asset_library
+            .index(generate_thumbnails)
+            .context("Failed to index asset packs")?;
+    }
 
     Ok(())
 }
