@@ -133,10 +133,18 @@ impl AssetPack {
     /// # Errors
     /// This method may return an error if it fails to [canonicalize](https://doc.rust-lang.org/std/fs/fn.canonicalize.html)
     /// the root path.
-    pub fn new(root: &Path, meta_dir: &Path, name: Option<String>) -> Result<Self, AssetPackError> {
-        trace!("Creating new asset pack from {root}", root = root.display());
+    pub fn new(
+        id: String,
+        root: &Path,
+        meta_dir: &Path,
+        name: Option<String>,
+    ) -> Result<Self, AssetPackError> {
+        trace!(
+            "Creating new asset pack '{id}' from {root}",
+            id = id,
+            root = root.display()
+        );
         let root = root.canonicalize()?;
-        let id = blake3::hash(root.as_os_str().as_encoded_bytes()).to_string();
         let meta_dir = meta_dir.join(id.clone());
         let index_dir = meta_dir.join(INDEX_DIR_NAME);
         let thumbnails_dir = meta_dir.join(THUMBNAIL_DIR_NAME);
@@ -299,46 +307,20 @@ mod tests {
     use tempfile::tempdir;
 
     #[test]
-    fn new_asset_pack_id_is_stable() -> anyhow::Result<()> {
-        let path = tempdir()?;
-        let subpath = path.path().join("new_asset_pack_id_is_stable");
-        create_dir_all(&subpath)?;
-
-        let pack = AssetPack::new(&subpath, &subpath, None)?;
-        let pack_id = pack.id.clone();
-        pack.save_manifest()?;
-        pack.delete()?;
-        create_dir_all(&subpath)?;
-
-        let pack2 = AssetPack::new(&subpath, &subpath, None)?;
-
-        assert_eq!(pack_id, pack2.id);
-        Ok(())
-    }
-
-    #[test]
-    fn new_asset_pack_id_unique() -> anyhow::Result<()> {
-        let path1 = tempdir()?;
-        let path2 = tempdir()?;
-        let pack1 = AssetPack::new(path1.path(), path1.path(), None)?;
-        let pack2 = AssetPack::new(path2.path(), path2.path(), None)?;
-
-        assert_ne!(pack1.id, pack2.id);
-        Ok(())
-    }
-
-    #[test]
     #[should_panic = "Should fail to create asset pack"]
     fn new_asset_error_on_invalid_path() {
         let path = Path::new("./does/not/exist");
-        AssetPack::new(path, path, None).expect("Should fail to create asset pack");
+        let id = blake3::hash(path.as_os_str().as_encoded_bytes()).to_string();
+        AssetPack::new(id, path, path, None).expect("Should fail to create asset pack");
     }
 
     #[test]
     #[should_panic = "IndexAlreadyExists"]
     fn new_asset_pack_error_on_existing() {
         let path = tempdir().unwrap();
-        AssetPack::new(path.path(), path.path(), None).unwrap();
-        AssetPack::new(path.path(), path.path(), None).unwrap();
+        let id = blake3::hash(path.path().as_os_str().as_encoded_bytes()).to_string();
+
+        AssetPack::new(id.clone(), path.path(), path.path(), None).unwrap();
+        AssetPack::new(id, path.path(), path.path(), None).unwrap();
     }
 }
