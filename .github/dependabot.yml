@@ -60,15 +60,31 @@ updates:
                   - "sysinfo"
                   - "rfd"
 
-        # Don't update these automatically (require manual review)
+          # Don't update these automatically (require manual review)
       ignore:
-          # Major version updates that might need migration work
+          # Bevy: only allow patch updates
           - dependency-name: "bevy"
-            update-types: ["version-update:semver-major"]
+            update-types: ["version-update:semver-major", "version-update:semver-minor"]
+          - dependency-name: "bevy*"
+            update-types: ["version-update:semver-major", "version-update:semver-minor"]
+
+          # egui ecosystem: only allow patch updates
+          - dependency-name: "egui"
+            update-types: ["version-update:semver-major", "version-update:semver-minor"]
+          - dependency-name: "egui*"
+            update-types: ["version-update:semver-major", "version-update:semver-minor"]
+          - dependency-name: "bevy_egui"
+            update-types: ["version-update:semver-major", "version-update:semver-minor"]
+          - dependency-name: "egui_dock"
+            update-types: ["version-update:semver-major", "version-update:semver-minor"]
+          - dependency-name: "egui-notify"
+            update-types: ["version-update:semver-major", "version-update:semver-minor"]
+
+          # Other major version updates that might need migration work
           - dependency-name: "rhai"
             update-types: ["version-update:semver-major"]
 
-        # Custom commit message format
+          # Custom commit message format
       commit-message:
           prefix: "deps"
           prefix-development: "deps(dev)"
