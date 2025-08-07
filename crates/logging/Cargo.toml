@@ -19,6 +19,7 @@ bevy = { workspace = true }
 tracing-appender = "0.2.3"
 tracing-subscriber = { version = "0.3.19", features = ["json"] }
 tracing-indicatif = { workspace = true, optional = true }
+tracing = { version = "0.1.41", optional = true, default-features = false }
 
 [features]
 default = []
@@ -27,6 +28,7 @@ dev = [
 ]
 
 console = [
+  "dep:tracing",
   "dep:tracing-indicatif"
 ]
 
