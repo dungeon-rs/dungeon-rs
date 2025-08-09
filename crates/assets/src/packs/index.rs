@@ -150,7 +150,10 @@ impl AssetPackIndex {
                 continue;
             };
 
-            if !engine
+            if file_name == super::MANIFEST_FILE_NAME {
+                trace!("Skipping configuration file");
+                continue;
+            } else if !engine
                 .call_fn::<bool>(&mut scope, &filter_script, "filter", (file_name.clone(),))
                 .map_err(|error| AssetPackIndexError::RunScript("filter", error.to_string()))?
             {
