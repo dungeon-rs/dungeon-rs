@@ -7,7 +7,7 @@ use bevy::prelude::{trace, warn};
 use rhai::{AST, Array, Engine, OptimizationLevel, Scope};
 use std::path::{Path, PathBuf};
 use tantivy::collector::TopDocs;
-use tantivy::query::TermQuery;
+use tantivy::query::{QueryParser, QueryParserError, TermQuery};
 use tantivy::schema::{Field, IndexRecordOption, STORED, STRING, Schema, TEXT, Value};
 use tantivy::{Index, IndexWriter, TantivyDocument, TantivyError, Term, doc};
 use thiserror::Error;
@@ -48,6 +48,18 @@ pub enum AssetPackIndexError {
     Thumbnail(PathBuf, #[source] AssetPackThumbnailError),
 }
 
+/// All errors that can occur when searching for assets in the [`AssetPack`].
+#[derive(Error, Debug)]
+pub enum AssetPackSearchError {
+    /// An error occurred while opening / reading from the index.
+    #[error("Could not perform search because of an index error: {0}")]
+    OpenIndex(#[from] TantivyError),
+
+    /// An error occurred while parsing the query given to the search method.
+    #[error("The provided query is malformed and could not be parsed: {0}")]
+    ParseQuery(#[from] QueryParserError),
+}
+
 /// Encapsulates all the indexing-related data structures for an `AssetPack`.
 #[derive(Debug)]
 pub struct AssetPackIndex {
@@ -62,6 +74,8 @@ pub struct AssetPackIndex {
     /// The thumbnail ID field from Tantivy's schema.
     thumbnail: Field,
 }
+
+pub struct AssetPackSearchResult(TantivyDocument);
 
 impl AssetPackIndex {
     /// Create a new index in the given `path`.
@@ -254,6 +268,49 @@ impl AssetPackIndex {
         }
 
         None
+    }
+
+    /// Executes a query on the index to search for arbitrary entries within the asset pack.
+    ///
+    /// The passed `query` must be a valid Tantivy query (see [QueryParser](https://docs.rs/tantivy/0.24.2/tantivy/query/struct.QueryParser.html)).
+    /// You can control the (maximum) amount of entries returned for this query with `amount`.
+    ///
+    /// # Errors
+    /// There's 2 situations where this method may return an error.
+    /// - Tantivy throws an error when opening or reading from the index itself
+    /// - The passed `query` could not be parsed, see the above `QueryParser` link for more information.
+    ///
+    /// # Panics
+    /// As described in [TopDocs::with_limit](https://docs.rs/tantivy/0.24.2/tantivy/collector/struct.TopDocs.html#method.with_limit),
+    /// this method will panic if the `amount` passed is `0`.
+    pub fn query(
+        &self,
+        query: impl AsRef<str>,
+        amount: usize,
+    ) -> Result<Vec<AssetPackSearchResult>, AssetPackSearchError> {
+        let reader = self
+            .index
+            .reader()
+            .map_err(AssetPackSearchError::OpenIndex)?;
+
+        let searcher = reader.searcher();
+        let parser = QueryParser::for_index(&self.index, vec![]);
+        let query = parser
+            .parse_query(query.as_ref())
+            .map_err(AssetPackSearchError::ParseQuery)?;
+
+        let top_docs = searcher
+            .search(&query, &TopDocs::with_limit(amount))
+            .map_err(AssetPackSearchError::OpenIndex)?;
+
+        let mut documents = Vec::with_capacity(top_docs.len());
+        for (_score, address) in top_docs {
+            let document = searcher.doc::<TantivyDocument>(address)?;
+
+            documents.push(AssetPackSearchResult(document));
+        }
+
+        Ok(documents)
     }
 
     /// Builds the schema and returns it alongside all fields so they can be cached.
