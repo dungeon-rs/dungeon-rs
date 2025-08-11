@@ -293,11 +293,12 @@ impl AssetPack {
     pub fn search(
         &self,
         query: impl AsRef<str>,
+        max_amount: usize,
     ) -> Result<Vec<AssetPackSearchResult>, AssetPackSearchError> {
         let query = query.as_ref();
         trace!("Querying {id} with '{query}'", id = self.id, query = query);
 
-        self.index.query(query, 10)
+        self.index.query(query, max_amount)
     }
 
     /// Attempts to load the asset associated with the given path.

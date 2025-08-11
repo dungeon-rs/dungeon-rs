@@ -5,6 +5,7 @@ use crate::packs::thumbnails::{AssetPackThumbnailError, AssetPackThumbnails};
 use crate::scripting::IndexEntry;
 use bevy::prelude::{trace, warn};
 use rhai::{AST, Array, Engine, OptimizationLevel, Scope};
+use std::fmt::{Display, Formatter};
 use std::path::{Path, PathBuf};
 use tantivy::collector::TopDocs;
 use tantivy::query::{QueryParser, QueryParserError, TermQuery};
@@ -444,5 +445,30 @@ impl AssetPackSearchResult {
             .get_first(self.thumbnail)
             .and_then(|value| value.as_str())
             .map(|value| PathBuf::from(value))
+    }
+}
+
+impl Display for AssetPackSearchResult {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        let name = self.name().unwrap_or("<no value>");
+        let path = self
+            .path()
+            .map(|path| utils::to_string(&path))
+            .unwrap_or(String::from("<no value>"));
+        let categories = self.categories();
+        let thumbnail = self
+            .path()
+            .map(|path| utils::to_string(&path))
+            .unwrap_or(String::from("<no value>"));
+
+        writeln!(f, "name: {}", name)?;
+        writeln!(f, "categories:")?;
+        for category in categories {
+            writeln!(f, "- {}", category)?;
+        }
+        writeln!(f, "path: {}", path)?;
+        writeln!(f, "thumbnail: {}", thumbnail)?;
+
+        Ok(())
     }
 }
