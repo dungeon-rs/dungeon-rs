@@ -3,7 +3,9 @@
 mod index;
 mod thumbnails;
 
-use crate::packs::index::{AssetPackIndex, AssetPackIndexError};
+use crate::packs::index::{
+    AssetPackIndex, AssetPackIndexError, AssetPackSearchError, AssetPackSearchResult,
+};
 use crate::packs::thumbnails::{AssetPackThumbnailError, AssetPackThumbnails};
 use bevy::prelude::{Asset, AssetServer, Handle, debug, info, trace};
 use serialization::{Deserialize, SerializationFormat, Serialize, deserialize, serialize_to};
@@ -269,6 +271,34 @@ impl AssetPack {
         trace!("{} is resolving asset {}", self.id, id);
 
         self.index.find_by_id(id)
+    }
+
+    /// Executes a query on the index to search for arbitrary entries within the asset pack.
+    ///
+    /// The passed `query` must be a valid Tantivy query (see [QueryParser](https://docs.rs/tantivy/0.24.2/tantivy/query/struct.QueryParser.html)).
+    /// You can control the (maximum) number of entries returned for this query with `amount`.
+    ///
+    /// # Errors
+    /// There are 2 situations where this method may return an error.
+    /// - Tantivy throws an error when opening or reading from the index itself
+    /// - The passed `query` could not be parsed, see the above `QueryParser` link for more information.
+    ///
+    /// # Panics
+    /// As described in [TopDocs::with_limit](https://docs.rs/tantivy/0.24.2/tantivy/collector/struct.TopDocs.html#method.with_limit),
+    /// this method will panic if the `amount` passed is `0`.
+    #[inline(always)]
+    #[allow(
+        clippy::inline_always,
+        reason = "Wrapper function for AssetPackIndex::query"
+    )]
+    pub fn search(
+        &self,
+        query: impl AsRef<str>,
+    ) -> Result<Vec<AssetPackSearchResult>, AssetPackSearchError> {
+        let query = query.as_ref();
+        trace!("Querying {id} with '{query}'", id = self.id, query = query);
+
+        self.index.query(query, 10)
     }
 
     /// Attempts to load the asset associated with the given path.

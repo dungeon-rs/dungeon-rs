@@ -284,10 +284,10 @@ impl AssetPackIndex {
     /// Executes a query on the index to search for arbitrary entries within the asset pack.
     ///
     /// The passed `query` must be a valid Tantivy query (see [QueryParser](https://docs.rs/tantivy/0.24.2/tantivy/query/struct.QueryParser.html)).
-    /// You can control the (maximum) amount of entries returned for this query with `amount`.
+    /// You can control the (maximum) number of entries returned for this query with `amount`.
     ///
     /// # Errors
-    /// There's 2 situations where this method may return an error.
+    /// There are 2 situations where this method may return an error.
     /// - Tantivy throws an error when opening or reading from the index itself
     /// - The passed `query` could not be parsed, see the above `QueryParser` link for more information.
     ///
