@@ -75,7 +75,18 @@ pub struct AssetPackIndex {
     thumbnail: Field,
 }
 
-pub struct AssetPackSearchResult(TantivyDocument);
+pub struct AssetPackSearchResult {
+    /// The document from which the fields will be written.
+    document: TantivyDocument,
+    /// The name field from Tantivy's schema.
+    name: Field,
+    /// The categories field from Tantivy's schema.
+    categories: Field,
+    /// The path field from Tantivy's schema.
+    path: Field,
+    /// The thumbnail ID field from Tantivy's schema.
+    thumbnail: Field,
+}
 
 impl AssetPackIndex {
     /// Create a new index in the given `path`.
@@ -307,7 +318,7 @@ impl AssetPackIndex {
         for (_score, address) in top_docs {
             let document = searcher.doc::<TantivyDocument>(address)?;
 
-            documents.push(AssetPackSearchResult(document));
+            documents.push(AssetPackSearchResult::new(document, self));
         }
 
         Ok(documents)
@@ -384,5 +395,26 @@ impl AssetPackIndex {
         let index_script = engine.optimize_ast(&scope, index_script, OptimizationLevel::Full);
 
         Ok((engine, filter_script, index_script))
+    }
+}
+
+impl AssetPackSearchResult {
+    /// Create a new `AssetPackSearchResult`.
+    fn new(document: TantivyDocument, index: &AssetPackIndex) -> Self {
+        // Cloning the `Field`s is cheap as they are just `i32` wrappers.
+        Self {
+            document,
+            name: index.name,
+            categories: index.categories,
+            path: index.path,
+            thumbnail: index.thumbnail,
+        }
+    }
+
+    /// Attempt to resolve the `name` field from the result.
+    pub fn name(&self) -> Option<&str> {
+        self.document
+            .get_first(self.name)
+            .and_then(|value| value.as_str())
     }
 }
