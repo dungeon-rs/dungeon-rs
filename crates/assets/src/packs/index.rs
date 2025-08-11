@@ -417,4 +417,31 @@ impl AssetPackSearchResult {
             .get_first(self.name)
             .and_then(|value| value.as_str())
     }
+
+    /// Resolves the `categories` field from the result.
+    ///
+    /// If no values are set an empty list is returned.
+    pub fn categories(&self) -> Vec<&str> {
+        self.document
+            .get_all(self.categories)
+            .map(|value| value.as_str())
+            .flatten()
+            .collect::<Vec<_>>()
+    }
+
+    /// Attempt to resolve the `path` field from the result.
+    pub fn path(&self) -> Option<PathBuf> {
+        self.document
+            .get_first(self.path)
+            .and_then(|value| value.as_str())
+            .map(|value| PathBuf::from(value))
+    }
+
+    /// Attempt to resolve the `thumbnail` field from the result.
+    pub fn thumbnail(&self) -> Option<PathBuf> {
+        self.document
+            .get_first(self.thumbnail)
+            .and_then(|value| value.as_str())
+            .map(|value| PathBuf::from(value))
+    }
 }
