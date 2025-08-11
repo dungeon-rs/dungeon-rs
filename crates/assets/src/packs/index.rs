@@ -5,11 +5,12 @@ use crate::packs::thumbnails::{AssetPackThumbnailError, AssetPackThumbnails};
 use crate::scripting::IndexEntry;
 use bevy::prelude::{trace, warn};
 use rhai::{AST, Array, Engine, OptimizationLevel, Scope};
+use std::fmt::{Display, Formatter};
 use std::path::{Path, PathBuf};
 use tantivy::collector::TopDocs;
-use tantivy::query::TermQuery;
+use tantivy::query::{QueryParser, QueryParserError, TermQuery};
 use tantivy::schema::{Field, IndexRecordOption, STORED, STRING, Schema, TEXT, Value};
-use tantivy::{Index, IndexWriter, TantivyDocument, TantivyError, Term, doc};
+use tantivy::{Document, Index, IndexWriter, TantivyDocument, TantivyError, Term, doc};
 use thiserror::Error;
 use utils::{IndicatifSpanExt, file_name};
 use walkdir::WalkDir;
@@ -48,11 +49,37 @@ pub enum AssetPackIndexError {
     Thumbnail(PathBuf, #[source] AssetPackThumbnailError),
 }
 
+/// All errors that can occur when searching for assets in the [`AssetPack`].
+#[derive(Error, Debug)]
+pub enum AssetPackSearchError {
+    /// An error occurred while opening / reading from the index.
+    #[error("Could not perform search because of an index error: {0}")]
+    OpenIndex(#[from] TantivyError),
+
+    /// An error occurred while parsing the query given to the search method.
+    #[error("The provided query is malformed and could not be parsed: {0}")]
+    ParseQuery(#[from] QueryParserError),
+}
+
 /// Encapsulates all the indexing-related data structures for an `AssetPack`.
 #[derive(Debug)]
 pub struct AssetPackIndex {
     /// The underlying Tantivy index of the `Assetpack`.
     index: Index,
+    /// The name field from Tantivy's schema.
+    name: Field,
+    /// The categories field from Tantivy's schema.
+    categories: Field,
+    /// The path field from Tantivy's schema.
+    path: Field,
+    /// The thumbnail ID field from Tantivy's schema.
+    thumbnail: Field,
+}
+
+/// A wrapper struct for the result of a search operation.
+pub struct AssetPackSearchResult {
+    /// The document from which the fields will be written.
+    document: TantivyDocument,
     /// The name field from Tantivy's schema.
     name: Field,
     /// The categories field from Tantivy's schema.
@@ -202,7 +229,7 @@ impl AssetPackIndex {
 
                 let thumbnail_id = result.thumbnail.as_str().to_string();
                 writer
-                    .add_document(self.to_document(result))
+                    .add_document(self.to_document(result, entry.path()))
                     .map_err(|error| {
                         AssetPackIndexError::Index(entry.path().to_path_buf(), error)
                     })?;
@@ -256,6 +283,56 @@ impl AssetPackIndex {
         None
     }
 
+    /// Executes a query on the index to search for arbitrary entries within the asset pack.
+    ///
+    /// The passed `query` must be a valid Tantivy query (see [QueryParser](https://docs.rs/tantivy/0.24.2/tantivy/query/struct.QueryParser.html)).
+    /// You can control the (maximum) number of entries returned for this query with `amount`.
+    ///
+    /// The passed `id` is used for tracing.
+    ///
+    /// # Errors
+    /// There are 2 situations where this method may return an error.
+    /// - Tantivy throws an error when opening or reading from the index itself
+    /// - The passed `query` could not be parsed, see the above `QueryParser` link for more information.
+    ///
+    /// # Panics
+    /// As described in [TopDocs::with_limit](https://docs.rs/tantivy/0.24.2/tantivy/collector/struct.TopDocs.html#method.with_limit),
+    /// this method will panic if the `amount` passed is `0`.
+    pub fn query(
+        &self,
+        id: &String,
+        query: impl AsRef<str>,
+        amount: usize,
+    ) -> Result<Vec<AssetPackSearchResult>, AssetPackSearchError> {
+        let _ = utils::info_span!("querying", id = id).entered();
+
+        let reader = self
+            .index
+            .reader()
+            .map_err(AssetPackSearchError::OpenIndex)?;
+
+        let searcher = reader.searcher();
+        let parser = QueryParser::for_index(&self.index, vec![self.name]);
+        let query = parser
+            .parse_query(query.as_ref())
+            .map_err(AssetPackSearchError::ParseQuery)?;
+
+        let top_docs = searcher
+            .search(&query, &TopDocs::with_limit(amount))
+            .map_err(AssetPackSearchError::OpenIndex)?;
+
+        let mut documents = Vec::with_capacity(top_docs.len());
+        for (_score, address) in top_docs {
+            let document: TantivyDocument = searcher.doc::<TantivyDocument>(address)?;
+            #[cfg(feature = "dev")]
+            trace!("{}", document.to_json(&self.index.schema()));
+
+            documents.push(AssetPackSearchResult::new(document, self));
+        }
+
+        Ok(documents)
+    }
+
     /// Builds the schema and returns it alongside all fields so they can be cached.
     ///
     /// The fields returned are in the following order:
@@ -265,7 +342,7 @@ impl AssetPackIndex {
     /// - thumbnail identifier
     fn schema() -> (Schema, Field, Field, Field, Field) {
         let mut builder = Schema::builder();
-        let name = builder.add_text_field("name", TEXT);
+        let name = builder.add_text_field("name", TEXT | STORED);
         let categories = builder.add_text_field("categories", STRING | STORED);
         let path = builder.add_text_field("path", TEXT | STORED);
         let thumbnail = builder.add_text_field("thumbnail", STRING | STORED);
@@ -276,9 +353,11 @@ impl AssetPackIndex {
     /// Generates a `TantivyDocument` from the [`IndexEntry`].
     ///
     /// This method converts the scripts indexing to Tantivy's indexing.
-    fn to_document(&self, entry: IndexEntry) -> TantivyDocument {
+    fn to_document(&self, entry: IndexEntry, path: &Path) -> TantivyDocument {
+        let path = path.display().to_string();
         let mut document = doc!(
             self.name => entry.name.as_str(),
+            self.path => path,
             self.thumbnail => entry.thumbnail.as_str(),
         );
 
@@ -327,5 +406,78 @@ impl AssetPackIndex {
         let index_script = engine.optimize_ast(&scope, index_script, OptimizationLevel::Full);
 
         Ok((engine, filter_script, index_script))
+    }
+}
+
+impl AssetPackSearchResult {
+    /// Create a new `AssetPackSearchResult`.
+    fn new(document: TantivyDocument, index: &AssetPackIndex) -> Self {
+        // Cloning the `Field`s is cheap as they are just `i32` wrappers.
+        Self {
+            document,
+            name: index.name,
+            categories: index.categories,
+            path: index.path,
+            thumbnail: index.thumbnail,
+        }
+    }
+
+    /// Attempt to resolve the `name` field from the result.
+    pub fn name(&self) -> Option<&str> {
+        self.document
+            .get_first(self.name)
+            .and_then(|value| value.as_str())
+    }
+
+    /// Resolves the `categories` field from the result.
+    ///
+    /// If no values are set an empty list is returned.
+    pub fn categories(&self) -> Vec<&str> {
+        self.document
+            .get_all(self.categories)
+            .map(|value| value.as_str())
+            .flatten()
+            .collect::<Vec<_>>()
+    }
+
+    /// Attempt to resolve the `path` field from the result.
+    pub fn path(&self) -> Option<PathBuf> {
+        self.document
+            .get_first(self.path)
+            .and_then(|value| value.as_str())
+            .map(|value| PathBuf::from(value))
+    }
+
+    /// Attempt to resolve the `thumbnail` field from the result.
+    pub fn thumbnail(&self) -> Option<PathBuf> {
+        self.document
+            .get_first(self.thumbnail)
+            .and_then(|value| value.as_str())
+            .map(|value| PathBuf::from(value))
+    }
+}
+
+impl Display for AssetPackSearchResult {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        let name = self.name().unwrap_or("<no value>");
+        let path = self
+            .path()
+            .map(|path| utils::to_string(&path))
+            .unwrap_or(String::from("<no value>"));
+        let categories = self.categories();
+        let thumbnail = self
+            .path()
+            .map(|path| utils::to_string(&path))
+            .unwrap_or(String::from("<no value>"));
+
+        writeln!(f, "name: {}", name)?;
+        writeln!(f, "categories:")?;
+        for category in categories {
+            writeln!(f, "- {}", category)?;
+        }
+        writeln!(f, "path: {}", path)?;
+        writeln!(f, "thumbnail: {}", thumbnail)?;
+
+        Ok(())
     }
 }

@@ -312,6 +312,30 @@ impl AssetLibrary {
         None
     }
 
+    /// Attempts to execute `query` for all currently loaded `AssetPack`s.
+    ///
+    /// If no asset packs are loaded, or the query does not resolve to any results, this method returns
+    /// an empty list.
+    ///
+    /// # Errors
+    /// for the errors that can be returned for this method, see [`AssetPack::search`].
+    pub fn search(
+        &self,
+        query: impl AsRef<str>,
+        max_amount: usize,
+    ) -> Result<Vec<crate::packs::AssetPackSearchResult>, crate::packs::AssetPackSearchError> {
+        let mut results = vec![];
+        let query = query.as_ref();
+
+        let _ = utils::trace_span!("search", query = query).entered();
+        for (_id, asset_pack) in self.loaded_packs.iter() {
+            let mut result = asset_pack.search(query, max_amount)?;
+            results.append(&mut result);
+        }
+
+        Ok(results)
+    }
+
     /// Will index all currently loaded asset packs.
     ///
     /// # Errors
