@@ -328,7 +328,7 @@ impl AssetLibrary {
         let query = query.as_ref();
 
         let _ = trace_span!("search", query = query).entered();
-        for (_id, asset_pack) in self.loaded_packs.iter() {
+        for asset_pack in self.loaded_packs.values() {
             let mut result = asset_pack.search(query, max_amount)?;
             results.append(&mut result);
         }

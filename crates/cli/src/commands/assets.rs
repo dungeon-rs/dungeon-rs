@@ -61,9 +61,10 @@ pub enum Commands {
         #[arg(long)]
         thumbnails: bool,
     },
+    /// Executes a query against the asset library.
     Query {
         /// The query to execute against the library, for the syntax see
-        /// https://docs.rs/tantivy/0.24.2/tantivy/query/struct.QueryParser.html
+        /// <https://docs.rs/tantivy/0.24.2/tantivy/query/struct.QueryParser.html>
         query: String,
 
         /// The (maximum) number of results to return for this query.

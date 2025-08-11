@@ -172,6 +172,7 @@ impl AssetPackIndex {
             .delete_all_documents()
             .map_err(|error| AssetPackIndexError::Index(index_root.to_path_buf(), error))?;
 
+        #[allow(unused_variables, reason = "Pending implementation of #79")]
         let mut current: u64 = 0;
         #[allow(
             clippy::explicit_counter_loop,
@@ -432,6 +433,7 @@ impl AssetPackSearchResult {
     }
 
     /// Attempt to resolve the `name` field from the result.
+    #[must_use]
     pub fn name(&self) -> Option<&str> {
         self.document
             .get_first(self.name)
@@ -441,28 +443,30 @@ impl AssetPackSearchResult {
     /// Resolves the `categories` field from the result.
     ///
     /// If no values are set an empty list is returned.
+    #[must_use]
     pub fn categories(&self) -> Vec<&str> {
         self.document
             .get_all(self.categories)
-            .map(|value| value.as_str())
-            .flatten()
+            .filter_map(|value| value.as_str())
             .collect::<Vec<_>>()
     }
 
     /// Attempt to resolve the `path` field from the result.
+    #[must_use]
     pub fn path(&self) -> Option<PathBuf> {
         self.document
             .get_first(self.path)
             .and_then(|value| value.as_str())
-            .map(|value| PathBuf::from(value))
+            .map(PathBuf::from)
     }
 
     /// Attempt to resolve the `thumbnail` field from the result.
+    #[must_use]
     pub fn thumbnail(&self) -> Option<PathBuf> {
         self.document
             .get_first(self.thumbnail)
             .and_then(|value| value.as_str())
-            .map(|value| PathBuf::from(value))
+            .map(PathBuf::from)
     }
 }
 
@@ -471,21 +475,19 @@ impl Display for AssetPackSearchResult {
         let name = self.name().unwrap_or("<no value>");
         let path = self
             .path()
-            .map(|path| utils::to_string(&path))
-            .unwrap_or(String::from("<no value>"));
+            .map_or(String::from("<no value>"), |path| utils::to_string(&path));
         let categories = self.categories();
         let thumbnail = self
             .path()
-            .map(|path| utils::to_string(&path))
-            .unwrap_or(String::from("<no value>"));
+            .map_or(String::from("<no value>"), |path| utils::to_string(&path));
 
-        writeln!(f, "name: {}", name)?;
+        writeln!(f, "name: {name}")?;
         writeln!(f, "categories:")?;
         for category in categories {
-            writeln!(f, "- {}", category)?;
+            writeln!(f, "- {category}")?;
         }
-        writeln!(f, "path: {}", path)?;
-        writeln!(f, "thumbnail: {}", thumbnail)?;
+        writeln!(f, "path: {path}")?;
+        writeln!(f, "thumbnail: {thumbnail}")?;
 
         Ok(())
     }

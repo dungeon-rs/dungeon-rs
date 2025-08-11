@@ -59,10 +59,34 @@ jobs:
 
       - name: Run cargo fmt
         run: cargo fmt --all -- --check
+
+  lint:
+    name: Lint code on ${{ matrix.label }}
+    runs-on: ${{ matrix.platform }}
+    timeout-minutes: 30
+    strategy:
+      matrix:
+        include:
+          - label: Linux
+            platform: ubuntu-latest
+            profile: fast
+          - label: Windows
+            platform: windows-latest
+            profile: dev
+          - label: OSX
+            platform: macos-latest
+            profile: fast
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
       - name: Run cargo check
-        run: cargo check --locked --all-features --profile=fast
+        run: cargo check --locked --all-features --profile=${{ matrix.profile }}
       - name: Run cargo clippy
-        run: cargo clippy --locked --all-features --profile=fast
+        run: cargo clippy --locked --all-targets --all-features --profile=${{ matrix.profile }} -- -D warnings
 
   doc:
     name: Build documentation
