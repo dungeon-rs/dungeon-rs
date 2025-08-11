@@ -1,9 +1,14 @@
 #![doc = include_str!("../README.md")]
 
+mod console;
+
 use bevy::log::tracing_subscriber::Layer;
 use bevy::log::tracing_subscriber::fmt::layer;
 use bevy::log::{DEFAULT_FILTER, Level, LogPlugin};
 use std::str::FromStr;
+
+#[cfg(feature = "console")]
+pub use console::*;
 
 /// Builds the [`LogPlugin`] for the application.
 #[must_use]
@@ -36,30 +41,4 @@ pub fn log_plugin(config: &config::LogConfiguration) -> bevy::log::LogPlugin {
             }
         },
     }
-}
-
-/// Initialises logging for console applications.
-///
-/// # Errors
-/// This method may return errors when initialising the global tracing subscriber fails.
-#[cfg(feature = "console")]
-pub fn console_logging(
-    level: tracing::metadata::LevelFilter,
-) -> Result<(), tracing::subscriber::SetGlobalDefaultError> {
-    use bevy::log::BoxedLayer;
-    use tracing_subscriber::Registry;
-    use tracing_subscriber::layer::SubscriberExt;
-
-    let layer = layer()
-        .with_file(false)
-        .with_thread_names(true)
-        .with_thread_ids(true)
-        .with_level(true)
-        .compact()
-        .with_filter(level);
-
-    let layer: BoxedLayer = Box::new(vec![layer.boxed()]);
-
-    let subscriber = Registry::default();
-    tracing::dispatcher::set_global_default(subscriber.with(layer).into())
 }
