@@ -21,13 +21,18 @@ macro_rules! t {
 
     // With arguments: t!("message-id", "key" => value, "key2" => value2)
     ($id:expr, $($key:expr => $value:expr),+ $(,)?) => {{
-        let mut args = std::collections::HashMap::new();
+        // Pre-allocate HashMap with known capacity for better performance
+        let mut args = std::collections::HashMap::with_capacity(t!(@count $($key)+));
         $(
             args.insert(
                 std::borrow::Cow::Borrowed($key),
-                i18n::FluentValue::from($value)
+                $crate::FluentValue::from($value)
             );
         )+
         $crate::LOCALE.translate_with_arguments($id, &args)
     }};
+
+    // Helper macro to count arguments at compile time
+    (@count) => { 0 };
+    (@count $head:tt $($tail:tt)*) => { 1 + t!(@count $($tail)*) };
 }
