@@ -1,7 +1,6 @@
 #![doc = include_str!("../README.md")]
 
 mod linters;
-mod tracing;
 
 use proc_macro::TokenStream;
 
@@ -18,49 +17,4 @@ use proc_macro::TokenStream;
 #[proc_macro_attribute]
 pub fn bevy_system(attr: TokenStream, item: TokenStream) -> TokenStream {
     linters::bevy_system(attr, item)
-}
-
-/// A thin wrapper around `bevy::prelude::trace_span!`
-///
-/// If an argument named `length` is passed in, this will be used as the length for `tracing-indicatif`
-/// integration.
-#[proc_macro]
-pub fn trace_span(item: TokenStream) -> TokenStream {
-    tracing::wrapped_span("trace", item)
-}
-
-/// A thin wrapper around `bevy::prelude::trace_span!`
-///
-/// If an argument named `length` is passed in, this will be used as the length for `tracing-indicatif`
-/// integration.
-#[proc_macro]
-pub fn debug_span(item: TokenStream) -> TokenStream {
-    tracing::wrapped_span("debug", item)
-}
-
-/// A thin wrapper around `bevy::prelude::info_span!`
-///
-/// If an argument named `length` is passed in, this will be used as the length for `tracing-indicatif`
-/// integration.
-#[proc_macro]
-pub fn info_span(item: TokenStream) -> TokenStream {
-    tracing::wrapped_span("info", item)
-}
-
-/// A thin wrapper around `bevy::prelude::warn_span!`
-///
-/// If an argument named `length` is passed in, this will be used as the length for `tracing-indicatif`
-/// integration.
-#[proc_macro]
-pub fn warn_span(item: TokenStream) -> TokenStream {
-    tracing::wrapped_span("warn", item)
-}
-
-/// A thin wrapper around `bevy::prelude::error_span!`
-///
-/// If an argument named `length` is passed in, this will be used as the length for `tracing-indicatif`
-/// integration.
-#[proc_macro]
-pub fn error_span(item: TokenStream) -> TokenStream {
-    tracing::wrapped_span("error", item)
 }

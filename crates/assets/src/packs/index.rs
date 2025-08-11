@@ -3,16 +3,16 @@
 
 use crate::packs::thumbnails::{AssetPackThumbnailError, AssetPackThumbnails};
 use crate::scripting::IndexEntry;
-use bevy::prelude::{trace, warn};
+use bevy::prelude::{info_span, trace, warn};
 use rhai::{AST, Array, Engine, OptimizationLevel, Scope};
 use std::fmt::{Display, Formatter};
 use std::path::{Path, PathBuf};
 use tantivy::collector::TopDocs;
 use tantivy::query::{QueryParser, QueryParserError, TermQuery};
 use tantivy::schema::{Field, IndexRecordOption, STORED, STRING, Schema, TEXT, Value};
-use tantivy::{Document, Index, IndexWriter, TantivyDocument, TantivyError, Term, doc};
+use tantivy::{Index, IndexWriter, TantivyDocument, TantivyError, Term, doc};
 use thiserror::Error;
-use utils::{IndicatifSpanExt, file_name};
+use utils::file_name;
 use walkdir::WalkDir;
 
 /// The default script for filtering when no custom script was passed into the `AssetPack`.
@@ -155,7 +155,7 @@ impl AssetPackIndex {
         let (engine, filter_script, index_script) = Self::scripting(filter_script, index_script)?;
         let mut scope = Scope::new();
 
-        let span = utils::info_span!(
+        let span = info_span!(
             "indexing",
             id = id,
             path = index_root.to_path_buf().display().to_string(),
@@ -178,7 +178,6 @@ impl AssetPackIndex {
             reason = "The suggested syntax reads very awkward and is just obtuse for no reason"
         )]
         for entry in walker.sort_by_file_name().into_iter().flatten() {
-            span.pb_set_position(current); // If we're logging to consoles, this will properly set the progressbar.
             current += 1;
 
             let Some(file_name) = file_name(entry.path()) else {
@@ -316,7 +315,7 @@ impl AssetPackIndex {
         query: impl AsRef<str>,
         amount: usize,
     ) -> Result<Vec<AssetPackSearchResult>, AssetPackSearchError> {
-        let _ = utils::info_span!("querying", id = id).entered();
+        let _ = info_span!("querying", id = id).entered();
 
         let reader = self
             .index
@@ -336,8 +335,6 @@ impl AssetPackIndex {
         let mut documents = Vec::with_capacity(top_docs.len());
         for (_score, address) in top_docs {
             let document: TantivyDocument = searcher.doc::<TantivyDocument>(address)?;
-            #[cfg(feature = "dev")]
-            trace!("{}", document.to_json(&self.index.schema()));
 
             documents.push(AssetPackSearchResult::new(document, self));
         }

@@ -1,7 +1,7 @@
 //! A library serves as a device-wide registry of asset packs.
 
 use crate::{AssetPack, AssetPackError};
-use bevy::prelude::{Resource, debug, debug_span, info, info_span, trace};
+use bevy::prelude::{Resource, debug, debug_span, info, info_span, trace, trace_span};
 use semver::Version;
 use serialization::{Deserialize, SerializationFormat, Serialize, deserialize, serialize_to};
 use std::collections::HashMap;
@@ -165,7 +165,7 @@ impl AssetLibrary {
     ///   [`AssetLibraryError::LocateConfigFolder`]
     /// - The file was found, could be read but failed to deserialize: [`AssetLibraryError::Serialization`].
     pub fn save(&self, path: Option<PathBuf>) -> Result<(), AssetLibraryError> {
-        let _ = utils::debug_span!("saving-library").entered();
+        let _ = debug_span!("saving-library").entered();
         let path = Self::get_path(path)?;
 
         for (id, pack) in &self.loaded_packs {
@@ -327,7 +327,7 @@ impl AssetLibrary {
         let mut results = vec![];
         let query = query.as_ref();
 
-        let _ = utils::trace_span!("search", query = query).entered();
+        let _ = trace_span!("search", query = query).entered();
         for (_id, asset_pack) in self.loaded_packs.iter() {
             let mut result = asset_pack.search(query, max_amount)?;
             results.append(&mut result);
@@ -341,7 +341,7 @@ impl AssetLibrary {
     /// # Errors
     /// This method will forward any errors thrown by [`AssetPack::index`].
     pub fn index(&self, generate_thumbnails: bool) -> Result<(), AssetLibraryError> {
-        let _ = utils::info_span!("index_library").entered();
+        let _ = info_span!("index_library").entered();
 
         for pack in self.loaded_packs.values() {
             pack.index(generate_thumbnails)?;

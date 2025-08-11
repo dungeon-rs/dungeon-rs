@@ -29,7 +29,7 @@ struct Cli {
 #[allow(clippy::missing_docs_in_private_items)]
 fn main() -> anyhow::Result<()> {
     let args = Cli::parse();
-    logging::console_logging(args.verbosity.tracing_level_filter())?;
+    let progress = logging::console_logging(args.verbosity.tracing_level_filter())?;
 
     // Some commands require a `World` entry, so we build an app that can provide said world.
     let mut app = App::new();
@@ -38,7 +38,7 @@ fn main() -> anyhow::Result<()> {
         .add_plugins(AssetPlugin);
 
     match args.command {
-        Commands::Assets(args) => commands::assets::execute(args, app.world_mut())?,
+        Commands::Assets(args) => commands::assets::execute(args, app.world_mut(), progress)?,
     }
 
     Ok(())

@@ -4,6 +4,7 @@ use anyhow::{Context, bail};
 use assets::AssetLibrary;
 use bevy::prelude::{World, debug, info};
 use clap::Subcommand;
+use logging::MultiProgress;
 use std::path::{Path, PathBuf};
 
 /// Manage asset library and packs
@@ -75,7 +76,11 @@ pub enum Commands {
 ///
 /// # Errors
 /// See the implementations of the command implementations for respective errors.
-pub fn execute(Args { command, library }: Args, _world: &mut World) -> anyhow::Result<()> {
+pub fn execute(
+    Args { command, library }: Args,
+    _world: &mut World,
+    _cmulti_progress: MultiProgress,
+) -> anyhow::Result<()> {
     match command {
         Commands::List => execute_list(library),
         Commands::CleanUp => execute_cleanup(library),
