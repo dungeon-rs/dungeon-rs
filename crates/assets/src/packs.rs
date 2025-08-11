@@ -6,7 +6,7 @@ mod thumbnails;
 use crate::packs::index::{AssetPackIndex, AssetPackIndexError};
 pub use crate::packs::index::{AssetPackSearchError, AssetPackSearchResult};
 use crate::packs::thumbnails::{AssetPackThumbnailError, AssetPackThumbnails};
-use bevy::prelude::{Asset, AssetServer, Handle, debug, info, trace};
+use bevy::prelude::{Asset, AssetServer, Handle, debug, debug_span, info, trace};
 use serialization::{Deserialize, SerializationFormat, Serialize, deserialize, serialize_to};
 use std::fs::{File, create_dir_all};
 use std::io::read_to_string;
@@ -194,7 +194,7 @@ impl AssetPack {
     /// - [`AssetPackError::ManifestFile`] when the file/folder for the manifest couldn't be created.
     /// - [`AssetPackError::Serialisation`] when serialising the manifest fails.
     pub fn save_manifest(&self) -> Result<(), AssetPackError> {
-        let _ = utils::debug_span!("saving-pack", pack = self.id).entered();
+        let _ = debug_span!("saving-pack", pack = self.id).entered();
         let config = _AssetPack::from(self);
         let manifest = self.root.join(MANIFEST_FILE_NAME);
 

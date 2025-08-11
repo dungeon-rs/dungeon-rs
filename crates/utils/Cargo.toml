@@ -19,7 +19,6 @@ utils_macros = { path = "macros" }
 crossbeam-channel = { workspace = true }
 semver = { workspace = true }
 thiserror = { workspace = true }
-tracing-indicatif = { workspace = true }
 blake3 = "1.8.2"
 
 [target.'cfg(target_os = "windows")'.dependencies]
