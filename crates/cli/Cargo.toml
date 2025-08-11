@@ -14,7 +14,7 @@ bevy = { workspace = true }
 utils = { workspace = true }
 assets = { workspace = true }
 logging = { workspace = true, features = ["console"] }
-clap = { version = "4.5.42", features = ["derive"] }
+clap = { version = "4.5.43", features = ["derive"] }
 clap-verbosity-flag = { version = "3.0.3", default-features = false, features = ["tracing"] }
 anyhow = { workspace = true }
 
