@@ -10,7 +10,7 @@ use std::path::{Path, PathBuf};
 use tantivy::collector::TopDocs;
 use tantivy::query::{QueryParser, QueryParserError, TermQuery};
 use tantivy::schema::{Field, IndexRecordOption, STORED, STRING, Schema, TEXT, Value};
-use tantivy::{Index, IndexWriter, TantivyDocument, TantivyError, Term, doc};
+use tantivy::{Document, Index, IndexWriter, TantivyDocument, TantivyError, Term, doc};
 use thiserror::Error;
 use utils::{IndicatifSpanExt, file_name};
 use walkdir::WalkDir;
@@ -288,6 +288,8 @@ impl AssetPackIndex {
     /// The passed `query` must be a valid Tantivy query (see [QueryParser](https://docs.rs/tantivy/0.24.2/tantivy/query/struct.QueryParser.html)).
     /// You can control the (maximum) number of entries returned for this query with `amount`.
     ///
+    /// The passed `id` is used for tracing.
+    ///
     /// # Errors
     /// There are 2 situations where this method may return an error.
     /// - Tantivy throws an error when opening or reading from the index itself
@@ -298,16 +300,19 @@ impl AssetPackIndex {
     /// this method will panic if the `amount` passed is `0`.
     pub fn query(
         &self,
+        id: &String,
         query: impl AsRef<str>,
         amount: usize,
     ) -> Result<Vec<AssetPackSearchResult>, AssetPackSearchError> {
+        let _ = utils::info_span!("querying", id = id).entered();
+
         let reader = self
             .index
             .reader()
             .map_err(AssetPackSearchError::OpenIndex)?;
 
         let searcher = reader.searcher();
-        let parser = QueryParser::for_index(&self.index, vec![]);
+        let parser = QueryParser::for_index(&self.index, vec![self.name]);
         let query = parser
             .parse_query(query.as_ref())
             .map_err(AssetPackSearchError::ParseQuery)?;
@@ -318,7 +323,9 @@ impl AssetPackIndex {
 
         let mut documents = Vec::with_capacity(top_docs.len());
         for (_score, address) in top_docs {
-            let document = searcher.doc::<TantivyDocument>(address)?;
+            let document: TantivyDocument = searcher.doc::<TantivyDocument>(address)?;
+            #[cfg(feature = "dev")]
+            trace!("{}", document.to_json(&self.index.schema()));
 
             documents.push(AssetPackSearchResult::new(document, self));
         }

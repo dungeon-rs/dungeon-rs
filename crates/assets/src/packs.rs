@@ -298,7 +298,7 @@ impl AssetPack {
         let query = query.as_ref();
         trace!("Querying {id} with '{query}'", id = self.id, query = query);
 
-        self.index.query(query, max_amount)
+        self.index.query(&self.id, query, max_amount)
     }
 
     /// Attempts to load the asset associated with the given path.
