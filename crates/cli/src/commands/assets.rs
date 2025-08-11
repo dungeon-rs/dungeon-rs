@@ -1,6 +1,6 @@
 //! Implementation of the `assets` subcommand.
 
-use anyhow::Context;
+use anyhow::{Context, bail};
 use assets::AssetLibrary;
 use bevy::prelude::{World, debug, info};
 use clap::Subcommand;
@@ -60,6 +60,15 @@ pub enum Commands {
         #[arg(long)]
         thumbnails: bool,
     },
+    Query {
+        /// The query to execute against the library, for the syntax see
+        /// https://docs.rs/tantivy/0.24.2/tantivy/query/struct.QueryParser.html
+        query: String,
+
+        /// The (maximum) number of results to return for this query.
+        #[arg(long, default_value_t = 100)]
+        max_amount: usize,
+    },
 }
 
 /// Executes the asset commands in the correct way.
@@ -78,6 +87,7 @@ pub fn execute(Args { command, library }: Args, _world: &mut World) -> anyhow::R
         } => execute_add(library, &path, name, no_index, no_thumbnail),
         Commands::Remove { id } => execute_remove(library, &id),
         Commands::Index { pack, thumbnails } => execute_index(library, pack, thumbnails),
+        Commands::Query { query, max_amount } => execute_query(library, query, max_amount),
     }
 }
 
@@ -181,6 +191,32 @@ fn execute_index(
         asset_library
             .index(generate_thumbnails)
             .context("Failed to index asset packs")?;
+    }
+
+    Ok(())
+}
+
+/// Executes a query on the library.
+///
+/// # Errors
+/// Return an error when the asset library fails to load.
+fn execute_query(library: Option<PathBuf>, query: String, max_amount: usize) -> anyhow::Result<()> {
+    let mut asset_library = AssetLibrary::load(library).context("Failed to load asset library")?;
+    asset_library.load_all()?;
+
+    if max_amount == 0 {
+        bail!("The maximum amount of entries returned cannot be 0");
+    }
+
+    let results = asset_library.search(query, max_amount)?;
+    if results.is_empty() {
+        info!("No results found");
+        return Ok(());
+    }
+
+    info!("Found {amount} results:", amount = results.len());
+    for result in results {
+        info!("{}", result);
     }
 
     Ok(())
