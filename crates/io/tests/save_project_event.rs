@@ -12,6 +12,39 @@ use std::{fs::read_to_string, path::PathBuf};
 use tempfile::tempdir;
 use utils::CorePlugin;
 
+/// Advance the world (similar to the pattern used in utils tests)
+fn advance_world(app: &mut App) {
+    app.update();
+    app.world_mut()
+        .resource_mut::<Time<Fixed>>()
+        .advance_by(Duration::from_secs(2));
+    app.world_mut().run_schedule(FixedPostUpdate);
+    app.update();
+}
+
+/// Continuously advance the world until all AsyncComponents have been processed.
+fn process_async_components(app: &mut App) {
+    // advance world to send event and process async components
+    advance_world(app);
+
+    // Give the async task time to complete by advancing the world multiple times
+    // The async IO task needs time to complete, so we advance until the AsyncComponent is removed
+    for _ in 0..100 {
+        let remaining_components = app
+            .world_mut()
+            .query_filtered::<Entity, With<utils::AsyncComponent>>()
+            .iter(app.world())
+            .count();
+
+        if remaining_components == 0 {
+            // AsyncComponent has been removed, task completed
+            break;
+        }
+
+        advance_world(app);
+    }
+}
+
 #[test]
 fn save_project_event() -> anyhow::Result<()> {
     // Holds output files for this test, we hold the variable since it's deleted on drop.
@@ -39,19 +72,7 @@ fn save_project_event() -> anyhow::Result<()> {
     app.world_mut()
         .send_event(SaveProjectEvent::new(project, output.clone()));
 
-    // advance world to send event and once more to run systems
-    app.update();
-    app.update();
-    app.world_mut()
-        .resource_mut::<Time<Fixed>>()
-        .advance_by(Duration::from_secs(2));
-    app.world_mut().run_schedule(FixedPostUpdate);
-    app.update();
-    app.world_mut()
-        .resource_mut::<Time<Fixed>>()
-        .advance_by(Duration::from_secs(2));
-    app.world_mut().run_schedule(FixedPostUpdate);
-    app.update();
+    process_async_components(&mut app);
 
     let mut system_state: SystemState<EventReader<SaveProjectCompleteEvent>> =
         SystemState::new(app.world_mut());
