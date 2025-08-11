@@ -6041,7 +6041,6 @@ dependencies = [
 name = "utils_macros"
 version = "0.0.1"
 dependencies = [
- "bevy",
  "quote",
  "syn",
 ]
