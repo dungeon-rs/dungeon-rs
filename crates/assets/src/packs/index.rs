@@ -75,6 +75,7 @@ pub struct AssetPackIndex {
     thumbnail: Field,
 }
 
+/// A wrapper struct for the result of a search operation.
 pub struct AssetPackSearchResult {
     /// The document from which the fields will be written.
     document: TantivyDocument,

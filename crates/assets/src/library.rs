@@ -326,6 +326,7 @@ impl AssetLibrary {
         let mut results = vec![];
         let query = query.as_ref();
 
+        let _ = utils::trace_span!("search", query = query).entered();
         for (_id, asset_pack) in self.loaded_packs.iter() {
             let mut result = asset_pack.search(query)?;
             results.append(&mut result);
