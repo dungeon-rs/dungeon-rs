@@ -229,7 +229,7 @@ impl AssetPackIndex {
 
                 let thumbnail_id = result.thumbnail.as_str().to_string();
                 writer
-                    .add_document(self.to_document(result))
+                    .add_document(self.to_document(result, entry.path()))
                     .map_err(|error| {
                         AssetPackIndexError::Index(entry.path().to_path_buf(), error)
                     })?;
@@ -342,7 +342,7 @@ impl AssetPackIndex {
     /// - thumbnail identifier
     fn schema() -> (Schema, Field, Field, Field, Field) {
         let mut builder = Schema::builder();
-        let name = builder.add_text_field("name", TEXT);
+        let name = builder.add_text_field("name", TEXT | STORED);
         let categories = builder.add_text_field("categories", STRING | STORED);
         let path = builder.add_text_field("path", TEXT | STORED);
         let thumbnail = builder.add_text_field("thumbnail", STRING | STORED);
@@ -353,9 +353,11 @@ impl AssetPackIndex {
     /// Generates a `TantivyDocument` from the [`IndexEntry`].
     ///
     /// This method converts the scripts indexing to Tantivy's indexing.
-    fn to_document(&self, entry: IndexEntry) -> TantivyDocument {
+    fn to_document(&self, entry: IndexEntry, path: &Path) -> TantivyDocument {
+        let path = path.display().to_string();
         let mut document = doc!(
             self.name => entry.name.as_str(),
+            self.path => path,
             self.thumbnail => entry.thumbnail.as_str(),
         );
 
