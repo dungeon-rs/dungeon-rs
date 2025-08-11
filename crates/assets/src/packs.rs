@@ -3,9 +3,8 @@
 mod index;
 mod thumbnails;
 
-use crate::packs::index::{
-    AssetPackIndex, AssetPackIndexError, AssetPackSearchError, AssetPackSearchResult,
-};
+use crate::packs::index::{AssetPackIndex, AssetPackIndexError};
+pub use crate::packs::index::{AssetPackSearchError, AssetPackSearchResult};
 use crate::packs::thumbnails::{AssetPackThumbnailError, AssetPackThumbnails};
 use bevy::prelude::{Asset, AssetServer, Handle, debug, info, trace};
 use serialization::{Deserialize, SerializationFormat, Serialize, deserialize, serialize_to};
