@@ -127,10 +127,22 @@ impl AssetPackIndex {
         })
     }
 
-    /// TODO.
+    /// Indexes all assets in the specified directory using filtering and indexing scripts.
+    ///
+    /// This method walks through all files in `index_root`, applies the filter script to determine
+    /// which files should be indexed, then processes each accepted file through the index script
+    /// to extract metadata before adding it to the search index. Optionally generates thumbnails
+    /// for supported file formats.
+    ///
+    /// The `id` parameter is used for tracing and logging purposes. Custom `filter_script` and
+    /// `index_script` can be provided, otherwise the default built-in scripts will be used.
     ///
     /// # Errors
-    /// TODO.
+    /// Will return an [`AssetPackIndexError`] in the following situations:
+    /// - Failed to create an index writer or perform index operations
+    /// - Script compilation fails due to syntax errors or missing variables
+    /// - Script execution fails during filtering or indexing operations
+    /// - Thumbnail generation fails for supported file formats
     pub fn index(
         &self,
         id: &String,
