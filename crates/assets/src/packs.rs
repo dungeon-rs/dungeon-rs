@@ -206,7 +206,7 @@ impl AssetPack {
     }
 
     /// Attempts to load an [`AssetPack`] from its manifest in the `root` folder.
-    /// The resulting [`AssetPack`] will always be in [`AssetPackState::Crated`].
+    /// The resulting [`AssetPack`] will always be in [`AssetPackState::Created`].
     ///
     /// # Errors
     /// - [`AssetPackError::ManifestFile`] when the file/folder for the manifest couldn't be opened.

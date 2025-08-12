@@ -1,10 +1,13 @@
-//! Various helper methods for working with Rust's [`PathBuf`].
+//! Various helper methods for working with Rust's
+//! [`PathBuf`](https://docs.rs/rustc-std-workspace-std/latest/std/path/struct.PathBuf.html).
 
 use std::path::Path;
 
-/// Retrieves the file name from the given [`PathBuf`].
+/// Retrieves the file name from the given
+/// [`PathBuf`](https://docs.rs/rustc-std-workspace-std/latest/std/path/struct.PathBuf.html).
 ///
-/// This method is lossy in case of invalid UTF-8 characters, see [`OsStr::to_string_lossy`]
+/// This method is lossy in case of invalid UTF-8 characters, see
+/// [`OsStr::to_string_lossy`](https://doc.rust-lang.org/std/ffi/os_str/struct.OsStr.html#method.to_string_lossy)
 #[inline]
 #[must_use]
 pub fn file_name(path: &Path) -> Option<String> {
@@ -13,7 +16,8 @@ pub fn file_name(path: &Path) -> Option<String> {
 
 /// Simple shorthand for `path.to_string_lossy().to_string()`
 ///
-/// This method is lossy in case of invalid UTF-8 characters, see [`OsStr::to_string_lossy`]
+/// This method is lossy in case of invalid UTF-8 characters, see
+/// [`OsStr::to_string_lossy`](https://doc.rust-lang.org/std/ffi/os_str/struct.OsStr.html#method.to_string_lossy)
 #[inline]
 #[must_use]
 pub fn to_string(path: &Path) -> String {

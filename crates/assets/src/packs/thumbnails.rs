@@ -1,4 +1,4 @@
-//! Contains the specific logic for generating thumbnails of assets within a given [`AssetPack`].
+//! Contains the specific logic for generating thumbnails of assets within a given [`crate::AssetPack`].
 
 use bevy::prelude::{UVec2, debug, trace};
 use image::{ImageFormat, ImageReader};
@@ -27,7 +27,7 @@ pub enum AssetPackThumbnailError {
     EncodingError(#[source] Box<image::ImageError>, PathBuf),
 }
 
-/// Encapsulates all the thumbnail-related data structures for an [`AssetPack`].
+/// Encapsulates all the thumbnail-related data structures for an [`crate::AssetPack`].
 #[derive(Debug)]
 pub struct AssetPackThumbnails {
     /// The root directory where thumbnails can be generated or resolved from.
@@ -47,7 +47,8 @@ impl AssetPackThumbnails {
     ///
     /// The following defaults are used if `None` is passed in for these parameters:
     /// - `resolution`: defaults to `128`x`128`
-    /// - `format`: defaults to [`image::ImageFormat::Webp`].
+    /// - `format`: defaults to
+    /// [`image::ImageFormat::Webp`](https://docs.rs/image/0.25.6/image/enum.ImageFormat.html#variant.WebP).
     ///
     /// # Errors
     /// This method will return an error when the `format` (if passed in) is unsupported.
