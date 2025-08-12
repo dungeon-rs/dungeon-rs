@@ -8,3 +8,4 @@ edition = "2024"
 
 [build]
 create-missing = false
+extra-watch-dirs = ["../crates"]
