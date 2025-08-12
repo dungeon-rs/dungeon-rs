@@ -48,7 +48,7 @@ impl AssetPackThumbnails {
     /// The following defaults are used if `None` is passed in for these parameters:
     /// - `resolution`: defaults to `128`x`128`
     /// - `format`: defaults to
-    /// [`image::ImageFormat::Webp`](https://docs.rs/image/0.25.6/image/enum.ImageFormat.html#variant.WebP).
+    ///   [`image::ImageFormat::Webp`](https://docs.rs/image/0.25.6/image/enum.ImageFormat.html#variant.WebP).
     ///
     /// # Errors
     /// This method will return an error when the `format` (if passed in) is unsupported.

@@ -1,4 +1,4 @@
-# DungeonRS i18n
+# `DungeonRS i18n`
 
 A wrapper around `fluent-template` to make static access a bit more convenient.
 It does this by providing a static `LOCALES` which wraps `ArcLoader` and tracks

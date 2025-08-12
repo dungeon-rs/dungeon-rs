@@ -1,4 +1,4 @@
-# DungeonRS Editor
+# `DungeonRS Editor`
 
 The `DungeonRS` editor is where most users will actually be working in.
 It's the binary crate that actually handles bootstrapping the application,

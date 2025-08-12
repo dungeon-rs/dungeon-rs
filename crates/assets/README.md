@@ -1,4 +1,4 @@
-# DungeonRS assets
+# `DungeonRS assets`
 
 Handles management of the asset library (and containing asset packs), indexing, thumbnail generation and provides an
 interface for searching and resolving assets from this library.

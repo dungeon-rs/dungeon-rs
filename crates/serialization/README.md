@@ -1,4 +1,4 @@
-# DungeonRS serialisation
+# `DungeonRS serialisation`
 This crate handles serialisation from and to binary representations.
 It's essentially a wrapper around Serde using various formats depending on the enabled features.
 

@@ -1,4 +1,4 @@
-# DungeonRS CLI
+# `DungeonRS CLI`
 
 The `DungeonRS` CLI is a command line interface to interact
 with assets and maps.
