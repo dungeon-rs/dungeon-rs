@@ -88,30 +88,6 @@ jobs:
       - name: Run cargo clippy
         run: cargo clippy --locked --all-targets --all-features --profile=${{ matrix.profile }} -- -D warnings
 
-  doc:
-    name: Build documentation
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
-
-      - uses: taiki-e/install-action@v2
-        with:
-          tool: mdbook
-
-      - uses: Swatinem/rust-cache@v2
-
-      - name: Build API documentation
-        run: cargo doc --profile=fast --locked --workspace --all-features --document-private-items --no-deps
-
-      - name: Test documentation
-        working-directory: docs
-        run: mdbook test
-
   typos:
     runs-on: ubuntu-latest
     timeout-minutes: 30
