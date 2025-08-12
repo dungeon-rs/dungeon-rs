@@ -42,7 +42,7 @@ TODO: introduction to API documentation here.
 
 {{#include ../../../crates/logging/README.md:2:: }}
 
-# Serialization
+# Serialisation
 <a href="./api/serialization/index.html">API docs</a>
 
 {{#include ../../../crates/serialization/README.md:2:: }}
