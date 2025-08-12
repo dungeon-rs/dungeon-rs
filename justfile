@@ -46,6 +46,17 @@ dependencies:
 commits:
     committed origin/master..HEAD
 
+[linux, macos]
+[working-directory: 'docs']
+docs:
+    mdbook build
+    cargo doc --profile=fast --locked --workspace --all-features --document-private-items --no-deps
+[windows]
+[working-directory: 'docs']
+docs:
+    mdbook build
+    cargo doc --locked --workspace --all-features --document-private-items --no-deps
+
 # Attempt an automated fix of various lint errors
 fix:
     cargo clippy --fix --allow-dirty
@@ -67,4 +78,5 @@ setup:
     cargo install committed
     cargo install git-cliff
     cargo install cargo-nextest
+    cargo install mdbook
     cargo fetch --locked
