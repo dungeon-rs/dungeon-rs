@@ -88,24 +88,6 @@ jobs:
       - name: Run cargo clippy
         run: cargo clippy --locked --all-targets --all-features --profile=${{ matrix.profile }} -- -D warnings
 
-  doc:
-    name: Build documentation
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
-
-      - uses: Swatinem/rust-cache@v2
-
-      - name: Build documentation
-        run: cargo +nightly doc --profile=fast --locked --workspace --all-features --document-private-items --no-deps
-        env:
-          RUSTDOCFLAGS: "-Z unstable-options --enable-index-page"
-
   typos:
     runs-on: ubuntu-latest
     timeout-minutes: 30

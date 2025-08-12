@@ -2,6 +2,13 @@ name: Update documentation
 
 on:
   workflow_dispatch:
+  pull_request:
+    paths:
+      - 'docs/**'
+      - '*.md'
+      - 'CONTRIBUTING'
+      - 'SECURITY.md'
+      - 'LICENSE'
   push:
     branches: [ master ]
 
@@ -19,25 +26,31 @@ jobs:
 
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
+
+      - uses: taiki-e/install-action@v2
         with:
-          toolchain: nightly
+          tool: mdbook
 
       - uses: Swatinem/rust-cache@v2
 
-      - name: Install dependencies
-        run: sudo apt-get update; sudo apt-get install --no-install-recommends libasound2-dev libudev-dev libwayland-dev libxkbcommon-dev
+      - name: Build API documentation
+        run: cargo doc --profile=fast --locked --workspace --all-features --document-private-items --no-deps
 
       - name: Build documentation
-        run: cargo +nightly doc --profile=fast --locked --workspace --all-features --document-private-items --no-deps
-        env:
-          RUSTDOCFLAGS: "-Z unstable-options --enable-index-page"
+        working-directory: docs
+        run: mdbook build
+
+      - name: Copy API documentation to docs folder
+        run: cp -r target/doc/* docs/book/api
 
       - name: Upload static files as artefact
+        if: github.event_name == 'push'
         id: deployment-artifact
         uses: actions/upload-pages-artifact@v3 # or specific "vX.X.X" version tag for this action
         with:
-          path: target/doc
+          path: docs/book
 
       - name: Deploy to GitHub Pages
+        if: github.event_name == 'push'
         id: deployment-pages
         uses: actions/deploy-pages@v4

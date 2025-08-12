@@ -1,4 +1,4 @@
-//! The actual indexation logic of the [`AssetPack`] is split out in this module to keep it separate
+//! The actual indexation logic of the [`crate::AssetPack`] is split out in this module to keep it separate
 //! from the rest of the resolution logic.
 
 use crate::packs::thumbnails::{AssetPackThumbnailError, AssetPackThumbnails};
@@ -49,7 +49,7 @@ pub enum AssetPackIndexError {
     Thumbnail(PathBuf, #[source] AssetPackThumbnailError),
 }
 
-/// All errors that can occur when searching for assets in the [`AssetPack`].
+/// All errors that can occur when searching for assets in the [`crate::AssetPack`].
 #[derive(Error, Debug)]
 pub enum AssetPackSearchError {
     /// An error occurred while opening / reading from the index.

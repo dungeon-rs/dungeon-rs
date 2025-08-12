@@ -71,7 +71,7 @@ pub enum AssetLibraryError {
 }
 
 impl AssetLibrary {
-    /// Attempts to [`AssetLibrary::load`] the library from `path`, and returns the default value on [`IOError`].
+    /// Attempts to [`AssetLibrary::load`] the library from `path`, and returns the default value on [`AssetLibraryError::ReadFile`].
     ///
     /// Any other error will be propagated by this method.
     ///
@@ -95,7 +95,7 @@ impl AssetLibrary {
     /// - The configuration folder could not be retrieved: [`AssetLibraryError::LocateConfigFolder`]
     /// - An error occurs while trying to read the config file (doesn't exist, permissions, ...):
     ///   [`AssetLibraryError::LocateConfigFolder`]
-    /// - The file was found, could be read but failed to deserialize: [`AssetLibraryError::Serialization`].
+    /// - The file was found, could be read but failed to deserialize: [`AssetLibraryError::Serialisation`].
     pub fn load(path: Option<PathBuf>) -> Result<Self, AssetLibraryError> {
         let path = Self::get_path(path)?.join(LIBRARY_FILE_NAME);
 
@@ -163,7 +163,7 @@ impl AssetLibrary {
     /// - The configuration folder could not be retrieved: [`AssetLibraryError::LocateConfigFolder`]
     /// - An error occurs while trying to read the config file (doesn't exist, permissions, ...):
     ///   [`AssetLibraryError::LocateConfigFolder`]
-    /// - The file was found, could be read but failed to deserialize: [`AssetLibraryError::Serialization`].
+    /// - The file was found, could be read but failed to deserialize: [`AssetLibraryError::Serialisation`].
     pub fn save(&self, path: Option<PathBuf>) -> Result<(), AssetLibraryError> {
         let _ = debug_span!("saving-library").entered();
         let path = Self::get_path(path)?;
@@ -193,7 +193,7 @@ impl AssetLibrary {
     /// - The configuration folder could not be retrieved: [`AssetLibraryError::LocateConfigFolder`]
     /// - An error occurs while trying to read the config file (doesn't exist, permissions, ...):
     ///   [`AssetLibraryError::LocateConfigFolder`]
-    /// - The file was found, could be read but failed to deserialize: [`AssetLibraryError::Serialization`].
+    /// - The file was found, could be read but failed to deserialize: [`AssetLibraryError::Serialisation`].
     pub fn add_pack(
         &mut self,
         root: &Path,
