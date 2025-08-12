@@ -99,12 +99,18 @@ jobs:
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
 
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: mdbook
+
       - uses: Swatinem/rust-cache@v2
 
-      - name: Build documentation
-        run: cargo +nightly doc --profile=fast --locked --workspace --all-features --document-private-items --no-deps
-        env:
-          RUSTDOCFLAGS: "-Z unstable-options --enable-index-page"
+      - name: Build API documentation
+        run: cargo doc --profile=fast --locked --workspace --all-features --document-private-items --no-deps
+
+      - name: Test documentation
+        working-directory: docs
+        run: mdbook test
 
   typos:
     runs-on: ubuntu-latest
