@@ -1,0 +1,10 @@
+[book]
+authors = ["Wannes Gennar"]
+title = "DungeonRS"
+description = "DungeonRS user and developer documentation"
+
+[rust]
+edition = "2024"
+
+[build]
+create-missing = false
