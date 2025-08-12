@@ -33,9 +33,6 @@ jobs:
 
       - uses: Swatinem/rust-cache@v2
 
-      - name: Install dependencies
-        run: sudo apt-get update; sudo apt-get install --no-install-recommends libasound2-dev libudev-dev libwayland-dev libxkbcommon-dev
-
       - name: Build API documentation
         run: cargo doc --profile=fast --locked --workspace --all-features --document-private-items --no-deps
 
