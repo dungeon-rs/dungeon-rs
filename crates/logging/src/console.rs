@@ -44,7 +44,8 @@ pub fn console_logging(
 
     let subscriber = Registry::default();
     tracing::dispatcher::set_global_default(subscriber.with(layer).into())?;
-    todo!()
+
+    Ok(console.progress)
 }
 
 impl<'a> MakeWriter<'a> for IndicatifWriter {
