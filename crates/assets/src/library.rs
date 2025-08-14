@@ -1,6 +1,7 @@
 //! A library serves as a device-wide registry of asset packs.
 
 use crate::{AssetPack, AssetPackError};
+use bevy::ecs::world::CommandQueue;
 use bevy::prelude::{Resource, debug, debug_span, info, info_span, trace, trace_span};
 use semver::Version;
 use serialization::{Deserialize, SerializationFormat, Serialize, deserialize, serialize_to};
@@ -9,7 +10,7 @@ use std::fs::{File, create_dir_all};
 use std::io::Read;
 use std::path::{Path, PathBuf};
 use thiserror::Error;
-use utils::{DirectoryError, cache_path, config_path};
+use utils::{DirectoryError, Sender, cache_path, config_path};
 
 /// The name of the library configuration file.
 const LIBRARY_FILE_NAME: &str = "library.toml";
@@ -340,11 +341,15 @@ impl AssetLibrary {
     ///
     /// # Errors
     /// This method will forward any errors thrown by [`AssetPack::index`].
-    pub fn index(&self, generate_thumbnails: bool) -> Result<(), AssetLibraryError> {
+    pub fn index(
+        &self,
+        sender: &Sender<CommandQueue>,
+        generate_thumbnails: bool,
+    ) -> Result<(), AssetLibraryError> {
         let _ = info_span!("index_library").entered();
 
         for pack in self.loaded_packs.values() {
-            pack.index(generate_thumbnails)?;
+            pack.index(sender.clone(), generate_thumbnails)?;
         }
 
         Ok(())

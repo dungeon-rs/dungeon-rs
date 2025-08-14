@@ -127,11 +127,24 @@ where
     sender.send(queue)
 }
 
+/// Generates a sender/receiver pair of `CommandQueue`s.
+/// This is mostly used when manually calling a method compatible with [`AsyncComponent`].
+#[must_use]
+#[inline(always)]
+#[allow(
+    clippy::inline_always,
+    reason = "This method is simply a wrapper around crossbeam_channel::unbounded"
+)]
+pub fn command_queue() -> (Sender<CommandQueue>, Receiver<CommandQueue>) {
+    unbounded()
+}
+
 /// Polls each [`AsyncComponent`] in the ECS tree and checks for progress and/or completion.
 ///
 /// If an [`AsyncComponent`]'s `Receiver` contains updates, they are appended to the current world.
 /// The [`AsyncComponent::task`] is polled for completion, and once completed the component is removed
 /// from the world.
+#[crate::bevy_system]
 pub(crate) fn handle_async_components(
     mut commands: Commands,
     mut query: Query<(Entity, &mut AsyncComponent)>,

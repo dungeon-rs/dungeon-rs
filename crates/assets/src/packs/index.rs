@@ -3,6 +3,7 @@
 
 use crate::packs::thumbnails::{AssetPackThumbnailError, AssetPackThumbnails};
 use crate::scripting::IndexEntry;
+use bevy::ecs::world::CommandQueue;
 use bevy::prelude::{info_span, trace, warn};
 use rhai::{AST, Array, Engine, OptimizationLevel, Scope};
 use std::fmt::{Display, Formatter};
@@ -12,7 +13,7 @@ use tantivy::query::{QueryParser, QueryParserError, TermQuery};
 use tantivy::schema::{Field, IndexRecordOption, STORED, STRING, Schema, TEXT, Value};
 use tantivy::{Index, IndexWriter, TantivyDocument, TantivyError, Term, doc};
 use thiserror::Error;
-use utils::file_name;
+use utils::{Sender, file_name};
 use walkdir::WalkDir;
 
 /// The default script for filtering when no custom script was passed into the `AssetPack`.
@@ -150,6 +151,7 @@ impl AssetPackIndex {
         thumbnails: Option<&AssetPackThumbnails>,
         filter_script: Option<&String>,
         index_script: Option<&String>,
+        _sender: Sender<CommandQueue>,
     ) -> Result<(), AssetPackIndexError> {
         let walker = WalkDir::new(index_root);
         let (engine, filter_script, index_script) = Self::scripting(filter_script, index_script)?;

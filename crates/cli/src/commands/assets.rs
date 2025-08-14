@@ -141,8 +141,9 @@ fn execute_add(
         .add_pack(path, None, name.clone())
         .context("Failed to add asset pack to asset library")?;
 
+    let (sender, _receiver) = utils::command_queue();
     if !no_index && let Some(pack) = asset_library.get_pack_mut(&added_pack) {
-        pack.index(!no_thumbnail)?;
+        pack.index(sender, !no_thumbnail)?;
     }
 
     debug!("Attempting to save asset library");
@@ -188,14 +189,15 @@ fn execute_index(
             .context("Failed to load asset packs")?;
     }
 
+    let (sender, _receiver) = utils::command_queue();
     if let Some(id) = id {
         asset_library
             .get_pack_mut(&id)
             .with_context(|| format!("Failed to get pack with id '{id}'"))?
-            .index(generate_thumbnails)?;
+            .index(sender, generate_thumbnails)?;
     } else {
         asset_library
-            .index(generate_thumbnails)
+            .index(&sender, generate_thumbnails)
             .context("Failed to index asset packs")?;
     }
 
