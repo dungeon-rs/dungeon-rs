@@ -48,6 +48,8 @@ impl SaveProjectEvent {
 }
 
 /// Bevy system that handles [`SaveProjectEvent`] events.
+///
+/// TODO: add error reporting
 #[utils::bevy_system]
 pub fn handle_save_project(
     mut commands: Commands,
