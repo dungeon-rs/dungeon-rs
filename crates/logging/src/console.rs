@@ -50,6 +50,7 @@ pub fn console_logging(
 }
 
 /// Generates a new `ProgressBar` that is tracked by the `MultiProgress`.
+#[must_use]
 #[inline(always)]
 #[allow(
     clippy::inline_always,
