@@ -1,9 +1,9 @@
 //! Implementation of the `assets` subcommand.
 
+use crate::utilities;
 use anyhow::{Context, bail};
 use assets::{AssetLibrary, AssetPackIndexCompletedEvent, AssetPackIndexProgressEvent};
-use bevy::ecs::world::CommandQueue;
-use bevy::prelude::{Events, World, debug, info};
+use bevy::prelude::{World, debug, info};
 use clap::Subcommand;
 use logging::{MultiProgress, console_progress};
 use std::collections::HashMap;
@@ -93,7 +93,7 @@ pub fn execute(
             name,
             no_index,
             no_thumbnail,
-        } => execute_add(library, &path, name, no_index, no_thumbnail),
+        } => execute_add(library, &path, name, no_index, multi_progress, no_thumbnail),
         Commands::Remove { id } => execute_remove(library, &id),
         Commands::Index { pack, thumbnails } => {
             execute_index(library, pack, multi_progress, thumbnails)
@@ -136,6 +136,7 @@ fn execute_add(
     path: &Path,
     name: Option<String>,
     no_index: bool,
+    multi_progress: MultiProgress,
     no_thumbnail: bool,
 ) -> anyhow::Result<()> {
     debug!("Attempting to load asset library");
@@ -146,9 +147,30 @@ fn execute_add(
         .add_pack(path, None, name.clone())
         .context("Failed to add asset pack to asset library")?;
 
-    let (sender, _receiver) = utils::command_queue();
     if !no_index && let Some(pack) = asset_library.get_pack_mut(&added_pack) {
+        let progress = console_progress(&multi_progress);
+
+        let (sender, thread) = utilities::track_progress(
+            |event: AssetPackIndexProgressEvent, progress| {
+                progress.set_length(event.total as u64);
+                progress.set_position(event.current as u64);
+                Ok(())
+            },
+            |_event: AssetPackIndexCompletedEvent, progress| {
+                progress.finish();
+
+                Ok(())
+            },
+            progress,
+            Duration::from_secs(3),
+        );
+
         pack.index(sender, !no_thumbnail)?;
+
+        thread
+            .join()
+            .expect("Failed to join progress reporting thread")
+            .expect("Progress reporting thread failed");
     }
 
     debug!("Attempting to save asset library");
@@ -200,40 +222,20 @@ fn execute_index(
         progresses.insert(id.clone(), console_progress(&multi_progress));
     }
 
-    let (sender, receiver) = utils::command_queue();
-    let thread = std::thread::spawn(move || {
-        let mut world = World::default();
-        world.init_resource::<Events<AssetPackIndexProgressEvent>>();
-        world.init_resource::<Events<AssetPackIndexCompletedEvent>>();
-
-        loop {
-            let mut queue = match receiver.recv_timeout(Duration::from_secs(3)) {
-                Ok(queue) => queue,
-                Err(error) => bail!("Timeout while waiting for index events {}", error),
-            };
-
-            queue.apply(&mut world);
-            let mut progress_events = world
-                .get_resource_mut::<Events<AssetPackIndexProgressEvent>>()
-                .expect("Failed to get progress events");
-
-            for event in progress_events.drain() {
-                let progress = &progresses[&event.id];
-                progress.set_length(event.total as u64);
-                progress.set_position(event.current as u64);
-            }
-
-            queue.apply(&mut world);
-            let mut completed_events = world
-                .get_resource_mut::<Events<AssetPackIndexCompletedEvent>>()
-                .expect("Failed to get completed events");
-            for event in completed_events.drain() {
-                progresses[&event.id].finish();
-
-                return Ok(());
-            }
-        }
-    });
+    let (sender, thread) = utilities::track_progress(
+        |event: AssetPackIndexProgressEvent, progresses| {
+            let progress = &progresses[&event.id];
+            progress.set_length(event.total as u64);
+            progress.set_position(event.current as u64);
+            Ok(())
+        },
+        |event: AssetPackIndexCompletedEvent, progresses| {
+            progresses[&event.id].finish();
+            Ok(())
+        },
+        progresses,
+        Duration::from_secs(3),
+    );
 
     if let Some(id) = id {
         asset_library

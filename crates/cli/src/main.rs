@@ -1,6 +1,7 @@
 #![doc = include_str!("../README.md")]
 
 mod commands;
+mod utilities;
 
 use crate::commands::Commands;
 use assets::AssetPlugin;

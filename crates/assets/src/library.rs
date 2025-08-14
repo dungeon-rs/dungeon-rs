@@ -349,6 +349,8 @@ impl AssetLibrary {
         let _ = info_span!("index_library").entered();
 
         for pack in self.loaded_packs.values() {
+            info!("Starting indexation of {}", pack.id);
+
             pack.index(sender.clone(), generate_thumbnails)?;
         }
 
