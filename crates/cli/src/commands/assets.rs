@@ -1,11 +1,14 @@
 //! Implementation of the `assets` subcommand.
 
 use anyhow::{Context, bail};
-use assets::AssetLibrary;
-use bevy::prelude::{World, debug, info};
+use assets::{AssetLibrary, AssetPackIndexCompletedEvent, AssetPackIndexProgressEvent};
+use bevy::ecs::world::CommandQueue;
+use bevy::prelude::{Events, World, debug, info};
 use clap::Subcommand;
-use logging::MultiProgress;
+use logging::{MultiProgress, console_progress};
+use std::collections::HashMap;
 use std::path::{Path, PathBuf};
+use std::time::Duration;
 
 /// Manage asset library and packs
 #[derive(Debug, clap::Args)]
@@ -80,7 +83,7 @@ pub enum Commands {
 pub fn execute(
     Args { command, library }: Args,
     _world: &mut World,
-    _cmulti_progress: MultiProgress,
+    multi_progress: MultiProgress,
 ) -> anyhow::Result<()> {
     match command {
         Commands::List => execute_list(library),
@@ -92,7 +95,9 @@ pub fn execute(
             no_thumbnail,
         } => execute_add(library, &path, name, no_index, no_thumbnail),
         Commands::Remove { id } => execute_remove(library, &id),
-        Commands::Index { pack, thumbnails } => execute_index(library, pack, thumbnails),
+        Commands::Index { pack, thumbnails } => {
+            execute_index(library, pack, multi_progress, thumbnails)
+        }
         Commands::Query { query, max_amount } => execute_query(library, query, max_amount),
     }
 }
@@ -176,6 +181,7 @@ fn execute_remove(library: Option<PathBuf>, id: &String) -> anyhow::Result<()> {
 fn execute_index(
     library: Option<PathBuf>,
     id: Option<String>,
+    multi_progress: MultiProgress,
     generate_thumbnails: bool,
 ) -> anyhow::Result<()> {
     let mut asset_library = AssetLibrary::load(library).context("Failed to load asset library")?;
@@ -189,7 +195,46 @@ fn execute_index(
             .context("Failed to load asset packs")?;
     }
 
-    let (sender, _receiver) = utils::command_queue();
+    let mut progresses = HashMap::new();
+    for (id, _) in asset_library.iter() {
+        progresses.insert(id.clone(), console_progress(&multi_progress));
+    }
+
+    let (sender, receiver) = utils::command_queue();
+    let thread = std::thread::spawn(move || {
+        let mut world = World::default();
+        world.init_resource::<Events<AssetPackIndexProgressEvent>>();
+        world.init_resource::<Events<AssetPackIndexCompletedEvent>>();
+
+        loop {
+            let mut queue = match receiver.recv_timeout(Duration::from_secs(3)) {
+                Ok(queue) => queue,
+                Err(error) => bail!("Timeout while waiting for index events {}", error),
+            };
+
+            queue.apply(&mut world);
+            let mut progress_events = world
+                .get_resource_mut::<Events<AssetPackIndexProgressEvent>>()
+                .expect("Failed to get progress events");
+
+            for event in progress_events.drain() {
+                let progress = &progresses[&event.id];
+                progress.set_length(event.total as u64);
+                progress.set_position(event.current as u64);
+            }
+
+            queue.apply(&mut world);
+            let mut completed_events = world
+                .get_resource_mut::<Events<AssetPackIndexCompletedEvent>>()
+                .expect("Failed to get completed events");
+            for event in completed_events.drain() {
+                progresses[&event.id].finish();
+
+                return Ok(());
+            }
+        }
+    });
+
     if let Some(id) = id {
         asset_library
             .get_pack_mut(&id)
@@ -201,6 +246,10 @@ fn execute_index(
             .context("Failed to index asset packs")?;
     }
 
+    thread
+        .join()
+        .expect("Failed to join progress reporting thread")
+        .expect("Progress reporting thread failed");
     Ok(())
 }
 

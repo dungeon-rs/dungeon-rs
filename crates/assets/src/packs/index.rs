@@ -4,7 +4,7 @@
 use crate::packs::thumbnails::{AssetPackThumbnailError, AssetPackThumbnails};
 use crate::scripting::IndexEntry;
 use bevy::ecs::world::CommandQueue;
-use bevy::prelude::{info_span, trace, warn};
+use bevy::prelude::{Event, info_span, trace, warn};
 use rhai::{AST, Array, Engine, OptimizationLevel, Scope};
 use std::fmt::{Display, Formatter};
 use std::path::{Path, PathBuf};
@@ -13,7 +13,7 @@ use tantivy::query::{QueryParser, QueryParserError, TermQuery};
 use tantivy::schema::{Field, IndexRecordOption, STORED, STRING, Schema, TEXT, Value};
 use tantivy::{Index, IndexWriter, TantivyDocument, TantivyError, Term, doc};
 use thiserror::Error;
-use utils::{Sender, file_name};
+use utils::{Sender, file_name, report_progress};
 use walkdir::WalkDir;
 
 /// The default script for filtering when no custom script was passed into the `AssetPack`.
@@ -91,6 +91,24 @@ pub struct AssetPackSearchResult {
     thumbnail: Field,
 }
 
+/// An event emitted when indexing an asset pack progresses.
+#[derive(Event)]
+pub struct AssetPackIndexProgressEvent {
+    /// The ID of the [`crate::AssetPack`] being indexed.
+    pub id: String,
+    /// The number of processed entries finished.
+    pub current: usize,
+    /// The total number of entries that need to be processed in this pack.
+    pub total: usize,
+}
+
+/// An event emitted when indexing an asset pack is completed.
+#[derive(Event)]
+pub struct AssetPackIndexCompletedEvent {
+    /// The ID of the [`crate::AssetPack`] being indexed.
+    pub id: String,
+}
+
 impl AssetPackIndex {
     /// Create a new index in the given `path`.
     ///
@@ -151,17 +169,18 @@ impl AssetPackIndex {
         thumbnails: Option<&AssetPackThumbnails>,
         filter_script: Option<&String>,
         index_script: Option<&String>,
-        _sender: Sender<CommandQueue>,
+        sender: Sender<CommandQueue>,
     ) -> Result<(), AssetPackIndexError> {
         let walker = WalkDir::new(index_root);
         let (engine, filter_script, index_script) = Self::scripting(filter_script, index_script)?;
         let mut scope = Scope::new();
 
+        let total_amount = WalkDir::new(index_root).into_iter().count();
         let span = info_span!(
             "indexing",
             id = id,
             path = index_root.to_path_buf().display().to_string(),
-            length = WalkDir::new(index_root).into_iter().count() as u64
+            length = total_amount as u64
         );
         let _guard = span.enter();
 
@@ -174,14 +193,21 @@ impl AssetPackIndex {
             .delete_all_documents()
             .map_err(|error| AssetPackIndexError::Index(index_root.to_path_buf(), error))?;
 
-        #[allow(unused_variables, reason = "Pending implementation of #79")]
-        let mut current: u64 = 0;
+        let mut current: usize = 0;
         #[allow(
             clippy::explicit_counter_loop,
             reason = "The suggested syntax reads very awkward and is just obtuse for no reason"
         )]
         for entry in walker.sort_by_file_name().into_iter().flatten() {
             current += 1;
+            let _ = report_progress(
+                &sender,
+                AssetPackIndexProgressEvent {
+                    id: id.clone(),
+                    current,
+                    total: total_amount,
+                },
+            );
 
             let Some(file_name) = file_name(entry.path()) else {
                 warn!(
@@ -263,6 +289,7 @@ impl AssetPackIndex {
         writer
             .commit()
             .map_err(|error| AssetPackIndexError::Index(index_root.to_path_buf(), error))?;
+        let _ = report_progress(&sender, AssetPackIndexCompletedEvent { id: id.clone() });
         Ok(())
     }
 

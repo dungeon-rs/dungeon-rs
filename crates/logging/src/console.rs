@@ -5,6 +5,7 @@
 
 use bevy::log::BoxedLayer;
 pub use indicatif::MultiProgress;
+use indicatif::ProgressBar;
 use std::io;
 use tracing_subscriber::fmt::{MakeWriter, layer};
 use tracing_subscriber::layer::SubscriberExt;
@@ -46,6 +47,16 @@ pub fn console_logging(
     tracing::dispatcher::set_global_default(subscriber.with(layer).into())?;
 
     Ok(console.progress)
+}
+
+/// Generates a new `ProgressBar` that is tracked by the `MultiProgress`.
+#[inline(always)]
+#[allow(
+    clippy::inline_always,
+    reason = "This method is simply a wrapper around MultiProgress::add"
+)]
+pub fn console_progress(writer: &MultiProgress) -> ProgressBar {
+    writer.add(ProgressBar::new(0))
 }
 
 impl<'a> MakeWriter<'a> for IndicatifWriter {

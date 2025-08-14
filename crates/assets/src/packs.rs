@@ -4,7 +4,10 @@ mod index;
 mod thumbnails;
 
 use crate::packs::index::{AssetPackIndex, AssetPackIndexError};
-pub use crate::packs::index::{AssetPackSearchError, AssetPackSearchResult};
+pub use crate::packs::index::{
+    AssetPackIndexCompletedEvent, AssetPackIndexProgressEvent, AssetPackSearchError,
+    AssetPackSearchResult,
+};
 use crate::packs::thumbnails::{AssetPackThumbnailError, AssetPackThumbnails};
 use bevy::ecs::world::CommandQueue;
 use bevy::prelude::{Asset, AssetServer, Handle, debug, debug_span, info, trace};
