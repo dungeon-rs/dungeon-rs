@@ -351,7 +351,7 @@ impl AssetLibrary {
         for pack in self.loaded_packs.values() {
             info!("Starting indexation of {}", pack.id);
 
-            pack.index(sender.clone(), generate_thumbnails)?;
+            pack.index(sender, generate_thumbnails)?;
         }
 
         Ok(())

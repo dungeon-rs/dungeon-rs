@@ -39,7 +39,7 @@ fn main() -> anyhow::Result<()> {
         .add_plugins(AssetPlugin);
 
     match args.command {
-        Commands::Assets(args) => commands::assets::execute(args, app.world_mut(), progress)?,
+        Commands::Assets(args) => commands::assets::execute(args, app.world_mut(), &progress)?,
     }
 
     Ok(())

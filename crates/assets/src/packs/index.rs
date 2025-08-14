@@ -102,6 +102,17 @@ pub struct AssetPackIndexProgressEvent {
     pub total: usize,
 }
 
+/// An event emitted when indexing an entry in an asset pack fails.
+#[derive(Event)]
+pub struct AssetPackIndexErrorEvent {
+    /// The ID of the [`crate::AssetPack`] being indexed.
+    pub id: String,
+    /// The entry that caused indexing to fail.
+    pub entry: PathBuf,
+    /// The error that caused indexing to fail.
+    pub error: AssetPackIndexError,
+}
+
 /// An event emitted when indexing an asset pack is completed.
 #[derive(Event)]
 pub struct AssetPackIndexCompletedEvent {
@@ -169,7 +180,7 @@ impl AssetPackIndex {
         thumbnails: Option<&AssetPackThumbnails>,
         filter_script: Option<&String>,
         index_script: Option<&String>,
-        sender: Sender<CommandQueue>,
+        sender: &Sender<CommandQueue>,
     ) -> Result<(), AssetPackIndexError> {
         let walker = WalkDir::new(index_root);
         let (engine, filter_script, index_script) = Self::scripting(filter_script, index_script)?;
@@ -200,96 +211,129 @@ impl AssetPackIndex {
         )]
         for entry in walker.sort_by_file_name().into_iter().flatten() {
             current += 1;
-            let _ = report_progress(
-                &sender,
-                AssetPackIndexProgressEvent {
-                    id: id.clone(),
-                    current,
-                    total: total_amount,
-                },
-            );
 
-            let Some(file_name) = file_name(entry.path()) else {
-                warn!(
-                    "Automatically skipping invalid entry: '{path:?}', this is most likely a bug.",
-                    path = entry.path()
-                );
-                continue;
+            let _ = match self.index_entry(
+                entry.path(),
+                &engine,
+                &mut scope,
+                &filter_script,
+                &index_script,
+                index_root,
+                &writer,
+                thumbnails,
+            ) {
+                Ok(()) => report_progress(
+                    sender,
+                    AssetPackIndexProgressEvent {
+                        id: id.clone(),
+                        current,
+                        total: total_amount,
+                    },
+                ),
+                Err(error) => report_progress(
+                    sender,
+                    AssetPackIndexErrorEvent {
+                        id: id.clone(),
+                        entry: entry.path().to_path_buf(),
+                        error,
+                    },
+                ),
             };
-
-            if file_name == super::MANIFEST_FILE_NAME {
-                trace!("Skipping configuration file");
-                continue;
-            } else if !engine
-                .call_fn::<bool>(&mut scope, &filter_script, "filter", (file_name.clone(),))
-                .map_err(|error| AssetPackIndexError::RunScript("filter", error.to_string()))?
-            {
-                trace!(
-                    "Skipping {path} because filter script returned false",
-                    path = entry.path().display()
-                );
-                continue;
-            } else if !entry.path().is_file() {
-                trace!(
-                    "Skipping {path} because it's not a file",
-                    path = entry.path().display()
-                );
-
-                continue;
-            } else if !AssetPackThumbnails::is_supported(entry.path()) {
-                warn!(
-                    "Skipping {path} because it's format is not supported by thumbnail generation",
-                    path = entry.path().display()
-                );
-
-                continue;
-            }
-
-            {
-                // Explicitly cast to an `Array` to avoid interop problems
-                let components: Array = index_root
-                    .components()
-                    .map(|c| c.as_os_str().to_string_lossy().to_string().into())
-                    .collect::<Vec<_>>();
-
-                let result = engine
-                    .call_fn::<IndexEntry>(
-                        &mut scope,
-                        &index_script,
-                        "index",
-                        (file_name, components),
-                    )
-                    .map_err(|error| AssetPackIndexError::RunScript("index", error.to_string()))?;
-
-                trace!(
-                    "Indexing {entry} as {result:?}",
-                    entry = entry.path().display(),
-                    result = result
-                );
-
-                let thumbnail_id = result.thumbnail.as_str().to_string();
-                writer
-                    .add_document(self.to_document(result, entry.path()))
-                    .map_err(|error| {
-                        AssetPackIndexError::Index(entry.path().to_path_buf(), error)
-                    })?;
-
-                if let Some(thumbnails) = thumbnails {
-                    trace!("Generating thumbnail for {}", entry.path().display());
-
-                    thumbnails
-                        .generate(entry.path(), thumbnail_id)
-                        .map_err(|error| {
-                            AssetPackIndexError::Thumbnail(entry.path().to_path_buf(), error)
-                        })?;
-                }
-            }
         }
 
         writer
             .commit()
             .map_err(|error| AssetPackIndexError::Index(index_root.to_path_buf(), error))?;
-        let _ = report_progress(&sender, AssetPackIndexCompletedEvent { id: id.clone() });
+        let _ = report_progress(sender, AssetPackIndexCompletedEvent { id: id.clone() });
+        Ok(())
+    }
+
+    /// Internal method that performs the actual indexing
+    ///
+    /// By wrapping this in a separate method, it's easier to capture and report which entry caused
+    /// indexing to fail.
+    ///
+    /// # Errors
+    /// see [`AssetPackIndex::index`].
+    #[allow(
+        clippy::too_many_arguments,
+        reason = "This method needs to pass in the required scope arguments."
+    )]
+    fn index_entry(
+        &self,
+        path: &Path,
+        engine: &Engine,
+        scope: &mut Scope,
+        filter_script: &AST,
+        index_script: &AST,
+        index_root: &Path,
+        writer: &IndexWriter,
+        thumbnails: Option<&AssetPackThumbnails>,
+    ) -> Result<(), AssetPackIndexError> {
+        let Some(file_name) = file_name(path) else {
+            warn!("Automatically skipping invalid entry: '{path:?}', this is most likely a bug.");
+
+            return Ok(());
+        };
+
+        if file_name == super::MANIFEST_FILE_NAME {
+            trace!("Skipping configuration file");
+
+            return Ok(());
+        } else if !engine
+            .call_fn::<bool>(scope, filter_script, "filter", (file_name.clone(),))
+            .map_err(|error| AssetPackIndexError::RunScript("filter", error.to_string()))?
+        {
+            trace!(
+                "Skipping {path} because filter script returned false",
+                path = path.display()
+            );
+            return Ok(());
+        } else if !path.is_file() {
+            trace!(
+                "Skipping {path} because it's not a file",
+                path = path.display()
+            );
+
+            return Ok(());
+        } else if !AssetPackThumbnails::is_supported(path) {
+            warn!(
+                "Skipping {path} because it's format is not supported by thumbnail generation",
+                path = path.display()
+            );
+
+            return Ok(());
+        }
+
+        // Explicitly cast to an `Array` to avoid interop problems
+        let components: Array = index_root
+            .components()
+            .map(|c| c.as_os_str().to_string_lossy().to_string().into())
+            .collect::<Vec<_>>();
+
+        let result = engine
+            .call_fn::<IndexEntry>(scope, index_script, "index", (file_name, components))
+            .map_err(|error| AssetPackIndexError::RunScript("index", error.to_string()))?;
+
+        trace!(
+            "Indexing {entry} as {result:?}",
+            entry = path.display(),
+            result = result
+        );
+
+        let thumbnail_id = result.thumbnail.as_str().to_string();
+        writer
+            .add_document(self.to_document(result, path))
+            .map_err(|error| AssetPackIndexError::Index(path.to_path_buf(), error))?;
+
+        if let Some(thumbnails) = thumbnails {
+            trace!("Generating thumbnail for {}", path.display());
+
+            thumbnails
+                .generate(path, thumbnail_id)
+                .map_err(|error| AssetPackIndexError::Thumbnail(path.to_path_buf(), error))?;
+        }
+
         Ok(())
     }
 

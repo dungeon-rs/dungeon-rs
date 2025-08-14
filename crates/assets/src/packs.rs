@@ -5,8 +5,8 @@ mod thumbnails;
 
 use crate::packs::index::{AssetPackIndex, AssetPackIndexError};
 pub use crate::packs::index::{
-    AssetPackIndexCompletedEvent, AssetPackIndexProgressEvent, AssetPackSearchError,
-    AssetPackSearchResult,
+    AssetPackIndexCompletedEvent, AssetPackIndexErrorEvent, AssetPackIndexProgressEvent,
+    AssetPackSearchError, AssetPackSearchResult,
 };
 use crate::packs::thumbnails::{AssetPackThumbnailError, AssetPackThumbnails};
 use bevy::ecs::world::CommandQueue;
@@ -254,7 +254,7 @@ impl AssetPack {
     )]
     pub fn index(
         &self,
-        sender: Sender<CommandQueue>,
+        sender: &Sender<CommandQueue>,
         generate_thumbnails: bool,
     ) -> Result<(), AssetPackError> {
         self.index

@@ -15,9 +15,13 @@ use std::rc::Rc;
 /// You can pass in arguments required within the closures through `TContext`.
 ///
 /// This method allows calling `AsyncComponent` compatible methods from the CLI.
-pub fn track_progress<TProgress, TFProgress, TComplete, TFComplete, TContext>(
+///
+/// # Panics
+/// This method may cause panics when it fails to resolve the resources it needs to read events.
+pub fn track_progress<TProgress, TFProgress, TComplete, TFComplete, TError, TFError, TContext>(
     on_progress: TFProgress,
     on_complete: TFComplete,
+    on_error: TFError,
     context: TContext,
     timeout: Duration,
 ) -> (Sender<CommandQueue>, JoinHandle<Result<(), anyhow::Error>>)
@@ -26,6 +30,8 @@ where
     TFProgress: Fn(TProgress, Rc<TContext>) -> anyhow::Result<()> + Send + 'static,
     TComplete: Event,
     TFComplete: FnOnce(TComplete, Rc<TContext>) -> anyhow::Result<()> + Send + 'static,
+    TError: Event,
+    TFError: Fn(TError, Rc<TContext>) -> anyhow::Result<()> + Send + 'static,
     TContext: Send + 'static,
 {
     let (sender, receiver) = utils::command_queue();
@@ -34,6 +40,7 @@ where
         let mut world = World::default();
         world.init_resource::<Events<TProgress>>();
         world.init_resource::<Events<TComplete>>();
+        world.init_resource::<Events<TError>>();
 
         let context = Rc::new(context);
 
@@ -54,12 +61,21 @@ where
                 on_progress(event, Rc::clone(&context))?;
             }
 
+            // Process error events
+            let mut error_events = world
+                .get_resource_mut::<Events<TError>>()
+                .expect("Failed to get error events");
+
+            for event in error_events.drain() {
+                on_error(event, Rc::clone(&context))?;
+            }
+
             // Process completion events
             let mut completed_events = world
                 .get_resource_mut::<Events<TComplete>>()
                 .expect("Failed to get completed events");
 
-            for event in completed_events.drain() {
+            if let Some(event) = completed_events.drain().next() {
                 return on_complete(event, context);
             }
         }

@@ -2,8 +2,11 @@
 
 use crate::utilities;
 use anyhow::{Context, bail};
-use assets::{AssetLibrary, AssetPackIndexCompletedEvent, AssetPackIndexProgressEvent};
-use bevy::prelude::{World, debug, info};
+use assets::{
+    AssetLibrary, AssetPackIndexCompletedEvent, AssetPackIndexErrorEvent,
+    AssetPackIndexProgressEvent,
+};
+use bevy::prelude::{World, debug, info, warn};
 use clap::Subcommand;
 use logging::{MultiProgress, console_progress};
 use std::collections::HashMap;
@@ -83,7 +86,7 @@ pub enum Commands {
 pub fn execute(
     Args { command, library }: Args,
     _world: &mut World,
-    multi_progress: MultiProgress,
+    multi_progress: &MultiProgress,
 ) -> anyhow::Result<()> {
     match command {
         Commands::List => execute_list(library),
@@ -131,12 +134,15 @@ fn execute_cleanup(path: Option<PathBuf>) -> anyhow::Result<()> {
 ///
 /// # Errors
 /// Return an error when the asset library fails to load.
+///
+/// # Panics
+/// This method may panic when the thread for reading events fails.
 fn execute_add(
     library: Option<PathBuf>,
     path: &Path,
     name: Option<String>,
     no_index: bool,
-    multi_progress: MultiProgress,
+    multi_progress: &MultiProgress,
     no_thumbnail: bool,
 ) -> anyhow::Result<()> {
     debug!("Attempting to load asset library");
@@ -148,7 +154,7 @@ fn execute_add(
         .context("Failed to add asset pack to asset library")?;
 
     if !no_index && let Some(pack) = asset_library.get_pack_mut(&added_pack) {
-        let progress = console_progress(&multi_progress);
+        let progress = console_progress(multi_progress);
 
         let (sender, thread) = utilities::track_progress(
             |event: AssetPackIndexProgressEvent, progress| {
@@ -161,11 +167,20 @@ fn execute_add(
 
                 Ok(())
             },
+            |event: AssetPackIndexErrorEvent, _progress| {
+                warn!(
+                    "Failed to index entry: {path}: {error}",
+                    path = event.entry.display(),
+                    error = event.error
+                );
+
+                Ok(())
+            },
             progress,
             Duration::from_secs(3),
         );
 
-        pack.index(sender, !no_thumbnail)?;
+        pack.index(&sender, !no_thumbnail)?;
 
         thread
             .join()
@@ -200,10 +215,13 @@ fn execute_remove(library: Option<PathBuf>, id: &String) -> anyhow::Result<()> {
 ///
 /// # Errors
 /// Return an error when the asset library fails to load.
+///
+/// # Panics
+/// This method may panic when the thread for reading events fails.
 fn execute_index(
     library: Option<PathBuf>,
     id: Option<String>,
-    multi_progress: MultiProgress,
+    multi_progress: &MultiProgress,
     generate_thumbnails: bool,
 ) -> anyhow::Result<()> {
     let mut asset_library = AssetLibrary::load(library).context("Failed to load asset library")?;
@@ -219,7 +237,7 @@ fn execute_index(
 
     let mut progresses = HashMap::new();
     for (id, _) in asset_library.iter() {
-        progresses.insert(id.clone(), console_progress(&multi_progress));
+        progresses.insert(id.clone(), console_progress(multi_progress));
     }
 
     let (sender, thread) = utilities::track_progress(
@@ -233,6 +251,15 @@ fn execute_index(
             progresses[&event.id].finish();
             Ok(())
         },
+        |event: AssetPackIndexErrorEvent, _progresses| {
+            warn!(
+                "Failed to index entry: {path}: {error}",
+                path = event.entry.display(),
+                error = event.error
+            );
+
+            Ok(())
+        },
         progresses,
         Duration::from_secs(3),
     );
@@ -241,7 +268,7 @@ fn execute_index(
         asset_library
             .get_pack_mut(&id)
             .with_context(|| format!("Failed to get pack with id '{id}'"))?
-            .index(sender, generate_thumbnails)?;
+            .index(&sender, generate_thumbnails)?;
     } else {
         asset_library
             .index(&sender, generate_thumbnails)
