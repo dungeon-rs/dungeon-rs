@@ -4,8 +4,12 @@ mod index;
 mod thumbnails;
 
 use crate::packs::index::{AssetPackIndex, AssetPackIndexError};
-pub use crate::packs::index::{AssetPackSearchError, AssetPackSearchResult};
+pub use crate::packs::index::{
+    AssetPackIndexCompletedEvent, AssetPackIndexErrorEvent, AssetPackIndexProgressEvent,
+    AssetPackSearchError, AssetPackSearchResult,
+};
 use crate::packs::thumbnails::{AssetPackThumbnailError, AssetPackThumbnails};
+use bevy::ecs::world::CommandQueue;
 use bevy::prelude::{Asset, AssetServer, Handle, debug, debug_span, info, trace};
 use serialization::{Deserialize, SerializationFormat, Serialize, deserialize, serialize_to};
 use std::fs::{File, create_dir_all};
@@ -13,7 +17,7 @@ use std::io::read_to_string;
 use std::path::Path;
 use std::path::PathBuf;
 use thiserror::Error;
-use utils::file_name;
+use utils::{Sender, file_name};
 
 /// The filename of the asset pack manifests.
 const MANIFEST_FILE_NAME: &str = "asset_pack.toml";
@@ -248,7 +252,11 @@ impl AssetPack {
         clippy::inline_always,
         reason = "Wrapper function for AssetPackIndex::index"
     )]
-    pub fn index(&self, generate_thumbnails: bool) -> Result<(), AssetPackError> {
+    pub fn index(
+        &self,
+        sender: &Sender<CommandQueue>,
+        generate_thumbnails: bool,
+    ) -> Result<(), AssetPackError> {
         self.index
             .index(
                 &self.id,
@@ -260,6 +268,7 @@ impl AssetPack {
                 },
                 self.index_script.as_ref(),
                 self.filter_script.as_ref(),
+                sender,
             )
             .map_err(AssetPackError::Indexing)
     }

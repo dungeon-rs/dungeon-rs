@@ -1,11 +1,17 @@
 //! Implementation of the `assets` subcommand.
 
+use crate::utilities;
 use anyhow::{Context, bail};
-use assets::AssetLibrary;
-use bevy::prelude::{World, debug, info};
+use assets::{
+    AssetLibrary, AssetPackIndexCompletedEvent, AssetPackIndexErrorEvent,
+    AssetPackIndexProgressEvent,
+};
+use bevy::prelude::{World, debug, info, warn};
 use clap::Subcommand;
-use logging::MultiProgress;
+use logging::{MultiProgress, console_progress};
+use std::collections::HashMap;
 use std::path::{Path, PathBuf};
+use std::time::Duration;
 
 /// Manage asset library and packs
 #[derive(Debug, clap::Args)]
@@ -80,7 +86,7 @@ pub enum Commands {
 pub fn execute(
     Args { command, library }: Args,
     _world: &mut World,
-    _cmulti_progress: MultiProgress,
+    multi_progress: &MultiProgress,
 ) -> anyhow::Result<()> {
     match command {
         Commands::List => execute_list(library),
@@ -90,9 +96,11 @@ pub fn execute(
             name,
             no_index,
             no_thumbnail,
-        } => execute_add(library, &path, name, no_index, no_thumbnail),
+        } => execute_add(library, &path, name, no_index, multi_progress, no_thumbnail),
         Commands::Remove { id } => execute_remove(library, &id),
-        Commands::Index { pack, thumbnails } => execute_index(library, pack, thumbnails),
+        Commands::Index { pack, thumbnails } => {
+            execute_index(library, pack, multi_progress, thumbnails)
+        }
         Commands::Query { query, max_amount } => execute_query(library, query, max_amount),
     }
 }
@@ -126,11 +134,15 @@ fn execute_cleanup(path: Option<PathBuf>) -> anyhow::Result<()> {
 ///
 /// # Errors
 /// Return an error when the asset library fails to load.
+///
+/// # Panics
+/// This method may panic when the thread for reading events fails.
 fn execute_add(
     library: Option<PathBuf>,
     path: &Path,
     name: Option<String>,
     no_index: bool,
+    multi_progress: &MultiProgress,
     no_thumbnail: bool,
 ) -> anyhow::Result<()> {
     debug!("Attempting to load asset library");
@@ -142,7 +154,38 @@ fn execute_add(
         .context("Failed to add asset pack to asset library")?;
 
     if !no_index && let Some(pack) = asset_library.get_pack_mut(&added_pack) {
-        pack.index(!no_thumbnail)?;
+        let progress = console_progress(multi_progress);
+
+        let (sender, thread) = utilities::track_progress(
+            |event: AssetPackIndexProgressEvent, progress| {
+                progress.set_length(event.total as u64);
+                progress.set_position(event.current as u64);
+                Ok(())
+            },
+            |_event: AssetPackIndexCompletedEvent, progress| {
+                progress.finish();
+
+                Ok(())
+            },
+            |event: AssetPackIndexErrorEvent, _progress| {
+                warn!(
+                    "Failed to index entry: {path}: {error}",
+                    path = event.entry.display(),
+                    error = event.error
+                );
+
+                Ok(())
+            },
+            progress,
+            Duration::from_secs(3),
+        );
+
+        pack.index(&sender, !no_thumbnail)?;
+
+        thread
+            .join()
+            .expect("Failed to join progress reporting thread")
+            .expect("Progress reporting thread failed");
     }
 
     debug!("Attempting to save asset library");
@@ -172,9 +215,13 @@ fn execute_remove(library: Option<PathBuf>, id: &String) -> anyhow::Result<()> {
 ///
 /// # Errors
 /// Return an error when the asset library fails to load.
+///
+/// # Panics
+/// This method may panic when the thread for reading events fails.
 fn execute_index(
     library: Option<PathBuf>,
     id: Option<String>,
+    multi_progress: &MultiProgress,
     generate_thumbnails: bool,
 ) -> anyhow::Result<()> {
     let mut asset_library = AssetLibrary::load(library).context("Failed to load asset library")?;
@@ -188,17 +235,50 @@ fn execute_index(
             .context("Failed to load asset packs")?;
     }
 
+    let mut progresses = HashMap::new();
+    for (id, _) in asset_library.iter() {
+        progresses.insert(id.clone(), console_progress(multi_progress));
+    }
+
+    let (sender, thread) = utilities::track_progress(
+        |event: AssetPackIndexProgressEvent, progresses| {
+            let progress = &progresses[&event.id];
+            progress.set_length(event.total as u64);
+            progress.set_position(event.current as u64);
+            Ok(())
+        },
+        |event: AssetPackIndexCompletedEvent, progresses| {
+            progresses[&event.id].finish();
+            Ok(())
+        },
+        |event: AssetPackIndexErrorEvent, _progresses| {
+            warn!(
+                "Failed to index entry: {path}: {error}",
+                path = event.entry.display(),
+                error = event.error
+            );
+
+            Ok(())
+        },
+        progresses,
+        Duration::from_secs(3),
+    );
+
     if let Some(id) = id {
         asset_library
             .get_pack_mut(&id)
             .with_context(|| format!("Failed to get pack with id '{id}'"))?
-            .index(generate_thumbnails)?;
+            .index(&sender, generate_thumbnails)?;
     } else {
         asset_library
-            .index(generate_thumbnails)
+            .index(&sender, generate_thumbnails)
             .context("Failed to index asset packs")?;
     }
 
+    thread
+        .join()
+        .expect("Failed to join progress reporting thread")
+        .expect("Progress reporting thread failed");
     Ok(())
 }
 
