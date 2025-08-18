@@ -296,13 +296,6 @@ impl AssetPackIndex {
             );
 
             return Ok(());
-        } else if !AssetPackThumbnails::is_supported(path) {
-            warn!(
-                "Skipping {path} because it's format is not supported by thumbnail generation",
-                path = path.display()
-            );
-
-            return Ok(());
         }
 
         // Explicitly cast to an `Array` to avoid interop problems
@@ -327,11 +320,13 @@ impl AssetPackIndex {
             .map_err(|error| AssetPackIndexError::Index(path.to_path_buf(), error))?;
 
         if let Some(thumbnails) = thumbnails {
-            trace!("Generating thumbnail for {}", path.display());
+            if AssetPackThumbnails::is_supported(path) {
+                trace!("Generating thumbnail for {}", path.display());
 
-            thumbnails
-                .generate(path, thumbnail_id)
-                .map_err(|error| AssetPackIndexError::Thumbnail(path.to_path_buf(), error))?;
+                thumbnails
+                    .generate(path, thumbnail_id)
+                    .map_err(|error| AssetPackIndexError::Thumbnail(path.to_path_buf(), error))?;
+            }
         }
 
         Ok(())
