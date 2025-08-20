@@ -24,7 +24,7 @@ jobs:
   check-advisories:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: dtolnay/rust-toolchain@stable
 
       - uses: taiki-e/install-action@v2
@@ -37,7 +37,7 @@ jobs:
   check-bans:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: dtolnay/rust-toolchain@stable
 
       - uses: taiki-e/install-action@v2
@@ -50,7 +50,7 @@ jobs:
   check-licenses:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: dtolnay/rust-toolchain@stable
 
       - uses: taiki-e/install-action@v2
@@ -63,7 +63,7 @@ jobs:
   check-sources:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: dtolnay/rust-toolchain@stable
 
       - uses: taiki-e/install-action@v2
@@ -76,7 +76,7 @@ jobs:
   unused-dependencies:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: dtolnay/rust-toolchain@stable
 
       - uses: taiki-e/install-action@v2
