@@ -3,9 +3,9 @@
 
 mod panic;
 
-use std::path::PathBuf;
 use assets::AssetPlugin;
 use clap::Parser;
+use std::path::PathBuf;
 
 use bevy::prelude::*;
 use config::Configuration;
