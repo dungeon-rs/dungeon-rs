@@ -84,10 +84,10 @@ pub fn resource_path() -> Result<PathBuf, DirectoryError> {
 
             if cargo_toml.exists() {
                 // Check if this is a workspace root by reading the file
-                if let Ok(content) = std::fs::read_to_string(&cargo_toml) {
-                    if content.contains("[workspace]") {
-                        return Ok(ancestor.to_path_buf());
-                    }
+                if let Ok(content) = std::fs::read_to_string(&cargo_toml)
+                    && content.contains("[workspace]")
+                {
+                    return Ok(ancestor.to_path_buf());
                 }
             }
         }

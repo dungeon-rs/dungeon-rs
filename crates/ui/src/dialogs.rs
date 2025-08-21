@@ -26,16 +26,16 @@ impl Dialogs {
     ///
     /// Also removes dialogs that indicated they shouldn't be kept open.
     pub fn render(&mut self, context: &mut Context) {
-        if let Some(new_project) = self.new_project.as_mut() {
-            if !new_project.render(context) {
-                self.new_project = None;
-            }
+        if let Some(new_project) = self.new_project.as_mut()
+            && !new_project.render(context)
+        {
+            self.new_project = None;
         }
 
-        if let Some(open_project) = self.open_project.as_mut() {
-            if !open_project.render(context) {
-                self.open_project = None;
-            }
+        if let Some(open_project) = self.open_project.as_mut()
+            && !open_project.render(context)
+        {
+            self.open_project = None;
         }
     }
 
