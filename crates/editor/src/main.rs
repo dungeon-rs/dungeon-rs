@@ -4,6 +4,8 @@
 mod panic;
 
 use assets::AssetPlugin;
+use clap::Parser;
+use std::path::PathBuf;
 
 use bevy::prelude::*;
 use config::Configuration;
@@ -12,6 +14,14 @@ use io::IOPlugin;
 use logging::log_plugin;
 use ui::UIPlugin;
 
+/// Arguments for running the editor.
+#[derive(Debug, Parser)]
+struct Args {
+    /// Optionally, specify a configuration file to use.
+    #[clap(short, long)]
+    config_file: Option<PathBuf>,
+}
+
 /// Main entry point for the editor.
 ///
 /// # Panics
@@ -19,7 +29,9 @@ use ui::UIPlugin;
 /// circumstances for when Bevy panics can be found in Bevy's documentation.
 fn main() -> AppExit {
     panic::register_panic_handler();
-    let config = match Configuration::load() {
+
+    let args = Args::parse();
+    let config = match Configuration::load(args.config_file) {
         Ok(cfg) => cfg,
         Err(err) => panic!("Failed to load configuration: {err:?}"),
     };
