@@ -23,6 +23,7 @@ config = { workspace = true }
 logging = { workspace = true }
 bevy = { workspace = true }
 native-dialog = { workspace = true }
+clap = { workspace = true }
 sysinfo = { version = "0.37.0", default-features = false, features = ["system"] }
 
 [target.'cfg(target_os = "windows")'.build-dependencies]

@@ -14,6 +14,9 @@ use utils::config_path;
 /// Configuration for the `DungeonRS` application.
 #[derive(Resource, Debug, Serialize, Deserialize)]
 pub struct Configuration {
+    /// The path to the configuration file. If not set, it falls back to the default location.
+    #[serde(skip)]
+    file: Option<PathBuf>,
     /// The version of the software that created the configuration file.
     pub version: Version,
     /// The language identifier that the application should use when displaying text.
@@ -41,6 +44,7 @@ const CONFIG_FILE_NAME: &str = "config.toml";
 impl Default for Configuration {
     fn default() -> Self {
         Self {
+            file: None,
             version: utils::version().clone(),
             language: None,
             recents: Vec::new(),
@@ -61,18 +65,30 @@ impl Configuration {
     /// The method will return an error in two scenarios:
     /// - The application failed to retrieve the config path (see [`utils::config_path`]
     /// - The config file failed to deserialise
-    pub fn load() -> anyhow::Result<Self> {
-        let mut path = config_path().with_context(|| "Failed to get configuration path")?;
-        path.push(CONFIG_FILE_NAME); // and add the config file name
-        let Ok(mut file) = File::open(path) else {
+    pub fn load(config_file: Option<PathBuf>) -> anyhow::Result<Self> {
+        let path = match config_file {
+            Some(path) => path,
+            None => config_path()
+                .with_context(|| "Failed to get configuration path")?
+                .join(CONFIG_FILE_NAME),
+        };
+
+        let Ok(mut file) = File::open(path.clone()) else {
             // If the file doesn't exist, return the default configuration.
-            return Ok(Self::default());
+            return Ok(Self {
+                file: Some(path),
+                ..Default::default()
+            });
         };
 
         let mut buffer = Vec::new();
         file.read_to_end(&mut buffer)?;
 
         deserialize::<Self>(&buffer, &SerializationFormat::Toml)
+            .map(|config| Self {
+                file: Some(path),
+                ..config
+            })
             .with_context(|| "Failed to deserialize config file")
     }
 
@@ -83,10 +99,14 @@ impl Configuration {
     ///   or `File::create` fails.
     /// - [`serialization::SerializationError`] Thrown when a serialisation-related error occurs.
     pub fn save(&self) -> anyhow::Result<()> {
-        let mut path = config_path().with_context(|| "Failed to get configuration path")?;
-        path.push(CONFIG_FILE_NAME); // and add the config file name
-        let file = File::create(path).with_context(|| "Failed to create config file")?;
+        let path = match &self.file {
+            Some(path) => path.clone(),
+            None => config_path()
+                .with_context(|| "Failed to get configuration path")?
+                .join(CONFIG_FILE_NAME),
+        };
 
+        let file = File::create(path).with_context(|| "Failed to create config file")?;
         serialize_to(&self, &SerializationFormat::Toml, file)?;
         Ok(())
     }
