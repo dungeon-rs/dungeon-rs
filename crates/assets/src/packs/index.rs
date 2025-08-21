@@ -319,14 +319,14 @@ impl AssetPackIndex {
             .add_document(self.to_document(result, path))
             .map_err(|error| AssetPackIndexError::Index(path.to_path_buf(), error))?;
 
-        if let Some(thumbnails) = thumbnails {
-            if AssetPackThumbnails::is_supported(path) {
-                trace!("Generating thumbnail for {}", path.display());
+        if let Some(thumbnails) = thumbnails
+            && AssetPackThumbnails::is_supported(path)
+        {
+            trace!("Generating thumbnail for {}", path.display());
 
-                thumbnails
-                    .generate(path, thumbnail_id)
-                    .map_err(|error| AssetPackIndexError::Thumbnail(path.to_path_buf(), error))?;
-            }
+            thumbnails
+                .generate(path, thumbnail_id)
+                .map_err(|error| AssetPackIndexError::Thumbnail(path.to_path_buf(), error))?;
         }
 
         Ok(())
