@@ -2291,6 +2291,7 @@ checksum = "49e2be082f77715496b4a39fdc6f5dc7491fefe2833111781b8697ea6ee919a7"
 dependencies = [
  "accesskit 0.19.0",
  "ahash",
+ "backtrace",
  "bitflags 2.9.1",
  "emath",
  "epaint",
@@ -5824,7 +5825,6 @@ dependencies = [
  "egui-notify",
  "egui_dock",
  "i18n",
- "native-dialog",
  "utils",
 ]
 

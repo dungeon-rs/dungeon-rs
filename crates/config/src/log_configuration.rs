@@ -42,7 +42,9 @@ pub struct LogConfiguration {
 impl Default for LogConfiguration {
     fn default() -> Self {
         Self {
-            filter: String::from("io=trace"),
+            filter: String::from(
+                "assets=trace,cli=trace,config=trace,data=trace,editor=trace,i18n=trace,io=trace,logging=trace,ui=trace,utils=trace",
+            ),
             level: String::from("info"),
             output: None,
             write_file: true,

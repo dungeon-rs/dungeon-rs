@@ -2,8 +2,8 @@
 
 use crate::camera::{camera_control_system, setup_ui_camera};
 use crate::layout::render_editor_layout;
-use crate::notifications::Notifications;
 use crate::state::UiState;
+use crate::widgets::notifications::Notifications;
 use bevy::app::App;
 use bevy::prelude::{Plugin, PostUpdate, Startup};
 use bevy_egui::{EguiPlugin, EguiPrimaryContextPass};
