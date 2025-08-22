@@ -1,6 +1,10 @@
 //! A thin wrapper around the `egui-notify` crate to integrate it into Bevy's ECS.
 //!
 //! An additional benefit of this wrapper is we can switch to a different implementation later.
+#![allow(
+    unused,
+    reason = "Code that uses notifications is still in development."
+)]
 
 use bevy::prelude::Resource;
 use egui::{Context, WidgetText};

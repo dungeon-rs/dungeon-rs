@@ -1,9 +1,8 @@
 //! Top level module for declaring the editor layout.
 //! This is shown when the user is actively editing a project.
 
-use crate::widgets::notifications::Notifications;
+use crate::panels;
 use ::assets::AssetLibrary;
-use bevy::prelude::info;
 use egui::{Ui, WidgetText};
 use egui_dock::TabViewer;
 use i18n::t;
@@ -32,9 +31,6 @@ pub enum EditorPanels {
 /// Contains the data structures that are available to the [`TabViewer`] when rendering the editor layout.
 /// See [`EditorLayout::ui`] in particular.
 pub struct EditorLayout<'a> {
-    /// The notifications resource to dispatch toasts in the UI
-    pub notifications: &'a mut Notifications,
-
     /// The asset library resource for querying and modifying assets.
     pub asset_library: &'a mut AssetLibrary,
 }
@@ -64,10 +60,10 @@ impl TabViewer for EditorLayout<'_> {
                 // the Bevy camera to only render to this. That would prevent the camera shifting around
                 // when we move the pane.
             }
-            _ => {} // EditorPanels::Assets => assets::render(self, ui),
-                    // EditorPanels::Layers => layers::render(self, ui),
-                    // EditorPanels::Levels => levels::render(self, ui),
-                    // EditorPanels::Settings => settings::render(self, ui),
+            EditorPanels::Assets => panels::assets(ui, self.asset_library),
+            EditorPanels::Layers => panels::layers(ui),
+            EditorPanels::Levels => panels::levels(ui),
+            EditorPanels::Settings => panels::settings(ui),
         }
     }
 

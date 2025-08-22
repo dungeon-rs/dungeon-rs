@@ -37,7 +37,6 @@ pub fn render_editor_layout(
     // construct an `EditorLayout` using our mutable world reference for rendering.
     // the `EditorLayout` struct has a strict lifetime bound to this scope and may not leak.
     let mut viewer = EditorLayout {
-        notifications: notifications.as_mut(),
         asset_library: asset_library.as_mut(),
     };
 
