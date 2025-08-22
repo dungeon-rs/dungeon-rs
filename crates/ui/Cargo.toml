@@ -22,8 +22,6 @@ bevy = { workspace = true, features = ["bevy_core_pipeline", "bevy_window", "bev
 egui_dock = "0.17.0"
 egui-notify = "0.20.0"
 native-dialog = { workspace = true }
-egui_form = { version = "0.6.0", features = ["validator_garde"] }
-garde = { version = "0.22.0", features = ["derive"] }
 
 [features]
 default = []
