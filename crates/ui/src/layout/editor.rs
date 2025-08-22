@@ -1,8 +1,9 @@
 //! Top level module for declaring the editor layout.
 //! This is shown when the user is actively editing a project.
 
-use crate::notifications::Notifications;
+use crate::widgets::notifications::Notifications;
 use ::assets::AssetLibrary;
+use bevy::prelude::info;
 use egui::{Ui, WidgetText};
 use egui_dock::TabViewer;
 use i18n::t;
