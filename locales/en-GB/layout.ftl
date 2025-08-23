@@ -1,7 +1,8 @@
 # Format: {domain}-{component}-{element}-{variant}
 
 layout-tabs-editor = Editor
-layout-tabs-assets = Asset Library
+layout-tabs-assetlibrary = Asset Library
+layout-tabs-assetbrowser = Asset Browser
 layout-tabs-layers = Layers
 layout-tabs-levels = Levels
 layout-tabs-settings = Settings

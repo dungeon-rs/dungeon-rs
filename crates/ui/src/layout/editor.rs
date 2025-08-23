@@ -16,7 +16,10 @@ pub enum EditorPanels {
     Editor,
 
     /// Shows the assets available in the currently selected libraries.
-    Assets,
+    AssetLibrary,
+
+    /// Shows the assets available in the currently selected libraries.
+    AssetBrowser,
 
     /// Shows the layers available in the currently selected level.
     Layers,
@@ -41,7 +44,8 @@ impl TabViewer for EditorLayout<'_> {
     fn title(&mut self, tab: &mut Self::Tab) -> WidgetText {
         match tab {
             EditorPanels::Editor => t!("layout-tabs-editor"),
-            EditorPanels::Assets => t!("layout-tabs-assets"),
+            EditorPanels::AssetLibrary => t!("layout-tabs-assetlibrary"),
+            EditorPanels::AssetBrowser => t!("layout-tabs-assetbrowser"),
             EditorPanels::Layers => t!("layout-tabs-layers"),
             EditorPanels::Levels => t!("layout-tabs-levels"),
             EditorPanels::Settings => t!("layout-tabs-settings"),
@@ -60,7 +64,8 @@ impl TabViewer for EditorLayout<'_> {
                 // the Bevy camera to only render to this. That would prevent the camera shifting around
                 // when we move the pane.
             }
-            EditorPanels::Assets => panels::assets(ui, self.asset_library),
+            EditorPanels::AssetLibrary => panels::asset_library(ui, self.asset_library),
+            EditorPanels::AssetBrowser => panels::asset_browser(ui, self.asset_library),
             EditorPanels::Layers => panels::layers(ui),
             EditorPanels::Levels => panels::levels(ui),
             EditorPanels::Settings => panels::settings(ui),
