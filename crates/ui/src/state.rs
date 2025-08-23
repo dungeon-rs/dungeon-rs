@@ -20,7 +20,11 @@ impl Default for UiState {
     fn default() -> Self {
         let mut state = DockState::new(vec![EditorPanels::Editor]);
         let surface = state.main_surface_mut();
-        let [_, _assets] = surface.split_below(NodeIndex::root(), 0.9, vec![EditorPanels::Assets]);
+        let [_, _assets] = surface.split_below(
+            NodeIndex::root(),
+            0.9,
+            vec![EditorPanels::AssetLibrary, EditorPanels::AssetBrowser],
+        );
         let [_, layers] = surface.split_right(
             NodeIndex::root(),
             0.8,
