@@ -67,12 +67,12 @@ impl TabViewer for EditorLayout<'_> {
         }
     }
 
-    fn closeable(&mut self, _tab: &mut Self::Tab) -> bool {
+    fn is_closeable(&self, _tab: &Self::Tab) -> bool {
         false
     }
 
-    fn allowed_in_windows(&self, _tab: &mut Self::Tab) -> bool {
-        false
+    fn allowed_in_windows(&self, tab: &mut Self::Tab) -> bool {
+        !matches!(tab, EditorPanels::Editor)
     }
 
     fn clear_background(&self, tab: &Self::Tab) -> bool {
