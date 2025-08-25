@@ -11,18 +11,34 @@ use crate::state::UiState;
 use crate::widgets::notifications::Notifications;
 use crate::widgets::{status_bar, toolbar};
 use ::assets::AssetLibrary;
-use bevy::prelude::{BevyError, ResMut, debug_span};
+use bevy::prelude::{BevyError, ResMut, Single, debug_span};
 use bevy_egui::EguiContexts;
+use data::ProjectQuery;
 use egui_dock::{DockArea, Style};
 
-/// This system is responsible for rendering all UI elements.
+/// This system is responsible for rendering the splash screen, which is shown when no project is
+/// loaded and the editor is waiting for something to work on.
+#[utils::bevy_system]
+pub fn render_splash_screen(mut contexts: EguiContexts) -> Result<(), BevyError> {
+    let _ = debug_span!("render_splash_screen").entered();
+    let context = contexts.ctx_mut()?;
+
+    egui::Window::new("Splash Screen").show(context, |ui| {
+        ui.label("Welcome to DungeonRS!");
+    });
+
+    Ok(())
+}
+
+/// This system is responsible for rendering the editor layout.
 ///
-/// Depending on the current UI state, it will render splash screens, editors, loading, and so forth.
+/// Note that this system will only run if there is a loaded project (due to `Single<ProjectQuery>`).
 #[utils::bevy_system]
 pub fn render_editor_layout(
     mut contexts: EguiContexts,
     mut notifications: ResMut<Notifications>,
     mut asset_library: ResMut<AssetLibrary>,
+    project: Single<ProjectQuery>,
     mut state: ResMut<UiState>,
 ) -> Result<(), BevyError> {
     let _ = debug_span!("render_editor_layout").entered();

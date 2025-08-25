@@ -16,7 +16,7 @@ use bevy::prelude::{Children, Entity, Name, Query, Transform, Visibility};
 #[derive(QueryData)]
 pub struct ProjectQuery {
     /// The entity ID of the project
-    entity: Entity,
+    pub entity: Entity,
     /// The human-readable name of the project
     pub name: &'static Name,
     /// Child entities (levels) belonging to this project
@@ -115,6 +115,18 @@ pub struct DungeonQueries<'w, 's> {
     pub layers: Query<'w, 's, LayerQuery>,
     /// Query for all element entities in the world
     pub elements: Query<'w, 's, ElementQuery>,
+}
+
+impl LevelQueryItem<'_> {
+    /// Returns whether the layer is visible or not.
+    #[inline]
+    #[must_use]
+    pub fn is_visible(&self) -> bool {
+        match self.visibility {
+            Visibility::Inherited | Visibility::Hidden => false,
+            Visibility::Visible => true,
+        }
+    }
 }
 
 impl DungeonQueries<'_, '_> {
