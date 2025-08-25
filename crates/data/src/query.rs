@@ -117,6 +117,18 @@ pub struct DungeonQueries<'w, 's> {
     pub elements: Query<'w, 's, ElementQuery>,
 }
 
+impl LevelQueryItem<'_> {
+    /// Returns whether the layer is visible or not.
+    #[inline]
+    #[must_use]
+    pub fn is_visible(&self) -> bool {
+        match self.visibility {
+            Visibility::Inherited | Visibility::Hidden => false,
+            Visibility::Visible => true,
+        }
+    }
+}
+
 impl DungeonQueries<'_, '_> {
     /// Get all levels that belong to a specific project.
     ///

@@ -5821,6 +5821,7 @@ dependencies = [
  "assets",
  "bevy",
  "bevy_egui",
+ "data",
  "egui",
  "egui-notify",
  "egui_dock",
