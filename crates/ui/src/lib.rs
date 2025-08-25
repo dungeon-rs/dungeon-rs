@@ -1,10 +1,10 @@
 #![doc = include_str!("../README.md")]
 
 mod camera;
-mod dialogs;
 mod layout;
-mod notifications;
+mod panels;
 mod plugin;
 mod state;
+mod widgets;
 
 pub use plugin::UIPlugin;
