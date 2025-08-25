@@ -18,10 +18,12 @@ features:
 test:
     cargo nextest run --all-features --cargo-profile=fast
     cargo nextest run --all-features --cargo-profile=fast --benches
+    cargo test --workspace --profile=fast --doc
 [windows]
 test:
     cargo nextest run --all-features
     cargo nextest run --all-features --benches
+    cargo test --workspace --doc
 
 # Run linters
 [linux, macos]
