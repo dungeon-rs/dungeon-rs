@@ -1,5 +1,6 @@
 //! Defines the [`Layer`] struct and it's implementations.
-use bevy::prelude::{Bundle, Component, Name, Transform, Visibility};
+use bevy::prelude::SpawnRelated;
+use bevy::prelude::{Bundle, Component, Name, Transform, Visibility, children};
 use std::borrow::Cow;
 
 /// A [`Layer`] represents a distinct editing plane within a [`crate::Level`], allowing elements to be
@@ -47,6 +48,6 @@ impl Layer {
     #[allow(clippy::new_ret_no_self)]
     #[must_use = "Layer won't be added to the world unless spawned"]
     pub fn new(name: impl Into<Cow<'static, str>>, transform: Transform) -> impl Bundle {
-        (Name::new(name), Layer {}, transform)
+        (Name::new(name), Layer {}, transform, children![])
     }
 }

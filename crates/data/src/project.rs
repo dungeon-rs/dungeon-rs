@@ -1,4 +1,6 @@
 //! Defines the [`Project`] struct and it's implementations.
+use bevy::ecs::children;
+use bevy::prelude::SpawnRelated;
 use bevy::prelude::{Bundle, Component, Name, Transform, Visibility};
 use std::borrow::Cow;
 
@@ -45,6 +47,6 @@ impl Project {
     #[allow(clippy::new_ret_no_self)]
     #[must_use = "Project won't be added to the world unless spawned"]
     pub fn new(name: impl Into<Cow<'static, str>>) -> impl Bundle {
-        (Name::new(name), Project {})
+        (Name::new(name), Project {}, children![])
     }
 }

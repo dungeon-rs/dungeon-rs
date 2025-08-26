@@ -1,5 +1,6 @@
 //! Defines the [`Level`] struct and it's implementations.
-use bevy::prelude::{Bundle, Component, Name, Transform, Visibility};
+use bevy::prelude::SpawnRelated;
+use bevy::prelude::{Bundle, Component, Name, Transform, Visibility, children};
 use std::borrow::Cow;
 
 /// A [`Level`] indicates a single visible subset of a map, most commonly used to represent
@@ -45,6 +46,6 @@ impl Level {
     #[allow(clippy::new_ret_no_self)]
     #[must_use = "Level won't be added to the world unless spawned"]
     pub fn new(name: impl Into<Cow<'static, str>>) -> impl Bundle {
-        (Name::new(name), Level {})
+        (Name::new(name), Level {}, children![])
     }
 }
