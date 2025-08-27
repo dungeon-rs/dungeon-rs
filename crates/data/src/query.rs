@@ -245,13 +245,16 @@ mod tests {
     use super::*;
     use bevy::ecs::system::SystemState;
     use bevy::prelude::{Commands, World};
+    use std::path::PathBuf;
 
     fn create_test_hierarchy(world: &mut World) -> (Entity, Entity, Entity, Entity) {
         let mut system_state: SystemState<Commands> = SystemState::new(world);
         let mut commands = system_state.get_mut(world);
 
         // Create project
-        let project_entity = commands.spawn(Project::new("Test Project")).id();
+        let project_entity = commands
+            .spawn(Project::new(PathBuf::new(), "Test Project"))
+            .id();
 
         // Create level
         let level_entity = commands
@@ -431,7 +434,9 @@ mod tests {
         let mut commands = system_state.get_mut(&mut world);
 
         // Create a project with multiple levels
-        let project_entity = commands.spawn(Project::new("Multi-Level Project")).id();
+        let project_entity = commands
+            .spawn(Project::new(PathBuf::new(), "Multi-Level Project"))
+            .id();
         let level1_entity = commands
             .spawn((Level::new("Level 1"), Children::default()))
             .id();

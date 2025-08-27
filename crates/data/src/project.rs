@@ -1,6 +1,7 @@
 //! Defines the [`Project`] struct and it's implementations.
 use bevy::prelude::{Bundle, Component, Name, Transform, Visibility};
 use std::borrow::Cow;
+use std::path::PathBuf;
 
 /// Top level component in the hierarchy used by `DungeonRS` to identify components that relate to the
 /// map the user is editing. In short, only components under this [`Project`] component will be considered
@@ -14,7 +15,12 @@ use std::borrow::Cow;
 #[derive(Component)]
 #[component(immutable)]
 #[require(Transform::from_xyz(0.0, 0.0, 0.0), Visibility::default())]
-pub struct Project;
+pub struct Project {
+    /// The path to the file that this project is associated with.
+    ///
+    /// Note that this file may or may not exist (for example if the project was created but not saved).
+    pub file: PathBuf,
+}
 
 impl Project {
     /// Generates a new [`Bundle`] with a project to indicate the start of a hierarchy under which
@@ -29,6 +35,7 @@ impl Project {
     /// Here's how to spawn a simple `Project` named "Roadside Inn"
     ///
     /// ```
+    /// # use std::path::PathBuf;
     /// # use bevy::prelude::*;
     /// # use data::Project;
     /// #
@@ -39,12 +46,13 @@ impl Project {
     /// # }
     /// #
     /// # fn spawn_project(mut commands: Commands) {
-    ///     commands.spawn(Project::new("Roadside Inn"));
+    /// #   let output = PathBuf::new();
+    ///     commands.spawn(Project::new(output, "Roadside Inn"));
     /// # }
     /// ```
     #[allow(clippy::new_ret_no_self)]
     #[must_use = "Project won't be added to the world unless spawned"]
-    pub fn new(name: impl Into<Cow<'static, str>>) -> impl Bundle {
-        (Name::new(name), Project {})
+    pub fn new(file: PathBuf, name: impl Into<Cow<'static, str>>) -> impl Bundle {
+        (Name::new(name), Project { file })
     }
 }
