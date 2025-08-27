@@ -16,13 +16,13 @@ use bevy::prelude::{Children, Entity, Name, Query, Transform, Visibility};
 #[derive(QueryData)]
 pub struct ProjectQuery {
     /// The entity ID of the project
-    entity: Entity,
+    pub entity: Entity,
     /// The human-readable name of the project
     pub name: &'static Name,
     /// Child entities (levels) belonging to this project
-    children: &'static Children,
+    pub children: &'static Children,
     /// The project-specific component data
-    project: &'static Project,
+    pub project: &'static Project,
 }
 
 /// A query for level entities, containing all necessary components to work with levels
@@ -39,7 +39,7 @@ pub struct LevelQuery {
     /// The human-readable name of the level
     pub name: &'static Name,
     /// Child entities (layers) belonging to this level
-    children: &'static Children,
+    pub children: &'static Children,
     /// Whether this level is currently visible/enabled
     visibility: &'static Visibility,
 }
@@ -60,7 +60,7 @@ pub struct LayerQuery {
     /// The spatial transformation (position, rotation, scale) of the layer
     pub transform: &'static Transform,
     /// Child entities (elements) belonging to this layer
-    children: &'static Children,
+    pub children: &'static Children,
     /// Whether this layer is currently visible/enabled
     visibility: &'static Visibility,
 }
@@ -75,7 +75,7 @@ pub struct ElementQuery {
     /// The entity ID of the element
     entity: Entity,
     /// The element-specific component data
-    element: &'static Element,
+    pub element: &'static Element,
     /// The human-readable name of the element
     pub name: &'static Name,
     /// The spatial transformation (position, rotation, scale) of the element

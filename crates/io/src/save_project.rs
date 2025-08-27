@@ -1,11 +1,8 @@
 //! Contains the events for saving projects and their handling systems.
 use crate::document::Document;
 use anyhow::Context;
-use bevy::prelude::{
-    BevyError, Children, Entity, Event, EventReader, Name, Query, Transform, With,
-};
-use bevy::prelude::{Commands, default};
-use data::{Element, Layer, Level, Project};
+use bevy::prelude::{BevyError, Commands, Entity, Event, EventReader, Query, default};
+use data::{ElementQuery, LayerQuery, LevelQuery, ProjectQuery};
 use serialization::serialize_to;
 use std::{fs::File, path::PathBuf};
 use utils::{AsyncComponent, report_progress};
@@ -54,10 +51,10 @@ impl SaveProjectEvent {
 pub fn handle_save_project(
     mut commands: Commands,
     mut events: EventReader<SaveProjectEvent>,
-    project_query: Query<(&Name, &Children), With<Project>>,
-    level_query: Query<(&Level, &Name, &Children)>,
-    layer_query: Query<(&Layer, &Name, &Transform, &Children)>,
-    object_query: Query<(&Element, &Name, &Transform)>,
+    project_query: Query<ProjectQuery>,
+    level_query: Query<LevelQuery>,
+    layer_query: Query<LayerQuery>,
+    object_query: Query<ElementQuery>,
 ) -> Result<(), BevyError> {
     let Some(event) = events.read().next() else {
         return Ok(());
@@ -67,7 +64,7 @@ pub fn handle_save_project(
 
     let entity = event.project;
     let output = event.output.clone();
-    let document = Document::new(project, level_query, layer_query, object_query);
+    let document = Document::new(&project, level_query, layer_query, object_query);
     commands.spawn(AsyncComponent::new_io(
         async move |sender| {
             let file = File::create(output.clone()).with_context(|| {
