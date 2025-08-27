@@ -29,6 +29,7 @@ dev = [
   "assets/dev",
   "utils/dev",
   "i18n/dev",
+  "data/dev",
   "egui/deadlock_detection",
   "egui/log",
   "egui/callstack"
