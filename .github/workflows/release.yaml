@@ -159,7 +159,7 @@ jobs:
 
       - name: Setup ImageMagick
         if: ${{ matrix.platform == 'macos' }}
-        uses: mfinelli/setup-imagemagick@v6
+        uses: mfinelli/setup-imagemagick@v7
 
       - name: Update version to ${{ needs.changelog.outputs.version }} in Cargo.toml
         shell: pwsh
