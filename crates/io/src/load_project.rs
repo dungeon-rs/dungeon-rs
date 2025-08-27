@@ -34,7 +34,7 @@ pub fn handle_load_project_event(
         .with_context(|| format!("Failed to parse project file '{}'", event.input.display()))?;
 
     commands
-        .spawn(Project::new(project.name))
+        .spawn(Project::new(event.input.clone(), project.name))
         .with_children(|commands| {
             for level in project.levels {
                 commands

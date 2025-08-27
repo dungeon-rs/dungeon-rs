@@ -180,12 +180,13 @@ mod tests {
     use bevy::ecs::system::SystemState;
     use bevy::prelude::*;
     use data::{Layer, Level, Project};
+    use std::path::PathBuf;
 
     #[test]
     pub fn document_new() -> anyhow::Result<()> {
         let mut world = World::default();
         world.spawn((
-            Project::new("Example Project"),
+            Project::new(PathBuf::new(), "Example Project"),
             children![(
                 Level::new("First Level"),
                 children![(
