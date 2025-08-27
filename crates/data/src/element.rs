@@ -23,6 +23,7 @@ use bevy::prelude::Visibility;
 /// # use data::Level;
 /// # use data::Layer;
 /// # use data::Element;
+/// # use std::path::PathBuf;
 /// #
 /// # fn main() {
 /// #   App::new()
@@ -31,15 +32,16 @@ use bevy::prelude::Visibility;
 /// # }
 /// #
 /// # fn spawn_project(mut commands: Commands) {
+/// #   let output = PathBuf::new();
 ///     commands.spawn((
-///         Project::new("Roadside Inn"),
+///         Project::new(output, "Roadside Inn"),
 ///         children![(
 ///             Level::new("Ground Floor"),
 ///             children![(
 ///                 Layer::new("Walls", Transform::IDENTITY),
-///                 children![(
+///                 children![
 ///                     Element::new_object(String::from("<hash-of-resolvable-asset")),
-///                 )]
+///                 ]
 ///             )]
 ///         )]
 ///     ));

@@ -26,6 +26,7 @@ impl Level {
     /// # use bevy::prelude::*;
     /// # use data::Project;
     /// # use data::Level;
+    /// # use std::path::PathBuf;
     /// #
     /// # fn main() {
     /// #   App::new()
@@ -34,8 +35,9 @@ impl Level {
     /// # }
     /// #
     /// # fn spawn_project(mut commands: Commands) {
+    /// #   let output = PathBuf::new();
     ///     commands.spawn((
-    ///         Project::new("Roadside Inn"),
+    ///         Project::new(output, "Roadside Inn"),
     ///         children![
     ///             Level::new("Ground Floor")
     ///         ]
