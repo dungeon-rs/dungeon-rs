@@ -2,18 +2,17 @@
 //! from storage. This module is intentionally not made public, since these structs have no use
 //! beyond persistence and should not be used outside this scope.
 
+use bevy::ecs::{relationship::RelationshipTarget, system::Query};
 use bevy::prelude::{Quat, Vec3};
-use bevy::{
-    ecs::{relationship::RelationshipTarget, system::Query},
-    prelude::{Children, Name},
-    transform::components::Transform,
+use data::{
+    Element, ElementQuery, ElementQueryItem, LayerQuery, LayerQueryItem, LevelQuery,
+    LevelQueryItem, ProjectQueryItem,
 };
-use data::{Element, Layer, Level};
 use serialization::{Deserialize, Serialize};
 
 /// A [`Document`] represents a [`data::Project`] (and it's children) that is written to or read from storage.
 ///
-/// It's an intentionally simplified representation of the ECS datastructure optimised for serialisation.
+/// It's an intentionally simplified representation of the ECS data structure optimised for serialisation.
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Document {
     /// See `name` in [`data::Project::new`].
@@ -25,7 +24,7 @@ pub struct Document {
 /// A [`DocumentLevel`] represents a [`data::Level`] (and it's children) that is written to or read
 /// from storage.
 ///
-/// It's an intentionally simplified representation of the ECS datastructure optimised for serialisation.
+/// It's an intentionally simplified representation of the ECS data structure optimised for serialisation.
 #[derive(Debug, Serialize, Deserialize)]
 pub struct DocumentLevel {
     /// See `name` in [`data::Level::new`].
@@ -37,7 +36,7 @@ pub struct DocumentLevel {
 /// A [`DocumentLayer`] represents a [`data::Layer`] (and it's children) that is written to or read
 /// from storage.
 ///
-/// It's an intentionally simplified representation of the ECS datastructure optimised for serialisation.
+/// It's an intentionally simplified representation of the ECS data structure optimised for serialisation.
 #[derive(Debug, Serialize, Deserialize)]
 pub struct DocumentLayer {
     /// See `name` in [`data::Layer::new`].
@@ -72,27 +71,27 @@ impl Document {
     /// Generate a new [`Document`] and it's related children based on the current state (fetched
     /// through the `level_query` and `layer_query` queries).
     ///
-    /// The `value` parameter is the result of a [`bevy::prelude::Query`] to fetch the relevant
+    /// The `value` parameter is the result of a [`data::ProjectQuery`] to fetch the relevant
     /// data for the [`data::Project`] component.
     ///
     /// See [`DocumentLevel::new`] for `level_query`.
     ///
     /// See [`DocumentLayer::new`] for `layer_query`.
     pub fn new(
-        value: (&Name, &Children),
-        level_query: Query<(&Level, &Name, &Children)>,
-        layer_query: Query<(&Layer, &Name, &Transform, &Children)>,
-        object_query: Query<(&Element, &Name, &Transform)>,
+        value: &ProjectQueryItem,
+        level_query: Query<LevelQuery>,
+        layer_query: Query<LayerQuery>,
+        object_query: Query<ElementQuery>,
     ) -> Self {
         let levels: Vec<DocumentLevel> = value
-            .1
+            .children
             .iter()
             .flat_map(|pc| level_query.get(pc))
-            .map(|lvl| DocumentLevel::new(lvl, layer_query, object_query))
+            .map(|lvl| DocumentLevel::new(&lvl, layer_query, object_query))
             .collect();
 
         Self {
-            name: value.0.to_string(),
+            name: value.name.to_string(),
             levels,
         }
     }
@@ -102,25 +101,25 @@ impl DocumentLevel {
     /// Generate a new [`DocumentLevel`] and it's related children based on the current state
     /// (fetched through the `layer_query`).
     ///
-    /// The `value` parameter is the result of a [`bevy::prelude::Query`] to fetch the relevant
+    /// The `value` parameter is the result of a [`data::LevelQuery`] to fetch the relevant
     /// data for the [`data::Level`], and is usually passed from [`Document::new`].
     ///
     /// See [`Document::new`] for how this is called.
     ///
     /// See [`DocumentLayer::new`] for `layer_query`.
     pub fn new(
-        value: (&Level, &Name, &Children),
-        layer_query: Query<(&Layer, &Name, &Transform, &Children)>,
-        object_query: Query<(&Element, &Name, &Transform)>,
+        value: &LevelQueryItem,
+        layer_query: Query<LayerQuery>,
+        object_query: Query<ElementQuery>,
     ) -> Self {
         let layers = value
-            .2
+            .children
             .iter()
             .flat_map(|c| layer_query.get(c))
-            .map(|value| DocumentLayer::new(value, object_query))
+            .map(|value| DocumentLayer::new(&value, object_query))
             .collect();
         Self {
-            name: value.1.to_string(),
+            name: value.name.to_string(),
             layers,
         }
     }
@@ -132,20 +131,17 @@ impl DocumentLayer {
     /// TODO: fetch child `items`.
     ///
     /// See [`DocumentLevel::new`] for how this is called.
-    pub fn new(
-        value: (&Layer, &Name, &Transform, &Children),
-        object_query: Query<(&Element, &Name, &Transform)>,
-    ) -> Self {
+    pub fn new(value: &LayerQueryItem, object_query: Query<ElementQuery>) -> Self {
         let items: Vec<DocumentItem> = value
-            .3
+            .children
             .iter()
             .flat_map(|c| object_query.get(c))
-            .map(DocumentItem::new)
+            .map(|item| DocumentItem::new(&item))
             .collect();
 
         Self {
-            name: value.1.to_string(),
-            order: value.2.translation.z,
+            name: value.name.to_string(),
+            order: value.transform.translation.z,
             items,
         }
     }
@@ -156,13 +152,13 @@ impl DocumentItem {
     ///
     /// # Panics
     /// This method can panic if the [`data::Element`] is an unsupported type.
-    pub fn new(value: (&Element, &Name, &Transform)) -> Self {
-        match value.0 {
+    pub fn new(value: &ElementQueryItem) -> Self {
+        match value.element {
             Element::Object(object) => DocumentItem::Object {
                 id: object.clone(),
-                translation: value.2.translation,
-                rotation: value.2.rotation,
-                scale: value.2.scale,
+                translation: value.transform.translation,
+                rotation: value.transform.rotation,
+                scale: value.transform.scale,
             },
             _ => panic!("DocumentItem::new called with unsupported Element type"),
         }
@@ -179,13 +175,14 @@ mod tests {
     use super::*;
     use bevy::ecs::system::SystemState;
     use bevy::prelude::*;
-    use data::{Layer, Level, Project};
+    use data::{Layer, Level, Project, ProjectQuery};
+    use std::path::PathBuf;
 
     #[test]
     pub fn document_new() -> anyhow::Result<()> {
         let mut world = World::default();
         world.spawn((
-            Project::new("Example Project"),
+            Project::new(PathBuf::new(), "Example Project"),
             children![(
                 Level::new("First Level"),
                 children![(
@@ -200,15 +197,15 @@ mod tests {
         ));
 
         let mut system_state: SystemState<(
-            Query<(&Name, &Children), With<Project>>,
-            Query<(&Level, &Name, &Children)>,
-            Query<(&Layer, &Name, &Transform, &Children)>,
-            Query<(&Element, &Name, &Transform)>,
+            Query<ProjectQuery>,
+            Query<LevelQuery>,
+            Query<LayerQuery>,
+            Query<ElementQuery>,
         )> = SystemState::new(&mut world);
         let (project_query, level_query, layer_query, object_query) = system_state.get(&world);
         let project = project_query.single()?;
 
-        let document = Document::new(project, level_query, layer_query, object_query);
+        let document = Document::new(&project, level_query, layer_query, object_query);
         assert_eq!(document.name, String::from("Example Project"));
         assert_eq!(document.levels.len(), 1);
         assert_eq!(document.levels[0].name, String::from("First Level"));
