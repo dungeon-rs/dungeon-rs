@@ -1,10 +1,16 @@
 //! Renders the status bar at the bottom of the screen.
 
+use data::ProjectQueryItem;
 use egui::{Context, TopBottomPanel, warn_if_debug_build};
+use i18n::t;
 
 /// Handles the rendering of the toolbar.
-pub fn render(context: &mut Context) {
+pub fn render(context: &mut Context, project: &ProjectQueryItem) {
     TopBottomPanel::bottom("Status Bar").show(context, |ui| {
-        warn_if_debug_build(ui);
+        ui.horizontal(|ui| {
+            ui.label(t!("layout-status_bar-project_loaded", "project" => project.name.as_str()));
+
+            warn_if_debug_build(ui);
+        });
     });
 }

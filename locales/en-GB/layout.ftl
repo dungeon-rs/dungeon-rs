@@ -11,6 +11,9 @@ layout-toolbar-new-button = New
 layout-toolbar-open-button = Open
 layout-toolbar-save-button = Save
 
+# $project (String) - title of the project
+layout-status_bar-project_loaded = Loaded { $project }
+
 layout-splash-path_label = Path:
 layout-splash-path_button = …
 layout-splash-name_label = Name:

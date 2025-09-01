@@ -54,7 +54,7 @@ pub fn render_editor_layout(
     notifications.ui(context);
 
     toolbar::render(context, &project, &mut save_project_events);
-    status_bar::render(context);
+    status_bar::render(context, &project);
 
     // construct an `EditorLayout` using our mutable world reference for rendering.
     // the `EditorLayout` struct has a strict lifetime bound to this scope and may not leak.
