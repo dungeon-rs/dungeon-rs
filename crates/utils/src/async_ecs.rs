@@ -4,7 +4,7 @@
 //! and automatically executes commands emitted on the world the component is attached to.
 
 use bevy::ecs::world::CommandQueue;
-use bevy::prelude::{BevyError, Commands, Component, Entity, Event, Query, World};
+use bevy::prelude::{BevyError, Command, Commands, Component, Entity, Event, Query, World};
 use bevy::tasks::futures_lite::future;
 use bevy::tasks::{AsyncComputeTaskPool, ComputeTaskPool, IoTaskPool, Task, block_on};
 pub use crossbeam_channel::{Receiver, Sender};
@@ -123,6 +123,46 @@ where
     queue.push(move |world: &mut World| {
         world.send_event(event);
     });
+
+    sender.send(queue)
+}
+
+/// Shorthand function for sending [`Command`](https://docs.rs/bevy_ecs/0.16.1/bevy_ecs/system/trait.Command.html)s
+/// from an [`AsyncComponent`].
+/// This is useful when an [`AsyncComponent`] needs to spawn other components or create/update resources.
+///
+/// # Example
+/// ```rust
+/// # use bevy::prelude::*;
+/// # use utils::{AsyncComponent, send_command};
+/// #[derive(Component)]
+/// struct FooComponent;
+///
+/// # fn main() {
+/// #     let mut app = App::new();
+/// #     app.add_plugins(TaskPoolPlugin::default());
+/// #     app.add_systems(Startup, setup);
+/// #     app.run();
+/// # }
+/// #
+/// # fn setup(mut commands: Commands) {
+/// #    commands.spawn(AsyncComponent::new_async(async |sender| {
+/// send_command(&sender, |world: &mut World| {
+///     world.spawn(FooComponent);
+/// });
+/// #        Ok(())
+/// #    }, |_, _| {}));
+/// # }
+/// ```
+///
+/// # Errors
+/// This method forwards the `Result` received from calling `sender.send(...)`.
+pub fn send_command(
+    sender: &Sender<CommandQueue>,
+    command: impl Command,
+) -> Result<(), SendError<CommandQueue>> {
+    let mut queue = CommandQueue::default();
+    queue.push(command);
 
     sender.send(queue)
 }
