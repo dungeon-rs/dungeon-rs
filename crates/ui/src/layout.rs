@@ -8,8 +8,8 @@ mod splash;
 
 use crate::layout::editor::EditorLayout;
 pub use crate::layout::editor::EditorPanels;
-use crate::layout::splash::CreateProjectFormState;
 use crate::state::UiState;
+use crate::widgets::create_project_form::CreateProjectFormState;
 use crate::widgets::notifications::Notifications;
 use crate::widgets::{status_bar, toolbar};
 use ::assets::AssetLibrary;
