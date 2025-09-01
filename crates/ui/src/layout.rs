@@ -40,6 +40,7 @@ pub fn render_splash_screen(
 #[utils::bevy_system]
 pub fn render_editor_layout(
     mut contexts: EguiContexts,
+    commands: Commands,
     mut notifications: ResMut<Notifications>,
     mut asset_library: ResMut<AssetLibrary>,
     project: Single<ProjectQuery>,
@@ -53,7 +54,7 @@ pub fn render_editor_layout(
     // Render any pending notifications
     notifications.ui(context);
 
-    toolbar::render(context, &project, &mut save_project_events);
+    toolbar::render(context, &project, commands, &mut save_project_events);
     status_bar::render(context, &project);
 
     // construct an `EditorLayout` using our mutable world reference for rendering.
