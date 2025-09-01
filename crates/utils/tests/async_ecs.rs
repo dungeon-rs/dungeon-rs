@@ -8,7 +8,7 @@ use bevy::ecs::world::CommandQueue;
 use bevy::prelude::{App, BevyError, Component, Event, Events, Fixed, Time, World};
 use bevy::tasks::tick_global_task_pools_on_main_thread;
 use std::time::Duration;
-use utils::{AsyncComponent, CorePlugin};
+use utils::{AsyncComponent, CorePlugin, command_queue, report_progress, send_command};
 
 #[derive(Component)]
 struct FooComponent {
@@ -198,4 +198,124 @@ fn spawn_new_io() {
         component.is_err(),
         "There should no longer be an AsyncComponent"
     );
+}
+
+#[test]
+fn test_report_progress_success() {
+    let (sender, receiver) = command_queue();
+
+    let result = report_progress(
+        &sender,
+        FooEvent {
+            bar: "test progress".to_string(),
+        },
+    );
+
+    assert!(result.is_ok(), "report_progress should succeed");
+
+    let mut world = World::new();
+    world.init_resource::<Events<FooEvent>>();
+
+    let mut queue = receiver.try_recv().expect("Should receive command queue");
+    let mut cmd_queue = CommandQueue::default();
+    cmd_queue.append(&mut queue);
+    cmd_queue.apply(&mut world);
+
+    let events = world.resource::<Events<FooEvent>>();
+    let mut cursor = events.get_cursor();
+    let event = cursor.read(events).next();
+
+    assert!(event.is_some(), "Event should have been sent");
+    assert_eq!(event.unwrap().bar, "test progress");
+}
+
+#[test]
+fn test_report_progress_sender_disconnected() {
+    let (sender, receiver) = command_queue();
+    drop(receiver);
+
+    let result = report_progress(
+        &sender,
+        FooEvent {
+            bar: "test".to_string(),
+        },
+    );
+
+    assert!(
+        result.is_err(),
+        "report_progress should fail when receiver is dropped"
+    );
+}
+
+#[test]
+fn test_send_command_success() {
+    let (sender, receiver) = command_queue();
+
+    let result = send_command(&sender, |world: &mut World| {
+        world.spawn(FooComponent {
+            bar: "test_command",
+        });
+    });
+
+    assert!(result.is_ok(), "send_command should succeed");
+
+    let mut world = World::new();
+
+    let mut queue = receiver.try_recv().expect("Should receive command queue");
+    let mut cmd_queue = CommandQueue::default();
+    cmd_queue.append(&mut queue);
+    cmd_queue.apply(&mut world);
+
+    let components: Vec<&FooComponent> = world.query::<&FooComponent>().iter(&world).collect();
+    assert_eq!(components.len(), 1, "Component should have been spawned");
+    assert_eq!(components[0].bar, "test_command");
+}
+
+#[test]
+fn test_send_command_sender_disconnected() {
+    let (sender, receiver) = command_queue();
+    drop(receiver);
+
+    let result = send_command(&sender, |world: &mut World| {
+        world.spawn(FooComponent { bar: "test" });
+    });
+
+    assert!(
+        result.is_err(),
+        "send_command should fail when receiver is dropped"
+    );
+}
+
+#[test]
+fn test_send_command_multiple_operations() {
+    let (sender, receiver) = command_queue();
+
+    send_command(&sender, |world: &mut World| {
+        world.spawn(FooComponent { bar: "first" });
+    })
+    .expect("First command should succeed");
+
+    send_command(&sender, |world: &mut World| {
+        world.spawn(FooComponent { bar: "second" });
+    })
+    .expect("Second command should succeed");
+
+    let mut world = World::new();
+
+    while let Ok(mut queue) = receiver.try_recv() {
+        let mut cmd_queue = CommandQueue::default();
+        cmd_queue.append(&mut queue);
+        cmd_queue.apply(&mut world);
+    }
+
+    let components: Vec<&FooComponent> = world.query::<&FooComponent>().iter(&world).collect();
+    assert_eq!(
+        components.len(),
+        2,
+        "Both components should have been spawned"
+    );
+
+    let bars: Vec<&str> = components.iter().map(|c| c.bar).collect();
+    assert!(bars.contains(&"first"), "Should contain first component");
+    assert!(bars.contains(&"second"), "Should contain second component");
 }
