@@ -4,6 +4,7 @@
 //! to that. We contain the different panels and how to construct them in this module.
 
 mod editor;
+mod splash;
 
 use crate::layout::editor::EditorLayout;
 pub use crate::layout::editor::EditorPanels;
@@ -23,10 +24,7 @@ pub fn render_splash_screen(mut contexts: EguiContexts) -> Result<(), BevyError>
     let _ = debug_span!("render_splash_screen").entered();
     let context = contexts.ctx_mut()?;
 
-    egui::Window::new("Splash Screen").show(context, |ui| {
-        ui.label("Welcome to DungeonRS!");
-    });
-
+    splash::render(context);
     Ok(())
 }
 
