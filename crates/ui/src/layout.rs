@@ -8,11 +8,12 @@ mod splash;
 
 use crate::layout::editor::EditorLayout;
 pub use crate::layout::editor::EditorPanels;
+use crate::layout::splash::CreateProjectFormState;
 use crate::state::UiState;
 use crate::widgets::notifications::Notifications;
 use crate::widgets::{status_bar, toolbar};
 use ::assets::AssetLibrary;
-use bevy::prelude::{BevyError, ResMut, Single, debug_span};
+use bevy::prelude::{BevyError, Commands, ResMut, Single, debug_span};
 use bevy_egui::EguiContexts;
 use data::ProjectQuery;
 use egui_dock::{DockArea, Style};
@@ -20,11 +21,15 @@ use egui_dock::{DockArea, Style};
 /// This system is responsible for rendering the splash screen, which is shown when no project is
 /// loaded and the editor is waiting for something to work on.
 #[utils::bevy_system]
-pub fn render_splash_screen(mut contexts: EguiContexts) -> Result<(), BevyError> {
+pub fn render_splash_screen(
+    mut contexts: EguiContexts,
+    mut commands: Commands,
+    state: Option<ResMut<CreateProjectFormState>>,
+) -> Result<(), BevyError> {
     let _ = debug_span!("render_splash_screen").entered();
     let context = contexts.ctx_mut()?;
 
-    splash::render(context);
+    splash::render(context, &mut commands, state);
     Ok(())
 }
 

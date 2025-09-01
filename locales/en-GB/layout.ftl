@@ -10,3 +10,8 @@ layout-tabs-settings = Settings
 layout-toolbar-new-button = New
 layout-toolbar-open-button = Open
 layout-toolbar-save-button = Save
+
+layout-splash-path_label = Path:
+layout-splash-path_button = …
+layout-splash-name_label = Name:
+layout-splash-create_button = Create project

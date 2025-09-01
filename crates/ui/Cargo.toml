@@ -22,6 +22,7 @@ bevy_egui = { version = "0.36.0", default-features = false, features = ["render"
 bevy = { workspace = true, features = ["bevy_core_pipeline", "bevy_window", "bevy_winit"] }
 egui_dock = "0.17.0"
 egui-notify = "0.20.0"
+native-dialog = { workspace = true }
 
 [features]
 default = []

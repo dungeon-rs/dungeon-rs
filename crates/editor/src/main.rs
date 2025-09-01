@@ -13,6 +13,7 @@ use i18n::I18nPlugin;
 use io::IOPlugin;
 use logging::log_plugin;
 use ui::UIPlugin;
+use utils::CorePlugin;
 
 /// Arguments for running the editor.
 #[derive(Debug, Parser)]
@@ -39,6 +40,7 @@ fn main() -> AppExit {
     let resource_path = utils::resource_path().expect("Failed to get resource path");
     let plugin_builder = DefaultPlugins
         .build()
+        .add(CorePlugin)
         .add(I18nPlugin::new(&config.language))
         .add(IOPlugin)
         .add(UIPlugin)
