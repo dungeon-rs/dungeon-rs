@@ -13,11 +13,10 @@ use crate::widgets::create_project_form::CreateProjectFormState;
 use crate::widgets::notifications::Notifications;
 use crate::widgets::{status_bar, toolbar};
 use ::assets::AssetLibrary;
-use bevy::prelude::{BevyError, Commands, EventWriter, ResMut, Single, debug_span};
+use bevy::prelude::{BevyError, Commands, ResMut, Single, debug_span};
 use bevy_egui::EguiContexts;
 use data::ProjectQuery;
 use egui_dock::{DockArea, Style};
-use io::SaveProjectEvent;
 
 /// This system is responsible for rendering the splash screen, which is shown when no project is
 /// loaded and the editor is waiting for something to work on.
@@ -26,13 +25,12 @@ pub fn render_splash_screen(
     mut contexts: EguiContexts,
     mut commands: Commands,
     state: Option<ResMut<CreateProjectFormState>>,
-    mut save_project_events: EventWriter<SaveProjectEvent>,
 ) -> Result<(), BevyError> {
     let _ = debug_span!("render_splash_screen").entered();
     let context = contexts.ctx_mut()?;
 
     splash::render(context, &mut commands, state);
-    toolbar::render(context, None, commands, &mut save_project_events);
+    toolbar::render(context, None, commands);
     status_bar::render(context, None);
     Ok(())
 }
@@ -47,7 +45,6 @@ pub fn render_editor_layout(
     mut notifications: ResMut<Notifications>,
     mut asset_library: ResMut<AssetLibrary>,
     project: Single<ProjectQuery>,
-    mut save_project_events: EventWriter<SaveProjectEvent>,
     mut state: ResMut<UiState>,
 ) -> Result<(), BevyError> {
     let _ = debug_span!("render_editor_layout").entered();
@@ -57,7 +54,7 @@ pub fn render_editor_layout(
     // Render any pending notifications
     notifications.ui(context);
 
-    toolbar::render(context, Some(&project), commands, &mut save_project_events);
+    toolbar::render(context, Some(&project), commands);
     status_bar::render(context, Some(&project));
 
     // construct an `EditorLayout` using our mutable world reference for rendering.
