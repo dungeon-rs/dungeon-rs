@@ -11,7 +11,7 @@ use utils::{AsyncComponent, report_progress};
 /// Handles the rendering of the toolbar.
 pub fn render(
     context: &mut Context,
-    project: &ProjectQueryItem,
+    project: Option<&ProjectQueryItem>,
     mut commands: Commands,
     save_events: &mut EventWriter<SaveProjectEvent>,
 ) {
@@ -41,9 +41,13 @@ pub fn render(
                 ));
             }
 
-            if ui.button(t!("layout-toolbar-save-button")).clicked() {
-                save_events.write(SaveProjectEvent::new(project.entity));
-            }
+            ui.add_enabled_ui(project.is_some(), |ui| {
+                if ui.button(t!("layout-toolbar-save-button")).clicked()
+                    && let Some(project) = project
+                {
+                    save_events.write(SaveProjectEvent::new(project.entity));
+                }
+            });
         });
     });
 }

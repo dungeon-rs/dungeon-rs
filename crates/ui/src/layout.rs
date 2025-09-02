@@ -26,11 +26,14 @@ pub fn render_splash_screen(
     mut contexts: EguiContexts,
     mut commands: Commands,
     state: Option<ResMut<CreateProjectFormState>>,
+    mut save_project_events: EventWriter<SaveProjectEvent>,
 ) -> Result<(), BevyError> {
     let _ = debug_span!("render_splash_screen").entered();
     let context = contexts.ctx_mut()?;
 
     splash::render(context, &mut commands, state);
+    toolbar::render(context, None, commands, &mut save_project_events);
+    status_bar::render(context, None);
     Ok(())
 }
 
@@ -54,8 +57,8 @@ pub fn render_editor_layout(
     // Render any pending notifications
     notifications.ui(context);
 
-    toolbar::render(context, &project, commands, &mut save_project_events);
-    status_bar::render(context, &project);
+    toolbar::render(context, Some(&project), commands, &mut save_project_events);
+    status_bar::render(context, Some(&project));
 
     // construct an `EditorLayout` using our mutable world reference for rendering.
     // the `EditorLayout` struct has a strict lifetime bound to this scope and may not leak.
