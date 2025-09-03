@@ -39,3 +39,12 @@ AI contributions are welcome, but they are subjected to the same rules as regula
 Do not make low-effort slop contributions, as they will be rejected without comment.
 
 Direct your AI to [AGENTS.md](./AGENTS.md) for instructions on how to contribute.
+
+### Using Claude Code on Windows
+If you are using [Claude Code](https://www.anthropic.com/claude-code) on Windows you'll probably run into the issue that
+Windows doesn't support symlinks (by default), which is what we use to link the `CLAUDE.md` file to `AGENTS.md`.
+
+To resolve this issue, when (re)installing Git for Windows, make sure to check the option to enable symlinks.
+You'll also need to enable the developer mode in Windows settings.
+
+For detailed information see [this StackOverflow answer](https://stackoverflow.com/questions/5917249/git-symbolic-links-in-windows/59761201#59761201).
