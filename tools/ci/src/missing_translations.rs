@@ -63,7 +63,7 @@ pub fn execute(colorizer: Colorizer, metadata: Metadata) -> Result<()> {
     let available_translations = load_fluent_translations(workspace_root)?;
 
     // Parse Fluent messages to get argument requirements
-    let fluent_messages = parse_fluent_messages(workspace_root)?;
+    let fluent_messages = parse_fluent_messages(workspace_root, &colorizer)?;
 
     // Check for missing translations
     let missing_translations = find_missing_translations(&used_keys, &available_translations);
@@ -255,7 +255,10 @@ fn parse_fluent_keys(content: &str) -> Vec<String> {
 }
 
 /// Parse all Fluent files to extract message argument requirements
-fn parse_fluent_messages(workspace_root: &Utf8PathBuf) -> Result<HashMap<String, FluentMessage>> {
+fn parse_fluent_messages(
+    workspace_root: &Utf8PathBuf,
+    colorizer: &Colorizer,
+) -> Result<HashMap<String, FluentMessage>> {
     let mut fluent_messages = HashMap::new();
     let locales_dir = workspace_root.join("locales");
 
@@ -283,7 +286,7 @@ fn parse_fluent_messages(workspace_root: &Utf8PathBuf) -> Result<HashMap<String,
                 let message_content = line[eq_pos + 1..].trim();
 
                 if !key.is_empty() {
-                    let required_args = extract_fluent_variables(message_content);
+                    let required_args = extract_fluent_variables(message_content, colorizer);
                     fluent_messages.insert(key.clone(), FluentMessage { required_args });
                 }
             }
@@ -294,7 +297,7 @@ fn parse_fluent_messages(workspace_root: &Utf8PathBuf) -> Result<HashMap<String,
 }
 
 /// Extract variable names from Fluent message content (e.g., {name}, {count})
-fn extract_fluent_variables(content: &str) -> HashSet<String> {
+fn extract_fluent_variables(content: &str, colorizer: &Colorizer) -> HashSet<String> {
     let mut variables = HashSet::new();
     let mut chars = content.chars().peekable();
 
@@ -303,12 +306,19 @@ fn extract_fluent_variables(content: &str) -> HashSet<String> {
             let mut var_name = String::new();
 
             while let Some(&next_ch) = chars.peek() {
-                if next_ch == '}' {
+                if next_ch == '$' || next_ch.is_whitespace() {
+                    chars.next(); // consume '$' or whitespace
+                } else if next_ch == '}' {
                     chars.next(); // consume '}'
                     break;
                 } else if next_ch.is_alphanumeric() || next_ch == '_' || next_ch == '-' {
                     var_name.push(chars.next().unwrap());
                 } else {
+                    eprintln!(
+                        "{} '{}'",
+                        colorizer.red("Invalid character in variable name:"),
+                        next_ch
+                    );
                     // Invalid character in variable name, skip
                     break;
                 }
