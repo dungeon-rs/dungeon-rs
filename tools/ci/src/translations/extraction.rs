@@ -79,6 +79,8 @@ fn extract_from_expression(expression: &Expression<&str>) -> anyhow::Result<Vec<
     Ok(names)
 }
 
+/// Lowest parser level, here's where we can extract variable names.
+/// https://docs.rs/fluent-syntax/latest/fluent_syntax/ast/enum.InlineExpression.html
 fn extract_from_inline_expression(
     expression: &InlineExpression<&str>,
 ) -> anyhow::Result<Vec<String>> {
