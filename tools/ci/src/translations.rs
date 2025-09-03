@@ -21,7 +21,6 @@ pub fn execute(colorizer: Colorizer, metadata: Metadata) -> anyhow::Result<()> {
 
     // Load all available translations from .ftl files
     let available_translations = load_translations(workspace_root)?;
-    println!("{:#?}", available_translations);
 
     // Find validation issues
     let missing_keys = find_missing_translation_keys(&used_keys, &available_translations);
@@ -113,7 +112,7 @@ fn load_translations(
             .with_context(|| format!("Failed to read fluent file: {}", path.display()))?;
         let keys = load_translation(content)
             .with_context(|| format!("Failed to load translation: {}", path.display()))?;
-        println!("{:#?}", keys);
+
         translations
             .entry(language.to_string())
             .or_insert_with(HashMap::new)
