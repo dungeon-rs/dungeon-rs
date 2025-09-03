@@ -12,6 +12,8 @@ strum = { version = "0.27.1", features = ["derive"] }
 syn = { version = "2.0.104", features = ["full", "visit"] }
 walkdir = "2.5.0"
 proc-macro2 = "1.0.95"
+fluent = "0.17.0"
+fluent-syntax = "0.12.0"
 
 [profile.dev]
 opt-level = 0

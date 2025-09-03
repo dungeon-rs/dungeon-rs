@@ -1,3 +1,4 @@
+#![allow(unused)]
 use anyhow::{Context, Result};
 use cargo_metadata::Metadata;
 use cargo_metadata::camino::Utf8PathBuf;
