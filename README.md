@@ -84,7 +84,7 @@ Configuration options include logging levels, language settings, and editor pref
 
 ## Contributing
 
-Contributions are welcome! Please see [CONTRIBUTING](CONTRIBUTING) for development setup instructions and guidelines.
+Contributions are welcome! Please see [CONTRIBUTING](CONTRIBUTING.md) for development setup instructions and guidelines.
 
 ## License
 

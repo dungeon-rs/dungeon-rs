@@ -33,3 +33,9 @@ By default DungeonRS has sensible defaults that work on most platforms to provid
 However, Rust isn't known for it's fast compile times, so depending on your platform there's a few tricks you can try to
 improve the compile times.
 Check out `.cargo/config_fast_build.toml` for ways to do so.
+
+## AI assisted contribution
+AI contributions are welcome, but they are subjected to the same rules as regular contributions.
+Do not make low-effort slop contributions, as they will be rejected without comment.
+
+Direct your AI to [AGENTS.md](./AGENTS.md) for instructions on how to contribute.
