@@ -1,5 +1,4 @@
 mod documented_features;
-mod missing_translations;
 mod required_features;
 mod translations;
 mod workspace_features;
@@ -56,7 +55,7 @@ fn execute(command: Commands) -> Result<()> {
         Commands::ValidateDocumentedFeatures => documented_features::execute(colorizer, metadata),
         Commands::ValidateRequiredFeatures => required_features::execute(colorizer, metadata),
         Commands::ValidateWorkspaceFeatures => workspace_features::execute(colorizer, metadata),
-        Commands::ValidateTranslations => translations::execute(colorizer, metadata), // missing_translations::execute(colorizer, metadata),
+        Commands::ValidateTranslations => translations::execute(colorizer, metadata),
     }
 }
 

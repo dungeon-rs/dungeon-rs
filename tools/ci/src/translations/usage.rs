@@ -4,15 +4,15 @@ use syn::ExprMacro;
 use syn::visit::Visit;
 
 #[derive(Debug, Clone)]
-pub(super) struct TranslationUsage {
-    key: String,
-    arguments: Vec<String>,
-    file_path: String,
+pub struct TranslationUsage {
+    pub key: String,
+    pub arguments: Vec<String>,
+    pub file_path: String,
 }
 
 /// Visitor to extract translation usages (keys + arguments) from t! macro calls
-pub(super) struct TranslationUsageVisitor {
-    pub(crate) usages: Vec<TranslationUsage>,
+pub struct TranslationUsageVisitor {
+    pub usages: Vec<TranslationUsage>,
     current_file: String,
 }
 
@@ -64,12 +64,11 @@ impl TranslationUsageVisitor {
 
 impl<'ast> Visit<'ast> for TranslationUsageVisitor {
     fn visit_expr_macro(&mut self, node: &'ast ExprMacro) {
-        if let Some(ident) = node.mac.path.get_ident() {
-            if ident == "t" {
-                if let Some(usage) = self.extract_translation_usage(&node.mac.tokens) {
-                    self.usages.push(usage);
-                }
-            }
+        if let Some(ident) = node.mac.path.get_ident()
+            && ident == "t"
+            && let Some(usage) = self.extract_translation_usage(&node.mac.tokens)
+        {
+            self.usages.push(usage);
         }
         syn::visit::visit_expr_macro(self, node);
     }
