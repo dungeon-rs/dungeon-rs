@@ -88,7 +88,8 @@ fn extract_from_inline_expression(
         // Number literal; can be ignored.
         InlineExpression::NumberLiteral { .. } => vec![],
         // Reference to another message; can be ignored.
-        InlineExpression::MessageReference { .. } => vec![],
+        // TODO: until #106 is merged this needs to resolve as if it was a VariableReference.
+        InlineExpression::MessageReference { id, .. } => vec![id.name.to_string()],
         // Reference to inline variable; can be ignored.
         InlineExpression::TermReference { .. } => vec![],
         // Function call, arguments can be variables, so we'll need to recurse.
