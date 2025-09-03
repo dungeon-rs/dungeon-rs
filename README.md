@@ -17,6 +17,7 @@ DungeonRS is a cross-platform map editor for tabletop RPG sessions, inspired by 
 
 - Rust 1.89.0 or later (managed via `rust-toolchain.toml`)
 - System graphics drivers supporting OpenGL or Vulkan
+- Developer mode enabled (Windows only, see [CONTRIBUTING](./CONTRIBUTING.md#using-claude-code-on-windows)).
 
 ## Installation
 
@@ -84,7 +85,7 @@ Configuration options include logging levels, language settings, and editor pref
 
 ## Contributing
 
-Contributions are welcome! Please see [CONTRIBUTING](CONTRIBUTING) for development setup instructions and guidelines.
+Contributions are welcome! Please see [CONTRIBUTING](CONTRIBUTING.md) for development setup instructions and guidelines.
 
 ## License
 
