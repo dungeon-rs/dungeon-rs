@@ -1,8 +1,8 @@
 use bevy::ecs::children;
 use bevy::ecs::world::CommandQueue;
-use bevy::prelude::SpawnRelated;
 use bevy::prelude::{Commands, ResMut, Resource, World};
-use data::Project;
+use bevy::prelude::{SpawnRelated, Transform};
+use data::{Layer, Level, Project};
 use egui::Ui;
 use i18n::t;
 use native_dialog::DialogBuilder;
@@ -61,6 +61,12 @@ pub fn render(ui: &mut Ui, commands: &mut Commands, mut state: ResMut<CreateProj
         let name = state.name.clone();
 
         commands.remove_resource::<CreateProjectFormState>();
-        commands.spawn((Project::new(path, name), children![]));
+        commands.spawn((
+            Project::new(path, name),
+            children![(
+                Level::new("default"),
+                children![(Layer::new("default", Transform::default()), children![],)]
+            )],
+        ));
     }
 }

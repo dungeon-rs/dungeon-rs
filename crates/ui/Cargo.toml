@@ -24,6 +24,7 @@ bevy = { workspace = true, features = ["bevy_core_pipeline", "bevy_window", "bev
 egui_dock = "0.17.0"
 egui-notify = "0.20.0"
 native-dialog = { workspace = true }
+bevy-inspector-egui = { version = "0.33.1", optional = true, default-features = false, features = ["bevy_render"] }
 
 [features]
 default = []
@@ -35,5 +36,6 @@ dev = [
   "io/dev",
   "egui/deadlock_detection",
   "egui/log",
-  "egui/callstack"
+  "egui/callstack",
+  "dep:bevy-inspector-egui"
 ]
