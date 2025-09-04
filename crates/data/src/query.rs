@@ -33,15 +33,15 @@ pub struct ProjectQuery {
 #[derive(QueryData)]
 pub struct LevelQuery {
     /// The entity ID of the level
-    entity: Entity,
+    pub entity: Entity,
     /// The level-specific component data
-    level: &'static Level,
+    pub level: &'static Level,
     /// The human-readable name of the level
     pub name: &'static Name,
     /// Child entities (layers) belonging to this level
     pub children: &'static Children,
     /// Whether this level is currently visible/enabled
-    visibility: &'static Visibility,
+    pub visibility: &'static Visibility,
 }
 
 /// A query for layer entities, containing all necessary components to work with layers

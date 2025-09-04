@@ -45,4 +45,6 @@ extend-ignore-re = [
   "(d|D)ialog(s?)",
   # Ignore Bevy's API surface
   "Align::Center",
+  # Ignore egui API calls
+  "(ui)?*color*(ui)?",
 ]

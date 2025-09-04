@@ -28,7 +28,7 @@ impl Plugin for UIPlugin {
         app.insert_resource(UiState::default()).add_systems(
             EguiPrimaryContextPass,
             (
-                render_editor_layout,
+                render_editor_layout.run_if(any_with_component::<Project>),
                 render_splash_screen.run_if(not(any_with_component::<Project>)),
             ),
         );

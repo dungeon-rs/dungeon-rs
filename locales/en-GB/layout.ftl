@@ -5,6 +5,7 @@ layout-tabs-assetlibrary = Asset Library
 layout-tabs-assetbrowser = Asset Browser
 layout-tabs-layers = Layers
 layout-tabs-levels = Levels
+    .no-visible = ⚠ Make sure at least one level is visible to see the layers.
 layout-tabs-settings = Settings
 
 layout-toolbar-new-button = New

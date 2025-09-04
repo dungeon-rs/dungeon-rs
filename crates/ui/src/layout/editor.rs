@@ -3,7 +3,8 @@
 
 use crate::panels;
 use ::assets::AssetLibrary;
-use egui::{Ui, WidgetText};
+use data::{DungeonQueries, ProjectQueryItem};
+use egui::{RichText, Ui, WidgetText};
 use egui_dock::TabViewer;
 use i18n::t;
 
@@ -36,6 +37,12 @@ pub enum EditorPanels {
 pub struct EditorLayout<'a> {
     /// The asset library resource for querying and modifying assets.
     pub asset_library: &'a mut AssetLibrary,
+
+    /// Provides access to the level / layer hierarchy within the UI.
+    pub query: &'a DungeonQueries<'a, 'a>,
+
+    /// The currently active project.
+    pub project: &'a ProjectQueryItem<'a>,
 }
 
 impl TabViewer for EditorLayout<'_> {
@@ -66,8 +73,22 @@ impl TabViewer for EditorLayout<'_> {
             }
             EditorPanels::AssetLibrary => panels::asset_library(ui, self.asset_library),
             EditorPanels::AssetBrowser => panels::asset_browser(ui, self.asset_library),
-            EditorPanels::Layers => panels::layers(ui),
-            EditorPanels::Levels => panels::levels(ui),
+            EditorPanels::Layers => {
+                let level = self
+                    .query
+                    .levels_for_project(self.project.entity)
+                    .find(data::LevelQueryItem::is_visible);
+
+                if let Some(level) = level {
+                    panels::layers(ui, self.query, &level);
+                } else {
+                    ui.label(
+                        RichText::new(t!("layout-tabs-levels.no-visible"))
+                            .color(ui.visuals().warn_fg_color),
+                    );
+                }
+            }
+            EditorPanels::Levels => panels::levels(ui, self.query, self.project),
             EditorPanels::Settings => panels::settings(ui),
         }
     }

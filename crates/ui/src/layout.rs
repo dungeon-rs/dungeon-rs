@@ -9,13 +9,13 @@ mod splash;
 use crate::layout::editor::EditorLayout;
 pub use crate::layout::editor::EditorPanels;
 use crate::state::UiState;
-use crate::widgets::create_project_form::CreateProjectFormState;
+use crate::widgets::create_project_form::FormState;
 use crate::widgets::notifications::Notifications;
 use crate::widgets::{status_bar, toolbar};
 use ::assets::AssetLibrary;
-use bevy::prelude::{BevyError, Commands, ResMut, Single, debug_span};
+use bevy::prelude::{BevyError, Commands, ResMut, debug_span};
 use bevy_egui::EguiContexts;
-use data::ProjectQuery;
+use data::DungeonQueries;
 use egui_dock::{DockArea, Style};
 
 /// This system is responsible for rendering the splash screen, which is shown when no project is
@@ -24,7 +24,7 @@ use egui_dock::{DockArea, Style};
 pub fn render_splash_screen(
     mut contexts: EguiContexts,
     mut commands: Commands,
-    state: Option<ResMut<CreateProjectFormState>>,
+    state: Option<ResMut<FormState>>,
 ) -> Result<(), BevyError> {
     let _ = debug_span!("render_splash_screen").entered();
     let context = contexts.ctx_mut()?;
@@ -44,12 +44,12 @@ pub fn render_editor_layout(
     commands: Commands,
     mut notifications: ResMut<Notifications>,
     mut asset_library: ResMut<AssetLibrary>,
-    project: Single<ProjectQuery>,
+    query: DungeonQueries,
     mut state: ResMut<UiState>,
 ) -> Result<(), BevyError> {
     let _ = debug_span!("render_editor_layout").entered();
     let context = contexts.ctx_mut()?;
-    let project = project.into_inner();
+    let project = query.projects.single()?;
 
     // Render any pending notifications
     notifications.ui(context);
@@ -61,6 +61,8 @@ pub fn render_editor_layout(
     // the `EditorLayout` struct has a strict lifetime bound to this scope and may not leak.
     let mut viewer = EditorLayout {
         asset_library: asset_library.as_mut(),
+        query: &query,
+        project: &project,
     };
 
     // Render the `dock_state` in the `UiState` in a DockArea.
