@@ -33,15 +33,15 @@ pub struct ProjectQuery {
 #[derive(QueryData)]
 pub struct LevelQuery {
     /// The entity ID of the level
-    entity: Entity,
+    pub entity: Entity,
     /// The level-specific component data
-    level: &'static Level,
+    pub level: &'static Level,
     /// The human-readable name of the level
     pub name: &'static Name,
     /// Child entities (layers) belonging to this level
     pub children: &'static Children,
     /// Whether this level is currently visible/enabled
-    visibility: &'static Visibility,
+    pub visibility: &'static Visibility,
 }
 
 /// A query for layer entities, containing all necessary components to work with layers
@@ -115,6 +115,18 @@ pub struct DungeonQueries<'w, 's> {
     pub layers: Query<'w, 's, LayerQuery>,
     /// Query for all element entities in the world
     pub elements: Query<'w, 's, ElementQuery>,
+}
+
+impl LevelQueryItem<'_> {
+    /// Returns whether the layer is visible or not.
+    #[inline]
+    #[must_use]
+    pub fn is_visible(&self) -> bool {
+        match self.visibility {
+            Visibility::Inherited | Visibility::Hidden => false,
+            Visibility::Visible => true,
+        }
+    }
 }
 
 impl DungeonQueries<'_, '_> {

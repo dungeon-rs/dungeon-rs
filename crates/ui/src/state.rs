@@ -11,15 +11,20 @@ use egui_dock::{DockState, NodeIndex};
 #[derive(Resource)]
 pub struct UiState {
     /// The [`DockState`](https://docs.rs/egui_dock/latest/egui_dock/dock_state/struct.DockState.html)
-    /// that controls most of the general layout.
-    pub dock_state: DockState<EditorPanels>,
+    ///
+    /// that controls most of the editing layout.
+    pub editor_state: DockState<EditorPanels>,
 }
 
 impl Default for UiState {
     fn default() -> Self {
         let mut state = DockState::new(vec![EditorPanels::Editor]);
         let surface = state.main_surface_mut();
-        let [_, _assets] = surface.split_below(NodeIndex::root(), 0.9, vec![EditorPanels::Assets]);
+        let [_, _assets] = surface.split_below(
+            NodeIndex::root(),
+            0.9,
+            vec![EditorPanels::AssetLibrary, EditorPanels::AssetBrowser],
+        );
         let [_, layers] = surface.split_right(
             NodeIndex::root(),
             0.8,
@@ -27,6 +32,8 @@ impl Default for UiState {
         );
         let [_, _settings] = surface.split_below(layers, 0.6, vec![EditorPanels::Settings]);
 
-        Self { dock_state: state }
+        Self {
+            editor_state: state,
+        }
     }
 }

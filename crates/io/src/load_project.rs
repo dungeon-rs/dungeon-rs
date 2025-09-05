@@ -1,7 +1,7 @@
 //! Contains the [`LoadProjectEvent`] and it's handler systems.
 use crate::document::Document;
 use anyhow::Context;
-use bevy::prelude::{BevyError, Commands, Event, EventReader, Transform, default};
+use bevy::prelude::{BevyError, Commands, Event, EventReader, Transform, default, info, info_span};
 use data::{Layer, Level, Project};
 use serialization::deserialize;
 use std::fs::read;
@@ -28,11 +28,17 @@ pub fn handle_load_project_event(
         return Ok(());
     };
 
+    let _ = info_span!("load_project", path = event.input.to_str()).entered();
     let content = read(event.input.clone())
         .with_context(|| format!("Failed to open project file: '{}'", event.input.display()))?;
     let project = deserialize::<Document>(&content, &default())
         .with_context(|| format!("Failed to parse project file '{}'", event.input.display()))?;
 
+    info!(
+        "Loaded project: {}, spawning {level_count} levels",
+        project.name,
+        level_count = project.levels.len()
+    );
     commands
         .spawn(Project::new(event.input.clone(), project.name))
         .with_children(|commands| {
