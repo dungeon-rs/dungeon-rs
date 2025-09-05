@@ -10,7 +10,7 @@ pub fn render(context: &mut Context, project: Option<&ProjectQueryItem>) {
         ui.horizontal(|ui| {
             if let Some(project) = project {
                 ui.label(
-                    t!("layout-status_bar-project_loaded", "project" => project.name.as_str()),
+                    t!("widgets-status_bar-project_loaded", "project" => project.name.as_str()),
                 );
             }
 
