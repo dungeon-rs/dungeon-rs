@@ -29,6 +29,8 @@ pub struct Document {
 pub struct DocumentLevel {
     /// See `name` in [`data::Level::new`].
     pub name: String,
+    /// Whether the level is visible in the editor (e.g. active).
+    pub visible: bool,
     /// All [`DocumentLayer`] constructed from the [`data::Level`]'s children.
     pub layers: Vec<DocumentLayer>,
 }
@@ -41,6 +43,8 @@ pub struct DocumentLevel {
 pub struct DocumentLayer {
     /// See `name` in [`data::Layer::new`].
     pub name: String,
+    /// Whether the layer is visible in the editor (e.g. active).
+    pub visible: bool,
     /// The order of the [`data::Layer`] (determined by it's [`Transform`]).
     pub order: f32,
     /// The [`DocumentItem`] constructed from the [`data::Layer`]'s children.
@@ -120,6 +124,7 @@ impl DocumentLevel {
             .collect();
         Self {
             name: value.name.to_string(),
+            visible: false,
             layers,
         }
     }
@@ -141,6 +146,7 @@ impl DocumentLayer {
 
         Self {
             name: value.name.to_string(),
+            visible: false,
             order: value.transform.translation.z,
             items,
         }
