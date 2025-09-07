@@ -124,7 +124,7 @@ impl DocumentLevel {
             .collect();
         Self {
             name: value.name.to_string(),
-            visible: false,
+            visible: value.is_visible(),
             layers,
         }
     }
@@ -146,7 +146,7 @@ impl DocumentLayer {
 
         Self {
             name: value.name.to_string(),
-            visible: false,
+            visible: value.is_visible(),
             order: value.transform.translation.z,
             items,
         }
