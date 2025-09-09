@@ -1818,19 +1818,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b94f61472cee1439c0b966b47e3aca9ae07e45d070759512cd390ea2bebc6675"
 
 [[package]]
-name = "cli"
-version = "0.0.1"
-dependencies = [
- "anyhow",
- "bevy",
- "clap",
- "clap-verbosity-flag",
- "drs-assets",
- "logging",
- "utils",
-]
-
-[[package]]
 name = "codespan-reporting"
 version = "0.11.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2283,6 +2270,19 @@ dependencies = [
  "thiserror 2.0.16",
  "utils",
  "walkdir",
+]
+
+[[package]]
+name = "drs-cli"
+version = "0.0.1"
+dependencies = [
+ "anyhow",
+ "bevy",
+ "clap",
+ "clap-verbosity-flag",
+ "drs-assets",
+ "logging",
+ "utils",
 ]
 
 [[package]]

@@ -1,5 +1,5 @@
 [package]
-name = "cli"
+name = "drs-cli"
 edition.workspace = true
 repository.workspace = true
 version.workspace = true
