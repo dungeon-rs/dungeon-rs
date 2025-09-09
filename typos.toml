@@ -38,6 +38,7 @@ extend-ignore-re = [
   "\\[\\`[^\\`]+\\`\\]",
   "serialization::",
   "`serialization`",
+  "drs-serialization",
   # Rhai has some optimisation levels
   "OptimizationLevel",
   "optimize_*",
