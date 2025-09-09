@@ -8,7 +8,7 @@ use drs_assets::AssetPlugin;
 use std::path::PathBuf;
 
 use bevy::prelude::*;
-use config::Configuration;
+use drs_config::Configuration;
 use i18n::I18nPlugin;
 use io::IOPlugin;
 use logging::log_plugin;

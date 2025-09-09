@@ -45,7 +45,7 @@ clap = { version = "4.5.47", features = ["derive"] }
 
 # Workspace packages
 drs-assets = { path = "crates/drs-assets" }
-config = { path = "crates/config" }
+drs-config = { path = "crates/drs-config" }
 data = { path = "crates/data" }
 i18n = { path = "crates/i18n" }
 io = { path = "crates/io" }

@@ -1854,18 +1854,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "config"
-version = "0.0.1"
-dependencies = [
- "anyhow",
- "bevy",
- "semver",
- "serde",
- "serialization",
- "utils",
-]
-
-[[package]]
 name = "console"
 version = "0.16.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2286,6 +2274,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "drs-config"
+version = "0.0.1"
+dependencies = [
+ "anyhow",
+ "bevy",
+ "semver",
+ "serde",
+ "serialization",
+ "utils",
+]
+
+[[package]]
 name = "duplicate"
 version = "2.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2312,8 +2312,8 @@ version = "0.0.1"
 dependencies = [
  "bevy",
  "clap",
- "config",
  "drs-assets",
+ "drs-config",
  "i18n",
  "image",
  "io",
@@ -3426,7 +3426,7 @@ name = "logging"
 version = "0.0.1"
 dependencies = [
  "bevy",
- "config",
+ "drs-config",
  "indicatif",
  "tracing",
  "tracing-appender",

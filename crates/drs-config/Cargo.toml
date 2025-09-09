@@ -1,5 +1,5 @@
 [package]
-name = "config"
+name = "drs-config"
 description = "This crate handles the configuration of other crates"
 edition.workspace = true
 repository.workspace = true

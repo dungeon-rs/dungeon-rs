@@ -12,14 +12,14 @@ pub use console::*;
 
 /// Builds the [`LogPlugin`] for the application.
 #[must_use]
-pub fn log_plugin(config: &config::LogConfiguration) -> bevy::log::LogPlugin {
+pub fn log_plugin(config: &drs_config::LogConfiguration) -> bevy::log::LogPlugin {
     LogPlugin {
         filter: format!("{DEFAULT_FILTER},{}", config.filter),
         level: Level::from_str(config.level.as_str()).unwrap_or(Level::INFO),
         custom_layer: |app| {
             let configuration = app
                 .world()
-                .get_resource::<config::Configuration>()
+                .get_resource::<drs_config::Configuration>()
                 .map(|config| &config.logging);
 
             if let Some(configuration) = configuration

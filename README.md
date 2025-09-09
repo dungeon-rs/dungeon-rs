@@ -64,7 +64,7 @@ DungeonRS uses a workspace-based architecture with the following crates:
 
 - **`drs-assets`**: Asset loading, management, and scripting system
 - **`drs-cli`**: Command-line interface for project management and asset management
-- **`config`**: Configuration management and settings
+- **`drs-config`**: Configuration management and settings
 - **`data`**: Core data structures for projects, levels, and layers
 - **`editor`**: Main application binary and UI integration
 - **`i18n`**: Internationalisation support

@@ -14,7 +14,7 @@ publish.workspace = true
 workspace = true
 
 [dependencies]
-config = { workspace = true }
+drs-config = { workspace = true }
 bevy = { workspace = true }
 tracing-appender = "0.2.3"
 tracing-subscriber = { version = "0.3.20", features = ["json"] }
@@ -24,7 +24,7 @@ indicatif = { version = "0.18.0", optional = true, default-features = false }
 [features]
 default = []
 dev = [
-  "config/dev"
+  "drs-config/dev"
 ]
 
 console = [
