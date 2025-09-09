@@ -51,6 +51,7 @@ use bevy::prelude::Visibility;
 #[component(immutable)]
 #[require(Visibility::default())]
 #[non_exhaustive]
+#[cfg_attr(feature = "dev", derive(bevy::prelude::Reflect))]
 pub enum Element {
     /// Represents an image, no pathing, patterns, ...
     Object(String),
