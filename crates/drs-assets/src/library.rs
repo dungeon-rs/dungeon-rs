@@ -89,7 +89,7 @@ impl AssetLibrary {
     }
 
     /// Attempts to load the asset library from `path`, where `path` is the configuration directory.
-    /// If `None` is passed, the [`utils::config_path`] method is used instead.
+    /// If `None` is passed, the [`drs-utils::config_path`] method is used instead.
     ///
     /// # Errors
     /// An error can be returned for the following situations:

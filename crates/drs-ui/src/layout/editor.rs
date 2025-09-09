@@ -10,7 +10,7 @@ use egui_dock::TabViewer;
 
 /// The different panels that can be shown in the editor UI.
 /// If a new panel needs to be available for the user in the UI it needs to be added here,
-/// if it needs to be shown by default, make sure to add it in [`UiState::default`] as well.
+/// if it needs to be shown by default, make sure to add it in [`crate::state::UiState::default`] as well.
 #[derive(Debug)]
 pub enum EditorPanels {
     /// The "main" view that shows the underlying Bevy rendered world.

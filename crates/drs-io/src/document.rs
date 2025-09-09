@@ -45,7 +45,7 @@ pub struct DocumentLayer {
     pub name: String,
     /// Whether the layer is visible in the editor (e.g. active).
     pub visible: bool,
-    /// The order of the [`drs_data::Layer`] (determined by it's [`Transform`]).
+    /// The order of the [`drs_data::Layer`] (determined by it's [`bevy::prelude::Transform`]).
     pub order: f32,
     /// The [`DocumentItem`] constructed from the [`drs_data::Layer`]'s children.
     pub items: Vec<DocumentItem>,

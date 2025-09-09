@@ -63,7 +63,7 @@ impl Configuration {
     ///
     /// # Errors
     /// The method will return an error in two scenarios:
-    /// - The application failed to retrieve the config path (see [`utils::config_path`]
+    /// - The application failed to retrieve the config path (see [`drs-utils::config_path`]
     /// - The config file failed to deserialise
     pub fn load(config_file: Option<PathBuf>) -> anyhow::Result<Self> {
         let path = match config_file {
@@ -97,7 +97,7 @@ impl Configuration {
     /// # Errors
     /// - `Error` returned when the underlying calls to either `current_exe`
     ///   or `File::create` fails.
-    /// - [`serialization::SerializationError`] Thrown when a serialisation-related error occurs.
+    /// - [`drs-serialization::SerializationError`] Thrown when a serialisation-related error occurs.
     pub fn save(&self) -> anyhow::Result<()> {
         let path = match &self.file {
             Some(path) => path.clone(),

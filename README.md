@@ -69,10 +69,10 @@ DungeonRS uses a workspace-based architecture with the following crates:
 - **`drs-editor`**: Main application binary and UI integration
 - **`drs-i18n`**: Internationalisation support
 - **`drs-io`**: Project serialisation and file operations
-- **`logging`**: Logging and error handling
-- **`serialization`**: Serialisation and deserialization of project data
-- **`ui`**: User interface components and layout management
-- **`utils`**: Shared utilities and helper functions
+- **`drs-logging`**: Logging and error handling
+- **`drs-serialization`**: Serialisation and deserialization of project data
+- **`drs-ui`**: User interface components and layout management
+- **`drs-utils`**: Shared utilities and helper functions
 
 ## Configuration
 
