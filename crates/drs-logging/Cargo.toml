@@ -1,0 +1,37 @@
+[package]
+name = "drs-logging"
+description = "Handles configuration of the logging used by Bevy and the application itself"
+edition.workspace = true
+repository.workspace = true
+version.workspace = true
+readme.workspace = true
+authors.workspace = true
+license-file.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+drs-config = { workspace = true }
+bevy = { workspace = true }
+tracing-appender = "0.2.3"
+tracing-subscriber = { version = "0.3.20", features = ["json"] }
+tracing = { version = "0.1.41", optional = true, default-features = false }
+indicatif = { version = "0.18.0", optional = true, default-features = false }
+
+[features]
+default = []
+dev = [
+  "drs-config/dev"
+]
+
+console = [
+  "dep:tracing",
+  "dep:indicatif"
+]
+
+# fix false positives for cargo-machete
+[package.metadata.cargo-machete]
+ignored = ["tracing-subscriber"]

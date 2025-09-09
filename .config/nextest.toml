@@ -2,5 +2,5 @@
 fail-fast = { max-fail = 5 }
 
 [[profile.default.overrides]]
-filter = 'package(io) and test(save_project_event)'
+filter = 'package(drs-io) and test(save_project_event)'
 retries = 2

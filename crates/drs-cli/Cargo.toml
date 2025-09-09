@@ -1,0 +1,36 @@
+[package]
+name = "drs-cli"
+edition.workspace = true
+repository.workspace = true
+version.workspace = true
+readme.workspace = true
+authors.workspace = true
+license-file.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[dependencies]
+bevy = { workspace = true }
+drs-utils = { workspace = true }
+drs-assets = { workspace = true }
+drs-logging = { workspace = true, features = ["console"] }
+clap = { workspace = true }
+clap-verbosity-flag = { version = "3.0.4", default-features = false, features = ["tracing"] }
+anyhow = { workspace = true }
+
+[lints]
+workspace = true
+
+[features]
+default = []
+dev = [
+    "drs-assets/dev",
+    "drs-logging/dev",
+    "drs-utils/dev"
+]
+
+# support for various image formats
+png = ["bevy/png", "drs-assets/png"]
+webp = ["bevy/webp", "drs-assets/webp"]
+jpeg = ["bevy/jpeg", "drs-assets/jpeg"]
+

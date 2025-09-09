@@ -44,15 +44,15 @@ crossbeam-channel = "0.5.15"
 clap = { version = "4.5.47", features = ["derive"] }
 
 # Workspace packages
-assets = { path = "crates/assets" }
-config = { path = "crates/config" }
-data = { path = "crates/data" }
-i18n = { path = "crates/i18n" }
-io = { path = "crates/io" }
-logging = { path = "crates/logging" }
-serialization = { path = "crates/serialization" }
-ui = { path = "crates/ui" }
-utils = { path = "crates/utils" }
+drs-assets = { path = "crates/drs-assets" }
+drs-config = { path = "crates/drs-config" }
+drs-data = { path = "crates/drs-data" }
+drs-i18n = { path = "crates/drs-i18n" }
+drs-io = { path = "crates/drs-io" }
+drs-logging = { path = "crates/drs-logging" }
+drs-serialization = { path = "crates/drs-serialization" }
+drs-ui = { path = "crates/drs-ui" }
+drs-utils = { path = "crates/drs-utils" }
 
 # Enable a small amount of optimization in the dev profile.
 [profile.dev]

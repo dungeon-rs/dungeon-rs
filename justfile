@@ -67,11 +67,11 @@ fix:
 
 # Run the editor in development mode
 run:
-    cargo run -p editor --features=editor/dev
+    cargo run -p drs-editor --features=drs-editor/dev
 
 # Run the CLI in development mode
 cli:
-    cargo run -p cli --features=cli/dev
+    cargo run -p drs-cli --features=drs-cli/dev
 
 # Install all tools used for this repo's CI and other tools
 setup:

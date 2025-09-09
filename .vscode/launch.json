@@ -31,7 +31,7 @@
                 "args": [
                     "run",
                     "--bin",
-                    "editor"
+                    "drs-editor"
                 ]
             },
             "args": []

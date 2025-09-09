@@ -1,0 +1,45 @@
+[package]
+name = "drs-assets"
+description = "Contains the data structures used throughout other packages."
+edition.workspace = true
+repository.workspace = true
+version.workspace = true
+readme.workspace = true
+authors.workspace = true
+license-file.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+bevy = { workspace = true, features = ["bevy_asset"] }
+rhai = { version = "1.22.2", features = ["no_time"] }
+walkdir = "2.5.0"
+drs-utils = { workspace = true }
+semver = { workspace = true, features = ["serde"] }
+serde = { workspace = true }
+drs-serialization = { workspace = true }
+thiserror = { workspace = true }
+tantivy = "0.25.0"
+image = { version = "0.25.8", default-features = false, features = ["rayon"] }
+
+[dev-dependencies]
+anyhow = { workspace = true }
+tempfile = { workspace = true }
+
+[features]
+default = [
+    "drs-serialization/toml"
+]
+dev = [
+    "drs-utils/dev",
+    "drs-serialization/dev",
+    "bevy/trace",
+]
+
+# support for various image formats
+png = ["image/png"]
+webp = ["image/webp"]
+jpeg = ["image/jpeg"]

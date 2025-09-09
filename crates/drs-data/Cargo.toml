@@ -1,0 +1,23 @@
+[package]
+name = "drs-data"
+description = "Contains the data structures used throughout other packages."
+edition.workspace = true
+repository.workspace = true
+version.workspace = true
+readme.workspace = true
+authors.workspace = true
+license-file.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+bevy = { workspace = true, default-features = false, features = ["bevy_render"] }
+
+[features]
+default = []
+dev = [
+    "bevy/track_location"
+]

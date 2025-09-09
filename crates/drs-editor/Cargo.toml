@@ -1,0 +1,57 @@
+[package]
+name = "drs-editor"
+description = "The GUI binary that sets up the windows for the users to interact with."
+edition.workspace = true
+repository.workspace = true
+version.workspace = true
+readme.workspace = true
+authors.workspace = true
+license-file.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+drs-assets = { workspace = true }
+drs-i18n = { workspace = true }
+drs-io = { workspace = true }
+drs-utils = { workspace = true }
+drs-ui = { workspace = true }
+drs-config = { workspace = true }
+drs-logging = { workspace = true }
+bevy = { workspace = true }
+native-dialog = { workspace = true }
+clap = { workspace = true }
+sysinfo = { version = "0.37.0", default-features = false, features = ["system"] }
+
+[target.'cfg(target_os = "windows")'.build-dependencies]
+image = { version = "0.25.8", default-features = false, features = ["png", "ico"] }
+winresource = "0.1.23"
+
+[features]
+default = ["png"]
+dev = [
+  "drs-assets/dev",
+  "drs-i18n/dev",
+  "drs-io/dev",
+  "drs-utils/dev",
+  "drs-ui/dev",
+  "drs-config/dev",
+  "drs-logging/dev",
+  "bevy/dynamic_linking",
+  "bevy/bevy_debug_stepping",
+  "bevy/bevy_dev_tools",
+  "bevy/debug_glam_assert",
+  "bevy/trace",
+  "bevy/trace_tracy_memory"
+]
+
+# Disables showing the console window, only works on Windows.
+no_console = []
+
+# support for various image formats
+png = ["bevy/png", "drs-assets/png"]
+webp = ["bevy/webp", "drs-assets/webp"]
+jpeg = ["bevy/jpeg", "drs-assets/jpeg"]
