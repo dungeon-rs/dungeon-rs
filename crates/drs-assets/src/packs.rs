@@ -11,7 +11,7 @@ pub use crate::packs::index::{
 use crate::packs::thumbnails::{AssetPackThumbnailError, AssetPackThumbnails};
 use bevy::ecs::world::CommandQueue;
 use bevy::prelude::{Asset, AssetServer, Handle, debug, debug_span, info, trace};
-use serialization::{Deserialize, SerializationFormat, Serialize, deserialize, serialize_to};
+use drs_serialization::{Deserialize, SerializationFormat, Serialize, deserialize, serialize_to};
 use std::fs::{File, create_dir_all};
 use std::io::read_to_string;
 use std::path::Path;
@@ -121,7 +121,7 @@ pub enum AssetPackError {
 
     /// Thrown when the serialisation of an asset pack manifest fails.
     #[error("An error occurred while serialising the asset pack manifest")]
-    Serialisation(#[from] serialization::SerializationError),
+    Serialisation(#[from] drs_serialization::SerializationError),
 
     /// Thrown when Tantivy throws an error, usually during indexing or reading.
     #[error("An error occurred while indexing the asset pack")]

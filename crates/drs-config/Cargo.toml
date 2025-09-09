@@ -17,15 +17,15 @@ workspace = true
 utils = { workspace = true }
 anyhow = { workspace = true }
 serde = { workspace = true }
-serialization = { workspace = true }
+drs-serialization = { workspace = true }
 bevy = { workspace = true }
 semver = { workspace = true }
 
 [features]
 default = [
-  "serialization/toml"
+  "drs-serialization/toml"
 ]
 dev = [
   "utils/dev",
-  "serialization/dev"
+  "drs-serialization/dev"
 ]

@@ -3,7 +3,7 @@ use crate::document::Document;
 use anyhow::Context;
 use bevy::prelude::{BevyError, Commands, Entity, Event, EventReader, Query, default};
 use drs_data::{ElementQuery, LayerQuery, LevelQuery, ProjectQuery};
-use serialization::serialize_to;
+use drs_serialization::serialize_to;
 use std::fs::File;
 use utils::{AsyncComponent, report_progress};
 

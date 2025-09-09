@@ -20,7 +20,7 @@ walkdir = "2.5.0"
 utils = { workspace = true }
 semver = { workspace = true, features = ["serde"] }
 serde = { workspace = true }
-serialization = { workspace = true }
+drs-serialization = { workspace = true }
 thiserror = { workspace = true }
 tantivy = "0.25.0"
 image = { version = "0.25.8", default-features = false, features = ["rayon"] }
@@ -31,11 +31,11 @@ tempfile = { workspace = true }
 
 [features]
 default = [
-    "serialization/toml"
+    "drs-serialization/toml"
 ]
 dev = [
     "utils/dev",
-    "serialization/dev",
+    "drs-serialization/dev",
     "bevy/trace",
 ]
 

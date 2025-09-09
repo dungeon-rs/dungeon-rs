@@ -24,7 +24,7 @@ type Result<T> = std::result::Result<T, SerializationError>;
 ///
 /// ```
 /// # use serde::*;
-/// # use serialization::*;
+/// # use drs_serialization::*;
 ///
 /// # #[derive(Serialize, Deserialize)]
 /// # struct Foo {

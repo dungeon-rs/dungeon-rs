@@ -47,7 +47,7 @@ where
 ///
 /// ```
 /// # use serde::*;
-/// # use serialization::*;
+/// # use drs_serialization::*;
 ///
 /// # #[derive(Serialize)]
 /// # struct Foo {

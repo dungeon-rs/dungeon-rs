@@ -3,8 +3,8 @@
 use crate::LogConfiguration;
 use anyhow::Context;
 use bevy::prelude::Resource;
+use drs_serialization::{Deserialize, SerializationFormat, Serialize, deserialize, serialize_to};
 use semver::Version;
-use serialization::{Deserialize, SerializationFormat, Serialize, deserialize, serialize_to};
 use std::collections::HashMap;
 use std::fs::File;
 use std::io::Read;

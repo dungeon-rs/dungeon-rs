@@ -2241,11 +2241,11 @@ version = "0.0.1"
 dependencies = [
  "anyhow",
  "bevy",
+ "drs-serialization",
  "image",
  "rhai",
  "semver",
  "serde",
- "serialization",
  "tantivy",
  "tempfile",
  "thiserror 2.0.16",
@@ -2272,9 +2272,9 @@ version = "0.0.1"
 dependencies = [
  "anyhow",
  "bevy",
+ "drs-serialization",
  "semver",
  "serde",
- "serialization",
  "utils",
 ]
 
@@ -2323,8 +2323,8 @@ dependencies = [
  "anyhow",
  "bevy",
  "drs-data",
+ "drs-serialization",
  "serde",
- "serialization",
  "tempfile",
  "utils",
 ]
@@ -2339,6 +2339,18 @@ dependencies = [
  "tracing",
  "tracing-appender",
  "tracing-subscriber",
+]
+
+[[package]]
+name = "drs-serialization"
+version = "0.0.1"
+dependencies = [
+ "anyhow",
+ "rmp-serde",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.16",
+ "toml 0.9.5",
 ]
 
 [[package]]
@@ -5015,18 +5027,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "40734c41988f7306bb04f0ecf60ec0f3f1caa34290e4e8ea471dcd3346483b83"
 dependencies = [
  "serde",
-]
-
-[[package]]
-name = "serialization"
-version = "0.0.1"
-dependencies = [
- "anyhow",
- "rmp-serde",
- "serde",
- "serde_json",
- "thiserror 2.0.16",
- "toml 0.9.5",
 ]
 
 [[package]]

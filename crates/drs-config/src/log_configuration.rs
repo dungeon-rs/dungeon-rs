@@ -1,6 +1,6 @@
 //! Contains the configuration structures for logging.
 
-use serialization::{Deserialize, Serialize};
+use drs_serialization::{Deserialize, Serialize};
 
 /// A configuration block to control how the application should handle logging.
 ///

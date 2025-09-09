@@ -15,7 +15,7 @@ workspace = true
 
 [dependencies]
 drs-data = { workspace = true }
-serialization = { workspace = true }
+drs-serialization = { workspace = true }
 utils = { workspace = true }
 bevy = { workspace = true }
 serde = { workspace = true }
@@ -28,6 +28,6 @@ tempfile = { workspace = true }
 default = []
 dev = [
   "drs-data/dev",
-  "serialization/dev",
+  "drs-serialization/dev",
   "utils/dev"
 ]

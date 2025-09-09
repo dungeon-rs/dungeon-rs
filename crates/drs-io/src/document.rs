@@ -8,7 +8,7 @@ use drs_data::{
     Element, ElementQuery, ElementQueryItem, LayerQuery, LayerQueryItem, LevelQuery,
     LevelQueryItem, ProjectQueryItem,
 };
-use serialization::{Deserialize, Serialize};
+use drs_serialization::{Deserialize, Serialize};
 
 /// A [`Document`] represents a [`drs_data::Project`] (and it's children) that is written to or read from storage.
 ///

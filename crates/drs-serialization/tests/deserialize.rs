@@ -2,7 +2,7 @@
 #![allow(missing_docs)]
 #![allow(clippy::pedantic)]
 
-use serialization::{SerializationFormat, deserialize};
+use drs_serialization::{SerializationFormat, deserialize};
 
 #[derive(serde::Serialize, serde::Deserialize)]
 pub struct Foo {

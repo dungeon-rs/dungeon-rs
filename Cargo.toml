@@ -50,7 +50,7 @@ drs-data = { path = "crates/drs-data" }
 drs-i18n = { path = "crates/drs-i18n" }
 drs-io = { path = "crates/drs-io" }
 drs-logging = { path = "crates/drs-logging" }
-serialization = { path = "crates/serialization" }
+drs-serialization = { path = "crates/drs-serialization" }
 ui = { path = "crates/ui" }
 utils = { path = "crates/utils" }
 

@@ -3,8 +3,8 @@
 use crate::{AssetPack, AssetPackError};
 use bevy::ecs::world::CommandQueue;
 use bevy::prelude::{Resource, debug, debug_span, info, info_span, trace, trace_span};
+use drs_serialization::{Deserialize, SerializationFormat, Serialize, deserialize, serialize_to};
 use semver::Version;
-use serialization::{Deserialize, SerializationFormat, Serialize, deserialize, serialize_to};
 use std::collections::HashMap;
 use std::fs::{File, create_dir_all};
 use std::io::Read;
@@ -62,7 +62,7 @@ pub enum AssetLibraryError {
     ReadFile(#[from] std::io::Error),
     /// An error occurred while (de)serialising the library configuration.
     #[error("failed to (de)serialize library configuration")]
-    Serialisation(#[from] serialization::SerializationError),
+    Serialisation(#[from] drs_serialization::SerializationError),
     /// Wrapper for the [`AssetPackError`].
     #[error(transparent)]
     OpenAssetPack(#[from] AssetPackError),

@@ -1,5 +1,5 @@
 [package]
-name = "serialization"
+name = "drs-serialization"
 description = "Handles the selection of serialization techniques and formats"
 edition.workspace = true
 repository.workspace = true
