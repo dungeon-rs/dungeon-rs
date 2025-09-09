@@ -1,5 +1,5 @@
 [package]
-name = "editor"
+name = "drs-editor"
 description = "The GUI binary that sets up the windows for the users to interact with."
 edition.workspace = true
 repository.workspace = true

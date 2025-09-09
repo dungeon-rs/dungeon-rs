@@ -2286,6 +2286,25 @@ dependencies = [
 ]
 
 [[package]]
+name = "drs-editor"
+version = "0.0.1"
+dependencies = [
+ "bevy",
+ "clap",
+ "drs-assets",
+ "drs-config",
+ "i18n",
+ "image",
+ "io",
+ "logging",
+ "native-dialog",
+ "sysinfo",
+ "ui",
+ "utils",
+ "winresource",
+]
+
+[[package]]
 name = "duplicate"
 version = "2.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2304,25 +2323,6 @@ checksum = "b6a7fc3172c2ef56966b2ce4f84177e159804c40b9a84de8861558ce4a59f422"
 dependencies = [
  "bytemuck",
  "emath",
-]
-
-[[package]]
-name = "editor"
-version = "0.0.1"
-dependencies = [
- "bevy",
- "clap",
- "drs-assets",
- "drs-config",
- "i18n",
- "image",
- "io",
- "logging",
- "native-dialog",
- "sysinfo",
- "ui",
- "utils",
- "winresource",
 ]
 
 [[package]]

@@ -36,7 +36,7 @@ DungeonRS is a cross-platform map editor for tabletop RPG sessions, inspired by 
 
 3. Build and run the development editor:
    ```bash
-   BEVY_ASSET_ROOT=. cargo run -p editor -F editor/dev
+   BEVY_ASSET_ROOT=. cargo run -p drs-editor -F drs-editor/dev
    ```
 
 ### Release Build
@@ -65,8 +65,8 @@ DungeonRS uses a workspace-based architecture with the following crates:
 - **`drs-assets`**: Asset loading, management, and scripting system
 - **`drs-cli`**: Command-line interface for project management and asset management
 - **`drs-config`**: Configuration management and settings
-- **`data`**: Core data structures for projects, levels, and layers
-- **`editor`**: Main application binary and UI integration
+- **`drs-data`**: Core data structures for projects, levels, and layers
+- **`drs-editor`**: Main application binary and UI integration
 - **`i18n`**: Internationalisation support
 - **`io`**: Project serialisation and file operations
 - **`logging`**: Logging and error handling
@@ -78,7 +78,7 @@ DungeonRS uses a workspace-based architecture with the following crates:
 
 DungeonRS supports custom configuration files. Specify a config file when launching:
 ```bash
-cargo run -p editor -- --config-file path/to/config.toml
+cargo run -p drs-editor -- --config-file path/to/config.toml
 ```
 
 Configuration options include logging levels, language settings, and editor preferences.

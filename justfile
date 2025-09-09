@@ -67,7 +67,7 @@ fix:
 
 # Run the editor in development mode
 run:
-    cargo run -p editor --features=editor/dev
+    cargo run -p drs-editor --features=drs-editor/dev
 
 # Run the CLI in development mode
 cli:
