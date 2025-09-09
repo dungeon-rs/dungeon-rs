@@ -10,6 +10,7 @@ use std::borrow::Cow;
 #[derive(Component, Default)]
 #[component(immutable)]
 #[require(Visibility::default())]
+#[cfg_attr(feature = "dev", derive(bevy::prelude::Reflect))]
 pub struct Layer;
 
 impl Layer {

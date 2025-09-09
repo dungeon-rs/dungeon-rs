@@ -1,7 +1,8 @@
 # `DungeonRS data`
 
 Core data structures shared throughout the application.
-This crate is kept lightweight and dependency-free so other crates can use these types without pulling in Bevy or other heavy dependencies.
+This crate is kept lightweight and dependency-free so other crates can use these types without pulling in heavy dependencies.
+Compiling this crate with `dev` feature enabled will derive `Reflect` for all types.
 
 Contains the fundamental types:
 - `Project` - Top-level marker component that defines the boundary of saveable map content

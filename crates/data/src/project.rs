@@ -14,6 +14,7 @@ use std::path::PathBuf;
 /// of the ECS hierarchy rather than all components available.
 #[derive(Component)]
 #[component(immutable)]
+#[cfg_attr(feature = "dev", derive(bevy::prelude::Reflect))]
 #[require(Transform::from_xyz(0.0, 0.0, 0.0), Visibility::default())]
 pub struct Project {
     /// The path to the file that this project is associated with.

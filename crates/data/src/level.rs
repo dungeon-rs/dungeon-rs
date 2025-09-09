@@ -11,6 +11,7 @@ use std::borrow::Cow;
 /// the levels are separated so that the user can edit/export each physical floor separately.
 #[derive(Component, Default)]
 #[component(immutable)]
+#[cfg_attr(feature = "dev", derive(bevy::prelude::Reflect))]
 #[require(Transform::from_xyz(0.0, 0.0, 0.0), Visibility::default())]
 pub struct Level;
 
