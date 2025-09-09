@@ -118,6 +118,18 @@ pub struct DungeonQueries<'w, 's> {
 }
 
 impl LevelQueryItem<'_> {
+    /// Returns whether the level is visible or not.
+    #[inline]
+    #[must_use]
+    pub fn is_visible(&self) -> bool {
+        match self.visibility {
+            Visibility::Inherited | Visibility::Hidden => false,
+            Visibility::Visible => true,
+        }
+    }
+}
+
+impl LayerQueryItem<'_> {
     /// Returns whether the layer is visible or not.
     #[inline]
     #[must_use]

@@ -23,21 +23,23 @@ fn load_project_event() -> anyhow::Result<()> {
 
     let mut file = File::create_new(input.clone())?;
     file.write_all(
-        b"{
-  \"name\": \"Example Project\",
-  \"levels\": [
+        br#"{
+  "name": "example project",
+  "levels": [
     {
-      \"name\": \"First Level\",
-      \"layers\": [
+      "name": "default",
+      "visible": false,
+      "layers": [
         {
-          \"name\": \"First Layer\",
-          \"order\": 0,
-          \"items\": []
+          "name": "default",
+          "visible": false,
+          "order": 0.0,
+          "items": []
         }
       ]
     }
   ]
-}",
+}"#,
     )?;
 
     // run the schedules once to process Setup and spawn
