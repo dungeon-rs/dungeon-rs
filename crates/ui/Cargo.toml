@@ -17,7 +17,7 @@ drs-assets = { workspace = true }
 utils = { workspace = true }
 drs-i18n = { workspace = true }
 drs-data = { workspace = true }
-io = { workspace = true }
+drs-io = { workspace = true }
 egui = { version = "0.32.1", default-features = false, features = ["mint", "accesskit", "rayon"] }
 bevy_egui = { version = "0.36.0", default-features = false, features = ["render", "default_fonts"] }
 bevy = { workspace = true, features = ["bevy_core_pipeline", "bevy_window", "bevy_winit"] }
@@ -33,7 +33,7 @@ dev = [
   "utils/dev",
   "drs-i18n/dev",
   "drs-data/dev",
-  "io/dev",
+  "drs-io/dev",
   "egui/deadlock_detection",
   "egui/log",
   "egui/callstack",

@@ -1,5 +1,5 @@
 [package]
-name = "io"
+name = "drs-io"
 description = "Handles the I/O processing of saving and loading maps"
 edition.workspace = true
 repository.workspace = true

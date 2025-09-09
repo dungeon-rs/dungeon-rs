@@ -48,7 +48,7 @@ drs-assets = { path = "crates/drs-assets" }
 drs-config = { path = "crates/drs-config" }
 drs-data = { path = "crates/drs-data" }
 drs-i18n = { path = "crates/drs-i18n" }
-io = { path = "crates/io" }
+drs-io = { path = "crates/drs-io" }
 logging = { path = "crates/logging" }
 serialization = { path = "crates/serialization" }
 ui = { path = "crates/ui" }

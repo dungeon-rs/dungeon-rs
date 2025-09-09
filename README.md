@@ -67,8 +67,8 @@ DungeonRS uses a workspace-based architecture with the following crates:
 - **`drs-config`**: Configuration management and settings
 - **`drs-data`**: Core data structures for projects, levels, and layers
 - **`drs-editor`**: Main application binary and UI integration
-- **`i18n`**: Internationalisation support
-- **`io`**: Project serialisation and file operations
+- **`drs-i18n`**: Internationalisation support
+- **`drs-io`**: Project serialisation and file operations
 - **`logging`**: Logging and error handling
 - **`serialization`**: Serialisation and deserialization of project data
 - **`ui`**: User interface components and layout management

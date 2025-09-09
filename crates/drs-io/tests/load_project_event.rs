@@ -5,7 +5,7 @@
 use bevy::prelude::*;
 use bevy::time::TimePlugin;
 use drs_data::Project;
-use io::{IOPlugin, LoadProjectEvent};
+use drs_io::{IOPlugin, LoadProjectEvent};
 use std::fs::File;
 use std::io::Write;
 use std::path::PathBuf;

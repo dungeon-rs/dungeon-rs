@@ -3,8 +3,8 @@
 use bevy::prelude::Commands;
 use drs_data::ProjectQueryItem;
 use drs_i18n::t;
+use drs_io::{LoadProjectEvent, SaveProjectEvent};
 use egui::{Align, Context, Layout, TopBottomPanel};
-use io::{LoadProjectEvent, SaveProjectEvent};
 use native_dialog::DialogBuilder;
 use utils::{AsyncComponent, report_progress};
 

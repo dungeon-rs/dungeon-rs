@@ -6,7 +6,7 @@ use anyhow::Context;
 use bevy::ecs::system::SystemState;
 use bevy::prelude::*;
 use drs_data::{Layer, Level, Project};
-use io::*;
+use drs_io::*;
 use std::fs::read_to_string;
 use std::time::Duration;
 use tempfile::tempdir;
