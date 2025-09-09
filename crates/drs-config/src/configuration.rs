@@ -4,12 +4,12 @@ use crate::LogConfiguration;
 use anyhow::Context;
 use bevy::prelude::Resource;
 use drs_serialization::{Deserialize, SerializationFormat, Serialize, deserialize, serialize_to};
+use drs_utils::config_path;
 use semver::Version;
 use std::collections::HashMap;
 use std::fs::File;
 use std::io::Read;
 use std::path::PathBuf;
-use utils::config_path;
 
 /// Configuration for the `DungeonRS` application.
 #[derive(Resource, Debug, Serialize, Deserialize)]
@@ -45,7 +45,7 @@ impl Default for Configuration {
     fn default() -> Self {
         Self {
             file: None,
-            version: utils::version().clone(),
+            version: drs_utils::version().clone(),
             language: None,
             recents: Vec::new(),
             libraries: HashMap::new(),

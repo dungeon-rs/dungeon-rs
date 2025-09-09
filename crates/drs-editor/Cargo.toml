@@ -17,7 +17,7 @@ workspace = true
 drs-assets = { workspace = true }
 drs-i18n = { workspace = true }
 drs-io = { workspace = true }
-utils = { workspace = true }
+drs-utils = { workspace = true }
 drs-ui = { workspace = true }
 drs-config = { workspace = true }
 drs-logging = { workspace = true }
@@ -36,7 +36,7 @@ dev = [
   "drs-assets/dev",
   "drs-i18n/dev",
   "drs-io/dev",
-  "utils/dev",
+  "drs-utils/dev",
   "drs-ui/dev",
   "drs-config/dev",
   "drs-logging/dev",

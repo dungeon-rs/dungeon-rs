@@ -20,7 +20,7 @@ use egui_dock::{DockArea, Style};
 
 /// This system is responsible for rendering the splash screen, which is shown when no project is
 /// loaded and the editor is waiting for something to work on.
-#[utils::bevy_system]
+#[drs_utils::bevy_system]
 pub fn render_splash_screen(
     mut contexts: EguiContexts,
     mut commands: Commands,
@@ -38,7 +38,7 @@ pub fn render_splash_screen(
 /// This system is responsible for rendering the editor layout.
 ///
 /// Note that this system will only run if there is a loaded project (due to `Single<ProjectQuery>`).
-#[utils::bevy_system]
+#[drs_utils::bevy_system]
 pub fn render_editor_layout(
     mut contexts: EguiContexts,
     commands: Commands,

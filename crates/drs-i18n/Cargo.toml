@@ -11,7 +11,7 @@ authors.workspace = true
 
 [dependencies]
 bevy = { workspace = true }
-utils = { workspace = true }
+drs-utils = { workspace = true }
 anyhow = { workspace = true }
 fluent-templates = { version = "0.13.1", features = ["walkdir"] }
 sys-locale = "0.3.2"
@@ -23,6 +23,6 @@ workspace = true
 [features]
 default = []
 dev = [
-    "utils/dev"
+    "drs-utils/dev"
 ]
 

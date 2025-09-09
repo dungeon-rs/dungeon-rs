@@ -4,13 +4,13 @@ use crate::{AssetPack, AssetPackError};
 use bevy::ecs::world::CommandQueue;
 use bevy::prelude::{Resource, debug, debug_span, info, info_span, trace, trace_span};
 use drs_serialization::{Deserialize, SerializationFormat, Serialize, deserialize, serialize_to};
+use drs_utils::{DirectoryError, Sender, cache_path, config_path};
 use semver::Version;
 use std::collections::HashMap;
 use std::fs::{File, create_dir_all};
 use std::io::Read;
 use std::path::{Path, PathBuf};
 use thiserror::Error;
-use utils::{DirectoryError, Sender, cache_path, config_path};
 
 /// The name of the library configuration file.
 const LIBRARY_FILE_NAME: &str = "library.toml";
@@ -203,7 +203,7 @@ impl AssetLibrary {
     ) -> Result<String, AssetLibraryError> {
         let _ = info_span!("add_pack", ?name).entered();
 
-        let id = utils::hash_path(root);
+        let id = drs_utils::hash_path(root);
         let meta_dir = meta_dir.unwrap_or(cache_path()?.join(id.clone()));
 
         let pack = AssetPack::new(id.clone(), root, meta_dir.as_path(), name)?;
@@ -375,7 +375,7 @@ impl AssetLibrary {
 impl From<&AssetLibrary> for _AssetLibrary {
     fn from(value: &AssetLibrary) -> Self {
         Self {
-            version: utils::version().clone(),
+            version: drs_utils::version().clone(),
             packs: value.registered_packs.clone(),
         }
     }
@@ -421,7 +421,7 @@ mod tests {
     fn load_asset_pack_requires_registration() -> anyhow::Result<()> {
         let tmp = TempDir::with_prefix("dungeon_rs-assets")?;
         let mut library = AssetLibrary::default();
-        let id = utils::hash_path(tmp.path());
+        let id = drs_utils::hash_path(tmp.path());
         let pack = AssetPack::new(id, tmp.path(), tmp.path(), None)?;
 
         library

@@ -18,7 +18,7 @@ pub struct LoadProjectEvent {
 }
 
 /// Bevy system that handles `LoadProjectEvent` events that were fired.
-#[utils::bevy_system]
+#[drs_utils::bevy_system]
 pub fn handle_load_project_event(
     mut events: EventReader<LoadProjectEvent>,
     mut commands: Commands,

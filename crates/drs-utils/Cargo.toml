@@ -1,5 +1,5 @@
 [package]
-name = "utils"
+name = "drs-utils"
 description = "Crate containing helpers, macros and utilities for use in all other crates"
 edition.workspace = true
 repository.workspace = true
@@ -15,7 +15,7 @@ workspace = true
 
 [dependencies]
 bevy = { workspace = true }
-utils_macros = { path = "macros" }
+drs-utils_macros = { path = "macros" }
 crossbeam-channel = { workspace = true }
 semver = { workspace = true }
 thiserror = { workspace = true }
@@ -30,6 +30,6 @@ default = [
   "bevy/multi_threaded"
 ]
 dev = [
-    "utils_macros/dev"
+    "drs-utils_macros/dev"
 ]
 

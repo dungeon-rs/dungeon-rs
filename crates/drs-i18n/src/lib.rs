@@ -19,7 +19,7 @@ const FALLBACK: LanguageIdentifier = unic_langid::langid!("en-GB");
 ///
 /// See [`Locale`].
 pub static LOCALE: LazyLock<Locale> = LazyLock::new(|| {
-    let locales_path = utils::resource_path()
+    let locales_path = drs_utils::resource_path()
         .with_context(|| "Failed to resolve resources path")
         .unwrap()
         .join("locales");

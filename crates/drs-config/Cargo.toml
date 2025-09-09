@@ -14,7 +14,7 @@ publish.workspace = true
 workspace = true
 
 [dependencies]
-utils = { workspace = true }
+drs-utils = { workspace = true }
 anyhow = { workspace = true }
 serde = { workspace = true }
 drs-serialization = { workspace = true }
@@ -26,6 +26,6 @@ default = [
   "drs-serialization/toml"
 ]
 dev = [
-  "utils/dev",
+  "drs-utils/dev",
   "drs-serialization/dev"
 ]

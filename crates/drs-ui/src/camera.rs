@@ -28,7 +28,7 @@ impl UICamera {
 }
 
 /// Spawns the [`UICamera`] bundle.
-#[utils::bevy_system]
+#[drs_utils::bevy_system]
 pub(crate) fn setup_ui_camera(mut commands: Commands) {
     commands.spawn(UICamera::bundle());
 }
@@ -36,7 +36,7 @@ pub(crate) fn setup_ui_camera(mut commands: Commands) {
 /// The system that controls the UI camera.
 ///
 /// It handles moving, zooming and other functionality in response to user input.
-#[utils::bevy_system]
+#[drs_utils::bevy_system]
 pub(crate) fn camera_control_system(
     mut state: Local<UICameraState>,
     mouse_input: Res<ButtonInput<MouseButton>>,

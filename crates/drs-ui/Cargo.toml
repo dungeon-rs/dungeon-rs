@@ -14,7 +14,7 @@ workspace = true
 
 [dependencies]
 drs-assets = { workspace = true }
-utils = { workspace = true }
+drs-utils = { workspace = true }
 drs-i18n = { workspace = true }
 drs-data = { workspace = true }
 drs-io = { workspace = true }
@@ -30,7 +30,7 @@ bevy-inspector-egui = { version = "0.33.1", optional = true, default-features = 
 default = []
 dev = [
   "drs-assets/dev",
-  "utils/dev",
+  "drs-utils/dev",
   "drs-i18n/dev",
   "drs-data/dev",
   "drs-io/dev",

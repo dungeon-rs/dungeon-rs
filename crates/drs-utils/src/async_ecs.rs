@@ -91,7 +91,7 @@ impl AsyncComponent {
 /// # Example
 /// ```rust
 /// # use bevy::prelude::*;
-/// # use utils::{AsyncComponent, report_progress};
+/// # use drs_utils::{AsyncComponent, report_progress};
 /// #[derive(Event)]
 /// struct FooEvent;
 ///
@@ -134,7 +134,7 @@ where
 /// # Example
 /// ```rust
 /// # use bevy::prelude::*;
-/// # use utils::{AsyncComponent, send_command};
+/// # use drs_utils::{AsyncComponent, send_command};
 /// #[derive(Component)]
 /// struct FooComponent;
 ///

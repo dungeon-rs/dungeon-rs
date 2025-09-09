@@ -4,8 +4,8 @@ use anyhow::Context;
 use bevy::prelude::{BevyError, Commands, Entity, Event, EventReader, Query, default};
 use drs_data::{ElementQuery, LayerQuery, LevelQuery, ProjectQuery};
 use drs_serialization::serialize_to;
+use drs_utils::{AsyncComponent, report_progress};
 use std::fs::File;
-use utils::{AsyncComponent, report_progress};
 
 /// When this event is sent, the associated `project` will be fetched and saved.
 /// As a reaction to this event, a system will build a [`bevy::prelude::Query`] that attempts to
@@ -39,7 +39,7 @@ impl SaveProjectEvent {
 /// Bevy system that handles [`SaveProjectEvent`] events.
 ///
 /// TODO: add error reporting
-#[utils::bevy_system]
+#[drs_utils::bevy_system]
 pub fn handle_save_project(
     mut commands: Commands,
     mut events: EventReader<SaveProjectEvent>,

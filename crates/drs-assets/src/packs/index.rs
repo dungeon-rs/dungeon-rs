@@ -5,6 +5,7 @@ use crate::packs::thumbnails::{AssetPackThumbnailError, AssetPackThumbnails};
 use crate::scripting::IndexEntry;
 use bevy::ecs::world::CommandQueue;
 use bevy::prelude::{Event, info_span, trace, warn};
+use drs_utils::{Sender, file_name, report_progress};
 use rhai::{AST, Array, Engine, OptimizationLevel, Scope};
 use std::fmt::{Display, Formatter};
 use std::path::{Path, PathBuf};
@@ -13,7 +14,6 @@ use tantivy::query::{QueryParser, QueryParserError, TermQuery};
 use tantivy::schema::{Field, IndexRecordOption, STORED, STRING, Schema, TEXT, Value};
 use tantivy::{Index, IndexWriter, TantivyDocument, TantivyError, Term, doc};
 use thiserror::Error;
-use utils::{Sender, file_name, report_progress};
 use walkdir::WalkDir;
 
 /// The default script for filtering when no custom script was passed into the `AssetPack`.
@@ -541,13 +541,13 @@ impl AssetPackSearchResult {
 impl Display for AssetPackSearchResult {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         let name = self.name().unwrap_or("<no value>");
-        let path = self
-            .path()
-            .map_or(String::from("<no value>"), |path| utils::to_string(&path));
+        let path = self.path().map_or(String::from("<no value>"), |path| {
+            drs_utils::to_string(&path)
+        });
         let categories = self.categories();
-        let thumbnail = self
-            .path()
-            .map_or(String::from("<no value>"), |path| utils::to_string(&path));
+        let thumbnail = self.path().map_or(String::from("<no value>"), |path| {
+            drs_utils::to_string(&path)
+        });
 
         writeln!(f, "name: {name}")?;
         writeln!(f, "categories:")?;

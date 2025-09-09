@@ -11,7 +11,7 @@ publish.workspace = true
 
 [dependencies]
 bevy = { workspace = true }
-utils = { workspace = true }
+drs-utils = { workspace = true }
 drs-assets = { workspace = true }
 drs-logging = { workspace = true, features = ["console"] }
 clap = { workspace = true }
@@ -26,7 +26,7 @@ default = []
 dev = [
     "drs-assets/dev",
     "drs-logging/dev",
-    "utils/dev"
+    "drs-utils/dev"
 ]
 
 # support for various image formats

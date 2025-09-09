@@ -1,5 +1,5 @@
 [package]
-name = "utils_macros"
+name = "drs-utils_macros"
 description = "Contains macros for the `utils` crate"
 edition.workspace = true
 repository.workspace = true

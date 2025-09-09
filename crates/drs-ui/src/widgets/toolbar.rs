@@ -4,9 +4,9 @@ use bevy::prelude::Commands;
 use drs_data::ProjectQueryItem;
 use drs_i18n::t;
 use drs_io::{LoadProjectEvent, SaveProjectEvent};
+use drs_utils::{AsyncComponent, report_progress};
 use egui::{Align, Context, Layout, TopBottomPanel};
 use native_dialog::DialogBuilder;
-use utils::{AsyncComponent, report_progress};
 
 /// Handles the rendering of the toolbar.
 pub fn render(context: &mut Context, project: Option<&ProjectQueryItem>, mut commands: Commands) {

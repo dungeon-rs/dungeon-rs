@@ -21,7 +21,7 @@ pub fn build_engine() -> Engine {
 ///
 /// This implementation currently uses Blake3, but callers should not rely on this.
 fn hash(value: &mut ImmutableString) -> ImmutableString {
-    utils::hash_string(value.as_str()).into()
+    drs_utils::hash_string(value.as_str()).into()
 }
 
 /// Represents the result of a Rhai indexing script.

@@ -13,7 +13,7 @@ use drs_i18n::I18nPlugin;
 use drs_io::IOPlugin;
 use drs_logging::log_plugin;
 use drs_ui::UIPlugin;
-use utils::CorePlugin;
+use drs_utils::CorePlugin;
 
 /// Arguments for running the editor.
 #[derive(Debug, Parser)]
@@ -37,7 +37,7 @@ fn main() -> AppExit {
         Err(err) => panic!("Failed to load configuration: {err:?}"),
     };
 
-    let resource_path = utils::resource_path().expect("Failed to get resource path");
+    let resource_path = drs_utils::resource_path().expect("Failed to get resource path");
     let plugin_builder = DefaultPlugins
         .build()
         .add(CorePlugin)
@@ -47,7 +47,7 @@ fn main() -> AppExit {
         .add_before::<bevy::prelude::AssetPlugin>(AssetPlugin)
         .set(log_plugin(&config.logging))
         .set(bevy::asset::AssetPlugin {
-            file_path: utils::to_string(&resource_path.join("assets")),
+            file_path: drs_utils::to_string(&resource_path.join("assets")),
             ..default()
         });
 

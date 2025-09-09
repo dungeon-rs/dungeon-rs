@@ -12,12 +12,12 @@ use crate::packs::thumbnails::{AssetPackThumbnailError, AssetPackThumbnails};
 use bevy::ecs::world::CommandQueue;
 use bevy::prelude::{Asset, AssetServer, Handle, debug, debug_span, info, trace};
 use drs_serialization::{Deserialize, SerializationFormat, Serialize, deserialize, serialize_to};
+use drs_utils::{Sender, file_name};
 use std::fs::{File, create_dir_all};
 use std::io::read_to_string;
 use std::path::Path;
 use std::path::PathBuf;
 use thiserror::Error;
-use utils::{Sender, file_name};
 
 /// The filename of the asset pack manifests.
 const MANIFEST_FILE_NAME: &str = "asset_pack.toml";
@@ -347,7 +347,7 @@ mod tests {
     #[should_panic = "Should fail to create asset pack"]
     fn new_asset_error_on_invalid_path() {
         let path = Path::new("./does/not/exist");
-        let id = utils::hash_path(path).to_string();
+        let id = drs_utils::hash_path(path).to_string();
         AssetPack::new(id, path, path, None).expect("Should fail to create asset pack");
     }
 
@@ -355,7 +355,7 @@ mod tests {
     #[should_panic = "IndexAlreadyExists"]
     fn new_asset_pack_error_on_existing() {
         let path = tempdir().unwrap();
-        let id = utils::hash_path(path.path()).to_string();
+        let id = drs_utils::hash_path(path.path()).to_string();
 
         AssetPack::new(id.clone(), path.path(), path.path(), None).unwrap();
         AssetPack::new(id, path.path(), path.path(), None).unwrap();

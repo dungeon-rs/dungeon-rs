@@ -8,10 +8,10 @@ use bevy::prelude::{Commands, ResMut, Resource, World};
 use bevy::prelude::{SpawnRelated, Transform};
 use drs_data::{Layer, Level, Project};
 use drs_i18n::t;
+use drs_utils::{AsyncComponent, to_string};
 use egui::Ui;
 use native_dialog::DialogBuilder;
 use std::path::PathBuf;
-use utils::{AsyncComponent, to_string};
 
 /// Contains the form state for the create project form.
 #[derive(Resource, Default)]

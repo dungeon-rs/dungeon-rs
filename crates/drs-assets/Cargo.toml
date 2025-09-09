@@ -17,7 +17,7 @@ workspace = true
 bevy = { workspace = true, features = ["bevy_asset"] }
 rhai = { version = "1.22.2", features = ["no_time"] }
 walkdir = "2.5.0"
-utils = { workspace = true }
+drs-utils = { workspace = true }
 semver = { workspace = true, features = ["serde"] }
 serde = { workspace = true }
 drs-serialization = { workspace = true }
@@ -34,7 +34,7 @@ default = [
     "drs-serialization/toml"
 ]
 dev = [
-    "utils/dev",
+    "drs-utils/dev",
     "drs-serialization/dev",
     "bevy/trace",
 ]

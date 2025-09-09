@@ -7,10 +7,10 @@ use bevy::ecs::system::SystemState;
 use bevy::prelude::*;
 use drs_data::{Layer, Level, Project};
 use drs_io::*;
+use drs_utils::CorePlugin;
 use std::fs::read_to_string;
 use std::time::Duration;
 use tempfile::tempdir;
-use utils::CorePlugin;
 
 /// Advance the world (similar to the pattern used in utils tests)
 fn advance_world(app: &mut App) {
@@ -32,7 +32,7 @@ fn process_async_components(app: &mut App) {
     for _ in 0..100 {
         let remaining_components = app
             .world_mut()
-            .query_filtered::<Entity, With<utils::AsyncComponent>>()
+            .query_filtered::<Entity, With<drs_utils::AsyncComponent>>()
             .iter(app.world())
             .count();
 

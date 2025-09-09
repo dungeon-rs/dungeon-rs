@@ -3,9 +3,9 @@
 use anyhow::bail;
 use bevy::ecs::world::CommandQueue;
 use bevy::prelude::{Event, Events, World};
+use drs_utils::Sender;
 use std::thread::JoinHandle;
 use std::time::Duration;
-use utils::Sender;
 
 use std::rc::Rc;
 
@@ -34,7 +34,7 @@ where
     TFError: Fn(TError, Rc<TContext>) -> anyhow::Result<()> + Send + 'static,
     TContext: Send + 'static,
 {
-    let (sender, receiver) = utils::command_queue();
+    let (sender, receiver) = drs_utils::command_queue();
 
     let thread = std::thread::spawn(move || {
         let mut world = World::default();

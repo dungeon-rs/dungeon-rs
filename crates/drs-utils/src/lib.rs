@@ -9,8 +9,8 @@ mod version;
 
 pub use async_ecs::*;
 pub use directories::*;
+pub use drs_utils_macros::*;
 pub use hash::*;
 pub use pathbuf::*;
 pub use plugin::CorePlugin;
-pub use utils_macros::*;
 pub use version::version;
