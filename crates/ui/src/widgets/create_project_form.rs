@@ -6,7 +6,7 @@ use bevy::ecs::children;
 use bevy::ecs::world::CommandQueue;
 use bevy::prelude::{Commands, ResMut, Resource, World};
 use bevy::prelude::{SpawnRelated, Transform};
-use data::{Layer, Level, Project};
+use drs_data::{Layer, Level, Project};
 use egui::Ui;
 use i18n::t;
 use native_dialog::DialogBuilder;

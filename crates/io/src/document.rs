@@ -1,64 +1,64 @@
-//! The [`Document`] structs are used for writing and loading [`data::Project`] entities to and
+//! The [`Document`] structs are used for writing and loading [`drs_data::Project`] entities to and
 //! from storage. This module is intentionally not made public, since these structs have no use
 //! beyond persistence and should not be used outside this scope.
 
 use bevy::ecs::{relationship::RelationshipTarget, system::Query};
 use bevy::prelude::{Quat, Vec3};
-use data::{
+use drs_data::{
     Element, ElementQuery, ElementQueryItem, LayerQuery, LayerQueryItem, LevelQuery,
     LevelQueryItem, ProjectQueryItem,
 };
 use serialization::{Deserialize, Serialize};
 
-/// A [`Document`] represents a [`data::Project`] (and it's children) that is written to or read from storage.
+/// A [`Document`] represents a [`drs_data::Project`] (and it's children) that is written to or read from storage.
 ///
 /// It's an intentionally simplified representation of the ECS data structure optimised for serialisation.
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Document {
-    /// See `name` in [`data::Project::new`].
+    /// See `name` in [`drs_data::Project::new`].
     pub name: String,
-    /// All [`DocumentLevel`] constructed from the [`data::Project`]'s children.
+    /// All [`DocumentLevel`] constructed from the [`drs_data::Project`]'s children.
     pub levels: Vec<DocumentLevel>,
 }
 
-/// A [`DocumentLevel`] represents a [`data::Level`] (and it's children) that is written to or read
+/// A [`DocumentLevel`] represents a [`drs_data::Level`] (and it's children) that is written to or read
 /// from storage.
 ///
 /// It's an intentionally simplified representation of the ECS data structure optimised for serialisation.
 #[derive(Debug, Serialize, Deserialize)]
 pub struct DocumentLevel {
-    /// See `name` in [`data::Level::new`].
+    /// See `name` in [`drs_data::Level::new`].
     pub name: String,
     /// Whether the level is visible in the editor (e.g. active).
     pub visible: bool,
-    /// All [`DocumentLayer`] constructed from the [`data::Level`]'s children.
+    /// All [`DocumentLayer`] constructed from the [`drs_data::Level`]'s children.
     pub layers: Vec<DocumentLayer>,
 }
 
-/// A [`DocumentLayer`] represents a [`data::Layer`] (and it's children) that is written to or read
+/// A [`DocumentLayer`] represents a [`drs_data::Layer`] (and it's children) that is written to or read
 /// from storage.
 ///
 /// It's an intentionally simplified representation of the ECS data structure optimised for serialisation.
 #[derive(Debug, Serialize, Deserialize)]
 pub struct DocumentLayer {
-    /// See `name` in [`data::Layer::new`].
+    /// See `name` in [`drs_data::Layer::new`].
     pub name: String,
     /// Whether the layer is visible in the editor (e.g. active).
     pub visible: bool,
-    /// The order of the [`data::Layer`] (determined by it's [`Transform`]).
+    /// The order of the [`drs_data::Layer`] (determined by it's [`Transform`]).
     pub order: f32,
-    /// The [`DocumentItem`] constructed from the [`data::Layer`]'s children.
+    /// The [`DocumentItem`] constructed from the [`drs_data::Layer`]'s children.
     pub items: Vec<DocumentItem>,
 }
 
 /// Represents the lowest level of a [`Document`]; these are the items that are 'visible' on the
 /// screen for the user (objects, paths, patterns, textures, ...).
 ///
-/// They represent a [`data::Element`] at its core.
+/// They represent a [`drs_data::Element`] at its core.
 #[derive(Debug, Serialize, Deserialize)]
 #[non_exhaustive]
 pub enum DocumentItem {
-    /// Captures the metadata of an [`data::Element::Object`].
+    /// Captures the metadata of an [`drs_data::Element::Object`].
     Object {
         /// The ID of the asset being captured.
         id: String,
@@ -75,8 +75,8 @@ impl Document {
     /// Generate a new [`Document`] and it's related children based on the current state (fetched
     /// through the `level_query` and `layer_query` queries).
     ///
-    /// The `value` parameter is the result of a [`data::ProjectQuery`] to fetch the relevant
-    /// data for the [`data::Project`] component.
+    /// The `value` parameter is the result of a [`drs_data::ProjectQuery`] to fetch the relevant
+    /// data for the [`drs_data::Project`] component.
     ///
     /// See [`DocumentLevel::new`] for `level_query`.
     ///
@@ -105,8 +105,8 @@ impl DocumentLevel {
     /// Generate a new [`DocumentLevel`] and it's related children based on the current state
     /// (fetched through the `layer_query`).
     ///
-    /// The `value` parameter is the result of a [`data::LevelQuery`] to fetch the relevant
-    /// data for the [`data::Level`], and is usually passed from [`Document::new`].
+    /// The `value` parameter is the result of a [`drs_data::LevelQuery`] to fetch the relevant
+    /// data for the [`drs_data::Level`], and is usually passed from [`Document::new`].
     ///
     /// See [`Document::new`] for how this is called.
     ///
@@ -154,10 +154,10 @@ impl DocumentLayer {
 }
 
 impl DocumentItem {
-    /// Create a new [`DocumentItem`] from the given [`data::Element`] and it's meta components.
+    /// Create a new [`DocumentItem`] from the given [`drs_data::Element`] and it's meta components.
     ///
     /// # Panics
-    /// This method can panic if the [`data::Element`] is an unsupported type.
+    /// This method can panic if the [`drs_data::Element`] is an unsupported type.
     pub fn new(value: &ElementQueryItem) -> Self {
         match value.element {
             Element::Object(object) => DocumentItem::Object {
@@ -181,7 +181,7 @@ mod tests {
     use super::*;
     use bevy::ecs::system::SystemState;
     use bevy::prelude::*;
-    use data::{Layer, Level, Project, ProjectQuery};
+    use drs_data::{Layer, Level, Project, ProjectQuery};
     use std::path::PathBuf;
 
     #[test]

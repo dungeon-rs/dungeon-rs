@@ -2107,13 +2107,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "data"
-version = "0.0.1"
-dependencies = [
- "bevy",
-]
-
-[[package]]
 name = "data-encoding"
 version = "2.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2283,6 +2276,13 @@ dependencies = [
  "serde",
  "serialization",
  "utils",
+]
+
+[[package]]
+name = "drs-data"
+version = "0.0.1"
+dependencies = [
+ "bevy",
 ]
 
 [[package]]
@@ -3218,7 +3218,7 @@ version = "0.0.1"
 dependencies = [
  "anyhow",
  "bevy",
- "data",
+ "drs-data",
  "serde",
  "serialization",
  "tempfile",
@@ -5884,8 +5884,8 @@ dependencies = [
  "bevy",
  "bevy-inspector-egui",
  "bevy_egui",
- "data",
  "drs-assets",
+ "drs-data",
  "egui",
  "egui-notify",
  "egui_dock",

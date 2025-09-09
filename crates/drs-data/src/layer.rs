@@ -23,9 +23,9 @@ impl Layer {
     ///
     /// ```
     /// # use bevy::prelude::*;
-    /// # use data::Project;
-    /// # use data::Level;
-    /// # use data::Layer;
+    /// # use drs_data::Project;
+    /// # use drs_data::Level;
+    /// # use drs_data::Layer;
     /// # use std::path::PathBuf;
     /// #
     /// # fn main() {

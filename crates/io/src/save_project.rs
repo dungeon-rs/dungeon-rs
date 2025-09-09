@@ -2,29 +2,29 @@
 use crate::document::Document;
 use anyhow::Context;
 use bevy::prelude::{BevyError, Commands, Entity, Event, EventReader, Query, default};
-use data::{ElementQuery, LayerQuery, LevelQuery, ProjectQuery};
+use drs_data::{ElementQuery, LayerQuery, LevelQuery, ProjectQuery};
 use serialization::serialize_to;
 use std::fs::File;
 use utils::{AsyncComponent, report_progress};
 
 /// When this event is sent, the associated `project` will be fetched and saved.
 /// As a reaction to this event, a system will build a [`bevy::prelude::Query`] that attempts to
-/// fetch all [`data::Project`]'s [`data::Level`]s (and their descendant [`data::Layer`]s along
+/// fetch all [`drs_data::Project`]'s [`drs_data::Level`]s (and their descendant [`drs_data::Layer`]s along
 /// all their descendants) and then (attempts) to persist them to disk.
 ///
-/// The [`data::Project`] fetched is queried by the [`SaveProjectEvent::project`] [`Entity`],
+/// The [`drs_data::Project`] fetched is queried by the [`SaveProjectEvent::project`] [`Entity`],
 /// the user is responsible for only emitting "valid" entities, as this crate will assume they are,
 /// and according to Bevy's own documentation, this can lead to undefined behaviour if not respected.
 #[derive(Event, Debug)]
 pub struct SaveProjectEvent {
-    /// The [`Entity`] of the [`data::Project`] to save.
+    /// The [`Entity`] of the [`drs_data::Project`] to save.
     pub(crate) project: Entity,
 }
 
 /// This event indicates that the work of a [`SaveProjectEvent`] has completed.
 #[derive(Event, Debug)]
 pub struct SaveProjectCompleteEvent {
-    /// The [`Entity`] of the [`data::Project`] that was saved.
+    /// The [`Entity`] of the [`drs_data::Project`] that was saved.
     pub project: Entity,
 }
 

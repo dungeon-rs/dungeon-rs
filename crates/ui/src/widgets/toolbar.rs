@@ -1,7 +1,7 @@
 //! Renders the toolbar at the top of the screen.
 
 use bevy::prelude::Commands;
-use data::ProjectQueryItem;
+use drs_data::ProjectQueryItem;
 use egui::{Align, Context, Layout, TopBottomPanel};
 use i18n::t;
 use io::{LoadProjectEvent, SaveProjectEvent};

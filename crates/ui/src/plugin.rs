@@ -7,7 +7,7 @@ use crate::widgets::notifications::Notifications;
 use bevy::app::App;
 use bevy::prelude::{IntoScheduleConfigs, Plugin, PostUpdate, Startup, any_with_component, not};
 use bevy_egui::{EguiPlugin, EguiPrimaryContextPass};
-use data::Project;
+use drs_data::Project;
 
 /// A [Bevy](https://bevyengine.org/) plugin that adds UI to the app it's added to.
 pub struct UIPlugin;
@@ -20,9 +20,9 @@ impl Plugin for UIPlugin {
         #[cfg(feature = "dev")]
         {
             app.register_type::<Project>()
-                .register_type::<data::Level>()
-                .register_type::<data::Layer>()
-                .register_type::<data::Element>();
+                .register_type::<drs_data::Level>()
+                .register_type::<drs_data::Layer>()
+                .register_type::<drs_data::Element>();
 
             app.add_plugins(bevy_inspector_egui::quick::WorldInspectorPlugin::new());
         }

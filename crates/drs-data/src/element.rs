@@ -19,10 +19,10 @@ use bevy::prelude::Visibility;
 ///
 /// ```
 /// # use bevy::prelude::*;
-/// # use data::Project;
-/// # use data::Level;
-/// # use data::Layer;
-/// # use data::Element;
+/// # use drs_data::Project;
+/// # use drs_data::Level;
+/// # use drs_data::Layer;
+/// # use drs_data::Element;
 /// # use std::path::PathBuf;
 /// #
 /// # fn main() {

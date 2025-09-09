@@ -1,5 +1,5 @@
 [package]
-name = "data"
+name = "drs-data"
 description = "Contains the data structures used throughout other packages."
 edition.workspace = true
 repository.workspace = true

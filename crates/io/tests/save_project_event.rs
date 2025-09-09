@@ -5,7 +5,7 @@
 use anyhow::Context;
 use bevy::ecs::system::SystemState;
 use bevy::prelude::*;
-use data::{Layer, Level, Project};
+use drs_data::{Layer, Level, Project};
 use io::*;
 use std::fs::read_to_string;
 use std::time::Duration;

@@ -2,7 +2,7 @@
 use crate::document::Document;
 use anyhow::Context;
 use bevy::prelude::{BevyError, Commands, Event, EventReader, Transform, default, info, info_span};
-use data::{Layer, Level, Project};
+use drs_data::{Layer, Level, Project};
 use serialization::deserialize;
 use std::fs::read;
 use std::path::PathBuf;

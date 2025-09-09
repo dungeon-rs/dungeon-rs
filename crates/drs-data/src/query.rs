@@ -94,7 +94,7 @@ pub struct ElementQuery {
 ///
 /// ```rust
 /// use bevy::prelude::*;
-/// use data::{DungeonQueries, Project};
+/// use drs_data::{DungeonQueries, Project};
 ///
 /// fn my_system(queries: DungeonQueries, project_query: Query<Entity, With<Project>>) {
 ///     // Get all levels in a project
@@ -160,7 +160,7 @@ impl DungeonQueries<'_, '_> {
     ///
     /// ```rust
     /// use bevy::prelude::*;
-    /// use data::{DungeonQueries, Project};
+    /// use drs_data::{DungeonQueries, Project};
     ///
     /// fn example_system(queries: DungeonQueries, project_query: Query<Entity, With<Project>>) {
     ///     if let Ok(project_entity) = project_query.single() {
@@ -200,7 +200,7 @@ impl DungeonQueries<'_, '_> {
     ///
     /// ```rust
     /// use bevy::prelude::*;
-    /// use data::{DungeonQueries, Level};
+    /// use drs_data::{DungeonQueries, Level};
     ///
     /// fn example_system(queries: DungeonQueries, level_query: Query<Entity, With<Level>>) {
     ///     if let Ok(level_entity) = level_query.single() {
@@ -240,7 +240,7 @@ impl DungeonQueries<'_, '_> {
     ///
     /// ```rust
     /// use bevy::prelude::*;
-    /// use data::{DungeonQueries, Layer};
+    /// use drs_data::{DungeonQueries, Layer};
     ///
     /// fn example_system(queries: DungeonQueries, layer_query: Query<Entity, With<Layer>>) {
     ///     if let Ok(layer_entity) = layer_query.single() {

@@ -2,8 +2,8 @@
 //! This is shown when the user is actively editing a project.
 
 use crate::panels;
-use data::{DungeonQueries, ProjectQueryItem};
 use drs_assets::AssetLibrary;
+use drs_data::{DungeonQueries, ProjectQueryItem};
 use egui::{RichText, Ui, WidgetText};
 use egui_dock::TabViewer;
 use i18n::t;
@@ -77,7 +77,7 @@ impl TabViewer for EditorLayout<'_> {
                 let level = self
                     .query
                     .levels_for_project(self.project.entity)
-                    .find(data::LevelQueryItem::is_visible);
+                    .find(drs_data::LevelQueryItem::is_visible);
 
                 if let Some(level) = level {
                     panels::layers(ui, self.query, &level);

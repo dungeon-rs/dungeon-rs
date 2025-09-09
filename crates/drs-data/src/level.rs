@@ -25,8 +25,8 @@ impl Level {
     ///
     /// ```
     /// # use bevy::prelude::*;
-    /// # use data::Project;
-    /// # use data::Level;
+    /// # use drs_data::Project;
+    /// # use drs_data::Level;
     /// # use std::path::PathBuf;
     /// #
     /// # fn main() {

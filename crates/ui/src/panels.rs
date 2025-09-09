@@ -1,8 +1,8 @@
 //! Contains panels that can be reused in docking layouts.
 
 use bevy::prelude::Visibility;
-use data::{DungeonQueries, LevelQueryItem, ProjectQueryItem};
 use drs_assets::AssetLibrary;
+use drs_data::{DungeonQueries, LevelQueryItem, ProjectQueryItem};
 use egui::Ui;
 
 /// Handles rendering the asset panel in a docked layout.

@@ -4,7 +4,7 @@
 
 use bevy::prelude::*;
 use bevy::time::TimePlugin;
-use data::Project;
+use drs_data::Project;
 use io::{IOPlugin, LoadProjectEvent};
 use std::fs::File;
 use std::io::Write;

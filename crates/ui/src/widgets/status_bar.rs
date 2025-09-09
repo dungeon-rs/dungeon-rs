@@ -1,6 +1,6 @@
 //! Renders the status bar at the bottom of the screen.
 
-use data::ProjectQueryItem;
+use drs_data::ProjectQueryItem;
 use egui::{Context, TopBottomPanel, warn_if_debug_build};
 use i18n::t;
 

@@ -38,7 +38,7 @@ impl Project {
     /// ```
     /// # use std::path::PathBuf;
     /// # use bevy::prelude::*;
-    /// # use data::Project;
+    /// # use drs_data::Project;
     /// #
     /// # fn main() {
     /// #   App::new()

@@ -14,8 +14,8 @@ use crate::widgets::notifications::Notifications;
 use crate::widgets::{status_bar, toolbar};
 use bevy::prelude::{BevyError, Commands, ResMut, debug_span};
 use bevy_egui::EguiContexts;
-use data::DungeonQueries;
 use drs_assets::AssetLibrary;
+use drs_data::DungeonQueries;
 use egui_dock::{DockArea, Style};
 
 /// This system is responsible for rendering the splash screen, which is shown when no project is

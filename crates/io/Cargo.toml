@@ -14,7 +14,7 @@ publish.workspace = true
 workspace = true
 
 [dependencies]
-data = { workspace = true }
+drs-data = { workspace = true }
 serialization = { workspace = true }
 utils = { workspace = true }
 bevy = { workspace = true }
@@ -27,7 +27,7 @@ tempfile = { workspace = true }
 [features]
 default = []
 dev = [
-  "data/dev",
+  "drs-data/dev",
   "serialization/dev",
   "utils/dev"
 ]
