@@ -18,7 +18,14 @@ impl Plugin for UIPlugin {
             .insert_resource(Notifications::default());
 
         #[cfg(feature = "dev")]
-        app.add_plugins(bevy_inspector_egui::quick::WorldInspectorPlugin::new());
+        {
+            app.register_type::<Project>()
+                .register_type::<data::Level>()
+                .register_type::<data::Layer>()
+                .register_type::<data::Element>();
+
+            app.add_plugins(bevy_inspector_egui::quick::WorldInspectorPlugin::new());
+        }
 
         // Camera controls
         app.add_systems(PostUpdate, camera_control_system)
