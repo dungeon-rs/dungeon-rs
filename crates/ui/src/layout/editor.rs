@@ -2,8 +2,8 @@
 //! This is shown when the user is actively editing a project.
 
 use crate::panels;
-use ::assets::AssetLibrary;
 use data::{DungeonQueries, ProjectQueryItem};
+use drs_assets::AssetLibrary;
 use egui::{RichText, Ui, WidgetText};
 use egui_dock::TabViewer;
 use i18n::t;

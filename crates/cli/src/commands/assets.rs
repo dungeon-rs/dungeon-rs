@@ -2,12 +2,12 @@
 
 use crate::utilities;
 use anyhow::{Context, bail};
-use assets::{
+use bevy::prelude::{World, debug, info, warn};
+use clap::Subcommand;
+use drs_assets::{
     AssetLibrary, AssetPackIndexCompletedEvent, AssetPackIndexErrorEvent,
     AssetPackIndexProgressEvent,
 };
-use bevy::prelude::{World, debug, info, warn};
-use clap::Subcommand;
 use logging::{MultiProgress, console_progress};
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};

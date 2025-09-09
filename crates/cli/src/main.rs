@@ -4,11 +4,11 @@ mod commands;
 mod utilities;
 
 use crate::commands::Commands;
-use assets::AssetPlugin;
 use bevy::MinimalPlugins;
 use bevy::prelude::App;
 use clap::Parser;
 use clap_verbosity_flag::{InfoLevel, Verbosity};
+use drs_assets::AssetPlugin;
 use utils::CorePlugin;
 
 /// A command line interface with `DungeonRS`.

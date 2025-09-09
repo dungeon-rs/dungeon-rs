@@ -3,8 +3,8 @@
 
 mod panic;
 
-use assets::AssetPlugin;
 use clap::Parser;
+use drs_assets::AssetPlugin;
 use std::path::PathBuf;
 
 use bevy::prelude::*;

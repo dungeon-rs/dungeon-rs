@@ -44,7 +44,7 @@ crossbeam-channel = "0.5.15"
 clap = { version = "4.5.47", features = ["derive"] }
 
 # Workspace packages
-assets = { path = "crates/assets" }
+drs-assets = { path = "crates/drs-assets" }
 config = { path = "crates/config" }
 data = { path = "crates/data" }
 i18n = { path = "crates/i18n" }

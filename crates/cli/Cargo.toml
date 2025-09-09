@@ -12,7 +12,7 @@ publish.workspace = true
 [dependencies]
 bevy = { workspace = true }
 utils = { workspace = true }
-assets = { workspace = true }
+drs-assets = { workspace = true }
 logging = { workspace = true, features = ["console"] }
 clap = { workspace = true }
 clap-verbosity-flag = { version = "3.0.4", default-features = false, features = ["tracing"] }
@@ -24,13 +24,13 @@ workspace = true
 [features]
 default = []
 dev = [
-    "assets/dev",
+    "drs-assets/dev",
     "logging/dev",
     "utils/dev"
 ]
 
 # support for various image formats
-png = ["bevy/png", "assets/png"]
-webp = ["bevy/webp", "assets/webp"]
-jpeg = ["bevy/jpeg", "assets/jpeg"]
+png = ["bevy/png", "drs-assets/png"]
+webp = ["bevy/webp", "drs-assets/webp"]
+jpeg = ["bevy/jpeg", "drs-assets/jpeg"]
 

@@ -14,7 +14,7 @@ publish.workspace = true
 workspace = true
 
 [dependencies]
-assets = { workspace = true }
+drs-assets = { workspace = true }
 i18n = { workspace = true }
 io = { workspace = true }
 utils = { workspace = true }
@@ -33,7 +33,7 @@ winresource = "0.1.23"
 [features]
 default = ["png"]
 dev = [
-  "assets/dev",
+  "drs-assets/dev",
   "i18n/dev",
   "io/dev",
   "utils/dev",
@@ -52,6 +52,6 @@ dev = [
 no_console = []
 
 # support for various image formats
-png = ["bevy/png", "assets/png"]
-webp = ["bevy/webp", "assets/webp"]
-jpeg = ["bevy/jpeg", "assets/jpeg"]
+png = ["bevy/png", "drs-assets/png"]
+webp = ["bevy/webp", "drs-assets/webp"]
+jpeg = ["bevy/jpeg", "drs-assets/jpeg"]

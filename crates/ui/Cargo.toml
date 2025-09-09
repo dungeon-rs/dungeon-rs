@@ -13,7 +13,7 @@ publish.workspace = true
 workspace = true
 
 [dependencies]
-assets = { workspace = true }
+drs-assets = { workspace = true }
 utils = { workspace = true }
 i18n = { workspace = true }
 data = { workspace = true }
@@ -29,7 +29,7 @@ bevy-inspector-egui = { version = "0.33.1", optional = true, default-features = 
 [features]
 default = []
 dev = [
-  "assets/dev",
+  "drs-assets/dev",
   "utils/dev",
   "i18n/dev",
   "data/dev",

@@ -12,10 +12,10 @@ use crate::state::UiState;
 use crate::widgets::create_project_form::FormState;
 use crate::widgets::notifications::Notifications;
 use crate::widgets::{status_bar, toolbar};
-use ::assets::AssetLibrary;
 use bevy::prelude::{BevyError, Commands, ResMut, debug_span};
 use bevy_egui::EguiContexts;
 use data::DungeonQueries;
+use drs_assets::AssetLibrary;
 use egui_dock::{DockArea, Style};
 
 /// This system is responsible for rendering the splash screen, which is shown when no project is

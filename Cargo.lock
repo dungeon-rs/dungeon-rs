@@ -311,24 +311,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "assets"
-version = "0.0.1"
-dependencies = [
- "anyhow",
- "bevy",
- "image",
- "rhai",
- "semver",
- "serde",
- "serialization",
- "tantivy",
- "tempfile",
- "thiserror 2.0.16",
- "utils",
- "walkdir",
-]
-
-[[package]]
 name = "async-broadcast"
 version = "0.7.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1840,10 +1822,10 @@ name = "cli"
 version = "0.0.1"
 dependencies = [
  "anyhow",
- "assets",
  "bevy",
  "clap",
  "clap-verbosity-flag",
+ "drs-assets",
  "logging",
  "utils",
 ]
@@ -2286,6 +2268,24 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d8b14ccef22fc6f5a8f4d7d768562a182c04ce9a3b3157b91390b52ddfdf1a76"
 
 [[package]]
+name = "drs-assets"
+version = "0.0.1"
+dependencies = [
+ "anyhow",
+ "bevy",
+ "image",
+ "rhai",
+ "semver",
+ "serde",
+ "serialization",
+ "tantivy",
+ "tempfile",
+ "thiserror 2.0.16",
+ "utils",
+ "walkdir",
+]
+
+[[package]]
 name = "duplicate"
 version = "2.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2310,10 +2310,10 @@ dependencies = [
 name = "editor"
 version = "0.0.1"
 dependencies = [
- "assets",
  "bevy",
  "clap",
  "config",
+ "drs-assets",
  "i18n",
  "image",
  "io",
@@ -5881,11 +5881,11 @@ checksum = "bc7d623258602320d5c55d1bc22793b57daff0ec7efc270ea7d55ce1d5f5471c"
 name = "ui"
 version = "0.0.1"
 dependencies = [
- "assets",
  "bevy",
  "bevy-inspector-egui",
  "bevy_egui",
  "data",
+ "drs-assets",
  "egui",
  "egui-notify",
  "egui_dock",

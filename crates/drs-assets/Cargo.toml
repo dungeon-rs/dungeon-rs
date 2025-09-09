@@ -1,5 +1,5 @@
 [package]
-name = "assets"
+name = "drs-assets"
 description = "Contains the data structures used throughout other packages."
 edition.workspace = true
 repository.workspace = true

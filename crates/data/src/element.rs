@@ -8,7 +8,7 @@ use bevy::prelude::Visibility;
 /// It defines a specific element that can be drawn on the screen, commonly  represented as an asset
 /// with additional metadata.
 /// For portability reasons we don't store the full path of an asset, we simply store an ID which we
-/// can resolve later through the `assets` module.
+/// can resolve later through the `drs-assets` module.
 ///
 /// We don't have to store *all* information about the elements in the enum; things like translation,
 /// scale, rotation, enabled, ... can all be inferred later from the components it's placed alongside.

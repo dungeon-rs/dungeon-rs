@@ -62,7 +62,7 @@ just ci       # Run all checks a PR would run on GitHub Actions
 
 DungeonRS uses a workspace-based architecture with the following crates:
 
-- **`assets`**: Asset loading, management, and scripting system
+- **`drs-assets`**: Asset loading, management, and scripting system
 - **`cli`**: Command-line interface for project management and asset management
 - **`config`**: Configuration management and settings
 - **`data`**: Core data structures for projects, levels, and layers
