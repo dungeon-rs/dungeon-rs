@@ -51,7 +51,7 @@ drs-i18n = { path = "crates/drs-i18n" }
 drs-io = { path = "crates/drs-io" }
 drs-logging = { path = "crates/drs-logging" }
 drs-serialization = { path = "crates/drs-serialization" }
-ui = { path = "crates/ui" }
+drs-ui = { path = "crates/drs-ui" }
 utils = { path = "crates/utils" }
 
 # Enable a small amount of optimization in the dev profile.

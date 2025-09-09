@@ -18,7 +18,7 @@ drs-assets = { workspace = true }
 drs-i18n = { workspace = true }
 drs-io = { workspace = true }
 utils = { workspace = true }
-ui = { workspace = true }
+drs-ui = { workspace = true }
 drs-config = { workspace = true }
 drs-logging = { workspace = true }
 bevy = { workspace = true }
@@ -37,7 +37,7 @@ dev = [
   "drs-i18n/dev",
   "drs-io/dev",
   "utils/dev",
-  "ui/dev",
+  "drs-ui/dev",
   "drs-config/dev",
   "drs-logging/dev",
   "bevy/dynamic_linking",

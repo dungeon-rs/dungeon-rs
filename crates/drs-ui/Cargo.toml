@@ -1,5 +1,5 @@
 [package]
-name = "ui"
+name = "drs-ui"
 edition.workspace = true
 repository.workspace = true
 version.workspace = true
