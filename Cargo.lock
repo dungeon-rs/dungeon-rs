@@ -2293,7 +2293,7 @@ dependencies = [
  "clap",
  "drs-assets",
  "drs-config",
- "i18n",
+ "drs-i18n",
  "image",
  "io",
  "logging",
@@ -2302,6 +2302,18 @@ dependencies = [
  "ui",
  "utils",
  "winresource",
+]
+
+[[package]]
+name = "drs-i18n"
+version = "0.0.1"
+dependencies = [
+ "anyhow",
+ "bevy",
+ "fluent-templates",
+ "sys-locale",
+ "unic-langid",
+ "utils",
 ]
 
 [[package]]
@@ -3071,18 +3083,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "621debdf94dcac33e50475fdd76d34d5ea9c0362a834b9db08c3024696c1fbe3"
 dependencies = [
  "serde",
-]
-
-[[package]]
-name = "i18n"
-version = "0.0.1"
-dependencies = [
- "anyhow",
- "bevy",
- "fluent-templates",
- "sys-locale",
- "unic-langid",
- "utils",
 ]
 
 [[package]]
@@ -5886,10 +5886,10 @@ dependencies = [
  "bevy_egui",
  "drs-assets",
  "drs-data",
+ "drs-i18n",
  "egui",
  "egui-notify",
  "egui_dock",
- "i18n",
  "io",
  "native-dialog",
  "utils",

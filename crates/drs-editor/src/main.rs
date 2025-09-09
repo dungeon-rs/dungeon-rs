@@ -9,7 +9,7 @@ use std::path::PathBuf;
 
 use bevy::prelude::*;
 use drs_config::Configuration;
-use i18n::I18nPlugin;
+use drs_i18n::I18nPlugin;
 use io::IOPlugin;
 use logging::log_plugin;
 use ui::UIPlugin;

@@ -1,8 +1,8 @@
 //! Renders the status bar at the bottom of the screen.
 
 use drs_data::ProjectQueryItem;
+use drs_i18n::t;
 use egui::{Context, TopBottomPanel, warn_if_debug_build};
-use i18n::t;
 
 /// Handles the rendering of the toolbar.
 pub fn render(context: &mut Context, project: Option<&ProjectQueryItem>) {

@@ -15,7 +15,7 @@ workspace = true
 
 [dependencies]
 drs-assets = { workspace = true }
-i18n = { workspace = true }
+drs-i18n = { workspace = true }
 io = { workspace = true }
 utils = { workspace = true }
 ui = { workspace = true }
@@ -34,7 +34,7 @@ winresource = "0.1.23"
 default = ["png"]
 dev = [
   "drs-assets/dev",
-  "i18n/dev",
+  "drs-i18n/dev",
   "io/dev",
   "utils/dev",
   "ui/dev",

@@ -4,7 +4,7 @@
 ///
 /// # Examples
 /// ```no_run
-/// # use i18n::t;
+/// # use drs_i18n::t;
 /// # pub fn main() {
 /// // without parameters:
 /// let _ = t!("hello");

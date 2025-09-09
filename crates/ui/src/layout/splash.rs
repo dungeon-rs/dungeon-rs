@@ -3,8 +3,8 @@
 use crate::widgets::create_project_form;
 use crate::widgets::create_project_form::FormState;
 use bevy::prelude::{Commands, ResMut};
+use drs_i18n::t;
 use egui::Context;
-use i18n::t;
 
 /// Renders the splash screen.
 pub fn render(context: &mut Context, commands: &mut Commands, state: Option<ResMut<FormState>>) {

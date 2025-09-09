@@ -1,5 +1,5 @@
 [package]
-name = "i18n"
+name = "drs-i18n"
 edition.workspace = true
 version.workspace = true
 license-file.workspace = true

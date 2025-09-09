@@ -4,9 +4,9 @@
 use crate::panels;
 use drs_assets::AssetLibrary;
 use drs_data::{DungeonQueries, ProjectQueryItem};
+use drs_i18n::t;
 use egui::{RichText, Ui, WidgetText};
 use egui_dock::TabViewer;
-use i18n::t;
 
 /// The different panels that can be shown in the editor UI.
 /// If a new panel needs to be available for the user in the UI it needs to be added here,
