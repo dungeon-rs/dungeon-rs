@@ -1,5 +1,5 @@
 [package]
-name = "logging"
+name = "drs-logging"
 description = "Handles configuration of the logging used by Bevy and the application itself"
 edition.workspace = true
 repository.workspace = true

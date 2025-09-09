@@ -8,7 +8,7 @@ use drs_assets::{
     AssetLibrary, AssetPackIndexCompletedEvent, AssetPackIndexErrorEvent,
     AssetPackIndexProgressEvent,
 };
-use logging::{MultiProgress, console_progress};
+use drs_logging::{MultiProgress, console_progress};
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::time::Duration;

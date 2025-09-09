@@ -30,7 +30,7 @@ struct Cli {
 #[allow(clippy::missing_docs_in_private_items)]
 fn main() -> anyhow::Result<()> {
     let args = Cli::parse();
-    let progress = logging::console_logging(args.verbosity.tracing_level_filter())?;
+    let progress = drs_logging::console_logging(args.verbosity.tracing_level_filter())?;
 
     // Some commands require a `World` entry, so we build an app that can provide said world.
     let mut app = App::new();

@@ -2262,7 +2262,7 @@ dependencies = [
  "clap",
  "clap-verbosity-flag",
  "drs-assets",
- "logging",
+ "drs-logging",
  "utils",
 ]
 
@@ -2295,8 +2295,8 @@ dependencies = [
  "drs-config",
  "drs-i18n",
  "drs-io",
+ "drs-logging",
  "image",
- "logging",
  "native-dialog",
  "sysinfo",
  "ui",
@@ -2327,6 +2327,18 @@ dependencies = [
  "serialization",
  "tempfile",
  "utils",
+]
+
+[[package]]
+name = "drs-logging"
+version = "0.0.1"
+dependencies = [
+ "bevy",
+ "drs-config",
+ "indicatif",
+ "tracing",
+ "tracing-appender",
+ "tracing-subscriber",
 ]
 
 [[package]]
@@ -3420,18 +3432,6 @@ name = "log"
 version = "0.4.28"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "34080505efa8e45a4b816c349525ebe327ceaa8559756f0356cba97ef3bf7432"
-
-[[package]]
-name = "logging"
-version = "0.0.1"
-dependencies = [
- "bevy",
- "drs-config",
- "indicatif",
- "tracing",
- "tracing-appender",
- "tracing-subscriber",
-]
 
 [[package]]
 name = "loom"
