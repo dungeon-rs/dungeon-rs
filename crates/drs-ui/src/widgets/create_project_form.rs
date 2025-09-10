@@ -2,11 +2,9 @@
 //!
 //! Note that this widget does not check if a project is currently loaded, calling code should make sure
 //! no more than one project is active at once.
-use bevy::ecs::children;
 use bevy::ecs::world::CommandQueue;
 use bevy::prelude::{Commands, ResMut, Resource, World};
-use bevy::prelude::{SpawnRelated, Transform};
-use drs_data::{Layer, Level, Project};
+use drs_core::CreateProjectEvent;
 use drs_i18n::t;
 use drs_utils::{AsyncComponent, to_string};
 use egui::Ui;
@@ -65,12 +63,6 @@ pub fn render(ui: &mut Ui, commands: &mut Commands, mut state: ResMut<FormState>
         let name = state.name.clone();
 
         commands.remove_resource::<FormState>();
-        commands.spawn((
-            Project::new(path, name),
-            children![(
-                Level::new("default"),
-                children![(Layer::new("default", Transform::default()), children![],)]
-            )],
-        ));
+        commands.send_event(CreateProjectEvent::new(path, name));
     }
 }
