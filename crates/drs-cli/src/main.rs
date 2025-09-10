@@ -9,7 +9,7 @@ use bevy::prelude::App;
 use clap::Parser;
 use clap_verbosity_flag::{InfoLevel, Verbosity};
 use drs_assets::AssetPlugin;
-use drs_utils::CorePlugin;
+use drs_utils::UtilsPlugin;
 
 /// A command line interface with `DungeonRS`.
 #[derive(Debug, Parser)]
@@ -35,7 +35,7 @@ fn main() -> anyhow::Result<()> {
     // Some commands require a `World` entry, so we build an app that can provide said world.
     let mut app = App::new();
     app.add_plugins(MinimalPlugins)
-        .add_plugins(CorePlugin)
+        .add_plugins(UtilsPlugin)
         .add_plugins(AssetPlugin);
 
     match args.command {

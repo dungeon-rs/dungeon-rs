@@ -7,7 +7,7 @@ use bevy::ecs::system::SystemState;
 use bevy::prelude::*;
 use drs_data::{Layer, Level, Project};
 use drs_io::*;
-use drs_utils::CorePlugin;
+use drs_utils::UtilsPlugin;
 use std::fs::read_to_string;
 use std::time::Duration;
 use tempfile::tempdir;
@@ -53,7 +53,7 @@ fn save_project_event() -> anyhow::Result<()> {
     let mut output = std::path::PathBuf::from(temp_dir.path());
     output.push("save_project_event_test_output.json"); // set output filename
 
-    app.add_plugins((MinimalPlugins, CorePlugin, IOPlugin));
+    app.add_plugins((MinimalPlugins, UtilsPlugin, IOPlugin));
     app.insert_resource(Time::<Fixed>::from_duration(Duration::from_secs(1)));
     app.world_mut().spawn((
         Project::new(output.clone(), "Example Project"),

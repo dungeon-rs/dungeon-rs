@@ -13,7 +13,7 @@ use drs_i18n::I18nPlugin;
 use drs_io::IOPlugin;
 use drs_logging::log_plugin;
 use drs_ui::UIPlugin;
-use drs_utils::CorePlugin;
+use drs_utils::UtilsPlugin;
 
 /// Arguments for running the editor.
 #[derive(Debug, Parser)]
@@ -40,7 +40,7 @@ fn main() -> AppExit {
     let resource_path = drs_utils::resource_path().expect("Failed to get resource path");
     let plugin_builder = DefaultPlugins
         .build()
-        .add(CorePlugin)
+        .add(UtilsPlugin)
         .add(I18nPlugin::new(&config.language))
         .add(IOPlugin)
         .add(UIPlugin)
