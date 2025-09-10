@@ -1,14 +1,10 @@
-pub fn add(left: u64, right: u64) -> u64 {
-    left + right
-}
+//! Core functionality, shared between the UI and CLI implementations.
+//!
+//! This crate is built with an event-driven architecture, exposing the events and implementing
+//! listeners. Progress, completion and errors are reported through events also exposed by this crate.
 
-#[cfg(test)]
-mod tests {
-    use super::*;
+mod persistence;
+mod plugin;
 
-    #[test]
-    fn it_works() {
-        let result = add(2, 2);
-        assert_eq!(result, 4);
-    }
-}
+pub use persistence::*;
+pub use plugin::CorePlugin;

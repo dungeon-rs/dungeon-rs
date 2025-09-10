@@ -16,7 +16,7 @@ workspace = true
 [dependencies]
 drs-assets = { workspace = true }
 drs-i18n = { workspace = true }
-drs-io = { workspace = true }
+drs-core = { workspace = true }
 drs-utils = { workspace = true }
 drs-ui = { workspace = true }
 drs-config = { workspace = true }
@@ -35,7 +35,7 @@ default = ["png"]
 dev = [
   "drs-assets/dev",
   "drs-i18n/dev",
-  "drs-io/dev",
+  "drs-core/dev",
   "drs-utils/dev",
   "drs-ui/dev",
   "drs-config/dev",

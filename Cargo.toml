@@ -49,7 +49,6 @@ drs-config = { path = "crates/drs-config" }
 drs-core = { path = "crates/drs-core" }
 drs-data = { path = "crates/drs-data" }
 drs-i18n = { path = "crates/drs-i18n" }
-drs-io = { path = "crates/drs-io" }
 drs-logging = { path = "crates/drs-logging" }
 drs-serialization = { path = "crates/drs-serialization" }
 drs-ui = { path = "crates/drs-ui" }

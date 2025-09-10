@@ -1,5 +1,5 @@
 //! Contains the [`LoadProjectEvent`] and it's handler systems.
-use crate::document::Document;
+use crate::persistence::Document;
 use anyhow::Context;
 use bevy::prelude::{BevyError, Commands, Event, EventReader, Transform, default, info, info_span};
 use drs_data::{Layer, Level, Project};

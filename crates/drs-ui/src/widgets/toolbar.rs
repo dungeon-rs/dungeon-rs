@@ -1,9 +1,9 @@
 //! Renders the toolbar at the top of the screen.
 
 use bevy::prelude::Commands;
+use drs_core::{LoadProjectEvent, SaveProjectEvent};
 use drs_data::ProjectQueryItem;
 use drs_i18n::t;
-use drs_io::{LoadProjectEvent, SaveProjectEvent};
 use drs_utils::{AsyncComponent, report_progress};
 use egui::{Align, Context, Layout, TopBottomPanel};
 use native_dialog::DialogBuilder;

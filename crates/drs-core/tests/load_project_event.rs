@@ -4,8 +4,8 @@
 
 use bevy::prelude::*;
 use bevy::time::TimePlugin;
+use drs_core::*;
 use drs_data::Project;
-use drs_io::{IOPlugin, LoadProjectEvent};
 use std::fs::File;
 use std::io::Write;
 use std::path::PathBuf;
@@ -17,7 +17,7 @@ fn load_project_event() -> anyhow::Result<()> {
     // Holds output files for this test, we hold the variable since it's deleted on drop.
     let temp_dir = tempdir()?;
     let mut app = App::new();
-    app.add_plugins((TimePlugin, IOPlugin));
+    app.add_plugins((TimePlugin, CorePlugin));
     let mut input = PathBuf::from(temp_dir.path());
     input.push("testfile");
 
