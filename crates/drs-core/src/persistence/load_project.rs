@@ -1,8 +1,11 @@
 //! Contains the [`LoadProjectEvent`] and it's handler systems.
 use crate::persistence::Document;
 use anyhow::Context;
-use bevy::prelude::{BevyError, Commands, Event, EventReader, Transform, default, info, info_span};
-use drs_data::{Layer, Level, Project};
+use bevy::log::debug;
+use bevy::prelude::{
+    BevyError, Commands, Event, EventReader, Single, Transform, default, info, info_span,
+};
+use drs_data::{Layer, Level, Project, ProjectQuery};
 use drs_serialization::deserialize;
 use std::fs::read;
 use std::path::PathBuf;
@@ -20,6 +23,7 @@ pub struct LoadProjectEvent {
 /// Bevy system that handles `LoadProjectEvent` events that were fired.
 #[drs_utils::bevy_system]
 pub fn handle_load_project_event(
+    projects: Option<Single<ProjectQuery>>,
     mut events: EventReader<LoadProjectEvent>,
     mut commands: Commands,
 ) -> Result<(), BevyError> {
@@ -29,6 +33,13 @@ pub fn handle_load_project_event(
     };
 
     let _ = info_span!("load_project", path = event.input.to_str()).entered();
+
+    if let Some(project) = projects {
+        debug!("despawning previous project");
+
+        commands.entity(project.entity).despawn();
+    }
+
     let content = read(event.input.clone())
         .with_context(|| format!("Failed to open project file: '{}'", event.input.display()))?;
     let project = deserialize::<Document>(&content, &default())
