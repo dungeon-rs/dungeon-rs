@@ -1,5 +1,5 @@
 //! Contains the events for saving projects and their handling systems.
-use crate::document::Document;
+use crate::persistence::Document;
 use anyhow::Context;
 use bevy::prelude::{BevyError, Commands, Entity, Event, EventReader, Query, default};
 use drs_data::{ElementQuery, LayerQuery, LevelQuery, ProjectQuery};

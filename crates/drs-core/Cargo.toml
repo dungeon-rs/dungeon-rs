@@ -1,6 +1,6 @@
 [package]
-name = "drs-io"
-description = "Handles the I/O processing of saving and loading maps"
+name = "drs-core"
+description = "Core functionality of the editor that isn't tied specifically to the UI"
 edition.workspace = true
 repository.workspace = true
 version.workspace = true
@@ -14,20 +14,21 @@ publish.workspace = true
 workspace = true
 
 [dependencies]
+bevy = { workspace = true }
+anyhow = { workspace = true }
+serde = { workspace = true }
 drs-data = { workspace = true }
 drs-serialization = { workspace = true }
 drs-utils = { workspace = true }
-bevy = { workspace = true }
-serde = { workspace = true }
-anyhow = { workspace = true }
 
 [dev-dependencies]
 tempfile = { workspace = true }
 
 [features]
 default = []
+
 dev = [
-  "drs-data/dev",
-  "drs-serialization/dev",
-  "drs-utils/dev"
+    "drs-data/dev",
+    "drs-serialization/dev",
+    "drs-utils/dev"
 ]

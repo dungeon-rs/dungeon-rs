@@ -35,7 +35,7 @@ TODO: introduction to API documentation here.
 # IO
 <a href="./api/io/index.html">API docs</a>
 
-{{#include ../../../crates/drs-io/README.md:2:: }}
+{{#include ../../../crates/drs-core/README.md:2:: }}
 
 # Logging
 <a href="./api/logging/index.html">API docs</a>

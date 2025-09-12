@@ -12,5 +12,5 @@ pub use directories::*;
 pub use drs_utils_macros::*;
 pub use hash::*;
 pub use pathbuf::*;
-pub use plugin::CorePlugin;
+pub use plugin::UtilsPlugin;
 pub use version::version;

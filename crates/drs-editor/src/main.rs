@@ -9,11 +9,11 @@ use std::path::PathBuf;
 
 use bevy::prelude::*;
 use drs_config::Configuration;
+use drs_core::CorePlugin;
 use drs_i18n::I18nPlugin;
-use drs_io::IOPlugin;
 use drs_logging::log_plugin;
 use drs_ui::UIPlugin;
-use drs_utils::CorePlugin;
+use drs_utils::UtilsPlugin;
 
 /// Arguments for running the editor.
 #[derive(Debug, Parser)]
@@ -40,9 +40,9 @@ fn main() -> AppExit {
     let resource_path = drs_utils::resource_path().expect("Failed to get resource path");
     let plugin_builder = DefaultPlugins
         .build()
-        .add(CorePlugin)
+        .add(UtilsPlugin)
         .add(I18nPlugin::new(&config.language))
-        .add(IOPlugin)
+        .add(CorePlugin)
         .add(UIPlugin)
         .add_before::<bevy::prelude::AssetPlugin>(AssetPlugin)
         .set(log_plugin(&config.logging))

@@ -7,7 +7,7 @@ use bevy::app::FixedPostUpdate;
 use bevy::ecs::world::CommandQueue;
 use bevy::prelude::{App, BevyError, Component, Event, Events, Fixed, Time, World};
 use bevy::tasks::tick_global_task_pools_on_main_thread;
-use drs_utils::{AsyncComponent, CorePlugin, command_queue, report_progress, send_command};
+use drs_utils::{AsyncComponent, UtilsPlugin, command_queue, report_progress, send_command};
 use std::time::Duration;
 
 #[derive(Component)]
@@ -34,7 +34,7 @@ fn advance_world(app: &mut App) {
 #[test]
 fn spawn_new_async() {
     let mut app = App::new();
-    app.add_plugins((MinimalPlugins, CorePlugin));
+    app.add_plugins((MinimalPlugins, UtilsPlugin));
 
     app.world_mut().spawn(AsyncComponent::new_async(
         async |sender| {
@@ -76,7 +76,7 @@ fn spawn_new_async() {
 fn calls_error_on_failure() {
     let mut app = App::new();
     app.add_event::<FooEvent>();
-    app.add_plugins((MinimalPlugins, CorePlugin));
+    app.add_plugins((MinimalPlugins, UtilsPlugin));
 
     app.world_mut().spawn(AsyncComponent::new_async(
         async |_sender| -> Result<(), BevyError> { Err(BevyError::from("this went wrong")) },
@@ -118,7 +118,7 @@ fn calls_error_on_failure() {
 #[test]
 fn spawn_new_compute() {
     let mut app = App::new();
-    app.add_plugins((MinimalPlugins, CorePlugin));
+    app.add_plugins((MinimalPlugins, UtilsPlugin));
 
     app.world_mut().spawn(AsyncComponent::new_compute(
         async |sender| {
@@ -159,7 +159,7 @@ fn spawn_new_compute() {
 #[test]
 fn spawn_new_io() {
     let mut app = App::new();
-    app.add_plugins((MinimalPlugins, CorePlugin));
+    app.add_plugins((MinimalPlugins, UtilsPlugin));
 
     app.world_mut().spawn(AsyncComponent::new_io(
         async |sender| {

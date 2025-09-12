@@ -2279,6 +2279,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "drs-core"
+version = "0.0.1"
+dependencies = [
+ "anyhow",
+ "bevy",
+ "drs-data",
+ "drs-serialization",
+ "drs-utils",
+ "serde",
+ "tempfile",
+]
+
+[[package]]
 name = "drs-data"
 version = "0.0.1"
 dependencies = [
@@ -2293,8 +2306,8 @@ dependencies = [
  "clap",
  "drs-assets",
  "drs-config",
+ "drs-core",
  "drs-i18n",
- "drs-io",
  "drs-logging",
  "drs-ui",
  "drs-utils",
@@ -2314,19 +2327,6 @@ dependencies = [
  "fluent-templates",
  "sys-locale",
  "unic-langid",
-]
-
-[[package]]
-name = "drs-io"
-version = "0.0.1"
-dependencies = [
- "anyhow",
- "bevy",
- "drs-data",
- "drs-serialization",
- "drs-utils",
- "serde",
- "tempfile",
 ]
 
 [[package]]
@@ -2361,9 +2361,9 @@ dependencies = [
  "bevy-inspector-egui",
  "bevy_egui",
  "drs-assets",
+ "drs-core",
  "drs-data",
  "drs-i18n",
- "drs-io",
  "drs-utils",
  "egui",
  "egui-notify",
