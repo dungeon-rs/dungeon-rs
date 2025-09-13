@@ -2,8 +2,8 @@
 use crate::persistence::{handle_load_project_event, handle_save_project};
 use crate::project::handle_create_project_event;
 use crate::{
-    CreateProjectEvent, LoadProjectEvent, SaveProjectCompleteEvent, SaveProjectEvent,
-    SaveProjectFailedEvent,
+    CreateProjectEvent, LoadProjectCompleteEvent, LoadProjectEvent, LoadProjectFailedEvent,
+    SaveProjectCompleteEvent, SaveProjectEvent, SaveProjectFailedEvent,
 };
 use bevy::prelude::{App, FixedPostUpdate, Plugin};
 
@@ -23,6 +23,8 @@ impl Plugin for CorePlugin {
             .add_systems(FixedPostUpdate, handle_save_project);
 
         app.add_event::<LoadProjectEvent>()
+            .add_event::<LoadProjectCompleteEvent>()
+            .add_event::<LoadProjectFailedEvent>()
             .add_systems(FixedPostUpdate, handle_load_project_event);
 
         app.add_event::<CreateProjectEvent>()

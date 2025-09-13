@@ -4,7 +4,7 @@ mod document;
 mod load_project;
 mod save_project;
 
-pub use load_project::LoadProjectEvent;
+pub use load_project::{LoadProjectCompleteEvent, LoadProjectEvent, LoadProjectFailedEvent};
 pub use save_project::{SaveProjectCompleteEvent, SaveProjectEvent, SaveProjectFailedEvent};
 
 pub(crate) use document::*;
