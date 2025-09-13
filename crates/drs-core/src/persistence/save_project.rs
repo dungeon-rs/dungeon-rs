@@ -1,10 +1,10 @@
 //! Contains the events for saving projects and their handling systems.
 use crate::persistence::Document;
 use anyhow::Context;
-use bevy::prelude::{default, BevyError, Commands, Entity, Event, EventReader, Query};
+use bevy::prelude::{BevyError, Commands, Entity, Event, EventReader, Query, default};
 use drs_data::{ElementQuery, LayerQuery, LevelQuery, ProjectQuery};
 use drs_serialization::serialize_to;
-use drs_utils::{report_progress, AsyncComponent};
+use drs_utils::{AsyncComponent, report_progress};
 use std::fs::File;
 
 /// When this event is sent, the associated `project` will be fetched and saved.
@@ -87,10 +87,13 @@ pub fn handle_save_project(
             Ok(())
         },
         move |error, sender| {
-            let _ = report_progress(&sender, SaveProjectFailedEvent {
-                project: entity,
-                error,
-            });
+            let _ = report_progress(
+                &sender,
+                SaveProjectFailedEvent {
+                    project: entity,
+                    error,
+                },
+            );
         },
     ));
 

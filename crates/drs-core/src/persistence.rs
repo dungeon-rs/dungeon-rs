@@ -5,7 +5,7 @@ mod load_project;
 mod save_project;
 
 pub use load_project::LoadProjectEvent;
-pub use save_project::{SaveProjectCompleteEvent, SaveProjectFailedEvent, SaveProjectEvent};
+pub use save_project::{SaveProjectCompleteEvent, SaveProjectEvent, SaveProjectFailedEvent};
 
 pub(crate) use document::*;
 pub(crate) use load_project::handle_load_project_event;

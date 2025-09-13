@@ -97,7 +97,8 @@ fn save_project_event() -> anyhow::Result<()> {
 }
 
 #[test]
-fn save_project_event_failed() -> anyhow::Result<()> {// Holds output files for this test, we hold the variable since it's deleted on drop.
+fn save_project_event_failed() -> anyhow::Result<()> {
+    // Holds output files for this test, we hold the variable since it's deleted on drop.
     let temp_dir = tempdir()?;
     let mut app = App::new();
     let mut output = std::path::PathBuf::from(temp_dir.path());

@@ -1,7 +1,10 @@
 //! Contains the [`CorePlugin`] that registers the listeners for all events exposed by this crate.
 use crate::persistence::{handle_load_project_event, handle_save_project};
 use crate::project::handle_create_project_event;
-use crate::{CreateProjectEvent, LoadProjectEvent, SaveProjectCompleteEvent, SaveProjectEvent, SaveProjectFailedEvent};
+use crate::{
+    CreateProjectEvent, LoadProjectEvent, SaveProjectCompleteEvent, SaveProjectEvent,
+    SaveProjectFailedEvent,
+};
 use bevy::prelude::{App, FixedPostUpdate, Plugin};
 
 /// The [`CorePlugin`] is responsible for registering all the systems and events
