@@ -28,6 +28,15 @@ pub struct SaveProjectCompleteEvent {
     pub project: Entity,
 }
 
+/// This event indicates that the work of a [`SaveProjectEvent`] has failed.
+#[derive(Event, Debug)]
+pub struct SaveProjectFailedEvent {
+    /// The [`Entity`] of the [`drs_data::Project`] that failed to save.
+    pub project: Entity,
+    /// The error that prevented the project from being saved.
+    pub error: BevyError,
+}
+
 impl SaveProjectEvent {
     /// Generate a new [`SaveProjectEvent`] that can be dispatched.
     #[must_use = "This event does nothing unless you dispatch it"]
@@ -37,8 +46,6 @@ impl SaveProjectEvent {
 }
 
 /// Bevy system that handles [`SaveProjectEvent`] events.
-///
-/// TODO: add error reporting
 #[drs_utils::bevy_system]
 pub fn handle_save_project(
     mut commands: Commands,
@@ -52,7 +59,18 @@ pub fn handle_save_project(
         return Ok(());
     };
 
-    let project = project_query.get(event.project)?;
+    // Attempt to fetch the project. If this fails, we dispatch a failed event and return.
+    let project = match project_query.get(event.project) {
+        Ok(project) => project,
+        Err(error) => {
+            commands.send_event(SaveProjectFailedEvent {
+                project: event.project,
+                error: error.into(),
+            });
+
+            return Err(error.into());
+        }
+    };
 
     let entity = event.project;
     let output = project.project.file.clone();
@@ -68,8 +86,14 @@ pub fn handle_save_project(
             report_progress(&sender, SaveProjectCompleteEvent { project: entity })?;
             Ok(())
         },
-        |_, _| {
-            // TODO: handle errors.
+        move |error, sender| {
+            let _ = report_progress(
+                &sender,
+                SaveProjectFailedEvent {
+                    project: entity,
+                    error,
+                },
+            );
         },
     ));
 

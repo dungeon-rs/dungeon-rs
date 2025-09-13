@@ -95,3 +95,51 @@ fn save_project_event() -> anyhow::Result<()> {
     assert!(json.starts_with('{'));
     Ok(())
 }
+
+#[test]
+fn save_project_event_failed() -> anyhow::Result<()> {
+    // Holds output files for this test, we hold the variable since it's deleted on drop.
+    let temp_dir = tempdir()?;
+    let mut app = App::new();
+    let mut output = std::path::PathBuf::from(temp_dir.path());
+    output.push("does-not-exist-folder"); // set non-existing folder to force failure.
+    output.push("save_project_event_test_output.json"); // set output filename
+
+    app.add_plugins((MinimalPlugins, UtilsPlugin, CorePlugin));
+    app.insert_resource(Time::<Fixed>::from_duration(Duration::from_secs(1)));
+    app.world_mut().spawn((
+        Project::new(output.clone(), "Example Project"),
+        children![(
+            Level::new("First Level"),
+            children![(Layer::new("First Layer", Transform::IDENTITY), children![])]
+        )],
+    ));
+    let (_, project) = app
+        .world_mut()
+        .query::<(&Project, Entity)>()
+        .single(app.world())?;
+
+    // run the schedules once to process Setup and spawn
+    app.update();
+
+    app.world_mut().send_event(SaveProjectEvent::new(project));
+
+    process_async_components(&mut app);
+
+    let mut system_state: SystemState<EventReader<SaveProjectFailedEvent>> =
+        SystemState::new(app.world_mut());
+    let mut events = system_state.get_mut(app.world_mut());
+    let event = events.read().next();
+
+    assert!(
+        event.is_some(),
+        "A failed event should have been dispatched"
+    );
+    assert_eq!(
+        event.unwrap().project,
+        project,
+        "The failed event should have been for the project"
+    );
+
+    Ok(())
+}
