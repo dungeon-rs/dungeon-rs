@@ -1,10 +1,10 @@
 //! Contains the events for saving projects and their handling systems.
 use crate::persistence::Document;
 use anyhow::Context;
-use bevy::prelude::{BevyError, Commands, Entity, Event, EventReader, Query, default};
+use bevy::prelude::{default, BevyError, Commands, Entity, Event, EventReader, Query};
 use drs_data::{ElementQuery, LayerQuery, LevelQuery, ProjectQuery};
 use drs_serialization::serialize_to;
-use drs_utils::{AsyncComponent, report_progress};
+use drs_utils::{report_progress, AsyncComponent};
 use std::fs::File;
 
 /// When this event is sent, the associated `project` will be fetched and saved.
@@ -28,6 +28,15 @@ pub struct SaveProjectCompleteEvent {
     pub project: Entity,
 }
 
+/// This event indicates that the work of a [`SaveProjectEvent`] has failed.
+#[derive(Event, Debug)]
+pub struct SaveProjectFailedEvent {
+    /// The [`Entity`] of the [`drs_data::Project`] that failed to save.
+    pub project: Entity,
+    /// The error that prevented the project from being saved.
+    pub error: BevyError,
+}
+
 impl SaveProjectEvent {
     /// Generate a new [`SaveProjectEvent`] that can be dispatched.
     #[must_use = "This event does nothing unless you dispatch it"]
@@ -37,8 +46,6 @@ impl SaveProjectEvent {
 }
 
 /// Bevy system that handles [`SaveProjectEvent`] events.
-///
-/// TODO: add error reporting
 #[drs_utils::bevy_system]
 pub fn handle_save_project(
     mut commands: Commands,
@@ -52,7 +59,18 @@ pub fn handle_save_project(
         return Ok(());
     };
 
-    let project = project_query.get(event.project)?;
+    // Attempt to fetch the project. If this fails, we dispatch a failed event and return.
+    let project = match project_query.get(event.project) {
+        Ok(project) => project,
+        Err(error) => {
+            commands.send_event(SaveProjectFailedEvent {
+                project: event.project,
+                error: error.into(),
+            });
+
+            return Err(error.into());
+        }
+    };
 
     let entity = event.project;
     let output = project.project.file.clone();
@@ -68,8 +86,11 @@ pub fn handle_save_project(
             report_progress(&sender, SaveProjectCompleteEvent { project: entity })?;
             Ok(())
         },
-        |_, _| {
-            // TODO: handle errors.
+        move |error, sender| {
+            let _ = report_progress(&sender, SaveProjectFailedEvent {
+                project: entity,
+                error,
+            });
         },
     ));
 
