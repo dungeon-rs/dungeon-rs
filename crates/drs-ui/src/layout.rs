@@ -12,7 +12,7 @@ use crate::state::UiState;
 use crate::widgets::create_project_form::FormState;
 use crate::widgets::notifications::Notifications;
 use crate::widgets::{status_bar, toolbar};
-use bevy::prelude::{BevyError, Commands, ResMut, debug_span};
+use bevy::prelude::{BevyError, Commands, ResMut, debug_span, info};
 use bevy_egui::EguiContexts;
 use drs_assets::AssetLibrary;
 use drs_data::DungeonQueries;
@@ -46,10 +46,12 @@ pub fn render_editor_layout(
     mut asset_library: ResMut<AssetLibrary>,
     query: DungeonQueries,
     mut state: ResMut<UiState>,
+    mouse_position: crate::mouse::MousePosition,
 ) -> Result<(), BevyError> {
     let _ = debug_span!("render_editor_layout").entered();
     let context = contexts.ctx_mut()?;
     let project = query.projects.single()?;
+    info!("Mouse Position: {:?}", mouse_position.get()?); // temporary so the linter doesn't complain the mouse is unused.
 
     // Render any pending notifications
     notifications.ui(context);
