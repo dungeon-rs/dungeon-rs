@@ -2,6 +2,7 @@
 
 mod camera;
 mod layout;
+mod mouse;
 mod panels;
 mod plugin;
 mod state;
