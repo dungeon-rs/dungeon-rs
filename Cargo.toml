@@ -34,7 +34,7 @@ semicolon_if_nothing_returned = "warn"
 [workspace.dependencies]
 bevy = { version = "0.16.1", default-features = false, features = ["std", "bevy_log"] }
 log = { version = "*", features = ["max_level_debug", "release_max_level_warn"] }
-anyhow = "1.0.99"
+anyhow = "1.0.100"
 thiserror = "2.0.16"
 serde = { version = "1.0.223", features = ["derive"] }
 semver = { version = "1.0.27", features = ["serde"] }
