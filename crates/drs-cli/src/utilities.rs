@@ -47,7 +47,7 @@ where
         loop {
             let mut queue = match receiver.recv_timeout(timeout) {
                 Ok(queue) => queue,
-                Err(error) => bail!("Timeout while waiting for events: {}", error),
+                Err(error) => bail!("Timeout while waiting for events: {error}"),
             };
 
             queue.apply(&mut world);
