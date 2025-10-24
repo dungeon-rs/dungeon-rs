@@ -5,7 +5,7 @@
 //!
 //! To get around this, when compiling under `test` we generate an empty function (hinted as inline
 //! to further optimise), and for other targets we generate the full method. The `use` statements
-//! are inlined in the method to prevent `unused import` warnings under `test` target.
+//! are inlined in the method to prmessage `unused import` warnings under `test` target.
 
 #[cfg(test)]
 #[inline]

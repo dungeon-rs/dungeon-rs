@@ -24,7 +24,7 @@ fn advance_world(app: &mut App) {
 
 /// Continuously advance the world until all AsyncComponents have been processed.
 fn process_async_components(app: &mut App) {
-    // advance world to send event and process async components
+    // advance world to send message and process async components
     advance_world(app);
 
     // Give the async task time to complete by advancing the world multiple times
@@ -46,12 +46,12 @@ fn process_async_components(app: &mut App) {
 }
 
 #[test]
-fn save_project_event() -> anyhow::Result<()> {
+fn save_project_message() -> anyhow::Result<()> {
     // Holds output files for this test, we hold the variable since it's deleted on drop.
     let temp_dir = tempdir()?;
     let mut app = App::new();
     let mut output = std::path::PathBuf::from(temp_dir.path());
-    output.push("save_project_event_test_output.json"); // set output filename
+    output.push("save_project_message_test_output.json"); // set output filename
 
     app.add_plugins((MinimalPlugins, UtilsPlugin, CorePlugin));
     app.insert_resource(Time::<Fixed>::from_duration(Duration::from_secs(1)));
@@ -70,23 +70,23 @@ fn save_project_event() -> anyhow::Result<()> {
     // run the schedules once to process Setup and spawn
     app.update();
 
-    app.world_mut().send_event(SaveProjectEvent::new(project));
+    app.world_mut().send_message(SaveProjectMessage::new(project));
 
     process_async_components(&mut app);
 
-    let mut system_state: SystemState<EventReader<SaveProjectCompleteEvent>> =
+    let mut system_state: SystemState<MessageReader<SaveProjectCompleteMessage>> =
         SystemState::new(app.world_mut());
-    let mut events = system_state.get_mut(app.world_mut());
-    let event = events.read().next();
+    let mut messages = system_state.get_mut(app.world_mut());
+    let message = messages.read().next();
 
     assert!(
-        event.is_some(),
-        "A completed event should have been dispatched"
+        message.is_some(),
+        "A completed message should have been dispatched"
     );
     assert_eq!(
-        event.unwrap().project,
+        message.unwrap().project,
         project,
-        "The completed event should have been for the project"
+        "The completed message should have been for the project"
     );
 
     let json = read_to_string(output.clone())
@@ -97,13 +97,13 @@ fn save_project_event() -> anyhow::Result<()> {
 }
 
 #[test]
-fn save_project_event_failed() -> anyhow::Result<()> {
+fn save_project_message_failed() -> anyhow::Result<()> {
     // Holds output files for this test, we hold the variable since it's deleted on drop.
     let temp_dir = tempdir()?;
     let mut app = App::new();
     let mut output = std::path::PathBuf::from(temp_dir.path());
     output.push("does-not-exist-folder"); // set non-existing folder to force failure.
-    output.push("save_project_event_test_output.json"); // set output filename
+    output.push("save_project_message_test_output.json"); // set output filename
 
     app.add_plugins((MinimalPlugins, UtilsPlugin, CorePlugin));
     app.insert_resource(Time::<Fixed>::from_duration(Duration::from_secs(1)));
@@ -122,23 +122,23 @@ fn save_project_event_failed() -> anyhow::Result<()> {
     // run the schedules once to process Setup and spawn
     app.update();
 
-    app.world_mut().send_event(SaveProjectEvent::new(project));
+    app.world_mut().send_message(SaveProjectMessage::new(project));
 
     process_async_components(&mut app);
 
-    let mut system_state: SystemState<EventReader<SaveProjectFailedEvent>> =
+    let mut system_state: SystemState<MessageReader<SaveProjectFailedMessage>> =
         SystemState::new(app.world_mut());
-    let mut events = system_state.get_mut(app.world_mut());
-    let event = events.read().next();
+    let mut messages = system_state.get_mut(app.world_mut());
+    let message = messages.read().next();
 
     assert!(
-        event.is_some(),
-        "A failed event should have been dispatched"
+        message.is_some(),
+        "A failed message should have been dispatched"
     );
     assert_eq!(
-        event.unwrap().project,
+        message.unwrap().project,
         project,
-        "The failed event should have been for the project"
+        "The failed message should have been for the project"
     );
 
     Ok(())

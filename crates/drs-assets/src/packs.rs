@@ -5,7 +5,7 @@ mod thumbnails;
 
 use crate::packs::index::{AssetPackIndex, AssetPackIndexError};
 pub use crate::packs::index::{
-    AssetPackIndexCompletedEvent, AssetPackIndexErrorEvent, AssetPackIndexProgressEvent,
+    AssetPackIndexCompletedMessage, AssetPackIndexErrorMessage, AssetPackIndexProgressMessage,
     AssetPackSearchError, AssetPackSearchResult,
 };
 use crate::packs::thumbnails::{AssetPackThumbnailError, AssetPackThumbnails};

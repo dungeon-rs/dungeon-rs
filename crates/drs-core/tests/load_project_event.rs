@@ -13,7 +13,7 @@ use std::time::Duration;
 use tempfile::tempdir;
 
 #[test]
-fn load_project_event() -> anyhow::Result<()> {
+fn load_project_message() -> anyhow::Result<()> {
     // Holds output files for this test, we hold the variable since it's deleted on drop.
     let temp_dir = tempdir()?;
     let mut app = App::new();
@@ -54,9 +54,9 @@ fn load_project_event() -> anyhow::Result<()> {
         "Project should not be loaded yet"
     );
 
-    app.world_mut().send_event(LoadProjectEvent { input });
+    app.world_mut().send_message(LoadProjectMessage { input });
 
-    // advance world to send event and once more to run systems
+    // advance world to send message and once more to run systems
     app.update();
     app.update();
     app.world_mut()
