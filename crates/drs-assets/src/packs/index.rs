@@ -4,7 +4,7 @@
 use crate::packs::thumbnails::{AssetPackThumbnailError, AssetPackThumbnails};
 use crate::scripting::IndexEntry;
 use bevy::ecs::world::CommandQueue;
-use bevy::prelude::{Event, info_span, trace, warn};
+use bevy::prelude::{Message, info_span, trace, warn};
 use drs_utils::{Sender, file_name, report_progress};
 use rhai::{AST, Array, Engine, OptimizationLevel, Scope};
 use std::fmt::{Display, Formatter};
@@ -91,9 +91,9 @@ pub struct AssetPackSearchResult {
     thumbnail: Field,
 }
 
-/// An event emitted when indexing an asset pack progresses.
-#[derive(Event)]
-pub struct AssetPackIndexProgressEvent {
+/// An message emitted when indexing an asset pack progresses.
+#[derive(Message)]
+pub struct AssetPackIndexProgressMessage {
     /// The ID of the [`crate::AssetPack`] being indexed.
     pub id: String,
     /// The number of processed entries finished.
@@ -102,9 +102,9 @@ pub struct AssetPackIndexProgressEvent {
     pub total: usize,
 }
 
-/// An event emitted when indexing an entry in an asset pack fails.
-#[derive(Event)]
-pub struct AssetPackIndexErrorEvent {
+/// An message emitted when indexing an entry in an asset pack fails.
+#[derive(Message)]
+pub struct AssetPackIndexErrorMessage {
     /// The ID of the [`crate::AssetPack`] being indexed.
     pub id: String,
     /// The entry that caused indexing to fail.
@@ -113,9 +113,9 @@ pub struct AssetPackIndexErrorEvent {
     pub error: AssetPackIndexError,
 }
 
-/// An event emitted when indexing an asset pack is completed.
-#[derive(Event)]
-pub struct AssetPackIndexCompletedEvent {
+/// An message emitted when indexing an asset pack is completed.
+#[derive(Message)]
+pub struct AssetPackIndexCompletedMessage {
     /// The ID of the [`crate::AssetPack`] being indexed.
     pub id: String,
 }
@@ -224,7 +224,7 @@ impl AssetPackIndex {
             ) {
                 Ok(()) => report_progress(
                     sender,
-                    AssetPackIndexProgressEvent {
+                    AssetPackIndexProgressMessage {
                         id: id.clone(),
                         current,
                         total: total_amount,
@@ -232,7 +232,7 @@ impl AssetPackIndex {
                 ),
                 Err(error) => report_progress(
                     sender,
-                    AssetPackIndexErrorEvent {
+                    AssetPackIndexErrorMessage {
                         id: id.clone(),
                         entry: entry.path().to_path_buf(),
                         error,
@@ -244,7 +244,7 @@ impl AssetPackIndex {
         writer
             .commit()
             .map_err(|error| AssetPackIndexError::Index(index_root.to_path_buf(), error))?;
-        let _ = report_progress(sender, AssetPackIndexCompletedEvent { id: id.clone() });
+        let _ = report_progress(sender, AssetPackIndexCompletedMessage { id: id.clone() });
         Ok(())
     }
 

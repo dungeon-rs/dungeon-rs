@@ -16,6 +16,7 @@ pub fn log_plugin(config: &drs_config::LogConfiguration) -> bevy::log::LogPlugin
     LogPlugin {
         filter: format!("{DEFAULT_FILTER},{}", config.filter),
         level: Level::from_str(config.level.as_str()).unwrap_or(Level::INFO),
+        fmt_layer: |_| None,
         custom_layer: |app| {
             let configuration = app
                 .world()

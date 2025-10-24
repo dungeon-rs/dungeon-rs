@@ -4,7 +4,7 @@
 //! no more than one project is active at once.
 use bevy::ecs::world::CommandQueue;
 use bevy::prelude::{Commands, ResMut, Resource, World};
-use drs_core::CreateProjectEvent;
+use drs_core::CreateProjectMessage;
 use drs_i18n::t;
 use drs_utils::{AsyncComponent, to_string};
 use egui::Ui;
@@ -63,6 +63,6 @@ pub fn render(ui: &mut Ui, commands: &mut Commands, mut state: ResMut<FormState>
         let name = state.name.clone();
 
         commands.remove_resource::<FormState>();
-        commands.send_event(CreateProjectEvent::new(path, name));
+        commands.write_message(CreateProjectMessage::new(path, name));
     }
 }

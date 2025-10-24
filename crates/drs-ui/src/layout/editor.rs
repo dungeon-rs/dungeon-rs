@@ -42,7 +42,7 @@ pub struct EditorLayout<'a> {
     pub query: &'a DungeonQueries<'a, 'a>,
 
     /// The currently active project.
-    pub project: &'a ProjectQueryItem<'a>,
+    pub project: &'a ProjectQueryItem<'a, 'a>,
 }
 
 impl TabViewer for EditorLayout<'_> {
@@ -68,7 +68,7 @@ impl TabViewer for EditorLayout<'_> {
                 // Bevy render is visible.
 
                 // Later on, we'd want to get the rectangle that this pane is shown in and then update
-                // the Bevy camera to only render to this. That would prevent the camera shifting around
+                // the Bevy camera to only render to this. That would prmessage the camera shifting around
                 // when we move the pane.
             }
             EditorPanels::AssetLibrary => panels::asset_library(ui, self.asset_library),

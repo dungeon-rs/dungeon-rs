@@ -6,4 +6,4 @@ mod project;
 
 pub use persistence::*;
 pub use plugin::CorePlugin;
-pub use project::CreateProjectEvent;
+pub use project::CreateProjectMessage;

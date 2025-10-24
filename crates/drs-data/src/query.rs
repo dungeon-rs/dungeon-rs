@@ -117,7 +117,7 @@ pub struct DungeonQueries<'w, 's> {
     pub elements: Query<'w, 's, ElementQuery>,
 }
 
-impl LevelQueryItem<'_> {
+impl LevelQueryItem<'_, '_> {
     /// Returns whether the level is visible or not.
     #[inline]
     #[must_use]
@@ -129,7 +129,7 @@ impl LevelQueryItem<'_> {
     }
 }
 
-impl LayerQueryItem<'_> {
+impl LayerQueryItem<'_, '_> {
     /// Returns whether the layer is visible or not.
     #[inline]
     #[must_use]
@@ -173,7 +173,7 @@ impl DungeonQueries<'_, '_> {
     pub fn levels_for_project(
         &self,
         project_entity: Entity,
-    ) -> impl Iterator<Item = LevelQueryItem<'_>> + '_ {
+    ) -> impl Iterator<Item = LevelQueryItem<'_, '_>> + '_ {
         self.projects
             .get(project_entity)
             .ok()
@@ -213,7 +213,7 @@ impl DungeonQueries<'_, '_> {
     pub fn layers_for_level(
         &self,
         level_entity: Entity,
-    ) -> impl Iterator<Item = LayerQueryItem<'_>> + '_ {
+    ) -> impl Iterator<Item = LayerQueryItem<'_, '_>> + '_ {
         self.levels
             .get(level_entity)
             .ok()
@@ -253,7 +253,7 @@ impl DungeonQueries<'_, '_> {
     pub fn elements_for_layer(
         &self,
         layer_entity: Entity,
-    ) -> impl Iterator<Item = ElementQueryItem<'_>> + '_ {
+    ) -> impl Iterator<Item = ElementQueryItem<'_, '_>> + '_ {
         self.layers
             .get(layer_entity)
             .ok()
@@ -425,7 +425,7 @@ mod tests {
         let mut system_state: SystemState<DungeonQueries> = SystemState::new(&mut world);
         let queries = system_state.get(&world);
 
-        let fake_entity = Entity::from_raw(9999);
+        let fake_entity = Entity::from_raw_u32(9999).unwrap();
 
         // Test with nonexistent entities should return empty iterators
         let levels: Vec<_> = queries.levels_for_project(fake_entity).collect();

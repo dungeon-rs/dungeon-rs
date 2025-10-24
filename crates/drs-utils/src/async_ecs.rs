@@ -4,7 +4,7 @@
 //! and automatically executes commands emitted on the world the component is attached to.
 
 use bevy::ecs::world::CommandQueue;
-use bevy::prelude::{BevyError, Command, Commands, Component, Entity, Event, Query, World};
+use bevy::prelude::{BevyError, Command, Commands, Component, Entity, Message, Query, World};
 use bevy::tasks::futures_lite::future;
 use bevy::tasks::{AsyncComputeTaskPool, ComputeTaskPool, IoTaskPool, Task, block_on};
 pub use crossbeam_channel::{Receiver, Sender};
@@ -86,42 +86,42 @@ impl AsyncComponent {
 /// A helper function for reporting progress from a task controlled by [`AsyncComponent`].
 ///
 /// This method is a shorthand for creating a `CommandQueue`, pushing a single command that dispatches
-/// an event (of type `E`) and sends it over the `sender`.
+/// a message (of type `M`) and sends it over the `sender`.
 ///
 /// # Example
 /// ```rust
 /// # use bevy::prelude::*;
 /// # use drs_utils::{AsyncComponent, report_progress};
-/// #[derive(Event)]
-/// struct FooEvent;
+/// #[derive(Message)]
+/// struct FooMessage;
 ///
 /// # fn main() {
 /// #     let mut app = App::new();
 /// #     app.add_plugins(TaskPoolPlugin::default());
-/// #     app.add_event::<FooEvent>();
+/// #     app.add_message::<FooMessage>();
 /// #     app.add_systems(Startup, setup);
 /// #     app.run();
 /// # }
 /// #
 /// # fn setup(mut commands: Commands) {
 /// #    commands.spawn(AsyncComponent::new_async(async |sender| {
-/// report_progress(&sender, FooEvent)?;
+/// report_progress(&sender, FooMessage)?;
 /// #        Ok(())
 /// #    }, |_, _| {}));
 /// # }
 /// ```
 /// # Errors
 /// This method forwards the `Result` received from calling `sender.send(...)`.
-pub fn report_progress<E>(
+pub fn report_progress<M>(
     sender: &Sender<CommandQueue>,
-    event: E,
+    message: M,
 ) -> Result<(), SendError<CommandQueue>>
 where
-    E: Event,
+    M: Message,
 {
     let mut queue = CommandQueue::default();
     queue.push(move |world: &mut World| {
-        world.send_event(event);
+        world.write_message(message);
     });
 
     sender.send(queue)

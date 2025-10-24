@@ -1,7 +1,7 @@
 //! Renders the toolbar at the top of the screen.
 
 use bevy::prelude::Commands;
-use drs_core::{LoadProjectEvent, SaveProjectEvent};
+use drs_core::{LoadProjectMessage, SaveProjectMessage};
 use drs_data::ProjectQueryItem;
 use drs_i18n::t;
 use drs_utils::{AsyncComponent, report_progress};
@@ -27,7 +27,7 @@ pub fn render(context: &mut Context, project: Option<&ProjectQueryItem>, mut com
                             .show()?;
 
                         if let Some(input) = input {
-                            let _ = report_progress(&sender, LoadProjectEvent { input });
+                            let _ = report_progress(&sender, LoadProjectMessage { input });
                         }
 
                         Ok(())
@@ -40,7 +40,7 @@ pub fn render(context: &mut Context, project: Option<&ProjectQueryItem>, mut com
                 if ui.button(t!("widgets-toolbar.save_project")).clicked()
                     && let Some(project) = project
                 {
-                    commands.send_event(SaveProjectEvent::new(project.entity));
+                    commands.write_message(SaveProjectMessage::new(project.entity));
                 }
             });
         });
