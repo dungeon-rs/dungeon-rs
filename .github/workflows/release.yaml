@@ -62,7 +62,7 @@ jobs:
           printf '%s\n\n' "${{ github.event.release.body }}" > RELEASE_BODY.md
           cat CHANGELOG.md >> RELEASE_BODY.md
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v5
         with:
           name: release-body-md
           path: RELEASE_BODY.md
@@ -83,7 +83,7 @@ jobs:
         shell: bash
         run: cargo about generate about.hbs > THIRD-PARTY-LICENSES.html
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v5
         with:
           name: third-party-licenses-html
           path: THIRD-PARTY-LICENSES.html
