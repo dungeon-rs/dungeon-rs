@@ -19,7 +19,7 @@ drs-i18n = { workspace = true }
 drs-data = { workspace = true }
 drs-core = { workspace = true }
 egui = { version = "0.32.1", default-features = false, features = ["mint", "accesskit", "rayon"] }
-bevy_egui = { version = "0.36.0", default-features = false, features = ["render", "default_fonts"] }
+bevy_egui = { version = "0.38.0", default-features = false, features = ["render", "default_fonts"] }
 bevy = { workspace = true, features = ["bevy_core_pipeline", "bevy_window", "bevy_winit"] }
 egui_dock = "0.17.0"
 egui-notify = "0.20.0"
