@@ -13,7 +13,7 @@ authors.workspace = true
 bevy = { workspace = true }
 drs-utils = { workspace = true }
 anyhow = { workspace = true }
-fluent-templates = { version = "0.13.1", features = ["walkdir"] }
+fluent-templates = { version = "0.13.2", features = ["walkdir"] }
 sys-locale = "0.3.2"
 unic-langid = "0.9.6"
 
