@@ -5,7 +5,7 @@
 use bevy::MinimalPlugins;
 use bevy::app::FixedPostUpdate;
 use bevy::ecs::world::CommandQueue;
-use bevy::prelude::{App, BevyError, Component, Event, Events, Fixed, Time, World};
+use bevy::prelude::{App, BevyError, Component, Fixed, Message, Messages, Time, World};
 use bevy::tasks::tick_global_task_pools_on_main_thread;
 use drs_utils::{AsyncComponent, UtilsPlugin, command_queue, report_progress, send_command};
 use std::time::Duration;
@@ -15,8 +15,8 @@ struct FooComponent {
     pub bar: &'static str,
 }
 
-#[derive(Event)]
-struct FooEvent {
+#[derive(Message)]
+struct FooMessage {
     pub bar: String,
 }
 
@@ -75,7 +75,7 @@ fn spawn_new_async() {
 #[test]
 fn calls_error_on_failure() {
     let mut app = App::new();
-    app.add_event::<FooEvent>();
+    app.add_message::<FooMessage>();
     app.add_plugins((MinimalPlugins, UtilsPlugin));
 
     app.world_mut().spawn(AsyncComponent::new_async(
@@ -83,7 +83,7 @@ fn calls_error_on_failure() {
         |error, sender| {
             let mut queue = CommandQueue::default();
             queue.push(move |world: &mut World| {
-                world.send_event(FooEvent {
+                world.write_message(FooMessage {
                     bar: error.to_string(),
                 });
             });
@@ -102,15 +102,15 @@ fn calls_error_on_failure() {
         "There should no longer be an AsyncComponent"
     );
 
-    let events = app.world_mut().resource_mut::<Events<FooEvent>>();
-    let mut cursor = events.get_cursor();
-    let event = cursor.read(&events).next();
+    let messages = app.world_mut().resource_mut::<Messages<FooMessage>>();
+    let mut cursor = messages.get_cursor();
+    let message = cursor.read(&messages).next();
     assert!(
-        event.is_some(),
-        "The error handler should have spawned a FooEvent"
+        message.is_some(),
+        "The error handler should have spawned a FooMessage"
     );
     assert!(
-        event.unwrap().bar.starts_with("this went wrong"),
+        message.unwrap().bar.starts_with("this went wrong"),
         "The bar should have correct value"
     );
 }
@@ -206,7 +206,7 @@ fn test_report_progress_success() {
 
     let result = report_progress(
         &sender,
-        FooEvent {
+        FooMessage {
             bar: "test progress".to_string(),
         },
     );
@@ -214,19 +214,19 @@ fn test_report_progress_success() {
     assert!(result.is_ok(), "report_progress should succeed");
 
     let mut world = World::new();
-    world.init_resource::<Events<FooEvent>>();
+    world.init_resource::<Messages<FooMessage>>();
 
     let mut queue = receiver.try_recv().expect("Should receive command queue");
     let mut cmd_queue = CommandQueue::default();
     cmd_queue.append(&mut queue);
     cmd_queue.apply(&mut world);
 
-    let events = world.resource::<Events<FooEvent>>();
-    let mut cursor = events.get_cursor();
-    let event = cursor.read(events).next();
+    let messages = world.resource::<Messages<FooMessage>>();
+    let mut cursor = messages.get_cursor();
+    let message = cursor.read(messages).next();
 
-    assert!(event.is_some(), "Event should have been sent");
-    assert_eq!(event.unwrap().bar, "test progress");
+    assert!(message.is_some(), "Message should have been sent");
+    assert_eq!(message.unwrap().bar, "test progress");
 }
 
 #[test]
@@ -236,7 +236,7 @@ fn test_report_progress_sender_disconnected() {
 
     let result = report_progress(
         &sender,
-        FooEvent {
+        FooMessage {
             bar: "test".to_string(),
         },
     );

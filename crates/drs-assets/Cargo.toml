@@ -15,7 +15,7 @@ workspace = true
 
 [dependencies]
 bevy = { workspace = true, features = ["bevy_asset"] }
-rhai = { version = "1.23.4", features = ["no_time"] }
+rhai = { version = "1.23.6", features = ["no_time"] }
 walkdir = "2.5.0"
 drs-utils = { workspace = true }
 semver = { workspace = true, features = ["serde"] }
@@ -23,7 +23,7 @@ serde = { workspace = true }
 drs-serialization = { workspace = true }
 thiserror = { workspace = true }
 tantivy = "0.25.0"
-image = { version = "0.25.8", default-features = false, features = ["rayon"] }
+image = { version = "0.25.9", default-features = false, features = ["rayon"] }
 
 [dev-dependencies]
 anyhow = { workspace = true }

@@ -5,8 +5,8 @@ use anyhow::{Context, bail};
 use bevy::prelude::{World, debug, info, warn};
 use clap::Subcommand;
 use drs_assets::{
-    AssetLibrary, AssetPackIndexCompletedEvent, AssetPackIndexErrorEvent,
-    AssetPackIndexProgressEvent,
+    AssetLibrary, AssetPackIndexCompletedMessage, AssetPackIndexErrorMessage,
+    AssetPackIndexProgressMessage,
 };
 use drs_logging::{MultiProgress, console_progress};
 use std::collections::HashMap;
@@ -136,7 +136,7 @@ fn execute_cleanup(path: Option<PathBuf>) -> anyhow::Result<()> {
 /// Return an error when the asset library fails to load.
 ///
 /// # Panics
-/// This method may panic when the thread for reading events fails.
+/// This method may panic when the thread for reading messages fails.
 fn execute_add(
     library: Option<PathBuf>,
     path: &Path,
@@ -157,21 +157,21 @@ fn execute_add(
         let progress = console_progress(multi_progress);
 
         let (sender, thread) = utilities::track_progress(
-            |event: AssetPackIndexProgressEvent, progress| {
-                progress.set_length(event.total as u64);
-                progress.set_position(event.current as u64);
+            |message: AssetPackIndexProgressMessage, progress| {
+                progress.set_length(message.total as u64);
+                progress.set_position(message.current as u64);
                 Ok(())
             },
-            |_event: AssetPackIndexCompletedEvent, progress| {
+            |_message: AssetPackIndexCompletedMessage, progress| {
                 progress.finish();
 
                 Ok(())
             },
-            |event: AssetPackIndexErrorEvent, _progress| {
+            |message: AssetPackIndexErrorMessage, _progress| {
                 warn!(
                     "Failed to index entry: {path}: {error}",
-                    path = event.entry.display(),
-                    error = event.error
+                    path = message.entry.display(),
+                    error = message.error
                 );
 
                 Ok(())
@@ -217,7 +217,7 @@ fn execute_remove(library: Option<PathBuf>, id: &String) -> anyhow::Result<()> {
 /// Return an error when the asset library fails to load.
 ///
 /// # Panics
-/// This method may panic when the thread for reading events fails.
+/// This method may panic when the thread for reading messages fails.
 fn execute_index(
     library: Option<PathBuf>,
     id: Option<String>,
@@ -241,21 +241,21 @@ fn execute_index(
     }
 
     let (sender, thread) = utilities::track_progress(
-        |event: AssetPackIndexProgressEvent, progresses| {
-            let progress = &progresses[&event.id];
-            progress.set_length(event.total as u64);
-            progress.set_position(event.current as u64);
+        |message: AssetPackIndexProgressMessage, progresses| {
+            let progress = &progresses[&message.id];
+            progress.set_length(message.total as u64);
+            progress.set_position(message.current as u64);
             Ok(())
         },
-        |event: AssetPackIndexCompletedEvent, progresses| {
-            progresses[&event.id].finish();
+        |message: AssetPackIndexCompletedMessage, progresses| {
+            progresses[&message.id].finish();
             Ok(())
         },
-        |event: AssetPackIndexErrorEvent, _progresses| {
+        |message: AssetPackIndexErrorMessage, _progresses| {
             warn!(
                 "Failed to index entry: {path}: {error}",
-                path = event.entry.display(),
-                error = event.error
+                path = message.entry.display(),
+                error = message.error
             );
 
             Ok(())

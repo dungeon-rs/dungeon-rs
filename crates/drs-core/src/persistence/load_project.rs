@@ -1,54 +1,55 @@
-//! Contains the [`LoadProjectEvent`] and it's handler systems.
+//! Contains the [`LoadProjectMessage`] and it's handler systems.
 use crate::persistence::Document;
 use anyhow::Context;
 use bevy::log::debug;
 use bevy::prelude::{
-    BevyError, Commands, Entity, Event, EventReader, Single, Transform, default, info, info_span,
+    BevyError, Commands, Entity, Message, MessageReader, Single, Transform, default, info,
+    info_span,
 };
 use drs_data::{Layer, Level, Project, ProjectQuery};
 use drs_serialization::deserialize;
 use std::fs::read;
 use std::path::{Path, PathBuf};
 
-/// Emitting this event will cause the software to attempt loading a project file at the given `input`.
+/// Emitting this message will cause the software to attempt loading a project file at the given `input`.
 ///
-/// The progress, result or failure of this event's actions will also be emitted as events.
-/// TODO: add events to indicate progress, success or failure
-#[derive(Event, Debug)]
-pub struct LoadProjectEvent {
+/// The progress, result or failure of this message's actions will also be emitted as messages.
+/// TODO: add messages to indicate progress, success or failure
+#[derive(Message, Debug)]
+pub struct LoadProjectMessage {
     /// The path to the project file to load.
     pub input: PathBuf,
 }
 
 /// Indicates that the project file has been loaded successfully.
-#[derive(Event, Debug)]
-pub struct LoadProjectCompleteEvent {
+#[derive(Message, Debug)]
+pub struct LoadProjectCompleteMessage {
     /// The entity of the project that was loaded.
     pub project: Entity,
 }
 
 /// Indicates that the project file failed to load.
-#[derive(Event, Debug)]
-pub struct LoadProjectFailedEvent {
+#[derive(Message, Debug)]
+pub struct LoadProjectFailedMessage {
     /// The path to the project file that failed to load.
     pub input: PathBuf,
     /// The error that caused loading to fail.
     pub error: BevyError,
 }
 
-/// Bevy system that handles `LoadProjectEvent` events that were fired.
+/// Bevy system that handles `LoadProjectMessage` messages that were fired.
 #[drs_utils::bevy_system]
-pub fn handle_load_project_event(
+pub fn handle_load_project_message(
     projects: Option<Single<ProjectQuery>>,
-    mut events: EventReader<LoadProjectEvent>,
+    mut messages: MessageReader<LoadProjectMessage>,
     mut commands: Commands,
 ) {
-    // Only handle a single load event per frame, we don't want to cram too much work in a single frame.
-    let Some(event) = events.read().next() else {
+    // Only handle a single load message per frame, we don't want to cram too much work in a single frame.
+    let Some(message) = messages.read().next() else {
         return;
     };
 
-    let _ = info_span!("load_project", path = event.input.to_str()).entered();
+    let _ = info_span!("load_project", path = message.input.to_str()).entered();
 
     if let Some(project) = projects {
         debug!("despawning previous project");
@@ -56,11 +57,11 @@ pub fn handle_load_project_event(
         commands.entity(project.entity).despawn();
     }
 
-    let project = match read_and_parse(&event.input) {
+    let project = match read_and_parse(&message.input) {
         Ok(project) => project,
         Err(error) => {
-            commands.send_event(LoadProjectFailedEvent {
-                input: event.input.clone(),
+            commands.write_message(LoadProjectFailedMessage {
+                input: message.input.clone(),
                 error,
             });
 
@@ -74,7 +75,7 @@ pub fn handle_load_project_event(
         level_count = project.levels.len()
     );
     let project = commands
-        .spawn(Project::new(event.input.clone(), project.name))
+        .spawn(Project::new(message.input.clone(), project.name))
         .with_children(|commands| {
             for level in project.levels {
                 commands
@@ -97,7 +98,7 @@ pub fn handle_load_project_event(
         })
         .id();
 
-    commands.send_event(LoadProjectCompleteEvent { project });
+    commands.write_message(LoadProjectCompleteMessage { project });
 }
 
 /// Handles reading the input file and parsing it into a domain structure.
