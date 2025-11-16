@@ -4,8 +4,8 @@ mod document;
 mod load_project;
 mod save_project;
 
-pub use load_project::{LoadProjectCompleteMessage, LoadProjectMessage, LoadProjectFailedMessage};
-pub use save_project::{SaveProjectCompleteMessage, SaveProjectMessage, SaveProjectFailedMessage};
+pub use load_project::{LoadProjectCompleteMessage, LoadProjectFailedMessage, LoadProjectMessage};
+pub use save_project::{SaveProjectCompleteMessage, SaveProjectFailedMessage, SaveProjectMessage};
 
 pub(crate) use document::*;
 pub(crate) use load_project::handle_load_project_message;

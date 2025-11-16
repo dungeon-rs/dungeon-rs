@@ -70,7 +70,8 @@ fn save_project_message() -> anyhow::Result<()> {
     // run the schedules once to process Setup and spawn
     app.update();
 
-    app.world_mut().send_message(SaveProjectMessage::new(project));
+    app.world_mut()
+        .send_message(SaveProjectMessage::new(project));
 
     process_async_components(&mut app);
 
@@ -122,7 +123,8 @@ fn save_project_message_failed() -> anyhow::Result<()> {
     // run the schedules once to process Setup and spawn
     app.update();
 
-    app.world_mut().send_message(SaveProjectMessage::new(project));
+    app.world_mut()
+        .send_message(SaveProjectMessage::new(project));
 
     process_async_components(&mut app);
 

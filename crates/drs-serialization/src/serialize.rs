@@ -102,7 +102,6 @@ where
 }
 
 /// Attempts to serialise `subject` into `TOML` and returns the string as a `Vec<u8>`.
-#[allow(clippy::missing_errors_doc)]
 #[allow(clippy::missing_errors_doc, unused_variables)]
 pub fn serialize_toml<T>(subject: &T) -> Result<Vec<u8>>
 where

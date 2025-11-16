@@ -2,7 +2,10 @@
 use crate::persistence::Document;
 use anyhow::Context;
 use bevy::log::debug;
-use bevy::prelude::{BevyError, Commands, Entity, Single, Transform, default, info, info_span, MessageReader, Message};
+use bevy::prelude::{
+    BevyError, Commands, Entity, Message, MessageReader, Single, Transform, default, info,
+    info_span,
+};
 use drs_data::{Layer, Level, Project, ProjectQuery};
 use drs_serialization::deserialize;
 use std::fs::read;
