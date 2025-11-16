@@ -54,7 +54,7 @@ fn load_project_message() -> anyhow::Result<()> {
         "Project should not be loaded yet"
     );
 
-    app.world_mut().send_message(LoadProjectMessage { input });
+    app.world_mut().write_message(LoadProjectMessage { input });
 
     // advance world to send message and once more to run systems
     app.update();

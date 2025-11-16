@@ -83,7 +83,7 @@ fn calls_error_on_failure() {
         |error, sender| {
             let mut queue = CommandQueue::default();
             queue.push(move |world: &mut World| {
-                world.send_message(FooMessage {
+                world.write_message(FooMessage {
                     bar: error.to_string(),
                 });
             });

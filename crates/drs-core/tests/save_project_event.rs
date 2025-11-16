@@ -71,7 +71,7 @@ fn save_project_message() -> anyhow::Result<()> {
     app.update();
 
     app.world_mut()
-        .send_message(SaveProjectMessage::new(project));
+        .write_message(SaveProjectMessage::new(project));
 
     process_async_components(&mut app);
 
@@ -124,7 +124,7 @@ fn save_project_message_failed() -> anyhow::Result<()> {
     app.update();
 
     app.world_mut()
-        .send_message(SaveProjectMessage::new(project));
+        .write_message(SaveProjectMessage::new(project));
 
     process_async_components(&mut app);
 
