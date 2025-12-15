@@ -17,7 +17,7 @@ workspace = true
 drs-config = { workspace = true }
 bevy = { workspace = true }
 tracing-appender = "0.2.4"
-tracing-subscriber = { version = "0.3.20", features = ["json"] }
+tracing-subscriber = { version = "0.3.22", features = ["json"] }
 tracing = { version = "0.1.43", optional = true, default-features = false }
 indicatif = { version = "0.18.3", optional = true, default-features = false }
 
