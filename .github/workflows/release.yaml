@@ -175,7 +175,7 @@ jobs:
         run: cargo build --profile=${{ matrix.profile }} --package ${{ matrix.binary }} --target="${{ matrix.target }}" --features='${{ matrix.features }}'
 
       - name: Download licenses artefact
-        uses: actions/download-artifact@v5
+        uses: actions/download-artifact@v7
         with:
           name: third-party-licenses-html
 
@@ -259,7 +259,7 @@ jobs:
           Copy-Item "$env:GITHUB_WORKSPACE/THIRD-PARTY-LICENSES.html" ${{ matrix.binary }}
           Compress-Archive -Path ${{ matrix.binary }} -DestinationPath '${{ matrix.binary }}-${{ matrix.label }}${{ matrix.package_ext }}'
 
-      - uses: actions/download-artifact@v5
+      - uses: actions/download-artifact@v7
         with:
           name: release-body-md
 
