@@ -3952,9 +3952,9 @@ dependencies = [
 
 [[package]]
 name = "native-dialog"
-version = "0.9.4"
+version = "0.9.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "89853bb05334e192e6646290ea94ca31bcb80443f25ad40ebf478b6dafb08d6c"
+checksum = "405f08ba26e8ed041d484d08205ee0414f882022179eeb2e54b6005d2564e097"
 dependencies = [
  "ascii",
  "block2 0.6.2",
