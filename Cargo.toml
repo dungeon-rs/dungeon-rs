@@ -41,7 +41,7 @@ semver = { version = "1.0.27", features = ["serde"] }
 tempfile = { version = "3.24.0" }
 native-dialog = { version = "0.9.4", default-features = false, features = ["windows_dpi_awareness", "windows_visual_styles"] }
 crossbeam-channel = "0.5.15"
-clap = { version = "4.5.54", features = ["derive"] }
+clap = { version = "4.5.56", features = ["derive"] }
 
 # Workspace packages
 drs-assets = { path = "crates/drs-assets" }
