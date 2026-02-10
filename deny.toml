@@ -14,10 +14,6 @@ ignore = [
   # See: https://rustsec.org/advisories/RUSTSEC-2024-0436
   # Bevy relies on this in multiple indirect ways, so ignoring it is the only feasible current solution
   "RUSTSEC-2024-0436",
-  # instant was announced as unmaintained.
-  # Rhai has a dependency on this, although we build without time support so we don't pull this crate in.
-  # see https://github.com/rhaiscript/rhai/issues/891
-  "RUSTSEC-2024-0384"
 ]
 
 [licenses]
