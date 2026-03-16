@@ -23,7 +23,7 @@ serde = { workspace = true }
 drs-serialization = { workspace = true }
 thiserror = { workspace = true }
 tantivy = "0.25.0"
-image = { version = "0.25.9", default-features = false, features = ["rayon"] }
+image = { version = "0.25.10", default-features = false, features = ["rayon"] }
 
 [dev-dependencies]
 anyhow = { workspace = true }
