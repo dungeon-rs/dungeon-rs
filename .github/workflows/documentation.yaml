@@ -53,4 +53,4 @@ jobs:
       - name: Deploy to GitHub Pages
         if: github.event_name == 'push'
         id: deployment-pages
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@v5
