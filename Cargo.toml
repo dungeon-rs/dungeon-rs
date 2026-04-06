@@ -37,8 +37,8 @@ log = { version = "*", features = ["max_level_debug", "release_max_level_warn"] 
 anyhow = "1.0.102"
 thiserror = "2.0.18"
 serde = { version = "1.0.228", features = ["derive"] }
-semver = { version = "1.0.27", features = ["serde"] }
-tempfile = { version = "3.26.0" }
+semver = { version = "1.0.28", features = ["serde"] }
+tempfile = { version = "3.27.0" }
 native-dialog = { version = "0.9.6", default-features = false, features = ["windows_dpi_awareness", "windows_visual_styles"] }
 crossbeam-channel = "0.5.15"
 clap = { version = "4.5.60", features = ["derive"] }
