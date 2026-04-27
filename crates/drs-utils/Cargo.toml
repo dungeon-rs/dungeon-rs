@@ -19,10 +19,10 @@ drs-utils_macros = { path = "macros" }
 crossbeam-channel = { workspace = true }
 semver = { workspace = true }
 thiserror = { workspace = true }
-blake3 = "1.8.3"
+blake3 = "1.8.5"
 
 [target.'cfg(target_os = "windows")'.dependencies]
-known-folders = "1.4.1"
+known-folders = "1.4.2"
 
 [features]
 default = [
