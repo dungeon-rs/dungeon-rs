@@ -1,0 +1,16 @@
+[package]
+name = "dungeonrs_editor"
+edition.workspace = true
+version.workspace = true
+license-file.workspace = true
+readme.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+repository.workspace = true
+authors.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+bevy = { workspace = true }
