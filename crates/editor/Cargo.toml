@@ -14,3 +14,6 @@ workspace = true
 
 [dependencies]
 bevy = { workspace = true }
+
+[features]
+dev = ["bevy/dynamic_linking"]

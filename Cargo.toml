@@ -5,14 +5,13 @@ members = ["crates/*"]
 [workspace.package]
 edition = "2024"
 version = "0.0.1"
+license = "GPL-3.0-or-later"
 license-file = "LICENSE"
 readme = "README.md"
 rust-version = "1.95.0"
 publish = false
 repository = "https://github.com/dungeon-rs/dungeon-rs"
-authors = [
-  "Wannes Gennar <info@dealloc.be>"
-]
+authors = ["Wannes Gennar <info@dealloc.be>"]
 
 [workspace.lints.rust]
 unsafe_code = "forbid"
@@ -32,3 +31,33 @@ semicolon_if_nothing_returned = "warn"
 [workspace.dependencies]
 bevy = { version = "0.18.1", default-features = false, features = [] }
 
+# Enable a small amount of optimization in the dev profile.
+[profile.dev]
+opt-level = 1
+
+# Enable a large amount of optimization in the dev profile for dependencies.
+[profile.dev.package."*"]
+opt-level = 3
+
+# Enable more optimization in the release profile at the cost of compile time.
+[profile.release]
+# Compile the entire crate as one unit.
+# Slows compile times, marginal improvements.
+codegen-units = 1
+# Do a second optimization pass over the entire program, including dependencies.
+# Slows compile times, marginal improvements.
+lto = "thin"
+
+# We create a separate profile called 'fast' that disables all optimisation in favour of faster compilation for use in CI.
+[profile.fast]
+inherits = "dev"
+opt-level = 0
+codegen-units = 256
+strip = "none"
+debug-assertions = true
+overflow-checks = true
+lto = false
+incremental = true
+
+[profile.fast.package."*"]
+opt-level = 0

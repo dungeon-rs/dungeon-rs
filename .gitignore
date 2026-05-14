@@ -20,5 +20,12 @@ target
 #  option (not recommended) you can uncomment the following to ignore the entire idea folder.
 .idea/
 
+# Cargo files
+.cargo/config.toml
+
 # LLM files
 .claude/settings.local.json
+
+# Generated files
+.DS_Store
+THIRD-PARTY-LICENSES.html

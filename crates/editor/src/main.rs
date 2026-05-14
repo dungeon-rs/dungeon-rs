@@ -1,5 +1,7 @@
 #![doc = include_str!("../README.md")]
 
+use bevy::prelude::App;
+
 fn main() {
-    println!("Hello, world!");
+    App::new().run();
 }
