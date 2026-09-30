@@ -25,7 +25,9 @@ pub fn check(metadata: &Metadata) -> Vec<Violation> {
         };
 
         for feature in package.features.keys() {
-            if !REQUIRED_FEATURES.contains(&feature.as_str()) && !readme.contains(feature) {
+            if !REQUIRED_FEATURES.contains(&feature.as_str())
+                && !readme.contains(&format!("`{feature}`"))
+            {
                 violations.push(Violation::new(
                     package.name.to_string(),
                     RULE,
@@ -74,5 +76,14 @@ mod tests {
 
         assert_eq!(violations.len(), 1);
         assert!(violations[0].detail.contains("README"));
+    }
+
+    #[test]
+    fn a_feature_name_inside_another_word_does_not_count_as_documented() {
+        let (_dir, metadata) = workspace(&[Crate::new("drs-model")
+            .with_features(&[("default", &[]), ("dev", &[]), ("ui", &[])])
+            .with_readme("A quite ordinary build.")]);
+
+        assert_eq!(check(&metadata).len(), 1);
     }
 }

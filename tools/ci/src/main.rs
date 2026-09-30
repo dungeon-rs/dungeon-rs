@@ -29,7 +29,7 @@ pub enum Commands {
     /// Validates that all features in each crate in the workspace have been documented.
     #[clap(name = "documented-features")]
     ValidateDocumentedFeatures,
-    /// Validates that all required features (such as the platform features) have been added
+    /// Validates that every crate declares the required features (`default` and `dev`).
     #[clap(name = "required-features")]
     ValidateRequiredFeatures,
     /// Validates that all features in the workspace are correctly propagated.
@@ -44,18 +44,15 @@ fn main() -> Result<()> {
     let cli = Cli::parse();
     let colorizer = Colorizer::new();
     let metadata = MetadataCommand::new()
-        .manifest_path("../../Cargo.toml")
+        .manifest_path(concat!(env!("CARGO_MANIFEST_DIR"), "/../../Cargo.toml"))
         .no_deps()
         .exec()
         .context("running `cargo metadata` failed")?;
 
-    let violations = match cli.command {
-        Commands::All => run_all(&metadata)?,
-        command => run(command, &metadata)?,
-    };
+    let violations = run(cli.command, &metadata)?;
 
     if violations.is_empty() {
-        println!("{}", colorizer.green("The workspace follows its rules. 🎉"));
+        println!("{}", colorizer.green("The workspace follows its rules."));
         return Ok(());
     }
 

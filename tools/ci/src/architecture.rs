@@ -1,6 +1,6 @@
 //! This module contains the command that enforces the Dependencies tables of `ARCHITECTURE.md`.
 use crate::violation::Violation;
-use anyhow::{Context, Result};
+use anyhow::{Context, Result, bail, ensure};
 use cargo_metadata::Metadata;
 use std::collections::BTreeMap;
 
@@ -24,32 +24,87 @@ pub struct Architecture {
     pub restrictions: Vec<Restriction>,
 }
 
+const EVERY_COMPONENT_IS_A_CRATE: &str = "Every component is a crate";
+const KNOWN_CRATES_ONLY: &str = "Known crates only";
+const ALLOWED_DEPENDENCIES: &str = "Allowed dependencies";
+const SAME_KIND_ISOLATION: &str = "Same-kind isolation";
+const RESTRICTED_EXTERNALS: &str = "Restricted externals";
+
+/// The component types of the architecture.
+const KINDS: [&str; 7] = [
+    "Host",
+    "Client",
+    "Manager",
+    "Engine",
+    "ResourceAccess",
+    "Utility",
+    "Model",
+];
+
 /// Component types that may never depend on a component of their own type.
 const ISOLATED_KINDS: [&str; 3] = ["Engine", "ResourceAccess", "Manager"];
 
 impl Architecture {
     /// Reads the Dependencies and Restricted external dependencies tables.
+    ///
+    /// A malformed table is an error, never a silently weaker check: a typo in a component type or a
+    /// crate name would otherwise make a rule stop matching.
     pub fn parse(markdown: &str) -> Result<Self> {
-        let components = table_rows(markdown, "Dependencies")
+        let mut components = BTreeMap::new();
+        for row in table_rows(markdown, "Dependencies")
             .context("`ARCHITECTURE.md` has no Dependencies table")?
-            .into_iter()
-            .map(|row| {
-                let component = Component {
-                    kind: row.get(1).cloned().unwrap_or_default(),
-                    may_depend_on: split_list(row.get(2)),
-                };
-                (row[0].clone(), component)
-            })
-            .collect();
+        {
+            let [name, kind, may_depend_on] = row.as_slice() else {
+                bail!(
+                    "Dependencies row has {} cells, expected 3: {row:?}",
+                    row.len()
+                );
+            };
+            ensure!(
+                KINDS.contains(&kind.as_str()),
+                "`{name}` has unknown type `{kind}`; expected one of {KINDS:?}"
+            );
+            let component = Component {
+                kind: kind.clone(),
+                may_depend_on: split_list(may_depend_on),
+            };
+            ensure!(
+                components.insert(name.clone(), component).is_none(),
+                "`{name}` has more than one row in the Dependencies table"
+            );
+        }
 
-        let restrictions = table_rows(markdown, "Restricted external dependencies")
+        for (name, component) in &components {
+            for dependency in &component.may_depend_on {
+                ensure!(
+                    components.contains_key(dependency),
+                    "`{name}` may depend on `{dependency}`, which has no row in the Dependencies table"
+                );
+            }
+        }
+
+        let mut restrictions = Vec::new();
+        for row in table_rows(markdown, "Restricted external dependencies")
             .context("`ARCHITECTURE.md` has no Restricted external dependencies table")?
-            .into_iter()
-            .map(|row| Restriction {
-                external: row[0].clone(),
-                allowed_for: split_list(row.get(1)),
-            })
-            .collect();
+        {
+            let [external, allowed_for] = row.as_slice() else {
+                bail!(
+                    "Restricted external dependencies row has {} cells, expected 2: {row:?}",
+                    row.len()
+                );
+            };
+            let allowed_for = split_list(allowed_for);
+            for allowed in &allowed_for {
+                ensure!(
+                    components.contains_key(allowed) || KINDS.contains(&allowed.as_str()),
+                    "`{external}` is allowed for `{allowed}`, which is neither a component nor a component type"
+                );
+            }
+            restrictions.push(Restriction {
+                external: external.clone(),
+                allowed_for,
+            });
+        }
 
         Ok(Self {
             components,
@@ -59,25 +114,14 @@ impl Architecture {
 
     /// Compares the workspace against the tables.
     pub fn check(&self, metadata: &Metadata) -> Vec<Violation> {
-        let mut violations = Vec::new();
-        let packages = metadata.workspace_packages();
+        let mut violations = self.missing_components(metadata);
 
-        for name in self.components.keys() {
-            if !packages.iter().any(|pkg| pkg.name == name.as_str()) {
-                violations.push(Violation::new(
-                    name,
-                    "Every component is a crate",
-                    "listed in the Dependencies table but missing from the workspace",
-                ));
-            }
-        }
-
-        for package in packages {
+        for package in metadata.workspace_packages() {
             let name = package.name.to_string();
             let Some(component) = self.components.get(&name) else {
                 violations.push(Violation::new(
                     name,
-                    "Known crates only",
+                    KNOWN_CRATES_ONLY,
                     "has no row in the Dependencies table",
                 ));
                 continue;
@@ -85,48 +129,91 @@ impl Architecture {
 
             for dependency in &package.dependencies {
                 let dependency = dependency.name.as_str();
-                if let Some(target) = self.components.get(dependency) {
-                    if !component.may_depend_on.iter().any(|d| d == dependency) {
-                        violations.push(Violation::new(
-                            &name,
-                            "Allowed dependencies",
-                            format!("may not depend on `{dependency}`"),
-                        ));
-                    }
-                    if target.kind == component.kind
-                        && ISOLATED_KINDS.contains(&component.kind.as_str())
-                    {
-                        violations.push(Violation::new(
-                            &name,
-                            "Same-kind isolation",
-                            format!(
-                                "{} `{dependency}` may not be depended on by a {}",
-                                target.kind, component.kind
-                            ),
-                        ));
-                    }
-                }
-
-                if let Some(restriction) =
-                    self.restrictions.iter().find(|r| r.external == dependency)
-                    && !restriction
-                        .allowed_for
-                        .iter()
-                        .any(|allowed| *allowed == name || *allowed == component.kind)
-                {
-                    violations.push(Violation::new(
-                        &name,
-                        "Restricted externals",
-                        format!(
-                            "may not use `{dependency}`; allowed for {}",
-                            restriction.allowed_for.join(", ")
-                        ),
-                    ));
-                }
+                violations.extend(self.check_workspace_dependency(&name, component, dependency));
+                violations.extend(self.check_restricted_external(&name, component, dependency));
             }
         }
 
         violations
+    }
+
+    /// Components the table lists that the workspace lacks.
+    fn missing_components(&self, metadata: &Metadata) -> Vec<Violation> {
+        let packages = metadata.workspace_packages();
+        self.components
+            .keys()
+            .filter(|name| !packages.iter().any(|pkg| pkg.name == name.as_str()))
+            .map(|name| {
+                Violation::new(
+                    name,
+                    EVERY_COMPONENT_IS_A_CRATE,
+                    "listed in the Dependencies table but missing from the workspace",
+                )
+            })
+            .collect()
+    }
+
+    /// A dependency on another workspace crate must be allowed by the table.
+    ///
+    /// Same-kind isolation follows from a correct table; it is checked on its own as well, so a table
+    /// that wrongly allowed an Engine to depend on an Engine would still be caught.
+    fn check_workspace_dependency(
+        &self,
+        name: &str,
+        component: &Component,
+        dependency: &str,
+    ) -> Vec<Violation> {
+        let Some(target) = self.components.get(dependency) else {
+            return Vec::new();
+        };
+
+        let mut violations = Vec::new();
+        if !component.may_depend_on.iter().any(|d| d == dependency) {
+            violations.push(Violation::new(
+                name,
+                ALLOWED_DEPENDENCIES,
+                format!("may not depend on `{dependency}`"),
+            ));
+        }
+        if target.kind == component.kind && ISOLATED_KINDS.contains(&component.kind.as_str()) {
+            violations.push(Violation::new(
+                name,
+                SAME_KIND_ISOLATION,
+                format!(
+                    "`{dependency}` is a {} and {} crates may not depend on each other",
+                    target.kind, component.kind
+                ),
+            ));
+        }
+        violations
+    }
+
+    /// A restricted external crate is only used by the crates or component types listed for it.
+    fn check_restricted_external(
+        &self,
+        name: &str,
+        component: &Component,
+        dependency: &str,
+    ) -> Option<Violation> {
+        let restriction = self
+            .restrictions
+            .iter()
+            .find(|r| r.external == dependency)?;
+        let allowed = restriction
+            .allowed_for
+            .iter()
+            .any(|allowed| allowed == name || *allowed == component.kind);
+
+        (!allowed).then(|| {
+            Violation::new(
+                name,
+                RESTRICTED_EXTERNALS,
+                format!(
+                    "may not use `{dependency}`; allowed for {}",
+                    restriction.allowed_for.join(", ")
+                ),
+            )
+        })
     }
 }
 
@@ -150,15 +237,12 @@ fn table_rows(markdown: &str, heading: &str) -> Option<Vec<Vec<String>>> {
     (!rows.is_empty()).then_some(rows)
 }
 
-fn split_list(cell: Option<&String>) -> Vec<String> {
-    cell.map(|cell| {
-        cell.split(',')
-            .map(str::trim)
-            .filter(|item| !item.is_empty())
-            .map(str::to_string)
-            .collect()
-    })
-    .unwrap_or_default()
+fn split_list(cell: &str) -> Vec<String> {
+    cell.split(',')
+        .map(str::trim)
+        .filter(|item| !item.is_empty())
+        .map(str::to_string)
+        .collect()
 }
 
 #[cfg(test)]
@@ -271,7 +355,7 @@ Prose after the table.
 
         assert_eq!(violations.len(), 1);
         assert_eq!(violations[0].package, "drs-paint-engine");
-        assert_eq!(violations[0].rule, "Every component is a crate");
+        assert_eq!(violations[0].rule, EVERY_COMPONENT_IS_A_CRATE);
     }
 
     #[test]
@@ -382,5 +466,59 @@ Prose after the table.
             violations_for(&with(Crate::new("drs-model").depends_on_external("serde")));
 
         assert_eq!(violations, []);
+    }
+
+    #[test]
+    fn the_host_type_resolves_a_restricted_external() {
+        let violations = violations_for(&with(
+            Crate::new("drs-app")
+                .depends_on("drs-editor")
+                .depends_on("drs-shape-engine")
+                .depends_on("drs-model")
+                .depends_on_external("bevy"),
+        ));
+
+        assert_eq!(violations, []);
+    }
+
+    #[test]
+    fn an_unknown_component_type_is_an_error() {
+        let markdown = TABLES.replace("| Engine |", "| Engines |");
+
+        assert!(Architecture::parse(&markdown).is_err());
+    }
+
+    #[test]
+    fn a_duplicate_row_is_an_error() {
+        let markdown = TABLES.replace(
+            "| drs-model | Model | |",
+            "| drs-model | Model | |\n| drs-model | Model | |",
+        );
+
+        assert!(Architecture::parse(&markdown).is_err());
+    }
+
+    #[test]
+    fn a_dependency_on_an_unlisted_component_is_an_error() {
+        let markdown = TABLES.replace(
+            "| drs-editor | Client | drs-model |",
+            "| drs-editor | Client | drs-nope |",
+        );
+
+        assert!(Architecture::parse(&markdown).is_err());
+    }
+
+    #[test]
+    fn a_row_with_the_wrong_number_of_cells_is_an_error() {
+        let markdown = TABLES.replace("| drs-model | Model | |", "| drs-model | Model |");
+
+        assert!(Architecture::parse(&markdown).is_err());
+    }
+
+    #[test]
+    fn a_restriction_naming_an_unknown_type_is_an_error() {
+        let markdown = TABLES.replace("| bevy | Client, Host |", "| bevy | Clients, Host |");
+
+        assert!(Architecture::parse(&markdown).is_err());
     }
 }

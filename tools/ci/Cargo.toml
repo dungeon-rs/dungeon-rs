@@ -1,6 +1,7 @@
 [package]
 name = "ci"
 edition = "2024"
+publish = false
 
 [dependencies]
 anyhow = "1.0.104"
