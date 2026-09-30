@@ -1,0 +1,37 @@
+# Roadmap
+
+## I have a working editor: I can place Props from my own Asset Folder, undo, save, reopen, and export an image
+
+- **Workspace foundation**: every `drs-*` crate exists empty, with the toolchain, lints, supply-chain and spelling checks, commit linting, the feature check and the architecture check that enforces the Dependencies tables, the `justfile` (`check`, `test`, `run`), CI, and Dependabot in place. Commands: none.
+- **Walking skeleton: from folder to Prop**: the Author adds an Asset Folder (Manifest and Canonical Name, scanned and indexed, browsed by name), places a Prop on the single default Layer of a single Level, moves and removes it, and undoes or redoes each step. Commands: Add Asset Folder, Place Element, Edit Element, Remove Element.
+- **Walking skeleton: save, reopen, export**: the Author saves the Project, reopens it with its Asset References resolved (Missing Assets kept as placeholders and reported), and exports the Level as a PNG at a chosen resolution within fixed Bounds. Commands: Export Level.
+- **Diagnostics**: logs go to a daily-rolling file, a crash shows a dialog and leaves a crash report, and bundled resources are found on every platform. Commands: none.
+
+## I can build and export a simple dungeon: Walls, doors, Rooms, painted Terrain, and Layers, from a library I can actually browse
+
+- **Browse the library at scale**: thumbnails appear as they are generated in the background, and search finds any of hundreds of thousands of Assets instantly. Commands: none.
+- **Walls**: the Author draws straight or curved Walls and edits their points at any time. Commands: none.
+- **Portals**: doors and windows set into Walls stay anchored through every Wall edit, or stand free. Commands: Set Portal into Wall, Free Portal.
+- **Rooms**: Room outlines generate their Walls, and outlines combine and cut. Commands: none.
+- **GPU stroke rasterization**: Answer: can soft strokes be rasterized on the GPU fast enough for editing at high zoom? Commands: none.
+- **Paint Terrain with one Material**: the Author paints Terrain with a Brush, and every stroke stays editable. Commands: Paint.
+- **Blend any number of Materials**: Terrain blends as many Materials as the Author paints. Commands: none.
+- **Levels and Layers**: the Author adds, removes, and orders Levels and Layers, and restacks Elements. Commands: Add Level, Remove Level, Reorder Levels, Add Layer, Remove Layer, Reorder Layers, Restack.
+- **Layer compositing**: Layers and Layer Groups can be hidden, locked, faded, and blended. Commands: Edit Layer, Group Layers.
+- **Bounds**: the Author resizes the Bounds, which are always visible in the editor. Commands: Resize Bounds.
+
+## My Projects travel
+
+Relink with reports that name the version gap, Embedded Assets, managing Asset Folders, and Asset Packs. Commands: Relink, Embed Asset, Remove Asset Folder, Rename Canonical Name, Install Asset Pack.
+
+## Richer maps
+
+Caves, Water, Patches, Paths, Pattern Shapes, Roofs, Labels, custom Materials and Shaders, and Trace Images. Commands: none.
+
+## Reusable arrangements
+
+Prefabs placed as linked instances that follow, detach from, or sync with their Prefab. Commands: Place Prefab, Update Prefab, Sync Prefab Instance, Detach Prefab Instance.
+
+## Light and extension
+
+2D lighting with Ambient Light, Plugins, and VTT export. Commands: Set Ambient Light.
