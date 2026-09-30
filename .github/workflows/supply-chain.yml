@@ -1,0 +1,14 @@
+name: Supply chain
+
+on:
+  schedule:
+    # Every Monday: a new advisory can land without any pull request.
+    - cron: "0 6 * * 1"
+  workflow_dispatch:
+
+jobs:
+  deny:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: EmbarkStudios/cargo-deny-action@v2
