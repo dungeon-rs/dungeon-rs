@@ -1,0 +1,5 @@
+test_tool = "nextest"
+profile = "fast"
+
+# Binary entry points have no testable return values.
+exclude_globs = ["crates/*/src/main.rs"]

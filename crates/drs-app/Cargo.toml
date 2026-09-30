@@ -1,0 +1,18 @@
+[package]
+name = "drs-app"
+edition.workspace = true
+version.workspace = true
+license.workspace = true
+readme.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+repository.workspace = true
+authors.workspace = true
+
+[dependencies]
+
+[features]
+dev = []
+
+[lints]
+workspace = true
