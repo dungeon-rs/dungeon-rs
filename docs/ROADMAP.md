@@ -2,7 +2,7 @@
 
 ## I have a working editor: I can place Props from my own Asset Folder, undo, save, reopen, and export an image
 
-- **Workspace foundation**: every `drs-*` crate exists empty, with the toolchain, lints, supply-chain and spelling checks, commit linting, the feature check and the architecture check that enforces the Dependencies tables, the `justfile` (`check`, `test`, `run`), CI, and Dependabot in place. Commands: none.
+- **[Workspace foundation](changes/workspace-foundation.md)**: every `drs-*` crate exists empty, with the toolchain, lints, supply-chain and spelling checks, commit linting, the feature check and the architecture check that enforces the Dependencies tables, the `justfile` (`check`, `test`, `run`), CI, and Dependabot in place. Commands: none.
 - **Walking skeleton: from folder to Prop**: the Author adds an Asset Folder (Manifest and Canonical Name, scanned and indexed, browsed by name), places a Prop on the single default Layer of a single Level, moves and removes it, and undoes or redoes each step. Commands: Add Asset Folder, Place Element, Edit Element, Remove Element.
 - **Walking skeleton: save, reopen, export**: the Author saves the Project, reopens it with its Asset References resolved (Missing Assets kept as placeholders and reported), and exports the Level as a PNG at a chosen resolution within fixed Bounds. Commands: Export Level.
 - **Diagnostics**: logs go to a daily-rolling file, a crash shows a dialog and leaves a crash report, and bundled resources are found on every platform. Commands: none.
