@@ -1,4 +1,2 @@
 [profile.default]
 fail-fast = { max-fail = 5 }
-
-[[profile.default.overrides]]

@@ -1,24 +1,34 @@
 # https://just.systems
 # Some recipes are duplicated as they use the 'fast' profile which doesn't work under Windows due to linker limits.
 
-# Run (almost) every check the CI will run
-ci: format lint typos dependencies commits test
+# Run every check the CI will run
+check: format lint typos dependencies workspace commits test msrv docs
+
+# Check the workspace rules: required, documented and propagated features, and the architecture's dependency tables
+[working-directory('tools/ci')]
+workspace:
+    cargo run all
 
 # Check if code is formatted correctly
 format:
     cargo fmt --check
     taplo fmt --check
 
+# Run the tests of the tool that checks the workspace rules
+[working-directory('tools/ci')]
+test-tools:
+    cargo test
+
 # Run unit tests
 [linux, macos]
-test:
-    cargo nextest run --all-features --cargo-profile=fast
-    cargo nextest run --all-features --cargo-profile=fast --benches
+test: test-tools
+    cargo nextest run --no-tests=pass --all-features --cargo-profile=fast
+    cargo nextest run --no-tests=pass --all-features --cargo-profile=fast --benches
     cargo test --workspace --profile=fast --doc
 [windows]
-test:
-    cargo nextest run --all-features
-    cargo nextest run --all-features --benches
+test: test-tools
+    cargo nextest run --no-tests=pass --all-features
+    cargo nextest run --no-tests=pass --all-features --benches
     cargo test --workspace --doc
 
 # Run linters
@@ -41,9 +51,17 @@ dependencies:
     cargo deny check
     cargo about generate -o THIRD-PARTY-LICENSES.html -m . about.hbs
 
-# Check commit messages
+# Check commit messages made since origin/master (or since the first commit while there is no remote)
 commits:
-    committed origin/master..HEAD
+    committed "$(git rev-parse --verify --quiet origin/master || git rev-list --max-parents=0 HEAD)"..HEAD
+
+# Check that the workspace still builds on the minimum supported Rust version
+msrv:
+    cargo +1.96 check --workspace --all-features
+
+# Check that the documentation builds without warnings
+docs:
+    RUSTDOCFLAGS="-D warnings" cargo doc --workspace --no-deps --all-features
 
 # Attempt an automated fix of various lint errors
 fix:
@@ -72,4 +90,6 @@ setup:
     cargo install --locked --features cli cargo-about
     cargo install taplo-cli --locked
     cargo install cargo-mutants --locked
+    cargo install cargo-cache
+    rustup toolchain install 1.96 --profile minimal
     cargo fetch --locked
