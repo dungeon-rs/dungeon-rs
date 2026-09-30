@@ -5,3 +5,55 @@ version = 4
 [[package]]
 name = "drs-app"
 version = "0.0.1"
+
+[[package]]
+name = "drs-authoring-manager"
+version = "0.0.1"
+
+[[package]]
+name = "drs-catalog-engine"
+version = "0.0.1"
+
+[[package]]
+name = "drs-editor"
+version = "0.0.1"
+
+[[package]]
+name = "drs-history"
+version = "0.0.1"
+
+[[package]]
+name = "drs-library-access"
+version = "0.0.1"
+
+[[package]]
+name = "drs-library-manager"
+version = "0.0.1"
+
+[[package]]
+name = "drs-model"
+version = "0.0.1"
+
+[[package]]
+name = "drs-output-access"
+version = "0.0.1"
+
+[[package]]
+name = "drs-paint-engine"
+version = "0.0.1"
+
+[[package]]
+name = "drs-project-access"
+version = "0.0.1"
+
+[[package]]
+name = "drs-project-manager"
+version = "0.0.1"
+
+[[package]]
+name = "drs-render-engine"
+version = "0.0.1"
+
+[[package]]
+name = "drs-shape-engine"
+version = "0.0.1"

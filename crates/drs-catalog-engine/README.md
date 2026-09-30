@@ -1,6 +1,6 @@
-# drs-app
+# drs-catalog-engine
 
-The Host: registers the plugins of every other crate and starts the editor.
+The Engine that classifies, searches, and resolves Assets.
 
 ## Features
 

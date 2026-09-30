@@ -1,5 +1,5 @@
 [package]
-name = "drs-app"
+name = "drs-history"
 edition.workspace = true
 version.workspace = true
 license.workspace = true

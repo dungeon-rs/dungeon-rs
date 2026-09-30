@@ -1,6 +1,6 @@
-# drs-app
+# drs-editor
 
-The Host: registers the plugins of every other crate and starts the editor.
+The Client: the egui interface through which the Author works.
 
 ## Features
 

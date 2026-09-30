@@ -1,6 +1,6 @@
-# drs-app
+# drs-paint-engine
 
-The Host: registers the plugins of every other crate and starts the editor.
+The Engine that rasterizes Terrain strokes.
 
 ## Features
 

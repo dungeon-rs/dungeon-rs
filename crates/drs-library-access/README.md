@@ -1,6 +1,6 @@
-# drs-app
+# drs-library-access
 
-The Host: registers the plugins of every other crate and starts the editor.
+The `ResourceAccess` that reads Asset Folders and their Assets.
 
 ## Features
 

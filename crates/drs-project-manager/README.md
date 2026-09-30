@@ -1,6 +1,6 @@
-# drs-app
+# drs-project-manager
 
-The Host: registers the plugins of every other crate and starts the editor.
+The Manager that saves, opens, and exports Projects.
 
 ## Features
 

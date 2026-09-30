@@ -1,6 +1,6 @@
-# drs-app
+# drs-project-access
 
-The Host: registers the plugins of every other crate and starts the editor.
+The `ResourceAccess` that reads and writes Project files.
 
 ## Features
 

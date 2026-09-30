@@ -1,6 +1,6 @@
-# drs-app
+# drs-authoring-manager
 
-The Host: registers the plugins of every other crate and starts the editor.
+The Manager that applies the Author's Commands to the Level.
 
 ## Features
 

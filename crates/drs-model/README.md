@@ -1,6 +1,6 @@
-# drs-app
+# drs-model
 
-The Host: registers the plugins of every other crate and starts the editor.
+The Model: the components of the `ECS` World that make up a Project.
 
 ## Features
 

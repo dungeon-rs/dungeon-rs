@@ -1,6 +1,6 @@
-# drs-app
+# drs-history
 
-The Host: registers the plugins of every other crate and starts the editor.
+The Utility that records Commands for undo and redo.
 
 ## Features
 

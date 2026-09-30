@@ -1,6 +1,6 @@
-# drs-app
+# drs-shape-engine
 
-The Host: registers the plugins of every other crate and starts the editor.
+The Engine that derives geometry from editable outlines.
 
 ## Features
 

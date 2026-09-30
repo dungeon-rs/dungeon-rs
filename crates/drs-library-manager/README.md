@@ -1,6 +1,6 @@
-# drs-app
+# drs-library-manager
 
-The Host: registers the plugins of every other crate and starts the editor.
+The Manager that adds, indexes, and browses Asset Folders.
 
 ## Features
 
