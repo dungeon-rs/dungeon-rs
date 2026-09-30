@@ -5,6 +5,9 @@ on:
   push:
     branches: [master]
 
+permissions:
+  contents: read
+
 env:
   CARGO_TERM_COLOR: always
   # Denies warnings without invalidating the Bevy build cache the way RUSTFLAGS does.
@@ -25,7 +28,9 @@ jobs:
     steps:
       - uses: actions/checkout@v5
         with:
-          # `committed` lints every commit since the base branch.
+          # `committed` lints every commit since the base branch, and the synthetic merge commit of a
+          # pull request is not one of them.
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
           fetch-depth: 0
       - uses: dtolnay/rust-toolchain@stable
         with:

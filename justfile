@@ -12,6 +12,7 @@ workspace:
 # Check if code is formatted correctly
 format:
     cargo fmt --check
+    cd tools/ci && cargo fmt --check
     taplo fmt --check
 
 # Run the tests of the tool that checks the workspace rules
@@ -36,10 +37,12 @@ test: test-tools
 lint:
     cargo check --profile=fast
     cargo clippy --all-targets --all-features -- -D warnings
+    cd tools/ci && cargo clippy --all-targets -- -D warnings
 [windows]
 lint:
     cargo check
     cargo clippy --all-targets --all-features -- -D warnings
+    cd tools/ci && cargo clippy --all-targets -- -D warnings
 
 # Check for typos
 typos:
@@ -91,5 +94,6 @@ setup:
     cargo install taplo-cli --locked
     cargo install cargo-mutants --locked
     cargo install cargo-cache
+    cargo install cargo-machete
     rustup toolchain install 1.96 --profile minimal
     cargo fetch --locked
