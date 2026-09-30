@@ -33,7 +33,7 @@ Every component exists as an empty crate, `just check` is the one command that r
 
 **Required features**: every workspace crate declares `default` and `dev`.
 
-**Documented features**: every feature a crate declares other than `default` and `dev` appears in its README, and every crate has a README.
+**Documented features**: every feature a crate declares other than `default` and `dev` appears in its README as a code-formatted name, and every crate has a README.
 
 **Dev propagates**: a crate's `dev` feature enables `dev` on every workspace crate it depends on.
 
@@ -42,6 +42,8 @@ Every component exists as an empty crate, `just check` is the one command that r
 **Known crates only**: a workspace crate with no row in the Dependencies table fails the architecture check.
 
 **Restricted externals**: an external crate named in the Restricted external dependencies table is a dependency only of the crates or component types listed for it.
+
+**Well-formed tables**: a Dependencies or Restricted external dependencies row with the wrong number of cells, an unknown component type, a duplicate component, or a name that is neither a component nor a component type fails the architecture check instead of weakening it.
 
 **Same-kind isolation**: no Engine depends on an Engine, no ResourceAccess on a ResourceAccess, no Manager on a Manager. Follows from the Dependencies table, and holds because the table allows none.
 
@@ -63,7 +65,7 @@ None. There is no pinned spec yet.
 - The checks live in the `ci` tool (its own crate outside the workspace, its own lockfile), next to the existing feature checks, and run against `cargo metadata` of the workspace.
 - `just check` is the whole gate; the existing `ci` recipe is replaced by it, and the recipe that runs the `ci` tool is named for what it covers (workspace rules), not for features alone.
 - Empty crates carry only their manifest, README, and an empty library root (the Host keeps its binary); dependencies are added when a change needs them.
-- Gates that only make sense per platform (nextest, clippy) run in the CI matrix; the rest run once on Linux.
+- CI runs the whole of `just check` on each platform, so the gate a contributor runs locally is exactly the gate CI runs.
 
 ## Testing
 
