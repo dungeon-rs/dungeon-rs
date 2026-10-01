@@ -10,10 +10,13 @@ use add_folder::add_folder;
 use bevy_app::{App, Plugin, Startup, Update};
 use bevy_ecs::entity::Entity;
 use bevy_ecs::message::MessageReader;
+use bevy_ecs::schedule::IntoScheduleConfigs;
 use bevy_ecs::system::SystemState;
 use bevy_ecs::world::World;
 use drs_library_access::LibraryError;
-use drs_model::{AddFolder, AssetFolder, EditorDirectories, FolderRefused, FolderUnavailable};
+use drs_model::{
+    AddFolder, AssetFolder, EditorDirectories, FolderRefused, FolderUnavailable, ManagerSystems,
+};
 
 /// What can go wrong inside the Manager, beyond a refusal.
 #[derive(Debug, thiserror::Error)]
@@ -32,7 +35,7 @@ pub struct LibraryManagerPlugin;
 impl Plugin for LibraryManagerPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(Startup, restore_folders)
-            .add_systems(Update, handle_add_folder);
+            .add_systems(Update, handle_add_folder.in_set(ManagerSystems::Commands));
     }
 }
 

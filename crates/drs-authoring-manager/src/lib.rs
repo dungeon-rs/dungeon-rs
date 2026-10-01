@@ -11,7 +11,9 @@ use bevy_ecs::system::SystemState;
 use bevy_ecs::world::{Mut, World};
 use drs_history::History;
 use drs_library_access::LibraryError;
-use drs_model::{Apply, CanonicalName, CommandFailed, ElementId, FolderKey, Redo, Undo};
+use drs_model::{
+    Apply, CanonicalName, CommandFailed, ElementId, FolderKey, ManagerSystems, Redo, Undo,
+};
 
 /// Why an authoring Command could not be carried out.
 #[derive(Debug, thiserror::Error)]
@@ -52,7 +54,14 @@ pub struct AuthoringManagerPlugin;
 
 impl Plugin for AuthoringManagerPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(Update, (handle_apply, handle_undo, handle_redo).chain());
+        app.add_systems(
+            Update,
+            (
+                handle_apply.in_set(ManagerSystems::Commands),
+                handle_undo.in_set(ManagerSystems::Undo),
+                handle_redo.in_set(ManagerSystems::Redo),
+            ),
+        );
     }
 }
 

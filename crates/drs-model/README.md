@@ -23,7 +23,8 @@ temporary directories.
 Every component type here is written only by the systems of the crate that owns
 it; everyone else reads. The [`ModelPlugin`](crate::ModelPlugin) registers the
 types for reflection, the messages, and the Element kind registry with Prop as
-its first kind.
+its first kind, and orders the Managers' handling through
+[`ManagerSystems`](crate::ManagerSystems): Commands before Undo before Redo.
 
 ## Features
 

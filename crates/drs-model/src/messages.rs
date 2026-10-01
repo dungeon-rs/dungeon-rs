@@ -3,8 +3,22 @@
 use crate::{CanonicalName, ElementId, FolderKey, ScanSkips};
 use bevy_ecs::entity::Entity;
 use bevy_ecs::message::Message;
+use bevy_ecs::schedule::SystemSet;
 use bevy_math::Vec2;
 use std::path::PathBuf;
+
+/// The order the Managers handle their messages in within a frame: every Command before Undo,
+/// and Undo before Redo, so a Command and the Undo sent in the same frame apply in the order the
+/// Author gave them whichever Manager handles each.
+#[derive(SystemSet, Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum ManagerSystems {
+    /// The Commands: [`AddFolder`], [`Apply`], and those to come.
+    Commands,
+    /// [`Undo`].
+    Undo,
+    /// [`Redo`].
+    Redo,
+}
 
 /// Add Asset Folder: make a folder's Assets available under a Canonical Name.
 ///
