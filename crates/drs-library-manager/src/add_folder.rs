@@ -129,7 +129,7 @@ impl ReversibleCommand for AddAssetFolder {
 /// # Errors
 ///
 /// A [`FolderRefusal`] with the reason, in which case nothing is recorded.
-pub fn add_folder(
+pub(crate) fn add_folder(
     world: &mut World,
     path: PathBuf,
     name: &CanonicalName,

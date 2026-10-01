@@ -3,8 +3,9 @@
 mod add_folder;
 mod index;
 
-pub use add_folder::add_folder;
 pub use index::refresh;
+
+use add_folder::add_folder;
 
 use bevy_app::{App, Plugin, Startup, Update};
 use bevy_ecs::entity::Entity;
