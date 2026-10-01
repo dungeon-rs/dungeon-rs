@@ -241,7 +241,7 @@ fn name_prompt(ctx: &egui::Context, editor: &mut Editor) {
         prompt.refusal = None;
         editor.outgoing.add_folder.write(AddFolder {
             path: prompt.path.clone(),
-            name: CanonicalName(prompt.name.trim().to_owned()),
+            name: CanonicalName(prompt.name.clone()),
         });
     }
 }
