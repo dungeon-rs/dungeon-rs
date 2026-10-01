@@ -85,14 +85,6 @@ impl LevelView<'_, '_> {
             })
         })
     }
-
-    /// The centre of the Element with an identity, if it exists.
-    fn position_of(&self, id: ElementId) -> Option<Vec2> {
-        self.elements
-            .iter()
-            .find(|(candidate, _)| **candidate == id)
-            .map(|(_, element)| element.position)
-    }
 }
 
 /// Carries the pointer gesture of the frame out: a click places or selects, a drag moves the
@@ -109,7 +101,7 @@ pub(crate) fn pointer(
     mut apply: MessageWriter<Apply>,
 ) {
     let Some(cursor) = input.window.cursor_position() else {
-        finish_gesture(&mut state, &mut apply, &viewport, &level, &input);
+        finish_gesture(&mut state, &mut apply, &viewport, &input);
         return;
     };
     let over = viewport.contains(cursor) && !input.egui.wants_any_pointer_input();
@@ -147,7 +139,7 @@ pub(crate) fn pointer(
             moved_at,
         } => {
             if !input.buttons.pressed(MouseButton::Left) {
-                finish_gesture(&mut state, &mut apply, &viewport, &level, &input);
+                finish_gesture(&mut state, &mut apply, &viewport, &input);
                 return;
             }
             let dragging = moved_at.is_some() || (cursor - pointer).length() > DRAG_THRESHOLD;
@@ -205,13 +197,13 @@ fn press(
     }
 }
 
-/// Ends a drag that is under way once its button is up: the last position is sent as the end of
-/// the gesture so the whole drag is one history step. A press that never became a drag just ends.
+/// Ends a drag that is under way once its button is up: the position the pointer last moved the
+/// Prop to is sent again as the end of the gesture, so the whole drag is one history step. A
+/// press that never became a drag just ends.
 fn finish_gesture(
     state: &mut EditorState,
     apply: &mut MessageWriter<Apply>,
     viewport: &Viewport,
-    level: &LevelView,
     input: &Input,
 ) {
     match state.interaction {
@@ -233,9 +225,7 @@ fn finish_gesture(
                 return;
             }
             if let Some(last) = moved_at {
-                let position = level.position_of(element).unwrap_or_else(|| {
-                    origin + (viewport.cells_at(last) - viewport.cells_at(pointer))
-                });
+                let position = origin + (viewport.cells_at(last) - viewport.cells_at(pointer));
                 apply.write(Apply::EditElement(EditElement {
                     element,
                     change: ElementChange::Position(position),
