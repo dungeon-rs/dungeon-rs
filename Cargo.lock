@@ -2439,6 +2439,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "drs-diagnostics"
+version = "0.0.1"
+
+[[package]]
 name = "drs-editor"
 version = "0.0.1"
 dependencies = [

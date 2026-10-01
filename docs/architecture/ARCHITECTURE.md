@@ -1,6 +1,6 @@
 # Architecture
 
-A Bevy 0.20 application whose ECS World is the domain model, decomposed by volatility into three Managers, four Engines, three ResourceAccess components, one Utility, and an egui Client, each its own crate in a Cargo workspace.
+A Bevy 0.20 application whose ECS World is the domain model, decomposed by volatility into three Managers, four Engines, three ResourceAccess components, two Utilities, and an egui Client, each its own crate in a Cargo workspace.
 
 ## Core use cases
 
@@ -81,6 +81,9 @@ Volatility: presentation. The only crate that faces the Author: panels read the 
 ### history (Utility)
 A domain-agnostic stack of reversible commands over a World: Record, Group, Undo, Redo. Every Manager records into it.
 
+### diagnostics (Utility)
+How a fault reaches the Author and the contributor: logging to daily files in the editor's own directories, a crash handler that leaves a report and announces it in a dialog, and the location of the editor's bundled resources by platform layout. StartLogging, InstallCrashHandler, LocateResources, RevealLogs. It uses no Bevy: the Host wires it before the App exists, and the Editor calls it to reveal the logs and to announce a pending crash report. _Why_ it may show a dialog: a crash dialog may be needed before the Editor exists, so this is the one place a dialog is shown outside the Client.
+
 ### model (shared contracts)
 Domain components (Project, Level, Layer, Element kinds, `ElementId`, Asset Reference), the Element kind registry, Commands, the messages Managers exchange, and the presentation state the Editor owns (the Viewport: the cell at the centre of the view, the zoom, and the area it is shown in). _Why_ the Viewport lives here: RenderEngine's projection follows it and the Editor steers it, and the Editor may not depend on RenderEngine, so the shared type sits in `model` like every other shared contract.
 
@@ -130,7 +133,7 @@ Löwy's rules ([LOWY-RULES.md](../../.claude/skills/architect/LOWY-RULES.md)), p
 - **Geometry**: i_overlay and kurbo inside ShapeEngine. _Why_: Rooms and Caves keep their editable source outlines (curves included) as the truth and derive the combined outline, cached, so control points stay editable through a union (a destructive boolean would bake curves into segments; recompute after a control-point drag took 13 µs). Portal anchoring is our own code and uses i_overlay's per-edge provenance.
 - **Lighting**: deferred (a Want); re-evaluate when built, starting from bevy_firefly. _Why_: it is the only maintained crate with polyline occluders, soft shadows, and headless image targets; it lags each Bevy release (no 0.20 release yet; fallback is vendoring it). bevy_light_2d has rectangle occluders only, bevy_magic_light_2d is abandoned, and a custom CPU visibility polygon took 1.37 s per frame at 2,134 segments and leaked light at joints. Its config panics with more than one camera carrying it, and its light map is sized to the view, so lighting under tiled export is untested.
 - **Scripting**: deferred (a Want); candidates Luau via mlua, then Rhai.
-- **Framework boundary**: the ECS is the model, so every crate may use the narrow ECS crates (`bevy_ecs`, `bevy_reflect`, `bevy_math`, `bevy_app`, `bevy_tasks`). _Why_ `bevy_tasks`: the future type an asset reader returns lives there, so a crate that implements one needs it. Only the Editor and the Host use the umbrella `bevy` crate; only RenderEngine, PaintEngine, the Editor, and the Host use the render stack; only LibraryAccess, RenderEngine, the Editor, and the Host use the asset system; CatalogEngine and OutputAccess use no Bevy at all.
+- **Framework boundary**: the ECS is the model, so every crate may use the narrow ECS crates (`bevy_ecs`, `bevy_reflect`, `bevy_math`, `bevy_app`, `bevy_tasks`). _Why_ `bevy_tasks`: the future type an asset reader returns lives there, so a crate that implements one needs it. Only the Editor and the Host use the umbrella `bevy` crate; only RenderEngine, PaintEngine, the Editor, and the Host use the render stack; only LibraryAccess, RenderEngine, the Editor, and the Host use the asset system; CatalogEngine, OutputAccess, and diagnostics use no Bevy at all.
 
 ## Rule translation
 
@@ -152,8 +155,8 @@ Löwy's rules ([LOWY-RULES.md](../../.claude/skills/architect/LOWY-RULES.md)), p
 
 | Unit (crate) | Type | May depend on |
 |---|---|---|
-| drs-app | Host | drs-editor, drs-authoring-manager, drs-library-manager, drs-project-manager, drs-shape-engine, drs-paint-engine, drs-catalog-engine, drs-render-engine, drs-project-access, drs-library-access, drs-output-access, drs-history, drs-model |
-| drs-editor | Client | drs-authoring-manager, drs-library-manager, drs-project-manager, drs-history, drs-model |
+| drs-app | Host | drs-editor, drs-authoring-manager, drs-library-manager, drs-project-manager, drs-shape-engine, drs-paint-engine, drs-catalog-engine, drs-render-engine, drs-project-access, drs-library-access, drs-output-access, drs-history, drs-diagnostics, drs-model |
+| drs-editor | Client | drs-authoring-manager, drs-library-manager, drs-project-manager, drs-history, drs-diagnostics, drs-model |
 | drs-authoring-manager | Manager | drs-shape-engine, drs-paint-engine, drs-project-access, drs-library-access, drs-history, drs-model |
 | drs-library-manager | Manager | drs-catalog-engine, drs-library-access, drs-history, drs-model |
 | drs-project-manager | Manager | drs-catalog-engine, drs-render-engine, drs-project-access, drs-library-access, drs-output-access, drs-history, drs-model |
@@ -165,6 +168,7 @@ Löwy's rules ([LOWY-RULES.md](../../.claude/skills/architect/LOWY-RULES.md)), p
 | drs-library-access | ResourceAccess | drs-model |
 | drs-output-access | ResourceAccess | drs-model |
 | drs-history | Utility | |
+| drs-diagnostics | Utility | |
 | drs-model | Model | drs-history |
 
 PluginAccess (`drs-plugin-access`) joins the table when it is built.
@@ -178,7 +182,7 @@ PluginAccess (`drs-plugin-access`) joins the table when it is built.
 | egui | Client |
 | egui_dock | Client |
 | egui_ltreeview | Client |
-| rfd | Client |
+| rfd | Client, drs-diagnostics |
 | bevy_render | drs-render-engine, drs-paint-engine, Client, Host |
 | bevy_sprite | drs-render-engine, Client, Host |
 | bevy_text | drs-render-engine, Client, Host |
