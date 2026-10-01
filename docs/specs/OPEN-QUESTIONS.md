@@ -4,7 +4,6 @@ Spec-level decisions parked during domain work. The spec skill picks these up; r
 
 ## From the domain interview
 
-- Touched-up art at the same path: use silently or notify "changed since saved".
 - How far automatic matching goes (format twins, recognising a folder whose Canonical Name differs).
 - Using a differently named Asset Folder (e.g. the WebP library) for a Project saved against another.
 - Perceptual hash per reference; opt-in background content index.
@@ -15,7 +14,6 @@ Spec-level decisions parked during domain work. The spec skill picks these up; r
 - Plugin components not registered for reflection are lost by generic Remove and undo, so registration must be enforced in the Plugin API.
 - Dungeondraft compatibility and parity: import of existing `.dungeondraft_map` and `.dungeondraft_pack` libraries; recolouring of colourable Assets (red mask); tags and tag sets (merged by name) driving search; a Scatter brush (random rotation, scale, colour, spread; area scatter); alignment guides beyond snapping; map generation (Map Wizard); a maximum map size.
 - Embedded Assets and vendor licences (warn when embedding a vendor Asset?).
-- Missing Asset reports that name the version gap ("added in 2026-09; you have 2026-07").
 - Export formats beyond a plain image: Universal VTT, separate roof images, etc.
 - Grid presentation (lines, dots, hidden), snapping.
 
@@ -28,9 +26,8 @@ Spec-level decisions parked during domain work. The spec skill picks these up; r
 - Lighting under tiled export (single camera per config; per-tile light maps).
 - Export: screen-space effects (soft shadows, light maps, blur) need tile gutters or seams appear; JPEG at that size needs a scanline or streaming encoder; lossy WebP needs libwebp.
 - Label crispness across zoom and export (atlas per size, memory at high export scales).
-- Render tests in CI: headless rendering still needs a GPU adapter, so runners without one need Mesa lavapipe or llvmpipe; offscreen render-to-image is the robust path (a windowed screenshot captured black in one session).
 - Thumbnails: bevy_egui logs "bindless textures not yet supported on metal"; measure when the thumbnail cache is built. Scroll offsets: `f32` layout holds whole-pixel precision only to about 16.7 M px, fine for 400k items but not multi-million libraries.
-- Project format: Embedded Assets need a container (for example a zip with `project.json` and `assets/<blake3>.<ext>`, stored once); keeping an unknown newer version of a known component needs a per-node schema version.
+- Project format: Embedded Assets need a container (for example a zip with `project.json` and `assets/<blake3>.<ext>`, stored once).
 - Memory: dropping the last `Handle` frees an asset, but RSS stays at its high-water mark because the allocator keeps freed pages; consider mimalloc or jemalloc with purging, and `RenderAssetUsages::RENDER_WORLD` to drop the CPU copy (GPU free on drop unmeasured).
 - Release and packaging: build for Linux, Windows, and macOS with bundled resources, locales, and licences; macOS `.app` with icon and dmg; Windows icon and no console window in release; release notes from git-cliff. Undecided: universal macOS binary, notarisation, Windows signing, a Linux package, cargo-dist or cargo-packager.
 - Diagnostics: crash reports go to the log or cache directory, not the working directory.
