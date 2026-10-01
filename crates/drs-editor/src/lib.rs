@@ -1,5 +1,6 @@
 #![doc = include_str!("../README.md")]
 
+mod bindings;
 mod browser;
 mod outcomes;
 mod panels;

@@ -5,6 +5,7 @@
 //! write the Viewport only; everything that changes the Level is a Command sent to the authoring
 //! Manager.
 
+use crate::bindings;
 use crate::state::{EditorState, Interaction};
 use bevy::color::Color;
 use bevy::ecs::entity::Entity;
@@ -65,7 +66,8 @@ pub(crate) struct LevelView<'w, 's> {
 }
 
 impl LevelView<'_, '_> {
-    /// The Layer new Props are placed on: the first one.
+    /// The Layer new Props are placed on: the Project's only Layer for now; choosing one among
+    /// several is a later concern.
     fn current_layer(&self) -> Option<Entity> {
         self.any_layer.iter().next()
     }
@@ -271,9 +273,10 @@ fn zoom_and_scroll(input: &mut Input, viewport: &mut Viewport, cursor: Vec2) {
     }
 }
 
-/// The keys: Escape stops placing, Delete and Backspace remove the selected Prop, and the
-/// platform's usual shortcuts undo and redo. Nothing happens while egui has the keyboard, so a
-/// text field keeps its own editing keys.
+/// The keys: Escape stops placing, Delete (and Backspace on macOS) removes the selected Prop,
+/// and the platform's usual shortcuts undo and redo. Nothing happens while egui has the keyboard,
+/// so a text field keeps its own editing keys, and undo and redo wait while a Prop is being
+/// dragged, since the drag is one step that is still being recorded.
 pub(crate) fn keys(
     keys: Res<ButtonInput<KeyCode>>,
     egui: Res<EguiWantsInput>,
@@ -288,28 +291,18 @@ pub(crate) fn keys(
     if keys.just_pressed(KeyCode::Escape) && state.chosen.is_some() {
         state.chosen = None;
     }
-    if keys.any_just_pressed([KeyCode::Delete, KeyCode::Backspace])
+    if bindings::any_pressed(bindings::REMOVE, &keys)
         && let Some(element) = state.selected.take()
     {
         apply.write(Apply::RemoveElement(RemoveElement { element }));
     }
-    let command = if cfg!(target_os = "macos") {
-        keys.any_pressed([KeyCode::SuperLeft, KeyCode::SuperRight])
-    } else {
-        keys.any_pressed([KeyCode::ControlLeft, KeyCode::ControlRight])
-    };
-    if !command {
+    if state.dragging() {
         return;
     }
-    let shift = keys.any_pressed([KeyCode::ShiftLeft, KeyCode::ShiftRight]);
-    if keys.just_pressed(KeyCode::KeyZ) {
-        if shift {
-            redo.write(Redo);
-        } else {
-            undo.write(Undo);
-        }
+    if bindings::any_pressed(bindings::UNDO, &keys) {
+        undo.write(Undo);
     }
-    if keys.just_pressed(KeyCode::KeyY) && !cfg!(target_os = "macos") {
+    if bindings::any_pressed(bindings::REDO, &keys) {
         redo.write(Redo);
     }
 }

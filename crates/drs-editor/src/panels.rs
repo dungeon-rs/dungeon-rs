@@ -1,8 +1,8 @@
 //! The window's layout: the menu bar, the docked Assets panel and viewport, the status line, and
 //! the Canonical Name prompt.
 
-use crate::browser;
 use crate::state::{EditorState, NamePrompt};
+use crate::{bindings, browser};
 use bevy::ecs::error::Result;
 use bevy::ecs::message::MessageWriter;
 use bevy::ecs::resource::Resource;
@@ -64,15 +64,6 @@ pub(crate) struct Editor<'w, 's> {
     outgoing: Outgoing<'w>,
 }
 
-/// The undo shortcut, as the platform spells it.
-const UNDO: egui::KeyboardShortcut =
-    egui::KeyboardShortcut::new(egui::Modifiers::COMMAND, egui::Key::Z);
-/// The redo shortcut, as the platform spells it.
-const REDO: egui::KeyboardShortcut = egui::KeyboardShortcut::new(
-    egui::Modifiers::COMMAND.plus(egui::Modifiers::SHIFT),
-    egui::Key::Z,
-);
-
 /// Draws the whole interface for one frame.
 ///
 /// Runs on the main thread because the folder dialog it may open is a native dialog.
@@ -130,13 +121,24 @@ fn menu_bar(ctx: &egui::Context, root: &mut egui::Ui, editor: &mut Editor) {
                     pick_folder(&mut editor.state);
                 }
             });
+            // Neither is offered while a Prop is being dragged: the drag is one step that is
+            // still being recorded.
+            let settled = !editor.state.dragging();
             ui.menu_button("Edit", |ui| {
-                let undo = egui::Button::new("Undo").shortcut_text(ctx.format_shortcut(&UNDO));
-                if ui.add_enabled(editor.history.can_undo(), undo).clicked() {
+                let undo = egui::Button::new("Undo")
+                    .shortcut_text(bindings::shortcut_text(ctx, bindings::UNDO));
+                if ui
+                    .add_enabled(settled && editor.history.can_undo(), undo)
+                    .clicked()
+                {
                     editor.outgoing.undo.write(Undo);
                 }
-                let redo = egui::Button::new("Redo").shortcut_text(ctx.format_shortcut(&REDO));
-                if ui.add_enabled(editor.history.can_redo(), redo).clicked() {
+                let redo = egui::Button::new("Redo")
+                    .shortcut_text(bindings::shortcut_text(ctx, bindings::REDO));
+                if ui
+                    .add_enabled(settled && editor.history.can_redo(), redo)
+                    .clicked()
+                {
                     editor.outgoing.redo.write(Redo);
                 }
             });

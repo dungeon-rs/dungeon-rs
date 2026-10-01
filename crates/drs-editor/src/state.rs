@@ -23,6 +23,19 @@ pub(crate) struct EditorState {
     pub interaction: Interaction,
 }
 
+impl EditorState {
+    /// Whether a Prop is being dragged: the pointer went down on it and has moved since.
+    pub fn dragging(&self) -> bool {
+        matches!(
+            self.interaction,
+            Interaction::Pressed {
+                moved_at: Some(_),
+                ..
+            }
+        )
+    }
+}
+
 /// The Asset chosen for placing, with its name for the status line.
 pub(crate) struct Chosen {
     /// The Asset as a Place Element names it.
