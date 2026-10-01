@@ -22,14 +22,69 @@ missing_docs = "warn"
 private_intra_doc_links = "allow"
 
 [workspace.lints.clippy]
-pedantic = "warn"
-suspicious = "warn"
-complexity = "warn"
+pedantic = { level = "warn", priority = -1 }
+suspicious = { level = "warn", priority = -1 }
+complexity = { level = "warn", priority = -1 }
 missing_docs_in_private_items = "warn"
 module_name_repetitions = "warn"
 semicolon_if_nothing_returned = "warn"
+# A bad file must become a report, never a crash.
+unwrap_used = "deny"
+expect_used = "deny"
+panic = "deny"
+todo = "deny"
+unimplemented = "deny"
+# Dispatch over Element kinds, Commands, and Project versions must name every variant.
+wildcard_enum_match_arm = "deny"
+allow_attributes_without_reason = "deny"
+# Hash-map iteration order would make the same Project save differently between runs.
+iter_over_hash_type = "deny"
 
 [workspace.dependencies]
+# Bevy is pinned to the release candidate until 0.20.0 ships. The umbrella crate is for the
+# Editor and the Host only; every other crate uses the narrow crates below.
+bevy = { version = "=0.20.0-rc.2", default-features = false, features = [
+  "2d_bevy_render",
+  "default_app",
+  "std",
+  "multi_threaded",
+  "bevy_winit",
+  "x11",
+  "wayland",
+  "default_font",
+  "png",
+  "jpeg",
+  "webp",
+  "bevy_picking",
+  "sprite_picking",
+] }
+bevy_ecs = { version = "=0.20.0-rc.2", default-features = false, features = [
+  "std",
+  "bevy_reflect",
+  "multi_threaded",
+] }
+bevy_app = { version = "=0.20.0-rc.2", default-features = false, features = [
+  "std",
+  "bevy_reflect",
+] }
+bevy_reflect = { version = "=0.20.0-rc.2", default-features = false, features = ["std", "glam"] }
+bevy_math = { version = "=0.20.0-rc.2", default-features = false, features = ["std"] }
+bevy_asset = { version = "=0.20.0-rc.2", default-features = false, features = ["multi_threaded"] }
+bevy_image = { version = "=0.20.0-rc.2", default-features = false, features = [
+  "bevy_reflect",
+  "png",
+  "jpeg",
+  "webp",
+] }
+blake3 = "1.8"
+directories = "6.0"
+image = { version = "0.25", default-features = false, features = ["png", "jpeg", "webp"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+tempfile = "3.27"
+thiserror = "2.0"
+unicode-normalization = "0.1"
+uuid = { version = "1.26", default-features = false, features = ["v4"] }
 
 # Enable a small amount of optimization in the dev profile.
 [profile.dev]

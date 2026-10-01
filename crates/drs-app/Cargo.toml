@@ -10,10 +10,18 @@ repository.workspace = true
 authors.workspace = true
 
 [dependencies]
+bevy = { workspace = true }
 
 [features]
 default = []
-dev = []
+# Dynamic linking lives here and nowhere else: it speeds up development builds and broke an
+# opt-level 0 CI profile on Windows.
+dev = ["bevy/dynamic_linking", "bevy/bevy_dev_tools"]
 
 [lints]
 workspace = true
+
+# The Host builds the whole dependency graph before it registers a single plugin: the umbrella
+# crate is declared so its feature set and the dynamic linking of `dev` are fixed in one place.
+[package.metadata.cargo-machete]
+ignored = ["bevy"]

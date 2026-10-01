@@ -4,11 +4,9 @@ targets = []
 [advisories]
 version = 2
 ignore = [
-  # `paste` announced as unmaintained; no replacement available yet.
-  # Bevy pulls it in transitively — nothing actionable on our end.
-  "RUSTSEC-2024-0436",
-  # unmaintained: postcard -> heapless -> atomic-polyfill
-  "RUSTSEC-2023-0089",
+  # `ttf-parser` is unmaintained; winit's client-side Wayland decorations pull it in through
+  # sctk-adwaita -> ab_glyph. Nothing actionable on our end until winit moves off it.
+  "RUSTSEC-2026-0192",
 ]
 
 [licenses]

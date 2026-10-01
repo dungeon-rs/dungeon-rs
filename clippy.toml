@@ -1,1 +1,37 @@
 check-private-items = true
+allow-unwrap-in-tests = true
+allow-expect-in-tests = true
+allow-panic-in-tests = true
+# Exports and golden images must be bit-identical across machines: fast-math and the platform's
+# libm differ between them, so transcendental functions go through `bevy_math::ops`.
+disallowed-methods = [
+  { path = "f32::algebraic_add", reason = "fast-math differs between machines" },
+  { path = "f32::algebraic_sub", reason = "fast-math differs between machines" },
+  { path = "f32::algebraic_mul", reason = "fast-math differs between machines" },
+  { path = "f32::algebraic_div", reason = "fast-math differs between machines" },
+  { path = "f32::algebraic_rem", reason = "fast-math differs between machines" },
+  { path = "f32::sin", reason = "use `bevy_math::ops::sin`, which is identical on every platform" },
+  { path = "f32::cos", reason = "use `bevy_math::ops::cos`, which is identical on every platform" },
+  { path = "f32::sin_cos", reason = "use `bevy_math::ops::sin_cos`, which is identical on every platform" },
+  { path = "f32::tan", reason = "use `bevy_math::ops::tan`, which is identical on every platform" },
+  { path = "f32::asin", reason = "use `bevy_math::ops::asin`, which is identical on every platform" },
+  { path = "f32::acos", reason = "use `bevy_math::ops::acos`, which is identical on every platform" },
+  { path = "f32::atan", reason = "use `bevy_math::ops::atan`, which is identical on every platform" },
+  { path = "f32::atan2", reason = "use `bevy_math::ops::atan2`, which is identical on every platform" },
+  { path = "f32::sinh", reason = "use `bevy_math::ops::sinh`, which is identical on every platform" },
+  { path = "f32::cosh", reason = "use `bevy_math::ops::cosh`, which is identical on every platform" },
+  { path = "f32::tanh", reason = "use `bevy_math::ops::tanh`, which is identical on every platform" },
+  { path = "f32::asinh", reason = "use `bevy_math::ops::asinh`, which is identical on every platform" },
+  { path = "f32::acosh", reason = "use `bevy_math::ops::acosh`, which is identical on every platform" },
+  { path = "f32::atanh", reason = "use `bevy_math::ops::atanh`, which is identical on every platform" },
+  { path = "f32::exp", reason = "use `bevy_math::ops::exp`, which is identical on every platform" },
+  { path = "f32::exp2", reason = "use `bevy_math::ops::exp2`, which is identical on every platform" },
+  { path = "f32::exp_m1", reason = "use `bevy_math::ops::exp_m1`, which is identical on every platform" },
+  { path = "f32::ln", reason = "use `bevy_math::ops::ln`, which is identical on every platform" },
+  { path = "f32::ln_1p", reason = "use `bevy_math::ops::ln_1p`, which is identical on every platform" },
+  { path = "f32::log2", reason = "use `bevy_math::ops::log2`, which is identical on every platform" },
+  { path = "f32::log10", reason = "use `bevy_math::ops::log10`, which is identical on every platform" },
+  { path = "f32::powf", reason = "use `bevy_math::ops::powf`, which is identical on every platform" },
+  { path = "f32::cbrt", reason = "use `bevy_math::ops::cbrt`, which is identical on every platform" },
+  { path = "f32::hypot", reason = "use `bevy_math::ops::hypot`, which is identical on every platform" },
+]
