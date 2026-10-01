@@ -39,6 +39,8 @@ wildcard_enum_match_arm = "deny"
 allow_attributes_without_reason = "deny"
 # Hash-map iteration order would make the same Project save differently between runs.
 iter_over_hash_type = "deny"
+# A Bevy system takes its parameters by value; the lint would fire on every system.
+needless_pass_by_value = "allow"
 
 [workspace.dependencies]
 # Bevy is pinned to the release candidate until 0.20.0 ships. The umbrella crate is for the

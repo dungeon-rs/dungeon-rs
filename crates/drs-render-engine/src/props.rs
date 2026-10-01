@@ -76,10 +76,6 @@ pub(crate) fn props_changed(
 ///
 /// Depth counts up through every Level and Layer of every Project in the order of their
 /// children, so no two Elements share a depth and a later Element is drawn over an earlier one.
-#[expect(
-    clippy::needless_pass_by_value,
-    reason = "a Bevy system takes its parameters by value"
-)]
 pub(crate) fn sync_props(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
@@ -157,10 +153,6 @@ pub(crate) fn sync_props(
 
 /// Settles the sprites whose image was loading: a loaded image stays, a failed one gives way to
 /// a placeholder of the same size, and the editor keeps running either way.
-#[expect(
-    clippy::needless_pass_by_value,
-    reason = "a Bevy system takes its parameters by value"
-)]
 pub(crate) fn settle_loads(
     mut commands: Commands,
     asset_server: Res<AssetServer>,

@@ -50,10 +50,6 @@ pub(crate) fn target_resized(cameras: Query<(), (With<LevelCamera>, Changed<Came
 ///
 /// The camera covers the whole window, so the cell at the window's centre is the one the
 /// Viewport puts there; the Viewport's own conversion gives it.
-#[expect(
-    clippy::needless_pass_by_value,
-    reason = "a Bevy system takes its parameters by value"
-)]
 pub(crate) fn follow_viewport(
     viewport: Res<Viewport>,
     camera: Single<(&Camera, &mut Projection, &mut Transform), With<LevelCamera>>,

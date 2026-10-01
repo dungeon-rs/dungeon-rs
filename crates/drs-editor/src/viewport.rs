@@ -101,10 +101,6 @@ impl LevelView<'_, '_> {
 ///
 /// A gesture starts only with the pointer over the viewport and egui not using it; one under
 /// way ends wherever the button is released, so no Begin is left without its End.
-#[expect(
-    clippy::needless_pass_by_value,
-    reason = "a Bevy system takes its parameters by value"
-)]
 pub(crate) fn pointer(
     mut input: Input,
     mut state: ResMut<EditorState>,
@@ -288,10 +284,6 @@ fn zoom_and_scroll(input: &mut Input, viewport: &mut Viewport, cursor: Vec2) {
 /// The keys: Escape stops placing, Delete and Backspace remove the selected Prop, and the
 /// platform's usual shortcuts undo and redo. Nothing happens while egui has the keyboard, so a
 /// text field keeps its own editing keys.
-#[expect(
-    clippy::needless_pass_by_value,
-    reason = "a Bevy system takes its parameters by value"
-)]
 pub(crate) fn keys(
     keys: Res<ButtonInput<KeyCode>>,
     egui: Res<EguiWantsInput>,
