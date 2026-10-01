@@ -172,20 +172,24 @@ fn choose_folder() -> Option<std::path::PathBuf> {
 }
 
 /// The status line: what happened last on the left, what the Author is doing on the right.
+///
+/// The right-hand hint is laid out first and the report is truncated to the width that is left,
+/// so the two never overlap however long the report.
 fn status_line(root: &mut egui::Ui, state: &EditorState) {
     egui::Panel::bottom("status").show(root, |ui| {
-        ui.horizontal(|ui| {
-            ui.label(&state.status);
-            ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                if let Some(chosen) = &state.chosen {
-                    ui.weak("Escape stops placing");
-                    ui.label(format!("placing {}", chosen.name));
-                } else if state.selected.is_some() {
-                    ui.weak("Drag moves it, Delete removes it");
-                    ui.label("1 Prop selected");
-                } else {
-                    ui.weak("Choose an Asset to place it, or click a Prop to select it");
-                }
+        ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+            if let Some(chosen) = &state.chosen {
+                ui.weak("Escape stops placing");
+                ui.label(format!("placing {}", chosen.name));
+            } else if state.selected.is_some() {
+                ui.weak("Drag moves it, Delete removes it");
+                ui.label("1 Prop selected");
+            } else {
+                ui.weak("Choose an Asset to place it, or click a Prop to select it");
+            }
+            ui.separator();
+            ui.with_layout(egui::Layout::left_to_right(egui::Align::Center), |ui| {
+                ui.add(egui::Label::new(&state.status).truncate());
             });
         });
     });
