@@ -157,13 +157,13 @@ fn names_are_unique_on_this_device() {
     let third = folder(root.path(), "third");
     let mut app = editor(root.path());
 
-    add(&mut app, &first, "Caf\u{e9} Forest").expect("the first folder is added");
+    add(&mut app, &first, "Café Forest").expect("the first folder is added");
 
-    let same_but_for_case = add(&mut app, &second, "caf\u{e9} forest");
+    let same_but_for_case = add(&mut app, &second, "café forest");
     assert_eq!(
         same_but_for_case,
         Err(FolderRefusal::NameInUse {
-            name: CanonicalName("Caf\u{e9} Forest".to_owned()),
+            name: CanonicalName("Café Forest".to_owned()),
             path: first.clone(),
         })
     );
@@ -272,10 +272,7 @@ fn unreadable_folders_are_refused() {
 #[test]
 fn any_path_works() {
     let root = TempDir::new().expect("temporary root");
-    let odd = folder(
-        root.path(),
-        "Tom's \"Maps\" – caf\u{e9} 地図 #1 (v2) & more!",
-    );
+    let odd = folder(root.path(), "Tom's \"Maps\" – café 地図 #1 (v2) & more!");
     file(&odd, "s\u{e9}ance room/B\u{e4}r 🐻.png");
     let mut app = editor(root.path());
 
