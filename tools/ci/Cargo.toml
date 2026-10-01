@@ -3,6 +3,10 @@ name = "ci"
 edition = "2024"
 publish = false
 
+# The tool is its own workspace, so cargo never attaches it to a workspace found above it,
+# such as the main checkout when this tree is a git worktree inside it.
+[workspace]
+
 [dependencies]
 anyhow = "1.0.104"
 cargo_metadata = "0.23.1"
