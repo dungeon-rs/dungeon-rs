@@ -34,6 +34,14 @@ Project is opened, when the Asset Reference table gains a row, and when the
 library Manager announces [`AssetFolderChanged`](drs_model::AssetFolderChanged)
 for a Canonical Name.
 
+It also exports a Level: on an Export Level request it checks the resolution
+against the limits the request names, opens a PNG through `OutputAccess` as many
+pixels as the Bounds are cells times the resolution, has the render Engine draw
+the Bounds tile by tile offscreen, writes each tile as its pixels come back, and
+closes the image, answering with the image written or the reason it was
+refused. An Export takes a few frames per tile and is advanced every frame; a
+failure removes the partial file, and nothing is recorded in the history.
+
 ## Features
 
 - `default`: nothing is enabled by default.

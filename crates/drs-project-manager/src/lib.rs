@@ -1,9 +1,12 @@
 #![doc = include_str!("../README.md")]
 
+mod export;
 mod file;
 mod open;
 mod resolve;
 mod save;
+
+pub use export::ExportError;
 
 use bevy_app::{App, Plugin, Startup, Update};
 use bevy_ecs::entity::Entity;
@@ -47,8 +50,8 @@ pub enum ProjectManagerError {
     },
 }
 
-/// Creates the new Project the editor opens on, and handles [`SaveProject`] and [`OpenProject`],
-/// answering each with its report or with [`ProjectRefused`].
+/// Creates the new Project the editor opens on, and handles [`SaveProject`], [`OpenProject`],
+/// and [`drs_model::ExportLevel`], answering each with its report or with its refusal.
 pub struct ProjectManagerPlugin;
 
 impl Plugin for ProjectManagerPlugin {
@@ -57,6 +60,10 @@ impl Plugin for ProjectManagerPlugin {
             .add_systems(Startup, create_new_project)
             .add_systems(Update, handle_save.in_set(ManagerSystems::Commands))
             .add_systems(Update, handle_open.in_set(ManagerSystems::Commands))
+            .add_systems(
+                Update,
+                export::handle_export_level.in_set(ManagerSystems::Commands),
+            )
             .add_systems(
                 Update,
                 resolve::handle_folder_changed.after(ManagerSystems::Redo),
