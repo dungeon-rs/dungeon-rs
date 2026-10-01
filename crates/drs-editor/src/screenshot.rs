@@ -8,7 +8,7 @@ use bevy::render::view::screenshot::{Screenshot, save_to_disk};
 const FRAME: u32 = 90;
 
 /// Takes the screenshot once, when `DRS_SCREENSHOT` names a file to save it as.
-pub(crate) fn snapshot(mut commands: Commands, mut frames: Local<u32>) {
+pub(crate) fn screenshot(mut commands: Commands, mut frames: Local<u32>) {
     *frames = frames.saturating_add(1);
     if *frames != FRAME {
         return;

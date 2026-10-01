@@ -5,9 +5,9 @@ mod browser;
 mod outcomes;
 mod panels;
 #[cfg(feature = "dev")]
-mod script;
+mod screenshot;
 #[cfg(feature = "dev")]
-mod snapshot;
+mod script;
 mod state;
 mod viewport;
 
@@ -36,7 +36,7 @@ impl Plugin for EditorPlugin {
             );
         #[cfg(feature = "dev")]
         {
-            app.add_systems(Update, snapshot::snapshot);
+            app.add_systems(Update, screenshot::screenshot);
             if let Some(script) = script::Script::from_environment() {
                 app.insert_resource(script).add_systems(
                     bevy::app::PreUpdate,
