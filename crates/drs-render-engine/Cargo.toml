@@ -10,10 +10,22 @@ repository.workspace = true
 authors.workspace = true
 
 [dependencies]
+bevy_app = { workspace = true }
+bevy_asset = { workspace = true }
+bevy_camera = { workspace = true }
+bevy_color = { workspace = true }
+bevy_ecs = { workspace = true }
+bevy_image = { workspace = true }
+bevy_math = { workspace = true }
+bevy_sprite = { workspace = true }
+bevy_transform = { workspace = true }
+drs-library-access = { path = "../drs-library-access" }
+drs-model = { path = "../drs-model" }
+log = { workspace = true }
 
 [features]
 default = []
-dev = []
+dev = ["drs-library-access/dev", "drs-model/dev"]
 
 [lints]
 workspace = true

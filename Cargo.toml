@@ -71,6 +71,20 @@ bevy_reflect = { version = "=0.20.0-rc.2", default-features = false, features = 
 bevy_math = { version = "=0.20.0-rc.2", default-features = false, features = ["std", "bevy_reflect"] }
 bevy_asset = { version = "=0.20.0-rc.2", default-features = false, features = ["multi_threaded"] }
 bevy_tasks = { version = "=0.20.0-rc.2", default-features = false }
+bevy_image = { version = "=0.20.0-rc.2", default-features = false, features = [
+  "bevy_reflect",
+  "png",
+  "jpeg",
+  "webp",
+] }
+bevy_sprite = { version = "=0.20.0-rc.2", default-features = false }
+bevy_camera = { version = "=0.20.0-rc.2", default-features = false }
+bevy_transform = { version = "=0.20.0-rc.2", default-features = false, features = [
+  "std",
+  "bevy-support",
+  "bevy_reflect",
+] }
+bevy_color = { version = "=0.20.0-rc.2", default-features = false, features = ["std", "bevy_reflect"] }
 blake3 = "1.8"
 directories = "6.0"
 log = "0.4"

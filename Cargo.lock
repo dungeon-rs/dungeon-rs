@@ -1037,7 +1037,6 @@ dependencies = [
  "bevy_material",
  "bevy_math",
  "bevy_mesh",
- "bevy_picking",
  "bevy_platform",
  "bevy_post_process",
  "bevy_ptr",
@@ -1435,7 +1434,6 @@ dependencies = [
  "bevy_log",
  "bevy_math",
  "bevy_mesh",
- "bevy_picking",
  "bevy_reflect",
  "bevy_text",
  "bevy_transform",
@@ -2473,6 +2471,20 @@ dependencies = [
 [[package]]
 name = "drs-render-engine"
 version = "0.0.1"
+dependencies = [
+ "bevy_app",
+ "bevy_asset",
+ "bevy_camera",
+ "bevy_color",
+ "bevy_ecs",
+ "bevy_image",
+ "bevy_math",
+ "bevy_sprite",
+ "bevy_transform",
+ "drs-library-access",
+ "drs-model",
+ "log",
+]
 
 [[package]]
 name = "drs-shape-engine"
