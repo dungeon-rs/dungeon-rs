@@ -13,7 +13,7 @@ use std::path::PathBuf;
 #[derive(SystemSet, Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum ManagerSystems {
     /// The Commands and requests: [`AddFolder`], [`Apply`], [`SaveProject`], [`OpenProject`],
-    /// and those to come.
+    /// [`ExportLevel`], and those to come.
     Commands,
     /// [`Undo`].
     Undo,
@@ -328,6 +328,59 @@ pub enum ProjectRequest {
 pub struct ProjectRefused {
     /// The request that was refused.
     pub request: ProjectRequest,
+    /// Why, in words the Author can be shown.
+    pub reason: String,
+}
+
+/// Export Level: write an Export of a Level as a PNG covering exactly the Bounds.
+///
+/// Handled by the project Manager; answered with [`LevelExported`] or [`ExportRefused`]. The
+/// Export is captured in tiles of `tile_size` pixels a side, which changes nothing about the
+/// image; the Editor passes [`ExportLevel::DEFAULT_TILE_SIZE`].
+#[derive(Message, Debug, Clone, PartialEq, Eq)]
+pub struct ExportLevel {
+    /// The entity carrying the Level.
+    pub level: Entity,
+    /// How many image pixels one Grid cell spans, within
+    /// [`ExportLevel::LEAST_PIXELS_PER_CELL`] and [`ExportLevel::MOST_PIXELS_PER_CELL`].
+    pub pixels_per_cell: u32,
+    /// The file to write; `.png` is added when the name lacks it.
+    pub path: PathBuf,
+    /// The side, in pixels, of the tiles the Export is assembled from.
+    pub tile_size: u32,
+}
+
+impl ExportLevel {
+    /// The lowest resolution an Export may have.
+    pub const LEAST_PIXELS_PER_CELL: u32 = 1;
+    /// The highest resolution an Export may have.
+    pub const MOST_PIXELS_PER_CELL: u32 = 1024;
+    /// The resolution proposed to the Author.
+    pub const PROPOSED_PIXELS_PER_CELL: u32 = 100;
+    /// The tile size the Editor passes.
+    pub const DEFAULT_TILE_SIZE: u32 = 1024;
+}
+
+/// An Export was written.
+#[derive(Message, Debug, Clone, PartialEq, Eq)]
+pub struct LevelExported {
+    /// The Level that was exported.
+    pub level: Entity,
+    /// The file that was written.
+    pub path: PathBuf,
+    /// The image's width in pixels.
+    pub width: u32,
+    /// The image's height in pixels.
+    pub height: u32,
+}
+
+/// An [`ExportLevel`] was refused or failed; no file was written or left behind.
+#[derive(Message, Debug, Clone, PartialEq, Eq)]
+pub struct ExportRefused {
+    /// The Level that was to be exported.
+    pub level: Entity,
+    /// The file that was to be written.
+    pub path: PathBuf,
     /// Why, in words the Author can be shown.
     pub reason: String,
 }

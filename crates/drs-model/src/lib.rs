@@ -25,10 +25,10 @@ pub use file::{
 };
 pub use messages::{
     AddFolder, Apply, AssetFolderChanged, ChosenAsset, CommandFailed, EditElement, ElementChange,
-    FolderAdded, FolderRefusal, FolderRefused, FolderUnavailable, Gesture, HistoryFailed,
-    ManagerSystems, MissingAsset, OpenProject, OpenReport, PlaceElement, ProjectOpened,
-    ProjectRefused, ProjectRequest, ProjectSaved, Redo, RemoveElement, SaveProject, Undo,
-    UnknownKind,
+    ExportLevel, ExportRefused, FolderAdded, FolderRefusal, FolderRefused, FolderUnavailable,
+    Gesture, HistoryFailed, LevelExported, ManagerSystems, MissingAsset, OpenProject, OpenReport,
+    PlaceElement, ProjectOpened, ProjectRefused, ProjectRequest, ProjectSaved, Redo, RemoveElement,
+    SaveProject, Undo, UnknownKind,
 };
 pub use project::{Bounds, Grid, Layer, Level, Project};
 pub use resolution::{MissingReason, Resolution, ResolutionTable};
@@ -89,6 +89,9 @@ impl Plugin for ModelPlugin {
             .add_message::<ProjectSaved>()
             .add_message::<ProjectOpened>()
             .add_message::<ProjectRefused>()
+            .add_message::<ExportLevel>()
+            .add_message::<LevelExported>()
+            .add_message::<ExportRefused>()
             .configure_sets(
                 Update,
                 (
