@@ -17,11 +17,13 @@ bevy_color = { workspace = true }
 bevy_ecs = { workspace = true }
 bevy_image = { workspace = true }
 bevy_math = { workspace = true }
+bevy_render = { workspace = true }
 bevy_sprite = { workspace = true }
 bevy_transform = { workspace = true }
 drs-library-access = { path = "../drs-library-access" }
 drs-model = { path = "../drs-model" }
 log = { workspace = true }
+thiserror = { workspace = true }
 
 [features]
 default = []

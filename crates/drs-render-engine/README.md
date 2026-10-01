@@ -18,6 +18,16 @@ The projection is a 2D camera that follows the model's `Viewport`: it looks at
 the cell the Viewport puts at the centre of its area, and shows a cell as
 as many pixels as the Viewport's zoom says.
 
+For the Export, `request_region` points one offscreen camera at a square of
+the Level, in cells, and draws it into a texture of the tile size at a chosen
+number of pixels per cell, through the same sprites and depths as the viewport
+over an opaque black background; `take_region` yields the pixels once the GPU
+has handed them back, a few frames later. A region is captured only once every
+image a sprite is loading has loaded or failed, and never in the frame the
+camera was spawned in. `release_regions` removes the camera when the Export is
+done. Without a renderer, as in a headless editor without Bevy's render
+plugins, the requests say so instead of drawing.
+
 ## Features
 
 - `default`: nothing is enabled by default.

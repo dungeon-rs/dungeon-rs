@@ -2585,11 +2585,13 @@ dependencies = [
  "bevy_ecs",
  "bevy_image",
  "bevy_math",
+ "bevy_render",
  "bevy_sprite",
  "bevy_transform",
  "drs-library-access",
  "drs-model",
  "log",
+ "thiserror 2.0.21",
 ]
 
 [[package]]

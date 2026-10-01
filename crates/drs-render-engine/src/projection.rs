@@ -17,7 +17,7 @@ pub(crate) struct LevelCamera;
 const BACKDROP: Color = Color::srgb(0.16, 0.16, 0.18);
 
 /// Depth beyond which Elements are clipped, either way; stacking assigns one unit per Element.
-const DEPTH: f32 = 1_000_000.0;
+pub(crate) const DEPTH: f32 = 1_000_000.0;
 
 /// Spawns the camera the Level is drawn with.
 ///

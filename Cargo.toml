@@ -85,6 +85,7 @@ bevy_image = { version = "=0.20.0-rc.2", default-features = false, features = [
   "webp",
 ] }
 bevy_sprite = { version = "=0.20.0-rc.2", default-features = false }
+bevy_render = { version = "=0.20.0-rc.2", default-features = false }
 bevy_camera = { version = "=0.20.0-rc.2", default-features = false }
 bevy_transform = { version = "=0.20.0-rc.2", default-features = false, features = [
   "std",
