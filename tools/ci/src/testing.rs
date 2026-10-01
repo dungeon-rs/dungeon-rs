@@ -12,6 +12,8 @@ pub struct Crate {
     features: Vec<(String, Vec<String>)>,
     /// `None` leaves the README out.
     readme: Option<String>,
+    /// The text of `src/lib.rs`.
+    source: String,
 }
 
 impl Crate {
@@ -22,6 +24,7 @@ impl Crate {
             dependencies: Vec::new(),
             features: vec![("default".into(), vec![]), ("dev".into(), vec![])],
             readme: Some("# crate\n\nFeatures: `default`, `dev`.\n".into()),
+            source: String::new(),
         }
     }
 
@@ -77,6 +80,12 @@ impl Crate {
         self.readme = None;
         self
     }
+
+    /// Replaces the text of `src/lib.rs`.
+    pub fn with_source(mut self, source: &str) -> Self {
+        self.source = source.to_string();
+        self
+    }
 }
 
 /// Writes the crates to a temporary workspace and returns its `cargo metadata`.
@@ -106,7 +115,7 @@ pub fn workspace(crates: &[Crate]) -> (TempDir, Metadata) {
 fn write_crate(root: &Path, krate: &Crate) {
     let dir = root.join("crates").join(&krate.name);
     fs::create_dir_all(dir.join("src")).expect("create crate directory");
-    fs::write(dir.join("src/lib.rs"), "").expect("write crate root");
+    fs::write(dir.join("src/lib.rs"), &krate.source).expect("write crate root");
 
     let mut manifest = format!(
         "[package]\nname = \"{}\"\nversion = \"0.0.0\"\nedition = \"2024\"\n\n[dependencies]\n",

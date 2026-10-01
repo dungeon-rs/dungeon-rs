@@ -1,5 +1,6 @@
 mod architecture;
 mod documented_features;
+mod engine_events;
 mod required_features;
 #[cfg(test)]
 mod testing;
@@ -38,6 +39,9 @@ pub enum Commands {
     /// Validates that the workspace follows the Dependencies tables of `ARCHITECTURE.md`.
     #[clap(name = "architecture")]
     ValidateArchitecture,
+    /// Validates that Engine crates define and use no messages, events, or observers.
+    #[clap(name = "engine-events")]
+    ValidateEngineEvents,
 }
 
 fn main() -> Result<()> {
@@ -67,15 +71,18 @@ fn run(command: Commands, metadata: &Metadata) -> Result<Vec<Violation>> {
         Commands::ValidateDocumentedFeatures => documented_features::check(metadata),
         Commands::ValidateRequiredFeatures => required_features::check(metadata),
         Commands::ValidateWorkspaceFeatures => workspace_features::check(metadata),
-        Commands::ValidateArchitecture => {
-            let path = metadata
-                .workspace_root
-                .join("docs/architecture/ARCHITECTURE.md");
-            let markdown =
-                std::fs::read_to_string(&path).with_context(|| format!("reading {path}"))?;
-            Architecture::parse(&markdown)?.check(metadata)
-        }
+        Commands::ValidateArchitecture => architecture(metadata)?.check(metadata),
+        Commands::ValidateEngineEvents => engine_events::check(&architecture(metadata)?, metadata)?,
     })
+}
+
+/// The tables of `ARCHITECTURE.md`, read from the workspace.
+fn architecture(metadata: &Metadata) -> Result<Architecture> {
+    let path = metadata
+        .workspace_root
+        .join("docs/architecture/ARCHITECTURE.md");
+    let markdown = std::fs::read_to_string(&path).with_context(|| format!("reading {path}"))?;
+    Architecture::parse(&markdown)
 }
 
 /// Runs every check, so one run reports everything that is wrong.
