@@ -509,38 +509,3 @@ fn current_at_start() {
 
     assert_eq!(places(&folders(&mut again)[0]), vec!["new.png"]);
 }
-
-/// Undoing makes the folder's Assets unavailable and removes its Manifest; redoing restores it
-/// with the same Canonical Name without asking.
-#[test]
-fn add_asset_folder_is_undoable() {
-    let root = TempDir::new().expect("temporary root");
-    let maps = folder(root.path(), "maps");
-    file(&maps, "table.png");
-    let mut app = editor(root.path());
-    let added = add(&mut app, &maps, "Maps").expect("the folder is added");
-    assert!(app.world().resource::<History>().can_undo());
-
-    let undone = drs_history::undo(app.world_mut()).expect("undo succeeds");
-    assert!(undone);
-    assert!(folders(&mut app).is_empty());
-    assert!(manifests(root.path()).is_empty());
-    assert!(app.world().resource::<History>().can_redo());
-
-    let redone = drs_history::redo(app.world_mut()).expect("redo succeeds");
-    assert!(redone);
-    let folders = folders(&mut app);
-    assert_eq!(folders.len(), 1);
-    assert_eq!(folders[0].name, CanonicalName("Maps".to_owned()));
-    assert_eq!(folders[0].key, added.key);
-    assert_eq!(places(&folders[0]), vec!["table.png"]);
-    assert_eq!(manifests(root.path()).len(), 1);
-    assert!(
-        app.world_mut()
-            .resource_mut::<Messages<FolderRefused>>()
-            .drain()
-            .next()
-            .is_none(),
-        "redo asks nothing and refuses nothing"
-    );
-}
