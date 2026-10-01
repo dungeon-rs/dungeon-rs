@@ -38,6 +38,31 @@ impl Binding {
     }
 }
 
+/// Open…: the platform's usual shortcut.
+pub(crate) const OPEN: &[Binding] = &[Binding::new(Modifiers::COMMAND, Key::O, KeyCode::KeyO)];
+
+/// Save: the platform's usual shortcut.
+pub(crate) const SAVE: &[Binding] = &[Binding::new(Modifiers::COMMAND, Key::S, KeyCode::KeyS)];
+
+/// Save As…: the platform's usual shortcut.
+pub(crate) const SAVE_AS: &[Binding] = &[Binding::new(
+    Modifiers::COMMAND.plus(Modifiers::SHIFT),
+    Key::S,
+    KeyCode::KeyS,
+)];
+
+/// Export Level…
+pub(crate) const EXPORT: &[Binding] = &[Binding::new(Modifiers::COMMAND, Key::E, KeyCode::KeyE)];
+
+/// Quit: the platform's usual shortcut on macOS and Linux; on Windows the window's own Alt+F4
+/// is the way, so the entry has none.
+#[cfg(not(target_os = "windows"))]
+pub(crate) const QUIT: &[Binding] = &[Binding::new(Modifiers::COMMAND, Key::Q, KeyCode::KeyQ)];
+
+/// Quit: no shortcut of the editor's own on Windows.
+#[cfg(target_os = "windows")]
+pub(crate) const QUIT: &[Binding] = &[];
+
 /// Undo: the platform's usual shortcut.
 pub(crate) const UNDO: &[Binding] = &[Binding::new(Modifiers::COMMAND, Key::Z, KeyCode::KeyZ)];
 

@@ -34,7 +34,9 @@ the middle button or Space with the left button drags the view.
   `screenshot`, `quit`), fed
   in as the messages the window would send so egui and the viewport see them alike.
   With `DRS_PICK_FOLDER` set, Add Asset Folder… takes that folder instead of opening
-  the dialog; an empty value stands for a cancelled dialog. With `DRS_CRASH_TEST` set
+  the dialog; with `DRS_PICK_FILE` set, Open… takes that file; with `DRS_SAVE_FILE`
+  set, Save As… and Export Level… write to that path (the extension is added when it
+  lacks one). An empty value stands for a cancelled dialog. With `DRS_CRASH_TEST` set
   to `main`, `thread`, or `startup`, the editor panics on purpose on the main thread
   on its second frame, on a spawned thread on its second frame, or while its plugins
   build before any window exists, so the crash handler can be seen at work.

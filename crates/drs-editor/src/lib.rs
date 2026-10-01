@@ -5,6 +5,8 @@ mod browser;
 #[cfg(feature = "dev")]
 mod crash_test;
 mod diagnostics;
+mod export;
+mod files;
 mod outcomes;
 mod panels;
 #[cfg(feature = "dev")]
@@ -13,13 +15,17 @@ mod screenshot;
 mod script;
 mod state;
 mod viewport;
+mod window;
 
 use bevy::app::{App, Plugin, Startup, Update};
 use bevy::ecs::schedule::IntoScheduleConfigs;
 use bevy_egui::{EguiPlugin, EguiPrimaryContextPass};
 use drs_diagnostics::Started;
 
-/// The egui interface: the panels, the menu, and the viewport's interaction.
+/// The egui interface: the panels, the menu, the dialogs, and the viewport's interaction.
+///
+/// The Host must build its `WindowPlugin` with `close_when_requested` off: the Editor answers
+/// the window's close request itself, asking about unsaved changes before it quits.
 pub struct EditorPlugin {
     /// What the diagnostics Utility set up and found at start.
     started: Started,
@@ -47,6 +53,8 @@ impl Plugin for EditorPlugin {
                 (
                     outcomes::report,
                     diagnostics::announce_crash,
+                    window::close_requested,
+                    window::title,
                     viewport::pointer,
                     viewport::keys,
                     viewport::outline_selection,

@@ -27,10 +27,10 @@ const PRODUCT: Product = Product {
 /// logging next, with its layer handed to Bevy's log plugin, which is added on its own so that
 /// the first entry names the log file before any other plugin logs, and with the Utility's
 /// default filter, so the terminal and the file start from the same directives before
-/// `RUST_LOG` is laid over both; then the Bundled Files,
-/// which the default asset source is rooted at. The `lib://` asset source is registered before
-/// Bevy's `AssetPlugin` builds, since sources freeze then, and `.meta` lookups are off because
-/// Asset Folders never hold them.
+/// `RUST_LOG` is laid over both; then the Bundled Files, which the default asset source is
+/// rooted at. The `lib://` asset source is registered before Bevy's `AssetPlugin` builds, since
+/// sources freeze then, and `.meta` lookups are off because Asset Folders never hold them. The
+/// window is not closed on request: the Editor answers the request, asking about unsaved changes.
 fn main() -> AppExit {
     let directories = directories();
     let logs = drs_diagnostics::log_directory(directories.resolve().ok().map(|found| found.logs));
@@ -64,6 +64,7 @@ fn main() -> AppExit {
                     title: PRODUCT.name.to_owned(),
                     ..Window::default()
                 }),
+                close_when_requested: false,
                 ..WindowPlugin::default()
             }),
     );

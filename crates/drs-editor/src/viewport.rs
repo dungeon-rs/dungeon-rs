@@ -94,7 +94,8 @@ impl LevelView<'_, '_> {
 /// a wheel, a pinch, or a modified scroll zooms around the pointer.
 ///
 /// A gesture starts only with the pointer over the viewport and egui not using it; one under
-/// way ends wherever the button is released, so no Begin is left without its End.
+/// way ends wherever the button is released, so no Begin is left without its End. While an
+/// Export runs the pointer is ignored, so the image is of the Level as it was asked for.
 pub(crate) fn pointer(
     mut input: Input,
     mut state: ResMut<EditorState>,
@@ -102,6 +103,9 @@ pub(crate) fn pointer(
     level: LevelView,
     mut apply: MessageWriter<Apply>,
 ) {
+    if state.exporting.is_some() {
+        return;
+    }
     let Some(cursor) = input.window.cursor_position() else {
         finish_gesture(&mut state, &mut apply, &viewport, &input);
         return;
@@ -275,8 +279,8 @@ fn zoom_and_scroll(input: &mut Input, viewport: &mut Viewport, cursor: Vec2) {
 
 /// The keys: Escape stops placing, Delete (and Backspace on macOS) removes the selected Prop,
 /// and the platform's usual shortcuts undo and redo. Nothing happens while egui has the keyboard,
-/// so a text field keeps its own editing keys, and undo and redo wait while a Prop is being
-/// dragged, since the drag is one step that is still being recorded.
+/// so a text field keeps its own editing keys, nor while an Export runs, and undo and redo wait
+/// while a Prop is being dragged, since the drag is one step that is still being recorded.
 pub(crate) fn keys(
     keys: Res<ButtonInput<KeyCode>>,
     egui: Res<EguiWantsInput>,
@@ -285,7 +289,7 @@ pub(crate) fn keys(
     mut undo: MessageWriter<Undo>,
     mut redo: MessageWriter<Redo>,
 ) {
-    if egui.wants_any_keyboard_input() {
+    if egui.wants_any_keyboard_input() || state.exporting.is_some() {
         return;
     }
     if keys.just_pressed(KeyCode::Escape) && state.chosen.is_some() {

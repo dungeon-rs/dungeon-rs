@@ -1,9 +1,10 @@
 //! What the Editor itself keeps: the chosen Asset, the selection, the filter, the status line,
-//! the prompt in progress, and the gesture under way. None of it is domain state.
+//! the prompts and dialogs in progress, the Export under way, and the gesture under way. None of
+//! it is domain state.
 
 use bevy::ecs::resource::Resource;
 use bevy::math::Vec2;
-use drs_model::{ChosenAsset, ElementId};
+use drs_model::{ChosenAsset, ElementId, ExportLevel, OpenReport};
 use std::path::PathBuf;
 
 /// The Editor's own state.
@@ -19,11 +20,28 @@ pub(crate) struct EditorState {
     pub status: String,
     /// The Canonical Name prompt, while a folder is being added.
     pub prompt: Option<NamePrompt>,
+    /// The save, discard, or cancel question, while unsaved changes stand in the way of
+    /// opening a file or quitting.
+    pub question: Option<Question>,
+    /// The report of what an opened Project is missing, until it is dismissed.
+    pub report: Option<OpenReport>,
+    /// The Export dialog, while the Author chooses a resolution.
+    pub export: Option<ExportDialog>,
+    /// The file an Export is being written to, while one runs.
+    pub exporting: Option<PathBuf>,
     /// The pointer gesture under way in the viewport.
     pub interaction: Interaction,
 }
 
 impl EditorState {
+    /// Whether a modal dialog of the Editor's own is open, so shortcuts wait.
+    pub fn modal_open(&self) -> bool {
+        self.prompt.is_some()
+            || self.question.is_some()
+            || self.report.is_some()
+            || self.export.is_some()
+    }
+
     /// Whether a Prop is being dragged: the pointer went down on it and has moved since.
     pub fn dragging(&self) -> bool {
         matches!(
@@ -56,6 +74,51 @@ pub(crate) struct NamePrompt {
     pub awaiting: bool,
     /// Whether the text field should take focus on the next frame.
     pub focus: bool,
+}
+
+/// The save, discard, or cancel question asked before an action that would lose unsaved changes.
+pub(crate) struct Question {
+    /// What the Author was about to do.
+    pub pending: Pending,
+    /// Where the question stands.
+    pub phase: Phase,
+    /// Why the save it led to was refused, shown until the next attempt.
+    pub refusal: Option<String>,
+}
+
+/// The action an unsaved-changes question stands in front of.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum Pending {
+    /// Open another Project.
+    Open,
+    /// Quit the editor.
+    Quit,
+}
+
+/// Where an unsaved-changes question stands.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum Phase {
+    /// The Author is being asked.
+    Asking,
+    /// Save was chosen and its answer is awaited.
+    Saving,
+    /// The pending action goes ahead.
+    Proceed,
+}
+
+/// The Export dialog: the resolution the Author is choosing.
+pub(crate) struct ExportDialog {
+    /// How many image pixels one Grid cell spans.
+    pub pixels_per_cell: u32,
+}
+
+impl Default for ExportDialog {
+    /// The proposed resolution.
+    fn default() -> Self {
+        Self {
+            pixels_per_cell: ExportLevel::PROPOSED_PIXELS_PER_CELL,
+        }
+    }
 }
 
 /// A pointer gesture in the viewport.

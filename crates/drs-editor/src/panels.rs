@@ -1,16 +1,23 @@
 //! The window's layout: the menu bar, the docked Assets panel and viewport, the status line, and
-//! the Canonical Name prompt.
+//! the prompts and dialogs over them.
 
 use crate::diagnostics::Diagnostics;
+use crate::files::ProjectView;
 use crate::state::{EditorState, NamePrompt};
-use crate::{bindings, browser, diagnostics};
+use crate::{bindings, browser, diagnostics, export, files};
+use bevy::app::AppExit;
 use bevy::ecs::message::MessageWriter;
 use bevy::ecs::resource::Resource;
 use bevy::ecs::system::{NonSendMarker, Query, Res, ResMut, SystemParam};
+use bevy::input::ButtonInput;
+use bevy::input::keyboard::KeyCode;
 use bevy::math::Rect;
 use bevy_egui::EguiContexts;
 use drs_history::History;
-use drs_model::{AddFolder, AssetFolder, CanonicalName, Redo, Undo, Viewport};
+use drs_model::{
+    AddFolder, AssetFolder, CanonicalName, ExportLevel, OpenProject, Redo, SaveProject, Undo,
+    Viewport,
+};
 use egui_dock::{DockArea, DockState, NodeIndex, Style, TabViewer};
 
 /// The panels the window is split into.
@@ -45,6 +52,14 @@ pub(crate) struct Outgoing<'w> {
     undo: MessageWriter<'w, Undo>,
     /// Redo, to the authoring Manager.
     redo: MessageWriter<'w, Redo>,
+    /// Save and Save As, to the project Manager.
+    pub save: MessageWriter<'w, SaveProject>,
+    /// Open, to the project Manager.
+    pub open: MessageWriter<'w, OpenProject>,
+    /// Export Level, to the project Manager.
+    pub export: MessageWriter<'w, ExportLevel>,
+    /// Quit.
+    pub exit: MessageWriter<'w, AppExit>,
 }
 
 /// Everything the panels read and write.
@@ -62,6 +77,10 @@ pub(crate) struct Editor<'w, 's> {
     history: Res<'w, History>,
     /// Where the logs are, as the Host said.
     diagnostics: Res<'w, Diagnostics>,
+    /// The Project as the File menu reads it.
+    project: ProjectView<'w, 's>,
+    /// The keys, for the menu's shortcuts.
+    keys: Res<'w, ButtonInput<KeyCode>>,
     /// The messages to send.
     outgoing: Outgoing<'w>,
 }
@@ -69,12 +88,13 @@ pub(crate) struct Editor<'w, 's> {
 /// Draws the whole interface for one frame, or nothing while there is no primary egui context
 /// to draw into yet.
 ///
-/// Runs on the main thread because the folder dialog it may open is a native dialog.
+/// Runs on the main thread because the file dialogs it may open are native dialogs.
 pub(crate) fn draw(_main_thread: NonSendMarker, mut contexts: EguiContexts, mut editor: Editor) {
     let Ok(ctx) = contexts.ctx_mut() else {
         return;
     };
     let ctx = ctx.clone();
+    shortcuts(&ctx, &mut editor);
     let mut root = egui::Ui::new(
         ctx.clone(),
         "root".into(),
@@ -107,20 +127,124 @@ pub(crate) fn draw(_main_thread: NonSendMarker, mut contexts: EguiContexts, mut 
                 .show_inside(ui, &mut panels);
         });
     name_prompt(&ctx, &mut editor);
+    let Editor {
+        state,
+        project,
+        outgoing,
+        ..
+    } = &mut editor;
+    files::question(&ctx, state, project, outgoing);
+    files::report(&ctx, state);
+    export::dialog(&ctx, state, project, outgoing);
 }
 
-/// The menu bar: Library, Edit, and Help.
+/// What the File menu offers.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum FileAction {
+    /// Open…
+    Open,
+    /// Save.
+    Save,
+    /// Save As…
+    SaveAs,
+    /// Export Level…
+    Export,
+    /// Quit.
+    Quit,
+}
+
+/// Carries a File menu action out.
+fn file_action(action: FileAction, editor: &mut Editor) {
+    let Editor {
+        state,
+        project,
+        outgoing,
+        ..
+    } = editor;
+    match action {
+        FileAction::Open => files::open(state, project, outgoing),
+        FileAction::Save => {
+            files::save(project, outgoing);
+        }
+        FileAction::SaveAs => {
+            files::save_as(project, outgoing);
+        }
+        FileAction::Export => export::begin(state),
+        FileAction::Quit => files::quit(state, project, outgoing),
+    }
+}
+
+/// The File menu's shortcuts, while no dialog of the Editor's own is open and egui is not
+/// using the keyboard.
+fn shortcuts(ctx: &egui::Context, editor: &mut Editor) {
+    if editor.state.modal_open() || ctx.egui_wants_keyboard_input() {
+        return;
+    }
+    let keys = &editor.keys;
+    let action = if bindings::any_pressed(bindings::OPEN, keys) {
+        Some(FileAction::Open)
+    } else if bindings::any_pressed(bindings::SAVE_AS, keys) {
+        Some(FileAction::SaveAs)
+    } else if bindings::any_pressed(bindings::SAVE, keys) {
+        Some(FileAction::Save)
+    } else if bindings::any_pressed(bindings::EXPORT, keys) && can_export(editor) {
+        Some(FileAction::Export)
+    } else if bindings::any_pressed(bindings::QUIT, keys) {
+        Some(FileAction::Quit)
+    } else {
+        None
+    };
+    if let Some(action) = action {
+        file_action(action, editor);
+    }
+}
+
+/// Whether Export Level… is offered: there is a Level, and no Export is running.
+fn can_export(editor: &Editor) -> bool {
+    editor.project.level().is_some() && editor.state.exporting.is_none()
+}
+
+/// The menu bar: File, Library, Edit, and Help.
 fn menu_bar(ctx: &egui::Context, root: &mut egui::Ui, editor: &mut Editor) {
     egui::Panel::top("menu").show(root, |ui| {
         egui::MenuBar::new().ui(ui, |ui| {
+            let mut chosen = None;
+            ui.menu_button("File", |ui| {
+                let entry =
+                    |ui: &mut egui::Ui, label: &str, keys: &[bindings::Binding], enabled| {
+                        let button = egui::Button::new(label)
+                            .shortcut_text(bindings::shortcut_text(ctx, keys));
+                        ui.add_enabled(enabled, button).clicked()
+                    };
+                if entry(ui, "Open…", bindings::OPEN, true) {
+                    chosen = Some(FileAction::Open);
+                }
+                if entry(ui, "Save", bindings::SAVE, true) {
+                    chosen = Some(FileAction::Save);
+                }
+                if entry(ui, "Save As…", bindings::SAVE_AS, true) {
+                    chosen = Some(FileAction::SaveAs);
+                }
+                ui.separator();
+                if entry(ui, "Export Level…", bindings::EXPORT, can_export(editor)) {
+                    chosen = Some(FileAction::Export);
+                }
+                ui.separator();
+                if entry(ui, "Quit", bindings::QUIT, true) {
+                    chosen = Some(FileAction::Quit);
+                }
+            });
+            if let Some(action) = chosen {
+                file_action(action, editor);
+            }
             ui.menu_button("Library", |ui| {
                 if ui.button("Add Asset Folder…").clicked() {
                     pick_folder(&mut editor.state);
                 }
             });
-            // Neither is offered while a Prop is being dragged: the drag is one step that is
-            // still being recorded.
-            let settled = !editor.state.dragging();
+            // Neither is offered while a Prop is being dragged, as the drag is one step that is
+            // still being recorded, nor while an Export runs, so the image is of one Level.
+            let settled = !editor.state.dragging() && editor.state.exporting.is_none();
             ui.menu_button("Edit", |ui| {
                 let undo = egui::Button::new("Undo")
                     .shortcut_text(bindings::shortcut_text(ctx, bindings::UNDO));
@@ -186,7 +310,9 @@ fn choose_folder() -> Option<std::path::PathBuf> {
 fn status_line(root: &mut egui::Ui, state: &EditorState) {
     egui::Panel::bottom("status").show(root, |ui| {
         ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-            if let Some(chosen) = &state.chosen {
+            if state.exporting.is_some() {
+                ui.weak("The viewport waits for the Export");
+            } else if let Some(chosen) = &state.chosen {
                 ui.weak("Escape stops placing");
                 ui.label(format!("placing {}", chosen.name));
             } else if state.selected.is_some() {
