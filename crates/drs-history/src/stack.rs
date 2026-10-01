@@ -9,8 +9,16 @@ use bevy_ecs::world::World;
 /// A recorded command.
 type Boxed = Box<dyn ReversibleCommand>;
 
+/// A step as recorded, with the number that tells it apart from every other step ever recorded.
+struct Step {
+    /// The step's number: fresh for every recorded step, kept through undo and redo.
+    sequence: u64,
+    /// What the step does.
+    commands: Commands,
+}
+
 /// One undoable step: a single command or a group undone as one.
-enum Step {
+enum Commands {
     /// A command recorded on its own.
     Single(Boxed),
     /// Commands recorded while a group was open, in the order they were applied.
@@ -24,9 +32,11 @@ impl Step {
     ///
     /// The first command that cannot be reverted.
     fn revert(&mut self, world: &mut World) -> Result<(), BevyError> {
-        match self {
-            Step::Single(command) => command.revert(world),
-            Step::Group(commands) => commands.iter_mut().rev().try_for_each(|c| c.revert(world)),
+        match &mut self.commands {
+            Commands::Single(command) => command.revert(world),
+            Commands::Group(commands) => {
+                commands.iter_mut().rev().try_for_each(|c| c.revert(world))
+            }
         }
     }
 
@@ -36,12 +46,20 @@ impl Step {
     ///
     /// The first command that cannot be applied.
     fn apply(&mut self, world: &mut World) -> Result<(), BevyError> {
-        match self {
-            Step::Single(command) => command.apply(world),
-            Step::Group(commands) => commands.iter_mut().try_for_each(|c| c.apply(world)),
+        match &mut self.commands {
+            Commands::Single(command) => command.apply(world),
+            Commands::Group(commands) => commands.iter_mut().try_for_each(|c| c.apply(world)),
         }
     }
 }
+
+/// Where the history stands: the same value exactly when the World is at the same recorded
+/// state, so a position kept at one moment tells later whether anything has changed since.
+///
+/// Undoing back to a remembered position compares equal to it; recording a new step never
+/// repeats an earlier position, however many steps are undone first.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Hash, PartialOrd, Ord)]
+pub struct Position(u64);
 
 /// The history of applied commands: what can be undone and what can be redone.
 #[derive(Resource, Default)]
@@ -50,15 +68,43 @@ pub struct History {
     undo: Vec<Step>,
     /// Steps that were undone and can be redone, the next one last.
     redo: Vec<Step>,
-    /// The commands of the group being recorded, while one is open.
-    group: Option<Vec<Boxed>>,
+    /// The group being recorded, while one is open: its number and its commands.
+    group: Option<(u64, Vec<Boxed>)>,
+    /// The number the next recorded step gets; never reused, not even after [`clear`](Self::clear).
+    next_sequence: u64,
 }
 
 impl History {
     /// How many steps can be undone.
     #[must_use]
     pub fn undo_depth(&self) -> usize {
-        self.undo.len() + usize::from(self.group.as_ref().is_some_and(|g| !g.is_empty()))
+        self.undo.len() + usize::from(self.group.as_ref().is_some_and(|(_, g)| !g.is_empty()))
+    }
+
+    /// Where the history stands now: the position of the most recent step that can be undone,
+    /// a gesture in progress included, or the position of an empty history.
+    #[must_use]
+    pub fn position(&self) -> Position {
+        if let Some((sequence, commands)) = &self.group
+            && !commands.is_empty()
+        {
+            return Position(*sequence);
+        }
+        Position(self.undo.last().map_or(0, |step| step.sequence))
+    }
+
+    /// Forgets every step, undone or not, and any group in progress. Positions taken before are
+    /// never produced again.
+    pub fn clear(&mut self) {
+        self.undo.clear();
+        self.redo.clear();
+        self.group = None;
+    }
+
+    /// A step number no earlier step had.
+    fn next_sequence(&mut self) -> u64 {
+        self.next_sequence += 1;
+        self.next_sequence
     }
 
     /// Whether there is a step to undo.
@@ -78,24 +124,33 @@ impl History {
     /// Opening a group while one is open closes the open one first.
     pub fn begin_group(&mut self) {
         self.end_group();
-        self.group = Some(Vec::new());
+        let sequence = self.next_sequence();
+        self.group = Some((sequence, Vec::new()));
     }
 
     /// Closes the open group, if any, making its commands one step. An empty group leaves no step.
     pub fn end_group(&mut self) {
-        if let Some(commands) = self.group.take()
+        if let Some((sequence, commands)) = self.group.take()
             && !commands.is_empty()
         {
-            self.undo.push(Step::Group(commands));
+            self.undo.push(Step {
+                sequence,
+                commands: Commands::Group(commands),
+            });
         }
     }
 
     /// Records an applied command and discards whatever could be redone.
     fn record(&mut self, command: Boxed) {
         self.redo.clear();
-        match &mut self.group {
-            Some(group) => group.push(command),
-            None => self.undo.push(Step::Single(command)),
+        if let Some((_, group)) = &mut self.group {
+            group.push(command);
+        } else {
+            let sequence = self.next_sequence();
+            self.undo.push(Step {
+                sequence,
+                commands: Commands::Single(command),
+            });
         }
     }
 }

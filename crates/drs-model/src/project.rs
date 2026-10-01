@@ -1,24 +1,26 @@
 //! The Project and its structure: Levels, Layers, the Grid, and the Bounds.
 
-use crate::AssetReferences;
+use crate::{AssetReferences, ResolutionTable};
 use bevy_ecs::component::Component;
 use bevy_ecs::reflect::ReflectComponent;
 use bevy_math::{IVec2, UVec2};
 use bevy_reflect::Reflect;
+use serde::{Deserialize, Serialize};
 
 /// The Author's work: an entity whose children are its Levels.
 ///
-/// The entity also carries the Project's [`Grid`], [`Bounds`], and [`AssetReferences`].
-#[derive(Component, Reflect, Debug, Clone, PartialEq, Eq)]
+/// The entity also carries the Project's [`Grid`], [`Bounds`], and [`AssetReferences`], and the
+/// [`ResolutionTable`] that says where each Asset Reference loads from on this device.
+#[derive(Component, Reflect, Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[reflect(Component)]
-#[require(Grid, Bounds, AssetReferences)]
+#[require(Grid, Bounds, AssetReferences, ResolutionTable)]
 pub struct Project {
-    /// The name the Author knows the Project by.
+    /// The name the Author knows the Project by: the name of its file, or `Untitled`.
     pub name: String,
 }
 
 /// The Project's grid of square cells, which sets the scale of every Level.
-#[derive(Component, Reflect, Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Component, Reflect, Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[reflect(Component)]
 pub struct Grid {
     /// How many image pixels make one cell: an Asset's natural size in cells is its pixel size
@@ -36,7 +38,7 @@ impl Default for Grid {
 }
 
 /// The rectangle, in Grid cells and shared by all Levels, that decides what is exported.
-#[derive(Component, Reflect, Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Component, Reflect, Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[reflect(Component)]
 pub struct Bounds {
     /// The cell at the lower-left corner.
@@ -56,7 +58,7 @@ impl Default for Bounds {
 }
 
 /// A complete, independent map within a Project: an entity whose children are its Layers.
-#[derive(Component, Reflect, Debug, Clone, PartialEq, Eq)]
+#[derive(Component, Reflect, Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[reflect(Component)]
 pub struct Level {
     /// The Level's name.
@@ -64,7 +66,7 @@ pub struct Level {
 }
 
 /// A named slice of a Level: an entity whose children are its Elements in stacking order.
-#[derive(Component, Reflect, Debug, Clone, PartialEq, Eq)]
+#[derive(Component, Reflect, Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[reflect(Component)]
 pub struct Layer {
     /// The Layer's name.

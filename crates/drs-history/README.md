@@ -9,7 +9,10 @@ to take itself back; [`apply`](crate::apply) carries one out and records it,
 recorded while a group is open form one step, so a gesture such as a drag is
 undone as a whole; [`apply_step`](crate::apply_step) closes an open group first,
 for a command that is a step of its own. Recording a new step discards the
-steps that were undone.
+steps that were undone. [`History::position`](crate::History::position) tells
+where the history stands, so whoever saved the World can later tell whether a
+step has been recorded, or undone, since; [`History::clear`](crate::History::clear)
+forgets every step.
 
 Two generic commands cover most needs without a command per property:
 [`SetField`](crate::SetField) swaps one value by reflect path, and

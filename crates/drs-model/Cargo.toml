@@ -17,6 +17,7 @@ bevy_reflect = { workspace = true }
 directories = { workspace = true }
 drs-history = { path = "../drs-history" }
 serde = { workspace = true }
+serde_json = { workspace = true }
 thiserror = { workspace = true }
 uuid = { workspace = true }
 

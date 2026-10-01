@@ -133,7 +133,7 @@ pub struct AssetFolder {
 }
 
 /// What a Project records about one Asset it uses.
-#[derive(Reflect, Debug, Clone, PartialEq, Eq)]
+#[derive(Reflect, Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct AssetReference {
     /// The Canonical Name of the Asset Folder the Asset came from.
     pub folder: CanonicalName,
@@ -154,7 +154,7 @@ pub struct AssetReference {
 }
 
 /// What a Project records about one Asset Folder its Assets come from.
-#[derive(Reflect, Debug, Clone, PartialEq, Eq)]
+#[derive(Reflect, Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct AssetFolderReference {
     /// The folder's Canonical Name.
     pub name: CanonicalName,
@@ -163,7 +163,10 @@ pub struct AssetFolderReference {
 }
 
 /// A row of the [`AssetReferences`] table, as Elements refer to their Asset.
-#[derive(Reflect, Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
+#[derive(
+    Reflect, Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize,
+)]
+#[serde(transparent)]
 pub struct AssetReferenceRow(pub u32);
 
 /// The [`AssetReferences`] table has no row left for another Asset.
@@ -172,7 +175,7 @@ pub struct AssetReferenceRow(pub u32);
 pub struct AssetReferencesFull;
 
 /// The Project's table of Asset References: one row per distinct Asset and one per Asset Folder.
-#[derive(Component, Reflect, Debug, Clone, Default, PartialEq, Eq)]
+#[derive(Component, Reflect, Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[reflect(Component)]
 pub struct AssetReferences {
     /// The Assets the Project uses, addressed by row.

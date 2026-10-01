@@ -1,6 +1,6 @@
 //! The messages the Editor sends to the Managers, and the reports that come back.
 
-use crate::{CanonicalName, ElementId, FolderKey, ScanSkips};
+use crate::{CanonicalName, ElementId, ElementKindName, FolderKey, MissingReason, ScanSkips};
 use bevy_ecs::entity::Entity;
 use bevy_ecs::message::Message;
 use bevy_ecs::schedule::SystemSet;
@@ -12,7 +12,8 @@ use std::path::PathBuf;
 /// Author gave them whichever Manager handles each.
 #[derive(SystemSet, Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum ManagerSystems {
-    /// The Commands: [`AddFolder`], [`Apply`], and those to come.
+    /// The Commands and requests: [`AddFolder`], [`Apply`], [`SaveProject`], [`OpenProject`],
+    /// and those to come.
     Commands,
     /// [`Undo`].
     Undo,
@@ -225,3 +226,108 @@ pub struct Undo;
 /// Carry the most recently undone step out again.
 #[derive(Message, Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub struct Redo;
+
+/// Asset Folder Changed: the Assets of the Asset Folder known by `name` were added, removed, or
+/// changed, or the folder itself arrived or went.
+///
+/// Sent by the library Manager after an Asset Folder is added, after that is undone or redone,
+/// and at startup for each remembered folder; the project Manager re-resolves the Asset
+/// References recorded against the name.
+#[derive(Message, Debug, Clone, PartialEq, Eq)]
+pub struct AssetFolderChanged {
+    /// The folder's Canonical Name.
+    pub name: CanonicalName,
+}
+
+/// Save: write the Project to its file, or to `path` to make that the Project's file (Save As).
+///
+/// Handled by the project Manager; answered with [`ProjectSaved`] or [`ProjectRefused`]. The
+/// Project extension is added when `path` lacks it.
+#[derive(Message, Debug, Clone, PartialEq, Eq)]
+pub struct SaveProject {
+    /// Where to save, or `None` for the file the Project was last saved to or opened from.
+    pub path: Option<PathBuf>,
+}
+
+/// Open: replace the current Project with the one in the file at `path`.
+///
+/// Handled by the project Manager; answered with [`ProjectOpened`] or [`ProjectRefused`].
+#[derive(Message, Debug, Clone, PartialEq, Eq)]
+pub struct OpenProject {
+    /// The file to open.
+    pub path: PathBuf,
+}
+
+/// The Project was written to `path`, which is now its file.
+#[derive(Message, Debug, Clone, PartialEq, Eq)]
+pub struct ProjectSaved {
+    /// The file written.
+    pub path: PathBuf,
+}
+
+/// The Project in the file at `path` replaced the current one.
+#[derive(Message, Debug, Clone, PartialEq, Eq)]
+pub struct ProjectOpened {
+    /// The file opened, now the Project's file.
+    pub path: PathBuf,
+    /// What the Author is told about the opened Project.
+    pub report: OpenReport,
+}
+
+/// What an Author is told after opening a Project: what is Missing on this device, and what this
+/// editor does not know.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct OpenReport {
+    /// Each Missing Asset, in the order of the Asset Reference table.
+    pub missing_assets: Vec<MissingAsset>,
+    /// Each Element kind this editor does not know, ordered by name.
+    pub unknown_kinds: Vec<UnknownKind>,
+}
+
+/// A Missing Asset, in the terms the Author is shown.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct MissingAsset {
+    /// The Asset's name.
+    pub name: String,
+    /// The Canonical Name of its Asset Folder.
+    pub folder: CanonicalName,
+    /// The folder's version as the Project recorded it.
+    pub recorded_version: String,
+    /// How many Elements use the Asset.
+    pub elements: usize,
+    /// Why the Asset is Missing on this device.
+    pub reason: MissingReason,
+}
+
+/// An Element kind this editor does not know, and how many Elements have it.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct UnknownKind {
+    /// The kind's name as the file records it.
+    pub kind: ElementKindName,
+    /// How many Elements have the kind.
+    pub elements: usize,
+}
+
+/// Which Project request a [`ProjectRefused`] answers.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ProjectRequest {
+    /// A [`SaveProject`].
+    Save {
+        /// The path the request named, if any.
+        path: Option<PathBuf>,
+    },
+    /// An [`OpenProject`].
+    Open {
+        /// The file the request named.
+        path: PathBuf,
+    },
+}
+
+/// A [`SaveProject`] or [`OpenProject`] was refused and nothing changed.
+#[derive(Message, Debug, Clone, PartialEq, Eq)]
+pub struct ProjectRefused {
+    /// The request that was refused.
+    pub request: ProjectRequest,
+    /// Why, in words the Author can be shown.
+    pub reason: String,
+}

@@ -17,10 +17,25 @@ use std::collections::BTreeMap;
 /// The identity of an Element, stable across saving, loading, undo, and redo.
 ///
 /// Commands and history address Elements by this, never by the entity handle, which changes
-/// whenever an Element is respawned.
+/// whenever an Element is respawned. In a Project file it is written as a decimal string.
 #[derive(Component, Reflect, Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
 #[reflect(Component, Hash, PartialEq)]
 pub struct ElementId(u128);
+
+impl Serialize for ElementId {
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        serializer.serialize_str(&self.0.to_string())
+    }
+}
+
+impl<'de> Deserialize<'de> for ElementId {
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let text = String::deserialize(deserializer)?;
+        text.parse::<u128>().map(Self).map_err(|error| {
+            serde::de::Error::custom(format!("`{text}` is not an ElementId: {error}"))
+        })
+    }
+}
 
 impl ElementId {
     /// A fresh identity that no other Element has.
@@ -60,7 +75,7 @@ impl Target for ElementId {
 }
 
 /// What every Element has, whatever its kind.
-#[derive(Component, Reflect, Debug, Clone, PartialEq)]
+#[derive(Component, Reflect, Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[reflect(Component)]
 #[require(ElementId)]
 pub struct Element {
@@ -73,7 +88,7 @@ pub struct Element {
 }
 
 /// A single placed image. Its default Material shows the image.
-#[derive(Component, Reflect, Debug, Clone, PartialEq, Eq)]
+#[derive(Component, Reflect, Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[reflect(Component)]
 pub struct Prop {
     /// The row of the Project's Asset Reference table that names the image.
