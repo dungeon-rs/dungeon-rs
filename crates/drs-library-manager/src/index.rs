@@ -50,7 +50,10 @@ pub(crate) fn index_folder(
 pub(crate) fn library(
     world: &mut World,
 ) -> Result<(LibraryDirectories, LibraryTable), LibraryError> {
-    let overrides = world.resource::<EditorDirectories>().clone();
+    let overrides = world
+        .get_resource::<EditorDirectories>()
+        .cloned()
+        .unwrap_or_default();
     let directories = LibraryDirectories::resolve(&overrides)?;
     let table = world.get_resource_or_init::<LibraryTable>().clone();
     Ok((directories, table))

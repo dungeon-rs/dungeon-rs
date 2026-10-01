@@ -32,6 +32,18 @@ impl Target for Entity {
     }
 }
 
+/// The World's type registry.
+///
+/// # Errors
+///
+/// [`HistoryError::NoTypeRegistry`] when the World has none.
+fn type_registry(world: &World) -> Result<AppTypeRegistry, HistoryError> {
+    world
+        .get_resource::<AppTypeRegistry>()
+        .cloned()
+        .ok_or(HistoryError::NoTypeRegistry)
+}
+
 /// Finds the `ReflectComponent` type data of a component type.
 ///
 /// # Errors
@@ -106,7 +118,7 @@ impl<T: Target> SetField<T> {
         value: &dyn PartialReflect,
     ) -> Result<Box<dyn PartialReflect>, BevyError> {
         let entity = self.target.entity(world)?;
-        let registry = world.resource::<AppTypeRegistry>().clone();
+        let registry = type_registry(world)?;
         let registry = registry.read();
         let reflect = reflect_component(&registry, self.component, self.type_path)?;
         let mut entity = world
@@ -180,7 +192,7 @@ impl<T: Target> Snapshot<T> {
 impl<T: Target> ReversibleCommand for Snapshot<T> {
     fn apply(&mut self, world: &mut World) -> Result<(), BevyError> {
         let entity = self.target.entity(world)?;
-        let registry = world.resource::<AppTypeRegistry>().clone();
+        let registry = type_registry(world)?;
         let registry = registry.read();
         let entity_ref = world
             .get_entity(entity)
@@ -212,7 +224,7 @@ impl<T: Target> ReversibleCommand for Snapshot<T> {
     }
 
     fn revert(&mut self, world: &mut World) -> Result<(), BevyError> {
-        let registry = world.resource::<AppTypeRegistry>().clone();
+        let registry = type_registry(world)?;
         let registry = registry.read();
         let mut entity = world.spawn_empty();
         for component in &self.components {

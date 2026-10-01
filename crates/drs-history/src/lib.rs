@@ -35,6 +35,9 @@ pub enum HistoryError {
     /// The `World` carries no [`History`] resource; the [`HistoryPlugin`] was not added.
     #[error("the World has no History")]
     NoHistory,
+    /// The `World` carries no type registry, so no component can be reflected.
+    #[error("the World has no type registry")]
+    NoTypeRegistry,
     /// The entity a command works on cannot be found.
     #[error("the target of the command does not exist")]
     MissingTarget,

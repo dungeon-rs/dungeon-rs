@@ -2,9 +2,13 @@ check-private-items = true
 allow-unwrap-in-tests = true
 allow-expect-in-tests = true
 allow-panic-in-tests = true
+# A bad file must become a report, never a crash: a resource that is not there is reported
+# through `World::get_resource`, never unwrapped by `World::resource`.
 # Exports and golden images must be bit-identical across machines: fast-math and the platform's
 # libm differ between them, so transcendental functions go through `bevy_math::ops`.
 disallowed-methods = [
+  { path = "bevy_ecs::world::World::resource", reason = "panics when the resource is missing; use `get_resource` and report" },
+  { path = "bevy_ecs::world::World::resource_mut", reason = "panics when the resource is missing; use `get_resource_mut` and report" },
   { path = "f32::algebraic_add", reason = "fast-math differs between machines" },
   { path = "f32::algebraic_sub", reason = "fast-math differs between machines" },
   { path = "f32::algebraic_mul", reason = "fast-math differs between machines" },

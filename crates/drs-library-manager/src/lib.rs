@@ -59,7 +59,10 @@ fn handle_add_folder(world: &mut World, requests: &mut SystemState<MessageReader
 /// A folder that cannot be indexed stays known with no Assets and is reported as
 /// [`FolderUnavailable`]; a file that is not a Manifest is logged and skipped.
 fn restore_folders(world: &mut World) {
-    let overrides = world.resource::<EditorDirectories>().clone();
+    let overrides = world
+        .get_resource::<EditorDirectories>()
+        .cloned()
+        .unwrap_or_default();
     let directories = match drs_library_access::LibraryDirectories::resolve(&overrides) {
         Ok(directories) => directories,
         Err(error) => {

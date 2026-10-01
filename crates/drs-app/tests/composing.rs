@@ -4,6 +4,7 @@
 #![expect(
     clippy::missing_panics_doc,
     clippy::expect_used,
+    clippy::disallowed_methods,
     reason = "a test and its fixtures stop at the first thing that is not as expected"
 )]
 
