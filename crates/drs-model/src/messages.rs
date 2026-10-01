@@ -211,6 +211,13 @@ pub struct CommandFailed {
     pub reason: String,
 }
 
+/// An [`Undo`] or [`Redo`] could not be carried out; the step stays where it was in the history.
+#[derive(Message, Debug, Clone, PartialEq, Eq)]
+pub struct HistoryFailed {
+    /// Why, in words the Author can be shown.
+    pub reason: String,
+}
+
 /// Take the most recent step back.
 #[derive(Message, Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub struct Undo;

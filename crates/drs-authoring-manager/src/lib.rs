@@ -12,7 +12,8 @@ use bevy_ecs::world::{Mut, World};
 use drs_history::History;
 use drs_library_access::LibraryError;
 use drs_model::{
-    Apply, CanonicalName, CommandFailed, ElementId, FolderKey, ManagerSystems, Redo, Undo,
+    Apply, CanonicalName, CommandFailed, ElementId, FolderKey, HistoryFailed, ManagerSystems, Redo,
+    Undo,
 };
 
 /// Why an authoring Command could not be carried out.
@@ -49,7 +50,8 @@ pub enum AuthoringError {
     History(String),
 }
 
-/// Handles the [`Apply`], [`Undo`], and [`Redo`] messages.
+/// Handles the [`Apply`], [`Undo`], and [`Redo`] messages, answering what fails with
+/// [`CommandFailed`] or [`HistoryFailed`].
 pub struct AuthoringManagerPlugin;
 
 impl Plugin for AuthoringManagerPlugin {
@@ -150,7 +152,8 @@ fn handle_apply(world: &mut World, requests: &mut SystemState<MessageReader<Appl
     }
 }
 
-/// Takes one step back for every [`Undo`] request.
+/// Takes one step back for every [`Undo`] request, answering one that fails with
+/// [`HistoryFailed`].
 fn handle_undo(world: &mut World, requests: &mut SystemState<MessageReader<Undo>>) {
     let count = match requests.get_mut(world) {
         Ok(mut reader) => reader.read().count(),
@@ -158,12 +161,15 @@ fn handle_undo(world: &mut World, requests: &mut SystemState<MessageReader<Undo>
     };
     for _ in 0..count {
         if let Err(error) = undo(world) {
-            log::warn!("the step could not be undone: {error}");
+            world.write_message(HistoryFailed {
+                reason: format!("The step could not be undone: {error}"),
+            });
         }
     }
 }
 
-/// Carries one undone step out again for every [`Redo`] request.
+/// Carries one undone step out again for every [`Redo`] request, answering one that fails with
+/// [`HistoryFailed`].
 fn handle_redo(world: &mut World, requests: &mut SystemState<MessageReader<Redo>>) {
     let count = match requests.get_mut(world) {
         Ok(mut reader) => reader.read().count(),
@@ -171,7 +177,9 @@ fn handle_redo(world: &mut World, requests: &mut SystemState<MessageReader<Redo>
     };
     for _ in 0..count {
         if let Err(error) = redo(world) {
-            log::warn!("the step could not be redone: {error}");
+            world.write_message(HistoryFailed {
+                reason: format!("The step could not be redone: {error}"),
+            });
         }
     }
 }

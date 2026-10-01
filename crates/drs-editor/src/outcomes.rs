@@ -3,7 +3,7 @@
 use crate::state::EditorState;
 use bevy::ecs::message::MessageReader;
 use bevy::ecs::system::ResMut;
-use drs_model::{CommandFailed, FolderAdded, FolderRefused, FolderUnavailable};
+use drs_model::{CommandFailed, FolderAdded, FolderRefused, FolderUnavailable, HistoryFailed};
 
 /// Reports every answer of the current frame.
 ///
@@ -15,6 +15,7 @@ pub(crate) fn report(
     mut refused: MessageReader<FolderRefused>,
     mut unavailable: MessageReader<FolderUnavailable>,
     mut failed: MessageReader<CommandFailed>,
+    mut history_failed: MessageReader<HistoryFailed>,
 ) {
     for FolderAdded { name, .. } in added.read() {
         state.status = format!("Added the Asset Folder {name}");
@@ -38,6 +39,9 @@ pub(crate) fn report(
         state.status = format!("The Asset Folder {name} could not be indexed: {reason}");
     }
     for CommandFailed { reason, .. } in failed.read() {
+        state.status.clone_from(reason);
+    }
+    for HistoryFailed { reason } in history_failed.read() {
         state.status.clone_from(reason);
     }
 }
