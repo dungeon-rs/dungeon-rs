@@ -2,7 +2,6 @@
 
 ## I have a working editor: I can place Props from my own Asset Folder, undo, save, reopen, and export an image
 
-- **[Walking skeleton: from folder to Prop](changes/walking-skeleton-from-folder-to-prop.md)**: the Author adds an Asset Folder (Manifest and Canonical Name, scanned and indexed, browsed by name), places a Prop on the single default Layer of a single Level, moves and removes it, and undoes or redoes each step. Commands: Add Asset Folder, Place Element, Edit Element, Remove Element.
 - **[Walking skeleton: save, reopen, export](changes/walking-skeleton-save-reopen-export.md)**: the Author saves the Project, reopens it with its Asset References resolved (Missing Assets kept as placeholders and reported), and exports the Level as a PNG at a chosen resolution within fixed Bounds. Commands: Export Level.
 - **Diagnostics**: logs go to a daily-rolling file, a crash shows a dialog and leaves a crash report, and bundled resources are found on every platform. Commands: none.
 

@@ -33,3 +33,4 @@ Spec-level decisions parked during domain work. The spec skill picks these up; r
 - Diagnostics: crash reports go to the log or cache directory, not the working directory.
 - Layer-specific disallowed APIs could turn "review" rules into enforced ones: per-crate `clippy.toml` `disallowed-methods` (`std::fs` and `std::net` in Engines; `HashMap` in serialised `model` types). Clippy does not merge nested `clippy.toml` files with the root, so each repeats the root settings.
 - An ownership check for `model` components: the `ci` tool could read a table of which crate owns (writes) each `model` component type and look for writes elsewhere, turning the "each service owns its business objects" row from review into enforced.
+- Headless rendering tests: RenderEngine stays out of the headless seams because headless rendering still needs a GPU adapter; whether a software adapter or a render-less check of the sprites can cover the rendering Rules.
