@@ -18,7 +18,10 @@ between cells and screen points are the ones picking and drawing share.
 Each added Asset Folder is an entity carrying [`AssetFolder`](crate::AssetFolder)
 with its index of Assets. [`EditorDirectories`](crate::EditorDirectories)
 overrides where the editor keeps its own files, so tests point them at
-temporary directories.
+temporary directories. [`Diagnostics`](crate::Diagnostics) holds what the
+Host found at start: the log directory and the current log file, and the
+resource directory or the locations tried when none is marked as the
+editor's.
 
 Every component type here is written only by the systems of the crate that owns
 it; everyone else reads. The [`ModelPlugin`](crate::ModelPlugin) registers the

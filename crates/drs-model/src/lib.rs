@@ -1,6 +1,7 @@
 #![doc = include_str!("../README.md")]
 
 mod assets;
+mod diagnostics;
 mod directories;
 mod element;
 mod messages;
@@ -12,6 +13,7 @@ pub use assets::{
     AssetReferences, AssetReferencesFull, CanonicalName, Fingerprint, FolderKey, IndexedAsset,
     ScanSkips,
 };
+pub use diagnostics::{Diagnostics, ResourceDirectory};
 pub use directories::EditorDirectories;
 pub use element::{
     Element, ElementId, ElementKindDescriptor, ElementKindName, ElementKindRegistry, PROP, Prop,
@@ -44,6 +46,7 @@ impl Plugin for ModelPlugin {
             .register_type::<AssetReferences>()
             .register_type::<AssetFolder>()
             .register_type::<EditorDirectories>()
+            .register_type::<Diagnostics>()
             .register_type::<Viewport>()
             .init_resource::<EditorDirectories>()
             .init_resource::<Viewport>()
