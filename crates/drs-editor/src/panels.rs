@@ -147,10 +147,7 @@ fn menu_bar(ctx: &egui::Context, root: &mut egui::Ui, editor: &mut Editor) {
 /// Opens the platform's folder dialog and, when a folder is picked, the Canonical Name prompt
 /// with the folder's own name proposed. Cancelling the dialog leaves nothing behind.
 fn pick_folder(state: &mut EditorState) {
-    let Some(path) = rfd::FileDialog::new()
-        .set_title("Add Asset Folder")
-        .pick_folder()
-    else {
+    let Some(path) = choose_folder() else {
         return;
     };
     let name = path
@@ -164,6 +161,18 @@ fn pick_folder(state: &mut EditorState) {
         awaiting: false,
         focus: true,
     });
+}
+
+/// The platform's folder dialog, or in development builds the folder `DRS_PICK_FOLDER` names
+/// when it is set, an empty value standing for a cancelled dialog.
+fn choose_folder() -> Option<std::path::PathBuf> {
+    #[cfg(feature = "dev")]
+    if let Some(path) = std::env::var_os("DRS_PICK_FOLDER") {
+        return (!path.is_empty()).then(|| std::path::PathBuf::from(path));
+    }
+    rfd::FileDialog::new()
+        .set_title("Add Asset Folder")
+        .pick_folder()
 }
 
 /// The status line: what happened last on the left, what the Author is doing on the right.
