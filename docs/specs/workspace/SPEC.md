@@ -16,12 +16,13 @@ The architecture decomposes the editor into components, each its own crate, with
 6. As a contributor, I can rely on the gate failing when a workspace crate has no row in the Dependencies table, so that a new component is a deliberate architecture change.
 7. As a contributor, I can rely on the gate failing when a restricted external crate is used outside the components allowed it, so that the UI, the render stack, and the asset system stay confined.
 8. As a contributor, I can rely on the gate failing when an Engine depends on an Engine, a ResourceAccess on a ResourceAccess, or a Manager on a Manager, so that closed layering holds.
-9. As a contributor, I can rely on the gate failing instead of weakening when a dependency table is malformed, so that a typo in the architecture never silently disables a rule.
-10. As a contributor, I can run one `just check` for the whole gate, so that I never guess which checks a change must pass.
-11. As a contributor, I can see the same gate run on Windows, macOS, and Linux for every pull request, so that platform breakage is found before merging.
-12. As a contributor, I can count on the supply-chain check running weekly, so that a newly published advisory is noticed without a pull request.
-13. As a contributor, I can receive Dependabot proposals for the workspace, the check tooling, and the CI workflows, so that dependencies do not rot.
-14. As a contributor, I can read which crate broke which rule when a check fails, so that I can fix it without reading the checker.
+9. As a contributor, I can rely on the gate failing when an Engine defines or uses a message, an event, or an observer, so that Engines stay plain computation that Managers call.
+10. As a contributor, I can rely on the gate failing instead of weakening when a dependency table is malformed, so that a typo in the architecture never silently disables a rule.
+11. As a contributor, I can run one `just check` for the whole gate, so that I never guess which checks a change must pass.
+12. As a contributor, I can see the same gate run on Windows, macOS, and Linux for every pull request, so that platform breakage is found before merging.
+13. As a contributor, I can count on the supply-chain check running weekly, so that a newly published advisory is noticed without a pull request.
+14. As a contributor, I can receive Dependabot proposals for the workspace, the check tooling, and the CI workflows, so that dependencies do not rot.
+15. As a contributor, I can read which crate broke which rule when a check fails, so that I can fix it without reading the checker.
 
 ## Rules
 
@@ -43,6 +44,8 @@ The architecture decomposes the editor into components, each its own crate, with
 
 **Same-kind isolation**: no Engine depends on an Engine, no ResourceAccess on a ResourceAccess, no Manager on a Manager. Follows from the Dependencies table, and holds because the table allows none.
 
+**Engines raise no events**: the sources of a crate the Dependencies table types as an Engine neither derive a message, event, or entity event nor read, write, or observe one; a mention in a comment, or a longer name that merely contains one of those names, does not count.
+
 **One gate**: `just check` runs every check listed under Project tasks in the architecture and exits non-zero when any fails; `just test` runs tests only, and `just run` starts the Host in development mode.
 
 **CI runs the gate**: the CI workflow runs `just check` on Windows, macOS, and Linux for every pull request and every push to the default branch.
@@ -57,6 +60,7 @@ The architecture decomposes the editor into components, each its own crate, with
 - Every check runs against `cargo metadata` of the workspace, which the tool locates from its own position rather than from the directory it is run in, so it reads manifests, not source.
 - The architecture check reads the Dependencies and Restricted external dependencies tables from the architecture document itself, so the documentation and its enforcement cannot drift. The Type column resolves rows such as Client and Host in the restricted table. A malformed table is an error, never a weaker check.
 - Same-kind isolation is checked on its own, in addition to the allowed dependencies, so a table that wrongly allowed an Engine to depend on an Engine is still caught.
+- The Engine-events check is the one check that reads source rather than manifests: every Rust file of every Engine crate, with comments stripped, is searched for the derives that define a message or an event and the names that read, write, or observe one, and each hit is reported with its file and line. It is the Rule translation row marked `enforced`.
 - A violation is one crate breaking one rule, with a detail of what is wrong. All violations are rendered as a single table of crate, rule, and problem on standard error, and the tool exits non-zero when there is at least one.
 - The checks are tested against fixture workspaces: small throwaway workspaces written to a temporary directory and read back through `cargo metadata`, one passing and one violating each rule.
 - Empty crates carry only their manifest, README, and an empty library root; the Host keeps its binary. Dependencies are added by the changes that need them.
@@ -76,6 +80,7 @@ The architecture decomposes the editor into components, each its own crate, with
 - **Restricted externals**: `tools/ci/src/architecture.rs::a_restricted_external_in_an_allowed_component_type_passes`, `tools/ci/src/architecture.rs::a_restricted_external_in_an_allowed_crate_passes`, `tools/ci/src/architecture.rs::a_restricted_external_outside_its_allowed_components_is_named`, `tools/ci/src/architecture.rs::an_unrestricted_external_is_free_to_use`, `tools/ci/src/architecture.rs::the_host_type_resolves_a_restricted_external`
 - **Well-formed tables**: `tools/ci/src/architecture.rs::the_tables_are_read_from_the_markdown`, `tools/ci/src/architecture.rs::a_document_without_the_tables_is_an_error`, `tools/ci/src/architecture.rs::a_row_with_the_wrong_number_of_cells_is_an_error`, `tools/ci/src/architecture.rs::an_unknown_component_type_is_an_error`, `tools/ci/src/architecture.rs::a_duplicate_row_is_an_error`, `tools/ci/src/architecture.rs::a_dependency_on_an_unlisted_component_is_an_error`, `tools/ci/src/architecture.rs::a_restriction_naming_an_unknown_type_is_an_error`
 - **Same-kind isolation**: `tools/ci/src/architecture.rs::an_engine_depending_on_an_engine_breaks_same_kind_isolation`, `tools/ci/src/architecture.rs::a_resource_access_depending_on_a_resource_access_breaks_same_kind_isolation`, `tools/ci/src/architecture.rs::a_manager_depending_on_a_manager_breaks_same_kind_isolation`
+- **Engines raise no events**: `tools/ci/src/engine_events.rs::an_engine_of_plain_systems_passes`, `tools/ci/src/engine_events.rs::an_engine_defining_a_message_is_named_with_the_line`, `tools/ci/src/engine_events.rs::an_engine_defining_an_event_is_named`, `tools/ci/src/engine_events.rs::an_engine_reading_or_writing_messages_is_named`, `tools/ci/src/engine_events.rs::an_engine_observing_is_named`, `tools/ci/src/engine_events.rs::a_mention_in_a_comment_is_not_a_use`, `tools/ci/src/engine_events.rs::a_longer_name_sharing_the_letters_is_not_a_use`, `tools/ci/src/engine_events.rs::a_manager_may_use_messages`
 - **One gate**: no unit test; the seam is the `check` recipe of the `justfile`, exercised by every run of the gate.
 - **CI runs the gate**: no unit test; the seam is the CI workflow, exercised by every pull request.
 - **Weekly supply chain**: no unit test; the seam is the supply-chain workflow, exercised by its schedule.
@@ -84,7 +89,7 @@ The architecture decomposes the editor into components, each its own crate, with
 ## Not supported
 
 - The rows of the Rule translation table marked `review` are not checked by the tool; the standards review is their only guard.
-- The checks read manifests only. A dependency reached through another crate's re-exports, or a rule about what source code does, is outside them.
+- The checks read manifests only, except the Engine-events check. A dependency reached through another crate's re-exports, or any other rule about what source code does, is outside them.
 
 ## Notes
 
