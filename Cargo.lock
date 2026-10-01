@@ -2351,6 +2351,17 @@ dependencies = [
 [[package]]
 name = "drs-authoring-manager"
 version = "0.0.1"
+dependencies = [
+ "bevy_app",
+ "bevy_ecs",
+ "bevy_math",
+ "drs-history",
+ "drs-library-access",
+ "drs-model",
+ "log",
+ "thiserror 2.0.21",
+ "unicode-normalization",
+]
 
 [[package]]
 name = "drs-catalog-engine"
