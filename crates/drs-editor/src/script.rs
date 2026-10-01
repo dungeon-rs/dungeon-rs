@@ -11,6 +11,7 @@
 //! - `click <x> <y>`: move, press, and release the left button over consecutive frames.
 //! - `drag <x1> <y1> <x2> <y2> <steps>`: press at the first point, move in that many steps, release.
 //! - `key <KeyCode> [cmd] [shift] [ctrl] [alt]`: press a key with the modifiers, release it next frame.
+//! - `hold <KeyCode>`, `release <KeyCode>`: press a key and keep it down, or let it go.
 //! - `text <string>`: type the characters, one per frame.
 //! - `scroll <dx> <dy> [line|pixel]`: scroll the wheel; lines unless told otherwise.
 //! - `pinch <delta>`: a trackpad pinch.
@@ -279,6 +280,8 @@ fn parse(text: &str) -> Result<VecDeque<Step>, String> {
             "click" => point(&rest, 0).map(click),
             "drag" => drag(&rest),
             "key" => key(&rest),
+            "hold" => held(&rest, ButtonState::Pressed),
+            "release" => held(&rest, ButtonState::Released),
             "text" => Ok(typed(line.strip_prefix("text").unwrap_or_default().trim())),
             "scroll" => scroll(&rest),
             "pinch" => decimal(&rest, 0).map(|delta| vec![act(Action::Pinch(delta))]),
@@ -374,6 +377,24 @@ fn key(words: &[&str]) -> Result<Vec<Step>, String> {
             .map(|m| press(m, ButtonState::Released)),
     );
     Ok(vec![Step::Act(down), Step::Act(up)])
+}
+
+/// A key held down or let go, so another gesture can happen meanwhile.
+///
+/// # Errors
+///
+/// When the key is unknown.
+fn held(words: &[&str], state: ButtonState) -> Result<Vec<Step>, String> {
+    let name = words
+        .first()
+        .ok_or_else(|| "a KeyCode is needed".to_owned())?;
+    let (code, key) = key_named(name).ok_or_else(|| format!("unknown KeyCode {name}"))?;
+    Ok(vec![act(Action::Key {
+        code,
+        key,
+        text: None,
+        state,
+    })])
 }
 
 /// Each character typed, pressed and released in its own frame.

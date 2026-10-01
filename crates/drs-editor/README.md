@@ -26,7 +26,8 @@ the middle button or Space with the left button drags the view.
 - `dev`: debug tooling for development. With `DRS_SCREENSHOT` set to a file path, a
   screenshot of the window is saved there a moment after start. With `DRS_SCRIPT` set
   to a file, the editor is driven by its steps, one per frame (`wait`, `move`, `down`,
-  `up`, `click`, `drag`, `key`, `text`, `scroll`, `pinch`, `screenshot`, `quit`), fed
+  `up`, `click`, `drag`, `key`, `hold`, `release`, `text`, `scroll`, `pinch`,
+  `screenshot`, `quit`), fed
   in as the messages the window would send so egui and the viewport see them alike.
   With `DRS_PICK_FOLDER` set, Add Asset Folder… takes that folder instead of opening
   the dialog; an empty value stands for a cancelled dialog.
