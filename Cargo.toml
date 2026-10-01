@@ -52,12 +52,9 @@ bevy = { version = "=0.20.0-rc.2", default-features = false, features = [
   "x11",
   "wayland",
   "gestures",
-  "default_font",
   "png",
   "jpeg",
   "webp",
-  "bevy_picking",
-  "sprite_picking",
 ] }
 bevy_ecs = { version = "=0.20.0-rc.2", default-features = false, features = [
   "std",

@@ -11,17 +11,19 @@ authors.workspace = true
 
 [dependencies]
 bevy = { workspace = true }
-
-# The Host is the one crate allowed to depend on every Manager, so the tests that drive several
-# of them through one headless editor live here.
-[dev-dependencies]
-blake3 = { workspace = true }
 drs-authoring-manager = { path = "../drs-authoring-manager" }
+drs-editor = { path = "../drs-editor" }
 drs-history = { path = "../drs-history" }
 drs-library-access = { path = "../drs-library-access" }
 drs-library-manager = { path = "../drs-library-manager" }
 drs-model = { path = "../drs-model" }
 drs-project-manager = { path = "../drs-project-manager" }
+drs-render-engine = { path = "../drs-render-engine" }
+
+# The Host is the one crate allowed to depend on every Manager, so the tests that drive several
+# of them through one headless editor live here.
+[dev-dependencies]
+blake3 = { workspace = true }
 image = { workspace = true }
 tempfile = { workspace = true }
 
@@ -33,17 +35,14 @@ dev = [
   "bevy/dynamic_linking",
   "bevy/bevy_dev_tools",
   "drs-authoring-manager/dev",
+  "drs-editor/dev",
   "drs-history/dev",
   "drs-library-access/dev",
   "drs-library-manager/dev",
   "drs-model/dev",
   "drs-project-manager/dev",
+  "drs-render-engine/dev",
 ]
 
 [lints]
 workspace = true
-
-# The Host builds the whole dependency graph before it registers a single plugin: the umbrella
-# crate is declared so its feature set and the dynamic linking of `dev` are fixed in one place.
-[package.metadata.cargo-machete]
-ignored = ["bevy"]
