@@ -50,6 +50,14 @@ pub enum LibraryError {
         /// Why it cannot be recorded.
         reason: String,
     },
+    /// An index cache could not be encoded.
+    #[error("the index cache {} cannot be encoded: {reason}", path.display())]
+    UnencodableIndex {
+        /// The cache file.
+        path: PathBuf,
+        /// Why it cannot be encoded.
+        reason: String,
+    },
     /// An image file's header could not be read.
     #[error("{} is not an image that can be read: {reason}", path.display())]
     BadImage {

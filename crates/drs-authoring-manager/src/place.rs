@@ -58,7 +58,7 @@ impl ReversibleCommand for Place {
         let row = world
             .get_mut::<AssetReferences>(self.project)
             .ok_or(AuthoringError::NoProject)?
-            .record(self.reference.clone());
+            .record(self.reference.clone())?;
         let mut layer = world
             .get_entity_mut(self.layer)
             .map_err(|_| AuthoringError::NotALayer)?;

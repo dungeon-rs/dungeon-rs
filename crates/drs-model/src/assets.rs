@@ -149,6 +149,11 @@ pub struct AssetFolderReference {
 #[derive(Reflect, Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct AssetReferenceRow(pub u32);
 
+/// The [`AssetReferences`] table has no row left for another Asset.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, thiserror::Error)]
+#[error("the Project's Asset Reference table is full")]
+pub struct AssetReferencesFull;
+
 /// The Project's table of Asset References: one row per distinct Asset and one per Asset Folder.
 #[derive(Component, Reflect, Debug, Clone, Default, PartialEq, Eq)]
 #[reflect(Component)]
@@ -177,11 +182,19 @@ impl AssetReferences {
     }
 
     /// Adds an Asset Reference, or returns the row of the one already recorded for the same Asset.
-    pub fn record(&mut self, reference: AssetReference) -> AssetReferenceRow {
+    ///
+    /// # Errors
+    ///
+    /// [`AssetReferencesFull`] when the table has no row left, in which case nothing is added.
+    pub fn record(
+        &mut self,
+        reference: AssetReference,
+    ) -> Result<AssetReferenceRow, AssetReferencesFull> {
         if let Some(row) = self.row_of(&reference.folder, &reference.place) {
-            return row;
+            return Ok(row);
         }
+        let row = u32::try_from(self.assets.len()).map_err(|_| AssetReferencesFull)?;
         self.assets.push(reference);
-        AssetReferenceRow(u32::try_from(self.assets.len() - 1).unwrap_or(u32::MAX))
+        Ok(AssetReferenceRow(row))
     }
 }

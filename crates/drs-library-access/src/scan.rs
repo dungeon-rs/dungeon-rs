@@ -72,7 +72,8 @@ pub struct Scan {
 ///
 /// # Errors
 ///
-/// [`LibraryError::Io`] when the folder itself cannot be listed or the cache cannot be written.
+/// [`LibraryError::Io`] when the folder itself cannot be listed or the cache cannot be written,
+/// or [`LibraryError::UnencodableIndex`] when the cache cannot be encoded.
 pub fn scan_folder(
     directories: &LibraryDirectories,
     table: &LibraryTable,
@@ -92,7 +93,11 @@ pub fn scan_folder(
         path: directories.cache.clone(),
         source,
     })?;
-    let text = serde_json::to_string(&scan.files).unwrap_or_else(|_| "[]".to_owned());
+    let text =
+        serde_json::to_string(&scan.files).map_err(|error| LibraryError::UnencodableIndex {
+            path: cache_file.clone(),
+            reason: error.to_string(),
+        })?;
     write_atomically(&cache_file, text.as_bytes())?;
 
     table.insert(key, path.to_path_buf());
