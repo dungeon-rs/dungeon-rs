@@ -3,7 +3,6 @@
 
 use crate::state::{EditorState, NamePrompt};
 use crate::{bindings, browser};
-use bevy::ecs::error::Result;
 use bevy::ecs::message::MessageWriter;
 use bevy::ecs::resource::Resource;
 use bevy::ecs::system::{NonSendMarker, Query, Res, ResMut, SystemParam};
@@ -64,19 +63,15 @@ pub(crate) struct Editor<'w, 's> {
     outgoing: Outgoing<'w>,
 }
 
-/// Draws the whole interface for one frame.
+/// Draws the whole interface for one frame, or nothing while there is no primary egui context
+/// to draw into yet.
 ///
 /// Runs on the main thread because the folder dialog it may open is a native dialog.
-///
-/// # Errors
-///
-/// When there is no primary egui context to draw into.
-pub(crate) fn draw(
-    _main_thread: NonSendMarker,
-    mut contexts: EguiContexts,
-    mut editor: Editor,
-) -> Result {
-    let ctx = contexts.ctx_mut()?.clone();
+pub(crate) fn draw(_main_thread: NonSendMarker, mut contexts: EguiContexts, mut editor: Editor) {
+    let Ok(ctx) = contexts.ctx_mut() else {
+        return;
+    };
+    let ctx = ctx.clone();
     let mut root = egui::Ui::new(
         ctx.clone(),
         "root".into(),
@@ -109,7 +104,6 @@ pub(crate) fn draw(
                 .show_inside(ui, &mut panels);
         });
     name_prompt(&ctx, &mut editor);
-    Ok(())
 }
 
 /// The menu bar: Library and Edit.
