@@ -14,7 +14,7 @@ use drs_library_access::LibraryAccessPlugin;
 use drs_library_manager::LibraryManagerPlugin;
 use drs_model::{
     AddFolder, AssetFolder, AssetKind, CanonicalName, EditorDirectories, FolderAdded,
-    FolderRefusal, FolderRefused, ModelPlugin,
+    FolderRefusal, FolderRefused, FolderUnavailable, ModelPlugin,
 };
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -209,6 +209,20 @@ fn the_same_folder_is_refused() {
                 name: CanonicalName("Maps".to_owned()),
             })
         );
+    }
+    #[cfg(target_os = "macos")]
+    {
+        // Apple's file system folds case unless formatted otherwise; the spelling in another
+        // case names the same folder only where it does, so the check probes first.
+        let in_another_case = root.path().join("MAPS");
+        if in_another_case.is_dir() {
+            assert_eq!(
+                add(&mut app, &in_another_case, "Again"),
+                Err(FolderRefusal::AlreadyAdded {
+                    name: CanonicalName("Maps".to_owned()),
+                })
+            );
+        }
     }
     assert_eq!(folders(&mut app).len(), 1);
     assert_eq!(manifests(root.path()).len(), 1);
@@ -413,6 +427,37 @@ fn links_are_not_followed() {
     assert_eq!(places(&folders(&mut app)[0]), vec!["own.png"]);
 }
 
+/// A subfolder that cannot be listed is skipped and counted, and the rest of the folder is
+/// indexed.
+#[cfg(unix)]
+#[test]
+fn unlistable_subfolders_are_skipped() {
+    use std::os::unix::fs::PermissionsExt;
+    let root = TempDir::new().expect("temporary root");
+    let maps = folder(root.path(), "maps");
+    file(&maps, "fine.png");
+    file(&maps, "sealed/inside.png");
+    let sealed = maps.join("sealed");
+    fs::set_permissions(&sealed, fs::Permissions::from_mode(0o000)).expect("permissions");
+    if fs::read_dir(&sealed).is_ok() {
+        fs::set_permissions(&sealed, fs::Permissions::from_mode(0o755)).expect("permissions");
+        eprintln!(
+            "skipped: this process may list a sealed folder, so the check would prove nothing"
+        );
+        return;
+    }
+    let mut app = editor(root.path());
+
+    let outcome = add(&mut app, &maps, "Maps");
+    fs::set_permissions(&sealed, fs::Permissions::from_mode(0o755)).expect("permissions");
+
+    let added = outcome.expect("the folder is added");
+    assert_eq!(added.skips.unlisted_folders, 1);
+    let folders = folders(&mut app);
+    assert_eq!(places(&folders[0]), vec!["fine.png"]);
+    assert_eq!(folders[0].skips.unlisted_folders, 1);
+}
+
 /// A file whose name is not valid Unicode is not an Asset, and the rest of the folder is indexed.
 ///
 /// Linux only: Apple's file system refuses such a name, and Windows paths are always Unicode.
@@ -492,6 +537,38 @@ fn remembered_across_starts() {
     assert_eq!(folders[0].key, added.key);
     assert_eq!(folders[0].path, maps);
     assert_eq!(places(&folders[0]), vec!["table.png"]);
+}
+
+/// A remembered folder whose path cannot be read at start stays known, with no Assets, and is
+/// reported; its Manifest is kept, so the folder is back once its path is.
+#[test]
+fn a_remembered_folder_that_cannot_be_scanned_stays_known() {
+    let root = TempDir::new().expect("temporary root");
+    let maps = folder(root.path(), "maps");
+    file(&maps, "table.png");
+    let added = {
+        let mut app = editor(root.path());
+        add(&mut app, &maps, "Maps").expect("the folder is added")
+    };
+    fs::remove_dir_all(&maps).expect("remove the folder");
+
+    let mut again = editor(root.path());
+
+    let folders = folders(&mut again);
+    assert_eq!(folders.len(), 1);
+    assert_eq!(folders[0].name, CanonicalName("Maps".to_owned()));
+    assert_eq!(folders[0].key, added.key);
+    assert_eq!(folders[0].path, maps);
+    assert!(folders[0].assets.is_empty());
+    let unavailable: Vec<FolderUnavailable> = again
+        .world_mut()
+        .resource_mut::<Messages<FolderUnavailable>>()
+        .drain()
+        .collect();
+    assert_eq!(unavailable.len(), 1);
+    assert_eq!(unavailable[0].name, CanonicalName("Maps".to_owned()));
+    assert_eq!(unavailable[0].path, maps);
+    assert_eq!(manifests(root.path()).len(), 1);
 }
 
 /// Assets added to or removed from a remembered folder while the editor was closed appear in or
