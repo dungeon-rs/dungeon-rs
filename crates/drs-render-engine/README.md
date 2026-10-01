@@ -3,11 +3,14 @@
 The Engine that draws the Level, in the editor and for Export.
 
 The viewport systems of the [`RenderEnginePlugin`](crate::RenderEnginePlugin)
-read the model through change detection and keep one sprite per Prop: its image
-loaded through the `lib://` asset source at the Element's size in cells,
-positioned at the Element's centre, and stacked in the order of the Layer's
-children, each at its own depth. A Prop whose image cannot be loaded is drawn
-as a flat coloured placeholder of its recorded size.
+read the model through change detection and keep one sprite per Element: a
+Prop's image loaded through the `lib://` asset source from where the Project's
+resolution table says its Asset Reference loads on this device, at the
+Element's size in cells, positioned at the Element's centre, and stacked in the
+order of the Layer's children, each at its own depth. A Prop whose image cannot
+be loaded or whose Asset is Missing, and an Element of a kind this editor does
+not know, are drawn as the same flat coloured placeholder of their recorded
+size.
 
 One Grid cell is one world unit, `x` to the right and `y` upwards, so an
 Element's position and size in cells are its translation and size as drawn.

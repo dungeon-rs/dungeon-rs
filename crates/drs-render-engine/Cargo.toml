@@ -22,7 +22,6 @@ bevy_transform = { workspace = true }
 drs-library-access = { path = "../drs-library-access" }
 drs-model = { path = "../drs-model" }
 log = { workspace = true }
-unicode-normalization = { workspace = true }
 
 [features]
 default = []

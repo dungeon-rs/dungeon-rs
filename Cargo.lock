@@ -2584,7 +2584,6 @@ dependencies = [
  "drs-library-access",
  "drs-model",
  "log",
- "unicode-normalization",
 ]
 
 [[package]]
