@@ -65,7 +65,7 @@ Contract: ReadProject, WriteProject, ReadEmbedded, StoreEmbedded.
 
 ### LibraryAccess
 Volatility: Asset sources.
-Contract: ScanFolder, LoadAsset, InstallArchive, WriteManifest, Thumbnail.
+Contract: ScanFolder, LoadAsset, InstallArchive, Manifests (read, write, forget), Thumbnail.
 
 ### OutputAccess
 Volatility: output.
@@ -206,7 +206,7 @@ sequenceDiagram
   actor Author
   Author->>Editor: add a folder
   Editor->>LibraryManager: AddFolder(path, Canonical Name)
-  LibraryManager->>LibraryAccess: WriteManifest, ScanFolder
+  LibraryManager->>LibraryAccess: Manifests (write), ScanFolder
   LibraryManager->>CatalogEngine: Classify(files)
   LibraryManager--)ProjectManager: Asset Folder Changed (queued)
   ProjectManager->>CatalogEngine: Resolve(affected references)
