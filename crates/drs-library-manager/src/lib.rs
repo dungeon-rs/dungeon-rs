@@ -15,7 +15,8 @@ use bevy_ecs::system::SystemState;
 use bevy_ecs::world::World;
 use drs_library_access::LibraryError;
 use drs_model::{
-    AddFolder, AssetFolder, EditorDirectories, FolderRefused, FolderUnavailable, ManagerSystems,
+    AddFolder, AssetFolder, AssetFolderChanged, EditorDirectories, FolderRefused,
+    FolderUnavailable, ManagerSystems,
 };
 
 /// What can go wrong inside the Manager, beyond a refusal.
@@ -29,7 +30,8 @@ pub enum LibraryManagerError {
     NotAFolder,
 }
 
-/// Handles [`AddFolder`] and restores the remembered Asset Folders at startup.
+/// Handles [`AddFolder`] and restores the remembered Asset Folders at startup, announcing each
+/// folder that arrives or goes with [`AssetFolderChanged`].
 pub struct LibraryManagerPlugin;
 
 impl Plugin for LibraryManagerPlugin {
@@ -58,7 +60,8 @@ fn handle_add_folder(world: &mut World, requests: &mut SystemState<MessageReader
     }
 }
 
-/// Reads every Manifest and refreshes each remembered folder.
+/// Reads every Manifest and refreshes each remembered folder, announcing each with
+/// [`AssetFolderChanged`].
 ///
 /// A folder that cannot be indexed stays known with no Assets and is reported as
 /// [`FolderUnavailable`]; a file that is not a Manifest is logged and skipped.
@@ -98,10 +101,13 @@ fn restore_folders(world: &mut World) {
         if let Err(error) = refresh(world, folder) {
             world.write_message(FolderUnavailable {
                 folder,
-                name: manifest.name,
+                name: manifest.name.clone(),
                 path: manifest.path,
                 reason: error.to_string(),
             });
         }
+        world.write_message(AssetFolderChanged {
+            name: manifest.name,
+        });
     }
 }

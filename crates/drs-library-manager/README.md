@@ -19,6 +19,12 @@ Assets added to or removed from a folder while the editor was closed appear or
 disappear. [`refresh`](crate::refresh) is part of the contract and rescans one
 folder on demand.
 
+Whenever a folder arrives or goes, at startup, on Add Asset Folder, and on its
+undo and redo, the Manager announces Asset Folder Changed
+([`AssetFolderChanged`](drs_model::AssetFolderChanged)) with the folder's
+Canonical Name, so that the project Manager resolves again whatever a Project
+records against that name.
+
 ## Features
 
 - `default`: nothing is enabled by default.

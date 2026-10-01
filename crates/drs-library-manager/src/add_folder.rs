@@ -4,16 +4,11 @@ use crate::index::{index_folder, library};
 use bevy_ecs::entity::Entity;
 use bevy_ecs::error::BevyError;
 use bevy_ecs::world::World;
+use drs_catalog_engine::same_name;
 use drs_history::ReversibleCommand;
 use drs_library_access::{Manifest, forget_manifest, write_manifest};
-use drs_model::{AssetFolder, CanonicalName, FolderAdded, FolderRefusal};
+use drs_model::{AssetFolder, AssetFolderChanged, CanonicalName, FolderAdded, FolderRefusal};
 use std::path::{Path, PathBuf};
-use unicode_normalization::UnicodeNormalization;
-
-/// A Canonical Name as compared for uniqueness: Unicode-normalised and in lower case.
-fn folded(name: &CanonicalName) -> String {
-    name.as_str().nfc().collect::<String>().to_lowercase()
-}
 
 /// The folder's path with every symbolic link, `.`, `..`, and case variation resolved, so two
 /// spellings of one folder compare equal.
@@ -64,9 +59,8 @@ fn check(world: &mut World, path: &Path, name: &CanonicalName) -> Result<(), Fol
             });
         }
     }
-    let wanted = folded(name);
     for folder in &added {
-        if folded(&folder.name) == wanted {
+        if same_name(&folder.name, name) {
             return Err(FolderRefusal::NameInUse {
                 name: folder.name.clone(),
                 path: folder.path.clone(),
@@ -77,6 +71,9 @@ fn check(world: &mut World, path: &Path, name: &CanonicalName) -> Result<(), Fol
 }
 
 /// The recorded step: writing the Manifest, indexing the folder, and writing it into the World.
+///
+/// Applying and reverting both announce Asset Folder Changed for the Canonical Name, so that
+/// whatever refers to the folder's Assets by that name resolves them again.
 struct AddAssetFolder {
     /// What the folder is remembered by.
     manifest: Manifest,
@@ -112,6 +109,9 @@ impl ReversibleCommand for AddAssetFolder {
             })
             .id();
         self.folder = Some(folder);
+        world.write_message(AssetFolderChanged {
+            name: self.manifest.name.clone(),
+        });
         Ok(())
     }
 
@@ -121,6 +121,9 @@ impl ReversibleCommand for AddAssetFolder {
         if let Some(folder) = self.folder.take() {
             world.despawn(folder);
         }
+        world.write_message(AssetFolderChanged {
+            name: self.manifest.name.clone(),
+        });
         Ok(())
     }
 }
