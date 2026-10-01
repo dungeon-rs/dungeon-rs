@@ -55,26 +55,27 @@ struct Place {
 
 impl ReversibleCommand for Place {
     fn apply(&mut self, world: &mut World) -> Result<(), BevyError> {
+        if world.get_entity(self.layer).is_err() {
+            return Err(AuthoringError::NotALayer.into());
+        }
         let row = world
             .get_mut::<AssetReferences>(self.project)
             .ok_or(AuthoringError::NoProject)?
             .record(self.reference.clone())?;
+        let entity = world
+            .spawn((
+                Element {
+                    kind: PROP,
+                    position: self.position,
+                    size: self.size,
+                },
+                Prop { asset: row },
+                self.element,
+            ))
+            .id();
         let mut layer = world
             .get_entity_mut(self.layer)
             .map_err(|_| AuthoringError::NotALayer)?;
-        let entity = layer.world_scope(|world| {
-            world
-                .spawn((
-                    Element {
-                        kind: PROP,
-                        position: self.position,
-                        size: self.size,
-                    },
-                    Prop { asset: row },
-                    self.element,
-                ))
-                .id()
-        });
         if let Some(index) = self.index {
             layer.insert_child(index, entity);
         } else {
