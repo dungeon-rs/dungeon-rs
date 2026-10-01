@@ -1,6 +1,6 @@
 //! The messages the Editor sends to the Managers, and the reports that come back.
 
-use crate::{CanonicalName, ElementId, FolderKey};
+use crate::{CanonicalName, ElementId, FolderKey, ScanSkips};
 use bevy_ecs::entity::Entity;
 use bevy_ecs::message::Message;
 use bevy_math::Vec2;
@@ -26,6 +26,8 @@ pub struct FolderAdded {
     pub name: CanonicalName,
     /// The folder's device-local key.
     pub key: FolderKey,
+    /// What indexing the folder skipped, for the Editor to show.
+    pub skips: ScanSkips,
 }
 
 /// An [`AddFolder`] was refused and nothing was recorded.

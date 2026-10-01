@@ -9,6 +9,7 @@ mod project;
 pub use assets::{
     AssetFolder, AssetFolderReference, AssetKind, AssetReference, AssetReferenceRow,
     AssetReferences, AssetReferencesFull, CanonicalName, Fingerprint, FolderKey, IndexedAsset,
+    ScanSkips,
 };
 pub use directories::EditorDirectories;
 pub use element::{

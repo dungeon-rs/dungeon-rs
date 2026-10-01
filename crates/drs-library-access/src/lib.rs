@@ -11,7 +11,7 @@ pub use load::{LoadedAsset, asset_path, load_asset};
 pub use manifest::{
     Manifest, ManifestsRead, Rename, forget_manifest, read_manifests, write_manifest,
 };
-pub use scan::{Scan, ScanDiff, ScanSkips, ScannedFile, scan_folder};
+pub use scan::{Scan, ScanDiff, ScannedFile, scan_folder};
 pub use source::{LIBRARY_SOURCE, LibraryTable, register_library_source};
 
 use bevy_app::{App, Plugin};

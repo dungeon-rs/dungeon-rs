@@ -8,7 +8,8 @@ of its path, and neither inside nor around an added folder; the Canonical Name i
 not blank and not already in use on this device, ignoring case and Unicode
 normalisation), then its Manifest is written, the folder scanned, its files
 classified, and an [`AssetFolder`](drs_model::AssetFolder) entity written into the
-World. The step is recorded in the history: undoing it forgets the folder,
+World, along with how many entries the scan skipped so the Editor can say so.
+The step is recorded in the history: undoing it forgets the folder,
 redoing it adds the folder again under the same name without asking. A refusal
 goes back to the Editor as a [`FolderRefused`](drs_model::FolderRefused) with
 its reason.

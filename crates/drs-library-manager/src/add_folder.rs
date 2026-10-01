@@ -94,7 +94,7 @@ impl ReversibleCommand for AddAssetFolder {
             &self.manifest.key,
             &self.manifest.path,
         );
-        let (assets, _) = match indexed {
+        let (assets, scan) = match indexed {
             Ok(indexed) => indexed,
             Err(error) => {
                 forget_manifest(&directories, &table, &self.manifest.key)?;
@@ -107,6 +107,7 @@ impl ReversibleCommand for AddAssetFolder {
                 key: self.manifest.key.clone(),
                 path: self.manifest.path.clone(),
                 assets,
+                skips: scan.skips,
             })
             .id();
         self.folder = Some(folder);
@@ -156,6 +157,7 @@ pub(crate) fn add_folder(
             folder,
             name: added.name.clone(),
             key: added.key.clone(),
+            skips: added.skips,
         })
         .ok_or(FolderRefusal::Failed {
             reason: "the folder was indexed but is not in the World".to_owned(),

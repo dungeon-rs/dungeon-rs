@@ -75,6 +75,7 @@ pub fn refresh(world: &mut World, folder: Entity) -> Result<ScanDiff, LibraryMan
     let (assets, scan) = index_folder(&directories, &table, &key, &path)?;
     if let Some(mut added) = world.get_mut::<AssetFolder>(folder) {
         added.assets = assets;
+        added.skips = scan.skips;
     }
     Ok(scan.diff)
 }

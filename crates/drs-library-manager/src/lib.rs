@@ -88,6 +88,7 @@ fn restore_folders(world: &mut World) {
                 key: manifest.key.clone(),
                 path: manifest.path.clone(),
                 assets: Vec::new(),
+                skips: drs_model::ScanSkips::default(),
             })
             .id();
         if let Err(error) = refresh(world, folder) {

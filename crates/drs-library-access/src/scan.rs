@@ -3,7 +3,7 @@
 
 use crate::manifest::write_atomically;
 use crate::{LibraryDirectories, LibraryError, LibraryTable};
-use drs_model::FolderKey;
+use drs_model::{FolderKey, ScanSkips};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use std::path::Path;
@@ -18,17 +18,6 @@ pub struct ScannedFile {
     pub byte_size: u64,
     /// When the file was last modified, as time since the Unix epoch.
     pub modified: Duration,
-}
-
-/// What a scan left out, and how much.
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
-pub struct ScanSkips {
-    /// Entries whose name is not valid Unicode.
-    pub non_unicode_names: usize,
-    /// Folders inside the Asset Folder that could not be listed.
-    pub unlisted_folders: usize,
-    /// Entries whose metadata could not be read.
-    pub unreadable_entries: usize,
 }
 
 /// What changed in a folder since its index cache was written, by place.

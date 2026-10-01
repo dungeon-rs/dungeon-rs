@@ -103,6 +103,17 @@ pub struct IndexedAsset {
     pub modified: Duration,
 }
 
+/// What indexing an Asset Folder left out, and how much.
+#[derive(Reflect, Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct ScanSkips {
+    /// Entries whose name is not valid Unicode.
+    pub non_unicode_names: usize,
+    /// Folders inside the Asset Folder that could not be listed.
+    pub unlisted_folders: usize,
+    /// Entries whose metadata could not be read.
+    pub unreadable_entries: usize,
+}
+
 /// An Asset Folder added on this device: a folder of Assets used as-is, in place.
 #[derive(Component, Reflect, Debug, Clone, PartialEq, Eq)]
 #[reflect(Component)]
@@ -115,6 +126,8 @@ pub struct AssetFolder {
     pub path: PathBuf,
     /// The Assets in the folder, ordered by place.
     pub assets: Vec<IndexedAsset>,
+    /// What the last indexing of the folder skipped.
+    pub skips: ScanSkips,
 }
 
 /// What a Project records about one Asset it uses.
