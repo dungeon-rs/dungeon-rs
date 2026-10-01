@@ -10,10 +10,18 @@ repository.workspace = true
 authors.workspace = true
 
 [dependencies]
+bevy_app = { workspace = true }
+bevy_ecs = { workspace = true }
+bevy_math = { workspace = true }
+bevy_reflect = { workspace = true }
+drs-history = { path = "../drs-history" }
+serde = { workspace = true }
+thiserror = { workspace = true }
+uuid = { workspace = true }
 
 [features]
 default = []
-dev = []
+dev = ["drs-history/dev"]
 
 [lints]
 workspace = true
