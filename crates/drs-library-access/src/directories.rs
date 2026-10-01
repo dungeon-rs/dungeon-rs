@@ -40,14 +40,12 @@ impl LibraryDirectories {
     }
 
     /// The file holding the Manifest of the folder with `key`.
-    #[must_use]
-    pub fn manifest_file(&self, key: &drs_model::FolderKey) -> PathBuf {
+    pub(crate) fn manifest_file(&self, key: &drs_model::FolderKey) -> PathBuf {
         self.configuration.join(format!("{}.json", key.as_str()))
     }
 
     /// The file holding the index cache of the folder with `key`.
-    #[must_use]
-    pub fn index_cache_file(&self, key: &drs_model::FolderKey) -> PathBuf {
+    pub(crate) fn index_cache_file(&self, key: &drs_model::FolderKey) -> PathBuf {
         self.cache.join(format!("{}.index.json", key.as_str()))
     }
 }

@@ -27,7 +27,7 @@ pub struct LibraryTable {
 
 impl LibraryTable {
     /// Makes the folder at `path` readable under `key`.
-    pub fn insert(&self, key: &FolderKey, path: PathBuf) {
+    pub(crate) fn insert(&self, key: &FolderKey, path: PathBuf) {
         self.folders
             .write()
             .unwrap_or_else(PoisonError::into_inner)
@@ -35,21 +35,11 @@ impl LibraryTable {
     }
 
     /// Stops reading the folder under `key`.
-    pub fn remove(&self, key: &FolderKey) {
+    pub(crate) fn remove(&self, key: &FolderKey) {
         self.folders
             .write()
             .unwrap_or_else(PoisonError::into_inner)
             .remove(key.as_str());
-    }
-
-    /// The path of the folder under `key`, if it is registered.
-    #[must_use]
-    pub fn path_of(&self, key: &FolderKey) -> Option<PathBuf> {
-        self.folders
-            .read()
-            .unwrap_or_else(PoisonError::into_inner)
-            .get(key.as_str())
-            .cloned()
     }
 
     /// The file an asset path (the part after `lib://`) names, refusing anything that is not a

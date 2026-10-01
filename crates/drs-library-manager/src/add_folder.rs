@@ -5,7 +5,7 @@ use bevy_ecs::entity::Entity;
 use bevy_ecs::error::BevyError;
 use bevy_ecs::world::World;
 use drs_history::ReversibleCommand;
-use drs_library_access::{Manifest, remove_manifest, write_manifest};
+use drs_library_access::{Manifest, forget_manifest, write_manifest};
 use drs_model::{AssetFolder, CanonicalName, FolderAdded, FolderRefusal};
 use std::path::{Path, PathBuf};
 use unicode_normalization::UnicodeNormalization;
@@ -96,7 +96,7 @@ impl ReversibleCommand for AddAssetFolder {
         let (assets, _) = match indexed {
             Ok(indexed) => indexed,
             Err(error) => {
-                remove_manifest(&directories, &self.manifest.key)?;
+                forget_manifest(&directories, &table, &self.manifest.key)?;
                 return Err(error.into());
             }
         };
@@ -114,11 +114,10 @@ impl ReversibleCommand for AddAssetFolder {
 
     fn revert(&mut self, world: &mut World) -> Result<(), BevyError> {
         let (directories, table) = library(world)?;
+        forget_manifest(&directories, &table, &self.manifest.key)?;
         if let Some(folder) = self.folder.take() {
             world.despawn(folder);
         }
-        table.remove(&self.manifest.key);
-        remove_manifest(&directories, &self.manifest.key)?;
         Ok(())
     }
 }

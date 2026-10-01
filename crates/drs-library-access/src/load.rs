@@ -29,7 +29,7 @@ pub fn asset_path(key: &FolderKey, place: &str) -> String {
 /// # Errors
 ///
 /// [`LibraryError::EscapesFolder`] when `place` is absolute or holds a `..` component.
-pub fn file_in_folder(folder: &Path, place: &str) -> Result<PathBuf, LibraryError> {
+pub(crate) fn file_in_folder(folder: &Path, place: &str) -> Result<PathBuf, LibraryError> {
     let relative = Path::new(place);
     let inside = relative.components().all(|component| match component {
         Component::Normal(_) | Component::CurDir => true,

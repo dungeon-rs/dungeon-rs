@@ -1,6 +1,6 @@
 //! The Manifest: the editor's description of an Asset Folder, kept in the configuration directory.
 
-use crate::{LibraryDirectories, LibraryError};
+use crate::{LibraryDirectories, LibraryError, LibraryTable};
 use drs_model::{CanonicalName, FolderKey};
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
@@ -77,8 +77,8 @@ fn civil_from_days(days: i64) -> (i64, u32, u32) {
     (year, month, day)
 }
 
-/// `WriteManifest`: records `manifest` in the configuration directory, replacing any earlier one
-/// for the same key.
+/// `Manifests`, writing: records `manifest` in the configuration directory, replacing any earlier
+/// one for the same key.
 ///
 /// # Errors
 ///
@@ -120,25 +120,32 @@ pub(crate) fn write_atomically(file: &Path, bytes: &[u8]) -> Result<(), LibraryE
     })
 }
 
-/// `WriteManifest`, forgetting: removes the Manifest of the folder with `key`, if there is one.
+/// `Manifests`, forgetting: removes the Manifest of the folder with `key`, if there is one, and
+/// stops serving the folder through the `lib://` source.
 ///
 /// # Errors
 ///
-/// [`LibraryError::Io`] when the file exists and cannot be removed.
-pub fn remove_manifest(
+/// [`LibraryError::Io`] when the file exists and cannot be removed; the folder is then still
+/// served.
+pub fn forget_manifest(
     directories: &LibraryDirectories,
+    table: &LibraryTable,
     key: &FolderKey,
 ) -> Result<(), LibraryError> {
     let file = directories.manifest_file(key);
     match std::fs::remove_file(&file) {
-        Ok(()) => Ok(()),
-        Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(()),
-        Err(source) => Err(LibraryError::Io {
-            action: "remove",
-            path: file,
-            source,
-        }),
+        Ok(()) => {}
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+        Err(source) => {
+            return Err(LibraryError::Io {
+                action: "remove",
+                path: file,
+                source,
+            });
+        }
     }
+    table.remove(key);
+    Ok(())
 }
 
 /// Every Manifest in the configuration directory, and the files there that are not Manifests.
@@ -150,7 +157,8 @@ pub struct ManifestsRead {
     pub skipped: Vec<LibraryError>,
 }
 
-/// Reads every Manifest in the configuration directory. A directory that does not exist holds none.
+/// `Manifests`, reading: every Manifest in the configuration directory. A directory that does not
+/// exist holds none.
 ///
 /// # Errors
 ///

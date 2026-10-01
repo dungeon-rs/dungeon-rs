@@ -2,9 +2,9 @@
 
 The `ResourceAccess` that reads Asset Folders and their Assets.
 
-Its contract: [`write_manifest`](crate::write_manifest) (with
-[`remove_manifest`](crate::remove_manifest) to forget a folder and
-[`read_manifests`](crate::read_manifests) to find every folder at startup),
+Its contract: the Manifests ([`read_manifests`](crate::read_manifests) to find
+every folder at startup, [`write_manifest`](crate::write_manifest) to remember a
+folder, and [`forget_manifest`](crate::forget_manifest) to drop one),
 [`scan_folder`](crate::scan_folder), and [`load_asset`](crate::load_asset).
 
 The Manifest of an Asset Folder lives in the editor's configuration directory
