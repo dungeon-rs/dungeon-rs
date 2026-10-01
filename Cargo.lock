@@ -2424,6 +2424,7 @@ dependencies = [
  "drs-project-manager",
  "drs-render-engine",
  "image",
+ "serde_json",
  "tempfile",
 ]
 
