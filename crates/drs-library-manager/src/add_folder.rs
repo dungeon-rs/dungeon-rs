@@ -106,6 +106,7 @@ impl ReversibleCommand for AddAssetFolder {
                 name: self.manifest.name.clone(),
                 key: self.manifest.key.clone(),
                 path: self.manifest.path.clone(),
+                version: self.manifest.version.clone(),
                 assets,
                 skips: scan.skips,
             })

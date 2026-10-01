@@ -87,6 +87,7 @@ fn restore_folders(world: &mut World) {
                 name: manifest.name.clone(),
                 key: manifest.key.clone(),
                 path: manifest.path.clone(),
+                version: manifest.version.clone(),
                 assets: Vec::new(),
                 skips: drs_model::ScanSkips::default(),
             })

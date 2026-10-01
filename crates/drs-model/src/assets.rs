@@ -124,6 +124,8 @@ pub struct AssetFolder {
     pub key: FolderKey,
     /// The folder's path as the Author gave it.
     pub path: PathBuf,
+    /// The folder's version as its Manifest records it.
+    pub version: String,
     /// The Assets in the folder, ordered by place.
     pub assets: Vec<IndexedAsset>,
     /// What the last indexing of the folder skipped.
@@ -196,17 +198,23 @@ impl AssetReferences {
 
     /// Adds an Asset Reference, or returns the row of the one already recorded for the same Asset.
     ///
+    /// The Asset Folder the Asset comes from is recorded the first time one of its Assets is.
+    ///
     /// # Errors
     ///
     /// [`AssetReferencesFull`] when the table has no row left, in which case nothing is added.
     pub fn record(
         &mut self,
         reference: AssetReference,
+        folder: AssetFolderReference,
     ) -> Result<AssetReferenceRow, AssetReferencesFull> {
         if let Some(row) = self.row_of(&reference.folder, &reference.place) {
             return Ok(row);
         }
         let row = u32::try_from(self.assets.len()).map_err(|_| AssetReferencesFull)?;
+        if !self.folders.iter().any(|known| known.name == folder.name) {
+            self.folders.push(folder);
+        }
         self.assets.push(reference);
         Ok(AssetReferenceRow(row))
     }

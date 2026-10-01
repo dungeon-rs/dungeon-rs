@@ -18,10 +18,10 @@ use drs_history::{History, HistoryPlugin};
 use drs_library_access::LibraryAccessPlugin;
 use drs_library_manager::LibraryManagerPlugin;
 use drs_model::{
-    AddFolder, Apply, AssetFolder, AssetKind, AssetReferences, CanonicalName, ChosenAsset,
-    CommandFailed, EditElement, EditorDirectories, Element, ElementChange, ElementId, Fingerprint,
-    FolderAdded, FolderKey, FolderRefused, Gesture, Layer, ModelPlugin, PROP, PlaceElement, Prop,
-    Redo, RemoveElement, Undo,
+    AddFolder, Apply, AssetFolder, AssetFolderReference, AssetKind, AssetReferences, CanonicalName,
+    ChosenAsset, CommandFailed, EditElement, EditorDirectories, Element, ElementChange, ElementId,
+    Fingerprint, FolderAdded, FolderKey, FolderRefused, Gesture, Layer, ModelPlugin, PROP,
+    PlaceElement, Prop, Redo, RemoveElement, Undo,
 };
 use drs_project_manager::ProjectManagerPlugin;
 use std::fs;
@@ -310,6 +310,26 @@ fn placement_records_a_reference() {
 
     fixture.place(TABLE, Vec2::ONE);
     assert_eq!(fixture.references().assets.len(), 1);
+}
+
+/// Placing a Prop records its Asset Folder's Canonical Name and version in the Project once.
+#[test]
+fn placement_records_the_folder() {
+    let mut fixture = Fixture::new();
+    let folder = fixture.folders().remove(0);
+    assert!(!folder.version.is_empty(), "the folder has a version");
+
+    fixture.place(TABLE, Vec2::ZERO);
+    assert_eq!(
+        fixture.references().folders,
+        vec![AssetFolderReference {
+            name: CanonicalName("Fixtures".to_owned()),
+            version: folder.version,
+        }]
+    );
+
+    fixture.place(BARREL, Vec2::ONE);
+    assert_eq!(fixture.references().folders.len(), 1);
 }
 
 /// A Prop may be placed outside the Bounds.

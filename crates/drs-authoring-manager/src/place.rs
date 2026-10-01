@@ -9,8 +9,8 @@ use bevy_math::Vec2;
 use drs_history::{ReversibleCommand, Target};
 use drs_library_access::load_asset;
 use drs_model::{
-    AssetFolder, AssetReference, AssetReferences, Element, ElementId, Grid, Layer, PROP,
-    PlaceElement, Project, Prop,
+    AssetFolder, AssetFolderReference, AssetReference, AssetReferences, Element, ElementId, Grid,
+    Layer, PROP, PlaceElement, Project, Prop,
 };
 use unicode_normalization::UnicodeNormalization;
 
@@ -33,9 +33,10 @@ fn project_of(world: &World, layer: Entity) -> Result<Entity, AuthoringError> {
 /// The recorded step: the Element spawned on top of its Layer, keeping its identity and its
 /// place in the stacking order so that redo puts it back exactly.
 ///
-/// The Asset Reference row the Element refers to is recorded on the first application and never
-/// removed: undoing the placement leaves the row in the table, and placing the Asset again reuses
-/// it. Pruning rows no Element uses is a later concern.
+/// The Asset Reference row the Element refers to, and the Asset Folder row it comes from, are
+/// recorded on the first application and never removed: undoing the placement leaves them in the
+/// table, and placing the Asset again reuses them. Pruning rows no Element uses is a later
+/// concern.
 struct Place {
     /// The Project whose Asset Reference table records the Asset.
     project: Entity,
@@ -47,6 +48,8 @@ struct Place {
     size: Vec2,
     /// What the Project records about the Asset.
     reference: AssetReference,
+    /// What the Project records about the Asset's folder.
+    folder: AssetFolderReference,
     /// The identity the Element keeps through undo and redo.
     element: ElementId,
     /// The Element's index among the Layer's children, once it has been placed.
@@ -61,7 +64,7 @@ impl ReversibleCommand for Place {
         let row = world
             .get_mut::<AssetReferences>(self.project)
             .ok_or(AuthoringError::NoProject)?
-            .record(self.reference.clone())?;
+            .record(self.reference.clone(), self.folder.clone())?;
         let entity = world
             .spawn((
                 Element {
@@ -154,6 +157,10 @@ pub(crate) fn place_element(
             position: command.position,
             size,
             reference,
+            folder: AssetFolderReference {
+                name: folder.name,
+                version: folder.version,
+            },
             element: ElementId::new(),
             index: None,
         },
