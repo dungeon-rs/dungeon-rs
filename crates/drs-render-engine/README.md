@@ -12,8 +12,8 @@ as a flat coloured placeholder of its recorded size.
 One Grid cell is one world unit, `x` to the right and `y` upwards, so an
 Element's position and size in cells are its translation and size as drawn.
 The projection is a 2D camera that follows the model's `Viewport`: it looks at
-the cell the Viewport puts at the centre of its area, and shows a cell as as
-many pixels as the Viewport's zoom says.
+the cell the Viewport puts at the centre of its area, and shows a cell as
+as many pixels as the Viewport's zoom says.
 
 ## Features
 

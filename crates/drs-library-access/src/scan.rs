@@ -42,7 +42,10 @@ impl ScanDiff {
 /// The result of scanning an Asset Folder.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct Scan {
-    /// Every file found, ordered by place. Hidden entries and symbolic links are left out.
+    /// Every file found, ordered by place, whether or not it is an Asset: the scan and the index
+    /// cache it is diffed against know files by their metadata alone, and which files are
+    /// Assets is decided afterwards by classifying them. Hidden entries and symbolic links are
+    /// left out.
     pub files: Vec<ScannedFile>,
     /// What was skipped.
     pub skips: ScanSkips,
