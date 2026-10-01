@@ -186,6 +186,15 @@ pub struct RemoveElement {
     pub element: ElementId,
 }
 
+/// An [`Apply`] could not be carried out and nothing was recorded.
+#[derive(Message, Debug, Clone, PartialEq)]
+pub struct CommandFailed {
+    /// The Command that failed.
+    pub command: Apply,
+    /// Why, in words the Author can be shown.
+    pub reason: String,
+}
+
 /// Take the most recent step back.
 #[derive(Message, Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub struct Undo;

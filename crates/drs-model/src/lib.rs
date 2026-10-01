@@ -15,8 +15,9 @@ pub use element::{
     Element, ElementId, ElementKindDescriptor, ElementKindName, ElementKindRegistry, PROP, Prop,
 };
 pub use messages::{
-    AddFolder, Apply, ChosenAsset, EditElement, ElementChange, FolderAdded, FolderRefusal,
-    FolderRefused, FolderUnavailable, Gesture, PlaceElement, Redo, RemoveElement, Undo,
+    AddFolder, Apply, ChosenAsset, CommandFailed, EditElement, ElementChange, FolderAdded,
+    FolderRefusal, FolderRefused, FolderUnavailable, Gesture, PlaceElement, Redo, RemoveElement,
+    Undo,
 };
 pub use project::{Bounds, Grid, Layer, Level, Project};
 
@@ -45,6 +46,7 @@ impl Plugin for ModelPlugin {
             .add_message::<FolderRefused>()
             .add_message::<FolderUnavailable>()
             .add_message::<Apply>()
+            .add_message::<CommandFailed>()
             .add_message::<Undo>()
             .add_message::<Redo>();
     }
