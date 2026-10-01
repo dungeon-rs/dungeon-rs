@@ -3,7 +3,9 @@
 use crate::state::EditorState;
 use bevy::ecs::message::MessageReader;
 use bevy::ecs::system::ResMut;
-use drs_model::{CommandFailed, FolderAdded, FolderRefused, FolderUnavailable, HistoryFailed};
+use drs_model::{
+    CommandFailed, FolderAdded, FolderRefused, FolderUnavailable, HistoryFailed, ScanSkips,
+};
 
 /// Reports every answer of the current frame.
 ///
@@ -17,8 +19,8 @@ pub(crate) fn report(
     mut failed: MessageReader<CommandFailed>,
     mut history_failed: MessageReader<HistoryFailed>,
 ) {
-    for FolderAdded { name, .. } in added.read() {
-        state.status = format!("Added the Asset Folder {name}");
+    for FolderAdded { name, skips, .. } in added.read() {
+        state.status = format!("Added the Asset Folder {name}{}", skipped(skips));
         if state.prompt.as_ref().is_some_and(|prompt| prompt.awaiting) {
             state.prompt = None;
         }
@@ -43,5 +45,36 @@ pub(crate) fn report(
     }
     for HistoryFailed { reason } in history_failed.read() {
         state.status.clone_from(reason);
+    }
+}
+
+/// What indexing left out, as a clause for the status line; empty when nothing was skipped.
+fn skipped(skips: &ScanSkips) -> String {
+    let counts = [
+        (
+            skips.unlisted_folders,
+            "folder that could not be listed",
+            "folders that could not be listed",
+        ),
+        (
+            skips.unreadable_entries,
+            "entry that could not be read",
+            "entries that could not be read",
+        ),
+        (
+            skips.non_unicode_names,
+            "name that is not valid Unicode",
+            "names that are not valid Unicode",
+        ),
+    ];
+    let parts: Vec<String> = counts
+        .into_iter()
+        .filter(|(count, _, _)| *count > 0)
+        .map(|(count, one, many)| format!("{count} {}", if count == 1 { one } else { many }))
+        .collect();
+    if parts.is_empty() {
+        String::new()
+    } else {
+        format!(" (skipped {})", parts.join(", "))
     }
 }
