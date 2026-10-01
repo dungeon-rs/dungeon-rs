@@ -49,27 +49,10 @@ impl Classifier {
         }
     }
 
-    /// A classifier with no rules, for callers that supply every rule themselves.
-    #[must_use]
-    pub fn empty() -> Self {
-        Self { rules: Vec::new() }
-    }
-
-    /// Adds a rule, asked after those already present.
-    pub fn add_rule(&mut self, rule: impl IndexingRule + 'static) {
-        self.rules.push(Box::new(rule));
-    }
-
     /// Classify: the Asset Kind of the file at `place` in its folder, or `None` when it is not
     /// an Asset.
     #[must_use]
     pub fn classify(&self, place: &Path) -> Option<AssetKind> {
         self.rules.iter().find_map(|rule| rule.classify(place))
     }
-}
-
-/// Classify with the built-in rules alone.
-#[must_use]
-pub fn classify(place: &Path) -> Option<AssetKind> {
-    Classifier::built_in().classify(place)
 }

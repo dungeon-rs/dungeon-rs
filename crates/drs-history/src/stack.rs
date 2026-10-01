@@ -61,12 +61,6 @@ impl History {
         self.undo.len() + usize::from(self.group.as_ref().is_some_and(|g| !g.is_empty()))
     }
 
-    /// How many steps can be redone.
-    #[must_use]
-    pub fn redo_depth(&self) -> usize {
-        self.redo.len()
-    }
-
     /// Whether there is a step to undo.
     #[must_use]
     pub fn can_undo(&self) -> bool {
@@ -94,12 +88,6 @@ impl History {
         {
             self.undo.push(Step::Group(commands));
         }
-    }
-
-    /// Whether a group is open.
-    #[must_use]
-    pub fn is_grouping(&self) -> bool {
-        self.group.is_some()
     }
 
     /// Records an applied command and discards whatever could be redone.
