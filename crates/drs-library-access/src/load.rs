@@ -14,8 +14,6 @@ pub struct LoadedAsset {
     pub pixel_size: UVec2,
     /// The BLAKE3 fingerprint of the file's content.
     pub fingerprint: Fingerprint,
-    /// The `lib://` path that loads the image through the asset server.
-    pub asset_path: String,
 }
 
 /// The `lib://` path of the Asset at `place` in the folder with `key`.
@@ -43,18 +41,14 @@ pub(crate) fn file_in_folder(folder: &Path, place: &str) -> Result<PathBuf, Libr
     Ok(folder.join(relative))
 }
 
-/// `LoadAsset`: reads the Asset at `place` in the folder at `folder` (whose key is `key`) and
-/// yields its byte size, pixel size, fingerprint, and `lib://` path.
+/// `LoadAsset`: reads the Asset at `place` in the folder at `folder` and yields its byte size,
+/// pixel size, and fingerprint.
 ///
 /// # Errors
 ///
 /// [`LibraryError::EscapesFolder`] when `place` is not inside the folder, [`LibraryError::Io`]
 /// when the file cannot be read, or [`LibraryError::BadImage`] when its header is not an image.
-pub fn load_asset(
-    folder: &Path,
-    key: &FolderKey,
-    place: &str,
-) -> Result<LoadedAsset, LibraryError> {
+pub fn load_asset(folder: &Path, place: &str) -> Result<LoadedAsset, LibraryError> {
     let file = file_in_folder(folder, place)?;
     let bytes = std::fs::read(&file).map_err(|source| LibraryError::Io {
         action: "read",
@@ -77,6 +71,5 @@ pub fn load_asset(
         byte_size: u64::try_from(bytes.len()).unwrap_or(u64::MAX),
         pixel_size: UVec2::new(width, height),
         fingerprint: Fingerprint::blake3(&digest.to_hex()),
-        asset_path: asset_path(key, place),
     })
 }

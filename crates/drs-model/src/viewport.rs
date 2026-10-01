@@ -49,13 +49,6 @@ impl Viewport {
         self.centre + Vec2::new(offset.x, -offset.y) / self.zoom
     }
 
-    /// The screen point of a cell.
-    #[must_use]
-    pub fn point_of(&self, cells: Vec2) -> Vec2 {
-        let offset = (cells - self.centre) * self.zoom;
-        self.area.center() + Vec2::new(offset.x, -offset.y)
-    }
-
     /// Whether a screen point lies in the area the Level is shown in.
     #[must_use]
     pub fn contains(&self, point: Vec2) -> bool {

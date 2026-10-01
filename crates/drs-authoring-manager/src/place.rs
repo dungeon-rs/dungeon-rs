@@ -126,7 +126,7 @@ pub(crate) fn place_element(
             folder: folder.name.clone(),
             place: command.asset.place.clone(),
         })?;
-    let loaded = load_asset(&folder.path, &folder.key, &indexed.place)?;
+    let loaded = load_asset(&folder.path, &indexed.place)?;
 
     #[expect(
         clippy::cast_precision_loss,
