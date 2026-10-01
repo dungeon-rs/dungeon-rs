@@ -8,12 +8,11 @@ Spec-level decisions parked during domain work. The spec skill picks these up; r
 - How far automatic matching goes (format twins, recognising a folder whose Canonical Name differs).
 - Using a differently named Asset Folder (e.g. the WebP library) for a Project saved against another.
 - Perceptual hash per reference; opt-in background content index.
-- Manifest written into the Asset Folder vs. kept in the editor's own config (vendor-synced folders like pCloud may clobber it); the editor never writes into a vendor folder on its own.
 - Two installed Asset Folders claiming the same identity (PNG and WebP copies, side-by-side versions): prefer the newer, the format the Project used, or ask? Path-set overlap ("208 of 212 paths exist in X") as a way to recognise a renamed folder.
 - After one confirmed relink, offer the same folder move for the other missing Assets.
 - Two editors open on the same Asset Folders: lock the on-disk index and thumbnail caches (`File::try_lock`) and report "already open in another editor".
-- Asset Folders must work with any characters in their path, in cloud-synced locations, and survive being deleted while loaded (baseline crashes).
-- Undoing a Remove Element must restore the Element's stacking position; Plugin components not registered for reflection are lost by generic Remove and undo, so registration must be enforced in the Plugin API.
+- An Asset Folder deleted while loaded: how the editor notices it and tells the Author (folder watching).
+- Plugin components not registered for reflection are lost by generic Remove and undo, so registration must be enforced in the Plugin API.
 - Dungeondraft compatibility and parity: import of existing `.dungeondraft_map` and `.dungeondraft_pack` libraries; recolouring of colourable Assets (red mask); tags and tag sets (merged by name) driving search; a Scatter brush (random rotation, scale, colour, spread; area scatter); alignment guides beyond snapping; map generation (Map Wizard); a maximum map size.
 - Embedded Assets and vendor licences (warn when embedding a vendor Asset?).
 - Missing Asset reports that name the version gap ("added in 2026-09; you have 2026-07").
