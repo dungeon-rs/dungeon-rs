@@ -394,18 +394,19 @@ fn a_drag_is_one_step() {
 }
 
 /// Undoing a Remove Element restores the Prop with every property, its `ElementId`, and its place
-/// in the stacking order.
+/// in the stacking order, however many Props sit above it.
 #[test]
 fn removal_is_reversible_in_place() {
     let mut fixture = Fixture::new();
     fixture.place(TABLE, Vec2::ZERO);
-    let middle = fixture.place(BARREL, Vec2::new(4.0, 4.0));
+    let second = fixture.place(BARREL, Vec2::new(4.0, 4.0));
     fixture.place(TABLE, Vec2::ONE);
+    fixture.place(BARREL, Vec2::new(2.0, 2.0));
     let before = fixture.props();
 
-    fixture.remove(middle);
+    fixture.remove(second);
     let remaining: Vec<ElementId> = fixture.props().iter().map(|prop| prop.id).collect();
-    assert_eq!(remaining, vec![before[0].id, before[2].id]);
+    assert_eq!(remaining, vec![before[0].id, before[2].id, before[3].id]);
 
     fixture.undo();
     assert_eq!(fixture.props(), before);

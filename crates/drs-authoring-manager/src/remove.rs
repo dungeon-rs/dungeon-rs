@@ -42,10 +42,23 @@ impl ReversibleCommand for Remove {
             .restored()
             .ok_or(HistoryError::MissingTarget)?;
         if let (Some(layer), Some(index)) = (self.layer, self.index) {
+            // The whole order is rebuilt rather than inserted into, so the Props above the
+            // restored one keep their places whatever the children collection does on insert.
+            let mut order: Vec<Entity> = world
+                .get::<Children>(layer)
+                .map(|children| {
+                    children
+                        .iter()
+                        .copied()
+                        .filter(|child| *child != restored)
+                        .collect()
+                })
+                .unwrap_or_default();
+            order.insert(index.min(order.len()), restored);
             world
                 .get_entity_mut(layer)
                 .map_err(|_| AuthoringError::NotALayer)?
-                .insert_child(index, restored);
+                .replace_children(&order);
         }
         Ok(())
     }

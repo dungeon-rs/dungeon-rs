@@ -3,7 +3,7 @@
 use crate::AuthoringError;
 use bevy_ecs::entity::Entity;
 use bevy_ecs::error::BevyError;
-use bevy_ecs::hierarchy::{ChildOf, Children};
+use bevy_ecs::hierarchy::ChildOf;
 use bevy_ecs::world::World;
 use bevy_math::Vec2;
 use drs_history::{ReversibleCommand, Target};
@@ -30,8 +30,8 @@ fn project_of(world: &World, layer: Entity) -> Result<Entity, AuthoringError> {
     Err(AuthoringError::NoProject)
 }
 
-/// The recorded step: the Element spawned on top of its Layer, keeping its identity and its
-/// place in the stacking order so that redo puts it back exactly.
+/// The recorded step: the Element spawned on top of its Layer, keeping its identity so that
+/// redo puts it back exactly.
 ///
 /// The Asset Reference row the Element refers to, and the Asset Folder row it comes from, are
 /// recorded on the first application and never removed: undoing the placement leaves them in the
@@ -52,8 +52,6 @@ struct Place {
     folder: AssetFolderReference,
     /// The identity the Element keeps through undo and redo.
     element: ElementId,
-    /// The Element's index among the Layer's children, once it has been placed.
-    index: Option<usize>,
 }
 
 impl ReversibleCommand for Place {
@@ -76,17 +74,12 @@ impl ReversibleCommand for Place {
                 self.element,
             ))
             .id();
-        let mut layer = world
+        // A redone Place is always last too: every step after it has been undone first, so the
+        // Layer holds exactly the Elements it held when the Prop was first placed on top.
+        world
             .get_entity_mut(self.layer)
-            .map_err(|_| AuthoringError::NotALayer)?;
-        if let Some(index) = self.index {
-            layer.insert_child(index, entity);
-        } else {
-            layer.add_child(entity);
-            self.index = layer
-                .get::<Children>()
-                .and_then(|children| children.iter().position(|child| *child == entity));
-        }
+            .map_err(|_| AuthoringError::NotALayer)?
+            .add_child(entity);
         Ok(())
     }
 
@@ -162,7 +155,6 @@ pub(crate) fn place_element(
                 version: folder.version,
             },
             element: ElementId::new(),
-            index: None,
         },
     )
 }
