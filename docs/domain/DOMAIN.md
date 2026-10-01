@@ -18,6 +18,6 @@ A map editor for tabletop role-playing games. Authors compose 2D battle maps fro
 
 ## Invariants (all contexts)
 
-**Every Command can be undone**: every Command listed in any context, without exception.
+**Every Command can be undone**: every Command listed in any context. A Command that changes nothing in a Project or in the Asset Library, such as Export Level, has nothing to undo and is the only kind this invariant leaves out.
 
 **Undo history is not part of a Project**: a Project holds what is true now.
