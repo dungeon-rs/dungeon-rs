@@ -39,6 +39,19 @@ pub struct FolderRefused {
     pub reason: FolderRefusal,
 }
 
+/// A remembered Asset Folder could not be indexed at start; it stays known but shows no Assets.
+#[derive(Message, Debug, Clone, PartialEq, Eq)]
+pub struct FolderUnavailable {
+    /// The entity carrying the folder.
+    pub folder: Entity,
+    /// The folder's Canonical Name.
+    pub name: CanonicalName,
+    /// The folder's path as the Author gave it.
+    pub path: PathBuf,
+    /// What went wrong.
+    pub reason: String,
+}
+
 /// Why an Asset Folder was refused.
 #[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
 pub enum FolderRefusal {

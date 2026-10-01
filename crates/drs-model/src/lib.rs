@@ -16,7 +16,7 @@ pub use element::{
 };
 pub use messages::{
     AddFolder, Apply, ChosenAsset, EditElement, ElementChange, FolderAdded, FolderRefusal,
-    FolderRefused, Gesture, PlaceElement, Redo, RemoveElement, Undo,
+    FolderRefused, FolderUnavailable, Gesture, PlaceElement, Redo, RemoveElement, Undo,
 };
 pub use project::{Bounds, Grid, Layer, Level, Project};
 
@@ -43,6 +43,7 @@ impl Plugin for ModelPlugin {
             .add_message::<AddFolder>()
             .add_message::<FolderAdded>()
             .add_message::<FolderRefused>()
+            .add_message::<FolderUnavailable>()
             .add_message::<Apply>()
             .add_message::<Undo>()
             .add_message::<Redo>();

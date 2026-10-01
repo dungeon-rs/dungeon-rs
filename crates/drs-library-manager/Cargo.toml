@@ -10,10 +10,27 @@ repository.workspace = true
 authors.workspace = true
 
 [dependencies]
+bevy_app = { workspace = true }
+bevy_ecs = { workspace = true }
+drs-catalog-engine = { path = "../drs-catalog-engine" }
+drs-history = { path = "../drs-history" }
+drs-library-access = { path = "../drs-library-access" }
+drs-model = { path = "../drs-model" }
+log = { workspace = true }
+thiserror = { workspace = true }
+unicode-normalization = { workspace = true }
+
+[dev-dependencies]
+tempfile = { workspace = true }
 
 [features]
 default = []
-dev = []
+dev = [
+  "drs-catalog-engine/dev",
+  "drs-history/dev",
+  "drs-library-access/dev",
+  "drs-model/dev",
+]
 
 [lints]
 workspace = true

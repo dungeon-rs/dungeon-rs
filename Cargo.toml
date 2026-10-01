@@ -79,6 +79,7 @@ bevy_image = { version = "=0.20.0-rc.2", default-features = false, features = [
 ] }
 blake3 = "1.8"
 directories = "6.0"
+log = "0.4"
 image = { version = "0.25", default-features = false, features = ["png", "jpeg", "webp"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
