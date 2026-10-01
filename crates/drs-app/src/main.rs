@@ -44,5 +44,11 @@ fn main() -> AppExit {
         RenderEnginePlugin,
         EditorPlugin,
     ));
+    #[cfg(feature = "dev")]
+    if let Some(root) = std::env::var_os("DRS_DIRECTORIES") {
+        app.insert_resource(drs_model::EditorDirectories::under(std::path::Path::new(
+            &root,
+        )));
+    }
     app.run()
 }

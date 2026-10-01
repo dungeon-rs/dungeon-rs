@@ -9,4 +9,6 @@ Manager, the render Engine, and the Editor.
 ## Features
 
 - `default`: nothing is enabled by default.
-- `dev`: debug tooling for development.
+- `dev`: debug tooling for development. With `DRS_DIRECTORIES` set to a directory, the
+  editor keeps its Manifests and index caches under it instead of the platform's
+  configuration and cache directories.
