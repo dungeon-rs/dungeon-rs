@@ -12,6 +12,7 @@ authors.workspace = true
 [dependencies]
 bevy = { workspace = true }
 drs-authoring-manager = { path = "../drs-authoring-manager" }
+drs-diagnostics = { path = "../drs-diagnostics" }
 drs-editor = { path = "../drs-editor" }
 drs-history = { path = "../drs-history" }
 drs-library-access = { path = "../drs-library-access" }
@@ -35,6 +36,7 @@ dev = [
   "bevy/dynamic_linking",
   "bevy/bevy_dev_tools",
   "drs-authoring-manager/dev",
+  "drs-diagnostics/dev",
   "drs-editor/dev",
   "drs-history/dev",
   "drs-library-access/dev",
