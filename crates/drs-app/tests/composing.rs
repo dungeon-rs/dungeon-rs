@@ -1,5 +1,5 @@
 //! Composing on a fixture Asset through the headless editor: the real plugins of the model, the
-//! history, LibraryAccess, LibraryManager, ProjectManager, and AuthoringManager over one Asset
+//! history, `LibraryAccess`, `LibraryManager`, `ProjectManager`, and `AuthoringManager` over one Asset
 //! Folder of images with known pixel sizes, driven by messages and asserted on the World.
 #![expect(
     clippy::missing_panics_doc,
@@ -84,13 +84,14 @@ fn add_folder(app: &mut App, path: &Path, name: &str) -> FolderAdded {
     });
     app.update();
     let world = app.world_mut();
-    if let Some(refused) = world
+    let refused: Vec<FolderRefused> = world
         .resource_mut::<Messages<FolderRefused>>()
         .drain()
-        .next()
-    {
-        panic!("the fixture folder was refused: {}", refused.reason);
-    }
+        .collect();
+    assert!(
+        refused.is_empty(),
+        "the fixture folder was refused: {refused:?}"
+    );
     world
         .resource_mut::<Messages<FolderAdded>>()
         .drain()
@@ -129,15 +130,13 @@ impl Fixture {
     fn apply(&mut self, command: Apply) {
         self.app.world_mut().write_message(command);
         self.app.update();
-        if let Some(failed) = self
+        let failed: Vec<CommandFailed> = self
             .app
             .world_mut()
             .resource_mut::<Messages<CommandFailed>>()
             .drain()
-            .next()
-        {
-            panic!("{:?} failed: {}", failed.command, failed.reason);
-        }
+            .collect();
+        assert!(failed.is_empty(), "the Command failed: {failed:?}");
     }
 
     /// Places a Prop of the Asset at `place` centred on `position`, returning its identity.
@@ -326,7 +325,7 @@ fn anywhere_on_the_level() {
 }
 
 /// Several Props placed from the same Asset are independent Elements, each with its own
-/// ElementId, sharing one Asset Reference.
+/// `ElementId`, sharing one Asset Reference.
 #[test]
 fn many_of_the_same() {
     let mut fixture = Fixture::new();
@@ -373,7 +372,7 @@ fn a_drag_is_one_step() {
     assert_eq!(fixture.props()[0].element.position, end);
 }
 
-/// Undoing a Remove Element restores the Prop with every property, its ElementId, and its place
+/// Undoing a Remove Element restores the Prop with every property, its `ElementId`, and its place
 /// in the stacking order.
 #[test]
 fn removal_is_reversible_in_place() {
@@ -391,7 +390,7 @@ fn removal_is_reversible_in_place() {
     assert_eq!(fixture.props(), before);
 }
 
-/// An Element removed by undoing a Place Element and brought back by redo has the ElementId it
+/// An Element removed by undoing a Place Element and brought back by redo has the `ElementId` it
 /// had before.
 #[test]
 fn identity_survives_undo() {
