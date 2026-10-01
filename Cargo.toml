@@ -51,6 +51,7 @@ bevy = { version = "=0.20.0-rc.2", default-features = false, features = [
   "bevy_winit",
   "x11",
   "wayland",
+  "gestures",
   "default_font",
   "png",
   "jpeg",
@@ -85,6 +86,10 @@ bevy_transform = { version = "=0.20.0-rc.2", default-features = false, features 
   "bevy_reflect",
 ] }
 bevy_color = { version = "=0.20.0-rc.2", default-features = false, features = ["std", "bevy_reflect"] }
+bevy_egui = { version = "=0.43.0-rc.1", default-features = false, features = ["default_fonts", "render"] }
+egui = "=0.36.2"
+egui_dock = "=0.21.1"
+rfd = "=0.17.2"
 blake3 = "1.8"
 directories = "6.0"
 log = "0.4"
