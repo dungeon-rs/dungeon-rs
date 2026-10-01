@@ -199,9 +199,17 @@ impl Fixture {
         children
             .into_iter()
             .map(|entity| PlacedProp {
-                id: *world.get::<ElementId>(entity).expect("an Element has an identity"),
-                element: world.get::<Element>(entity).expect("a child is an Element").clone(),
-                prop: world.get::<Prop>(entity).expect("the Element is a Prop").clone(),
+                id: *world
+                    .get::<ElementId>(entity)
+                    .expect("an Element has an identity"),
+                element: world
+                    .get::<Element>(entity)
+                    .expect("a child is an Element")
+                    .clone(),
+                prop: world
+                    .get::<Prop>(entity)
+                    .expect("the Element is a Prop")
+                    .clone(),
             })
             .collect()
     }
@@ -334,7 +342,11 @@ fn many_of_the_same() {
     assert_ne!(ids[0], ids[1]);
     assert_ne!(ids[1], ids[2]);
     assert_ne!(ids[0], ids[2]);
-    assert!(props.iter().all(|prop| prop.prop.asset == props[0].prop.asset));
+    assert!(
+        props
+            .iter()
+            .all(|prop| prop.prop.asset == props[0].prop.asset)
+    );
     assert_eq!(fixture.references().assets.len(), 1);
 }
 
