@@ -10,7 +10,9 @@ repository.workspace = true
 authors.workspace = true
 
 [dependencies]
+caseless = { workspace = true }
 drs-model = { path = "../drs-model" }
+unicode-normalization = { workspace = true }
 
 [features]
 default = []

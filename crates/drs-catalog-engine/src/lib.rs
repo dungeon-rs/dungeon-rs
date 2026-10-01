@@ -1,5 +1,9 @@
 #![doc = include_str!("../README.md")]
 
+mod resolve;
+
+pub use resolve::{resolve, same_name};
+
 use drs_model::AssetKind;
 use std::path::Path;
 
