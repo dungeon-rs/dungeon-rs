@@ -470,6 +470,45 @@ fn a_new_step_clears_redo() {
     assert_eq!(order, vec![first, third]);
 }
 
+/// A Command that cannot be carried out is answered with the reason; nothing is placed and
+/// nothing is recorded.
+#[test]
+fn a_failed_command_is_reported() {
+    let mut fixture = Fixture::new();
+    let layer = fixture.layer();
+    let before = fixture.history().undo_depth();
+
+    fixture
+        .app
+        .world_mut()
+        .write_message(Apply::PlaceElement(PlaceElement {
+            layer,
+            position: Vec2::ZERO,
+            asset: ChosenAsset {
+                folder: fixture.key.clone(),
+                place: "nowhere.png".to_owned(),
+            },
+        }));
+    fixture.app.update();
+
+    let failed: Vec<CommandFailed> = fixture
+        .app
+        .world_mut()
+        .resource_mut::<Messages<CommandFailed>>()
+        .drain()
+        .collect();
+    assert_eq!(failed.len(), 1);
+    assert!(matches!(failed[0].command, Apply::PlaceElement(_)));
+    assert!(
+        failed[0].reason.contains("nowhere.png"),
+        "{}",
+        failed[0].reason
+    );
+    assert!(fixture.props().is_empty());
+    assert_eq!(fixture.history().undo_depth(), before);
+    assert!(!fixture.history().can_redo());
+}
+
 /// Add Asset Folder and Place Element are each one undo step, and undo walks back through them
 /// in the order they were applied whichever Manager handled them.
 #[test]
