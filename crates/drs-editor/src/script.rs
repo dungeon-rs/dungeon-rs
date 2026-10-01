@@ -16,17 +16,21 @@
 //! - `scroll <dx> <dy> [line|pixel]`: scroll the wheel; lines unless told otherwise.
 //! - `pinch <delta>`: a trackpad pinch.
 //! - `screenshot <path>`: save a screenshot of the window there.
+//! - `describe`: log the title, the status line, the dialog open, and every clickable widget
+//!   with its rectangle, so a script can be checked and aimed without seeing the screen.
+//! - `close`: ask to close the window, as its close button does.
 //! - `quit`: exit the editor.
 //!
 //! Each step becomes the messages the window would have sent, so egui and the Editor's own
 //! systems see them alike.
 
+use crate::state::{EditorState, Phase};
 use bevy::app::AppExit;
 use bevy::ecs::entity::Entity;
 use bevy::ecs::message::MessageWriter;
 use bevy::ecs::query::With;
 use bevy::ecs::resource::Resource;
-use bevy::ecs::system::{Commands, ResMut, Single, SystemParam};
+use bevy::ecs::system::{Commands, Res, ResMut, Single, SystemParam};
 use bevy::input::ButtonState;
 use bevy::input::gestures::PinchGesture;
 use bevy::input::keyboard::{Key, KeyCode, KeyboardInput, NativeKey, NativeKeyCode};
@@ -36,7 +40,8 @@ use bevy::math::Vec2;
 use bevy::reflect::FromReflect;
 use bevy::reflect::enums::{DynamicEnum, DynamicVariant};
 use bevy::render::view::screenshot::{Screenshot, save_to_disk};
-use bevy::window::{CursorMoved, PrimaryWindow, Window, WindowEvent};
+use bevy::window::{CursorMoved, PrimaryWindow, Window, WindowCloseRequested, WindowEvent};
+use bevy_egui::EguiContexts;
 use std::collections::VecDeque;
 use std::path::PathBuf;
 
@@ -71,6 +76,10 @@ enum Action {
     Pinch(f32),
     /// A screenshot is saved to the path.
     Screenshot(PathBuf),
+    /// The Editor's state and the clickable widgets are logged.
+    Describe,
+    /// The window's close button is pressed.
+    Close,
     /// The editor exits.
     Quit,
 }
@@ -136,6 +145,8 @@ pub(crate) struct Injected<'w> {
     pinches: MessageWriter<'w, PinchGesture>,
     /// The same, as the window reports them for egui.
     window_events: MessageWriter<'w, WindowEvent>,
+    /// The window is asked to close.
+    close: MessageWriter<'w, WindowCloseRequested>,
     /// The editor exits.
     exit: MessageWriter<'w, AppExit>,
 }
@@ -146,6 +157,8 @@ pub(crate) fn drive(
     mut window: Single<(Entity, &mut Window), With<PrimaryWindow>>,
     mut commands: Commands,
     mut injected: Injected,
+    state: Res<EditorState>,
+    mut contexts: EguiContexts,
 ) {
     let (entity, window) = &mut *window;
     if !script.described {
@@ -169,7 +182,11 @@ pub(crate) fn drive(
         Step::Act(actions) => {
             for action in actions {
                 bevy::log::debug!("script: {action:?}");
-                perform(action, *entity, window, &mut commands, &mut injected);
+                if let Action::Describe = action {
+                    describe(&state, window, contexts.ctx_mut().ok());
+                } else {
+                    perform(action, *entity, window, &mut commands, &mut injected);
+                }
             }
         }
     }
@@ -249,9 +266,104 @@ fn perform(
                 .spawn(Screenshot::primary_window())
                 .observe(save_to_disk(path));
         }
+        Action::Describe => {}
+        Action::Close => {
+            let request = WindowCloseRequested { window };
+            injected.close.write(request.clone());
+            injected
+                .window_events
+                .write(WindowEvent::WindowCloseRequested(request));
+        }
         Action::Quit => {
             injected.exit.write(AppExit::Success);
         }
+    }
+}
+
+/// Logs what the Author would see: the title, the status line, the dialog open, and every
+/// widget that takes a click, with its rectangle in logical pixels, in the order it was laid
+/// out.
+fn describe(state: &EditorState, window: &Window, ctx: Option<&mut egui::Context>) {
+    let dialog = if let Some(prompt) = &state.prompt {
+        format!(
+            "name prompt for {} as {:?}{}",
+            prompt.path.display(),
+            prompt.name,
+            prompt
+                .refusal
+                .as_ref()
+                .map(|r| format!(" refused: {r}"))
+                .unwrap_or_default()
+        )
+    } else if let Some(question) = &state.question {
+        format!(
+            "unsaved changes question before {:?}, {}{}",
+            question.pending,
+            match question.phase {
+                Phase::Asking => "asking",
+                Phase::Saving => "saving",
+                Phase::Proceed => "proceeding",
+            },
+            question
+                .refusal
+                .as_ref()
+                .map(|r| format!(" refused: {r}"))
+                .unwrap_or_default()
+        )
+    } else if let Some(report) = &state.report {
+        format!(
+            "report of {} Missing Assets and {} unknown kinds",
+            report.missing_assets.len(),
+            report.unknown_kinds.len()
+        )
+    } else if let Some(export) = &state.export {
+        format!(
+            "export dialog at {} pixels per cell",
+            export.pixels_per_cell
+        )
+    } else {
+        "none".to_owned()
+    };
+    bevy::log::info!(
+        "describe: title {:?}, status {:?}, dialog: {dialog}, exporting: {:?}, chosen: {:?}, \
+         selected: {:?}",
+        window.title,
+        state.status,
+        state.exporting,
+        state.chosen.as_ref().map(|chosen| &chosen.name),
+        state.selected
+    );
+    let Some(ctx) = ctx else {
+        return;
+    };
+    // The widgets are read and the layers' offsets looked up in two steps: the context is one
+    // lock, so reading the memory while reading the viewport would wait for itself.
+    let rects: Vec<(egui::LayerId, egui::Rect)> = ctx.viewport(|viewport| {
+        viewport
+            .prev_pass
+            .widgets
+            .layers()
+            .flat_map(|(layer, rects)| {
+                rects
+                    .iter()
+                    .filter(|rect| rect.sense.senses_click())
+                    .map(move |rect| (*layer, rect.interact_rect))
+            })
+            .collect()
+    });
+    for (layer, rect) in rects {
+        let offset = ctx
+            .memory(|memory| memory.to_global.get(&layer).copied())
+            .unwrap_or_default();
+        let r = offset * rect;
+        bevy::log::info!(
+            "describe: {:?} click [{:.0} {:.0} {:.0} {:.0}]",
+            layer.order,
+            r.min.x,
+            r.min.y,
+            r.max.x,
+            r.max.y
+        );
     }
 }
 
@@ -289,6 +401,8 @@ fn parse(text: &str) -> Result<VecDeque<Step>, String> {
                 .first()
                 .map(|path| vec![act(Action::Screenshot(PathBuf::from(path)))])
                 .ok_or_else(|| "screenshot needs a path".to_owned()),
+            "describe" => Ok(vec![act(Action::Describe)]),
+            "close" => Ok(vec![act(Action::Close)]),
             "quit" => Ok(vec![act(Action::Quit)]),
             other => Err(format!("unknown step {other}")),
         };
