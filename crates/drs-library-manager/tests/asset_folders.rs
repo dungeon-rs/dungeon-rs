@@ -337,6 +337,10 @@ fn scanning_opens_no_file() {
     let maps = folder(root.path(), "maps");
     let sealed = file(&maps, "sealed.png");
     fs::set_permissions(&sealed, fs::Permissions::from_mode(0o000)).expect("permissions");
+    if fs::read(&sealed).is_ok() {
+        eprintln!("skipped: this process may read a sealed file, so the check would prove nothing");
+        return;
+    }
     let mut app = editor(root.path());
 
     add(&mut app, &maps, "Maps").expect("the folder is added");
