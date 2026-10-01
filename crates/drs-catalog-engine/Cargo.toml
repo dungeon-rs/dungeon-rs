@@ -10,10 +10,11 @@ repository.workspace = true
 authors.workspace = true
 
 [dependencies]
+drs-model = { path = "../drs-model" }
 
 [features]
 default = []
-dev = []
+dev = ["drs-model/dev"]
 
 [lints]
 workspace = true
