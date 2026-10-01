@@ -7,7 +7,9 @@ A domain-agnostic stack of reversible commands over the Bevy `World`. A
 to take itself back; [`apply`](crate::apply) carries one out and records it,
 [`undo`](crate::undo) and [`redo`](crate::redo) walk the stack. Several commands
 recorded while a group is open form one step, so a gesture such as a drag is
-undone as a whole. Recording a new step discards the steps that were undone.
+undone as a whole; [`apply_step`](crate::apply_step) closes an open group first,
+for a command that is a step of its own. Recording a new step discards the
+steps that were undone.
 
 Two generic commands cover most needs without a command per property:
 [`SetField`](crate::SetField) swaps one value by reflect path, and

@@ -127,6 +127,20 @@ pub fn apply(world: &mut World, mut command: impl ReversibleCommand) -> Result<(
     Ok(())
 }
 
+/// Carries a command out and records it as a step of its own: a group left open by a gesture is
+/// closed first, so the command never joins it.
+///
+/// # Errors
+///
+/// As [`apply`].
+pub fn apply_step(world: &mut World, command: impl ReversibleCommand) -> Result<(), BevyError> {
+    world
+        .get_resource_mut::<History>()
+        .ok_or(HistoryError::NoHistory)?
+        .end_group();
+    apply(world, command)
+}
+
 /// Takes the most recent step back. Returns `false` when there was nothing to undo.
 ///
 /// An open group is closed first, so a gesture in progress is undone as one step.

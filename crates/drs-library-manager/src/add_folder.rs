@@ -140,7 +140,7 @@ pub(crate) fn add_folder(
     check(world, &path, &name)?;
     let manifest = Manifest::new(path, name);
     let key = manifest.key.clone();
-    drs_history::apply(
+    drs_history::apply_step(
         world,
         AddAssetFolder {
             manifest,

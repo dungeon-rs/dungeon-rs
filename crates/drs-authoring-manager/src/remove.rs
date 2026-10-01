@@ -78,8 +78,7 @@ pub(crate) fn remove_element(
         .element
         .entity(world)
         .map_err(|_| AuthoringError::UnknownElement(command.element))?;
-    crate::history(world)?.end_group();
-    crate::record(
+    crate::record_step(
         world,
         Remove {
             element: command.element,

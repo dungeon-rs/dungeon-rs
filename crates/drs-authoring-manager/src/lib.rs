@@ -61,7 +61,7 @@ impl Plugin for AuthoringManagerPlugin {
 /// # Errors
 ///
 /// The [`AuthoringError`] that applies, in which case nothing is recorded.
-pub fn apply(world: &mut World, command: &Apply) -> Result<(), AuthoringError> {
+pub(crate) fn apply(world: &mut World, command: &Apply) -> Result<(), AuthoringError> {
     match command {
         Apply::PlaceElement(place) => place::place_element(world, place),
         Apply::EditElement(edit) => edit::edit_element(world, edit),
@@ -75,7 +75,7 @@ pub fn apply(world: &mut World, command: &Apply) -> Result<(), AuthoringError> {
 /// # Errors
 ///
 /// [`AuthoringError::History`] when the step could not be reverted; it then stays where it was.
-pub fn undo(world: &mut World) -> Result<bool, AuthoringError> {
+pub(crate) fn undo(world: &mut World) -> Result<bool, AuthoringError> {
     drs_history::undo(world).map_err(|error| AuthoringError::History(error.to_string()))
 }
 
@@ -85,7 +85,7 @@ pub fn undo(world: &mut World) -> Result<bool, AuthoringError> {
 /// # Errors
 ///
 /// [`AuthoringError::History`] when the step could not be applied again; it then stays where it was.
-pub fn redo(world: &mut World) -> Result<bool, AuthoringError> {
+pub(crate) fn redo(world: &mut World) -> Result<bool, AuthoringError> {
     drs_history::redo(world).map_err(|error| AuthoringError::History(error.to_string()))
 }
 
@@ -100,7 +100,7 @@ pub(crate) fn history(world: &mut World) -> Result<Mut<'_, History>, AuthoringEr
         .ok_or_else(|| AuthoringError::History(drs_history::HistoryError::NoHistory.to_string()))
 }
 
-/// Records a command as a step in the history.
+/// Records a command in the history, joining the gesture group that is open, if any.
 ///
 /// # Errors
 ///
@@ -110,6 +110,19 @@ pub(crate) fn record(
     command: impl drs_history::ReversibleCommand,
 ) -> Result<(), AuthoringError> {
     drs_history::apply(world, command).map_err(|error| AuthoringError::History(error.to_string()))
+}
+
+/// Records a command as a step of its own, closing any gesture group left open.
+///
+/// # Errors
+///
+/// [`AuthoringError::History`] with the command's reason when it could not be applied.
+pub(crate) fn record_step(
+    world: &mut World,
+    command: impl drs_history::ReversibleCommand,
+) -> Result<(), AuthoringError> {
+    drs_history::apply_step(world, command)
+        .map_err(|error| AuthoringError::History(error.to_string()))
 }
 
 /// Carries out every [`Apply`] request, answering one that fails with [`CommandFailed`].

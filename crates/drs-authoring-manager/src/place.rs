@@ -142,7 +142,7 @@ pub(crate) fn place_element(
         byte_size: loaded.byte_size,
         pixel_size: Some(loaded.pixel_size),
     };
-    crate::record(
+    crate::record_step(
         world,
         Place {
             project,
