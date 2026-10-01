@@ -25,12 +25,7 @@ tempfile = { workspace = true }
 
 [features]
 default = []
-dev = [
-  "drs-catalog-engine/dev",
-  "drs-history/dev",
-  "drs-library-access/dev",
-  "drs-model/dev",
-]
+dev = ["drs-catalog-engine/dev", "drs-history/dev", "drs-library-access/dev", "drs-model/dev"]
 
 [lints]
 workspace = true
