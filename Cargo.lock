@@ -2346,6 +2346,15 @@ name = "drs-app"
 version = "0.0.1"
 dependencies = [
  "bevy",
+ "blake3",
+ "drs-authoring-manager",
+ "drs-history",
+ "drs-library-access",
+ "drs-library-manager",
+ "drs-model",
+ "drs-project-manager",
+ "image",
+ "tempfile",
 ]
 
 [[package]]

@@ -12,11 +12,33 @@ authors.workspace = true
 [dependencies]
 bevy = { workspace = true }
 
+# The Host is the one crate allowed to depend on every Manager, so the tests that drive several
+# of them through one headless editor live here.
+[dev-dependencies]
+blake3 = { workspace = true }
+drs-authoring-manager = { path = "../drs-authoring-manager" }
+drs-history = { path = "../drs-history" }
+drs-library-access = { path = "../drs-library-access" }
+drs-library-manager = { path = "../drs-library-manager" }
+drs-model = { path = "../drs-model" }
+drs-project-manager = { path = "../drs-project-manager" }
+image = { workspace = true }
+tempfile = { workspace = true }
+
 [features]
 default = []
 # Dynamic linking lives here and nowhere else: it speeds up development builds and broke an
 # opt-level 0 CI profile on Windows.
-dev = ["bevy/dynamic_linking", "bevy/bevy_dev_tools"]
+dev = [
+  "bevy/dynamic_linking",
+  "bevy/bevy_dev_tools",
+  "drs-authoring-manager/dev",
+  "drs-history/dev",
+  "drs-library-access/dev",
+  "drs-library-manager/dev",
+  "drs-model/dev",
+  "drs-project-manager/dev",
+]
 
 [lints]
 workspace = true
