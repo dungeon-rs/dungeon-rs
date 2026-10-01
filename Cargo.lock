@@ -2561,7 +2561,11 @@ version = "0.0.1"
 dependencies = [
  "bevy_app",
  "bevy_ecs",
+ "drs-catalog-engine",
+ "drs-history",
  "drs-model",
+ "drs-project-access",
+ "thiserror 2.0.21",
 ]
 
 [[package]]

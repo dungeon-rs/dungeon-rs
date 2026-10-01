@@ -12,11 +12,15 @@ authors.workspace = true
 [dependencies]
 bevy_app = { workspace = true }
 bevy_ecs = { workspace = true }
+drs-catalog-engine = { path = "../drs-catalog-engine" }
+drs-history = { path = "../drs-history" }
 drs-model = { path = "../drs-model" }
+drs-project-access = { path = "../drs-project-access" }
+thiserror = { workspace = true }
 
 [features]
 default = []
-dev = ["drs-model/dev"]
+dev = ["drs-catalog-engine/dev", "drs-history/dev", "drs-model/dev", "drs-project-access/dev"]
 
 [lints]
 workspace = true
