@@ -10,6 +10,10 @@ repository.workspace = true
 authors.workspace = true
 
 [dependencies]
+bevy_app = { workspace = true }
+bevy_ecs = { workspace = true }
+bevy_reflect = { workspace = true }
+thiserror = { workspace = true }
 
 [features]
 default = []
