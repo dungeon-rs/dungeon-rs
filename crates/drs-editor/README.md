@@ -23,4 +23,5 @@ the middle button or Space with the left button drags the view.
 ## Features
 
 - `default`: nothing is enabled by default.
-- `dev`: debug tooling for development.
+- `dev`: debug tooling for development: with `DRS_SCREENSHOT` set to a file path, a
+  screenshot of the window is saved there a moment after start.

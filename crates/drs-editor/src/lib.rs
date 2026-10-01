@@ -3,6 +3,8 @@
 mod browser;
 mod outcomes;
 mod panels;
+#[cfg(feature = "dev")]
+mod snapshot;
 mod state;
 mod viewport;
 
@@ -29,5 +31,7 @@ impl Plugin for EditorPlugin {
                 )
                     .chain(),
             );
+        #[cfg(feature = "dev")]
+        app.add_systems(Update, snapshot::snapshot);
     }
 }

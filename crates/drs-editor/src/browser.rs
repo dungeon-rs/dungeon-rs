@@ -18,7 +18,7 @@ pub(crate) fn show(ui: &mut egui::Ui, state: &mut EditorState, folders: &Query<&
     let mut folders: Vec<&AssetFolder> = folders.iter().collect();
     folders.sort_by(|a, b| a.name.cmp(&b.name));
     if folders.is_empty() {
-        ui.weak("No Asset Folder is added yet. Use Library → Add Asset Folder…");
+        ui.weak("No Asset Folder is added yet. Use Add Asset Folder… in the Library menu.");
         return;
     }
     egui::ScrollArea::vertical()
