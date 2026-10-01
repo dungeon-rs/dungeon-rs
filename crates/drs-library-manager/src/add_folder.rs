@@ -42,7 +42,8 @@ fn check(world: &mut World, path: &Path, name: &CanonicalName) -> Result<(), Fol
         reason: format!("{}: {error}", path.display()),
     })?;
 
-    let added: Vec<AssetFolder> = world.query::<&AssetFolder>().iter(world).cloned().collect();
+    let mut added: Vec<AssetFolder> = world.query::<&AssetFolder>().iter(world).cloned().collect();
+    added.sort_by(|a, b| a.key.cmp(&b.key));
     for folder in &added {
         let existing = resolved(&folder.path).unwrap_or_else(|_| folder.path.clone());
         if existing == candidate {
