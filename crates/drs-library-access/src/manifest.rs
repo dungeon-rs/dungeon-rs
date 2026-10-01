@@ -4,7 +4,6 @@ use crate::{LibraryDirectories, LibraryError, LibraryTable};
 use drs_model::{CanonicalName, FolderKey};
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
-use std::time::{SystemTime, UNIX_EPOCH};
 
 /// The extension of Manifest files.
 const MANIFEST_EXTENSION: &str = "json";
@@ -50,31 +49,13 @@ impl Manifest {
 
 /// Today's date in UTC as `YYYY-MM-DD`.
 fn today() -> String {
-    let seconds = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .map_or(0, |elapsed| elapsed.as_secs());
-    let (year, month, day) = civil_from_days(i64::try_from(seconds / 86_400).unwrap_or(0));
-    format!("{year:04}-{month:02}-{day:02}")
-}
-
-/// The proleptic Gregorian date of a day count since 1970-01-01 (Howard Hinnant's algorithm).
-fn civil_from_days(days: i64) -> (i64, u32, u32) {
-    let z = days + 719_468;
-    let era = z.div_euclid(146_097);
-    let day_of_era = z.rem_euclid(146_097);
-    let year_of_era =
-        (day_of_era - day_of_era / 1460 + day_of_era / 36_524 - day_of_era / 146_096) / 365;
-    let day_of_year = day_of_era - (365 * year_of_era + year_of_era / 4 - year_of_era / 100);
-    let shifted_month = (5 * day_of_year + 2) / 153;
-    let day = u32::try_from(day_of_year - (153 * shifted_month + 2) / 5 + 1).unwrap_or(1);
-    let month = u32::try_from(if shifted_month < 10 {
-        shifted_month + 3
-    } else {
-        shifted_month - 9
-    })
-    .unwrap_or(1);
-    let year = year_of_era + era * 400 + i64::from(month <= 2);
-    (year, month, day)
+    let date = time::OffsetDateTime::now_utc().date();
+    format!(
+        "{:04}-{:02}-{:02}",
+        date.year(),
+        u8::from(date.month()),
+        date.day()
+    )
 }
 
 /// `Manifests`, writing: records `manifest` in the configuration directory, replacing any earlier
