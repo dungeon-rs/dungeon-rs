@@ -2538,6 +2538,12 @@ version = "0.0.1"
 [[package]]
 name = "drs-project-access"
 version = "0.0.1"
+dependencies = [
+ "drs-model",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.21",
+]
 
 [[package]]
 name = "drs-project-manager"

@@ -10,10 +10,14 @@ repository.workspace = true
 authors.workspace = true
 
 [dependencies]
+drs-model = { path = "../drs-model" }
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
 
 [features]
 default = []
-dev = []
+dev = ["drs-model/dev"]
 
 [lints]
 workspace = true
