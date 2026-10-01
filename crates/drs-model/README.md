@@ -10,6 +10,11 @@ Level's Layers are that Level's children, and each Layer's Elements are that
 Layer's children in stacking order: the first child is drawn first. An Element
 is addressed by its [`ElementId`](crate::ElementId), never by its entity handle.
 
+The [`Viewport`](crate::Viewport) is where the Author is looking: the cell at
+the centre of the view, the zoom, and the area of the window the Level is shown
+in. The Editor steers it and the render Engine follows it; its conversions
+between cells and screen points are the ones picking and drawing share.
+
 Each added Asset Folder is an entity carrying [`AssetFolder`](crate::AssetFolder)
 with its index of Assets. [`EditorDirectories`](crate::EditorDirectories)
 overrides where the editor keeps its own files, so tests point them at

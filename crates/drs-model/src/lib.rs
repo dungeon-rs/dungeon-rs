@@ -5,6 +5,7 @@ mod directories;
 mod element;
 mod messages;
 mod project;
+mod viewport;
 
 pub use assets::{
     AssetFolder, AssetFolderReference, AssetKind, AssetReference, AssetReferenceRow,
@@ -21,6 +22,7 @@ pub use messages::{
     Undo,
 };
 pub use project::{Bounds, Grid, Layer, Level, Project};
+pub use viewport::Viewport;
 
 use bevy_app::{App, Plugin};
 
@@ -40,7 +42,9 @@ impl Plugin for ModelPlugin {
             .register_type::<AssetReferences>()
             .register_type::<AssetFolder>()
             .register_type::<EditorDirectories>()
+            .register_type::<Viewport>()
             .init_resource::<EditorDirectories>()
+            .init_resource::<Viewport>()
             .init_resource::<ElementKindRegistry>()
             .add_message::<AddFolder>()
             .add_message::<FolderAdded>()
