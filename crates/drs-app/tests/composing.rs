@@ -284,8 +284,8 @@ fn placed_on_top() {
 }
 
 /// Placing a Prop records an Asset Reference holding the Asset's name, the Canonical Name of its
-/// folder, its place, its byte size, its pixel size, and its content fingerprint; a second Prop
-/// of the same Asset adds no second Asset Reference.
+/// folder, the place it sits at, its byte size, its pixel size, and its content fingerprint; a
+/// second Prop of the same Asset adds no second Asset Reference.
 #[test]
 fn placement_records_a_reference() {
     let mut fixture = Fixture::new();
@@ -296,7 +296,7 @@ fn placement_records_a_reference() {
     assert_eq!(references.assets.len(), 1);
     let reference = &references.assets[0];
     assert_eq!(reference.folder, CanonicalName("Fixtures".to_owned()));
-    assert_eq!(reference.place, TABLE);
+    assert_eq!(reference.places, vec![TABLE]);
     assert_eq!(reference.name, "table");
     assert_eq!(reference.kind, AssetKind::IMAGE);
     assert_eq!(reference.byte_size, bytes.len() as u64);

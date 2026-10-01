@@ -135,7 +135,7 @@ pub(crate) fn place_element(
     let size = loaded.pixel_size.as_vec2() / pixels_per_cell as f32;
     let reference = AssetReference {
         folder: folder.name.clone(),
-        place: indexed.place.nfc().collect(),
+        places: vec![indexed.place.nfc().collect()],
         name: indexed.name.clone(),
         kind: indexed.kind.clone(),
         fingerprint: loaded.fingerprint,

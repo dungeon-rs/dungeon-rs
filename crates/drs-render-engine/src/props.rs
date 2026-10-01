@@ -15,6 +15,7 @@ use bevy_transform::components::Transform;
 use drs_library_access::asset_path;
 use drs_model::{AssetFolder, AssetReferences, Element, Layer, Level, Project, Prop};
 use std::collections::BTreeMap;
+use unicode_normalization::UnicodeNormalization;
 
 /// Marks a sprite entity as drawing one Element.
 #[derive(Component)]
@@ -183,8 +184,12 @@ pub(crate) fn settle_loads(
     }
 }
 
-/// The `lib://` path of a Prop's image: the Asset Reference's place under the key of the added
-/// Asset Folder with its Canonical Name, or `None` when no such folder is added.
+/// The `lib://` path of a Prop's image: the place of the indexed Asset that one of the Asset
+/// Reference's places names, under the key of the added Asset Folder with its Canonical Name.
+/// `None` when no such folder is added or none of its Assets sits at a known place.
+///
+/// The reference's places are Unicode-normalised while the index keeps the spelling on disk, so
+/// they are compared normalised and the path is built from the spelling on disk.
 fn image_of(
     references: &AssetReferences,
     prop: &Prop,
@@ -194,7 +199,17 @@ fn image_of(
     let folder = folders
         .iter()
         .find(|folder| folder.name == reference.folder)?;
-    Some(asset_path(&folder.key, &reference.place))
+    let place = folder
+        .assets
+        .iter()
+        .map(|asset| &asset.place)
+        .find(|place| {
+            reference
+                .places
+                .iter()
+                .any(|known| known == *place || place.nfc().eq(known.chars()))
+        })?;
+    Some(asset_path(&folder.key, place))
 }
 
 /// Points a sprite at an image, which starts loading, or at the placeholder when there is none.

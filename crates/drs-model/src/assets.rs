@@ -137,8 +137,10 @@ pub struct AssetFolder {
 pub struct AssetReference {
     /// The Canonical Name of the Asset Folder the Asset came from.
     pub folder: CanonicalName,
-    /// The place in that folder: the relative path, Unicode-normalised (NFC) with `/` separators.
-    pub place: String,
+    /// Every place in that folder the Asset is known to sit, each a relative path
+    /// Unicode-normalised (NFC) with `/` separators, in the order they became known: the first
+    /// is where it sat when it was placed.
+    pub places: Vec<String>,
     /// The Asset's name as shown, in its original spelling.
     pub name: String,
     /// What the Asset is.
@@ -180,12 +182,14 @@ pub struct AssetReferences {
 }
 
 impl AssetReferences {
-    /// The row that holds the Asset at `place` in the folder named `folder`, if any.
+    /// The row that holds the Asset known to sit at `place` in the folder named `folder`, if any.
     #[must_use]
     pub fn row_of(&self, folder: &CanonicalName, place: &str) -> Option<AssetReferenceRow> {
         self.assets
             .iter()
-            .position(|asset| &asset.folder == folder && asset.place == place)
+            .position(|asset| {
+                &asset.folder == folder && asset.places.iter().any(|known| known == place)
+            })
             .and_then(|index| u32::try_from(index).ok())
             .map(AssetReferenceRow)
     }
@@ -196,7 +200,8 @@ impl AssetReferences {
         self.assets.get(row.0 as usize)
     }
 
-    /// Adds an Asset Reference, or returns the row of the one already recorded for the same Asset.
+    /// Adds an Asset Reference, or returns the row of the one already recorded for the same Asset:
+    /// one in the same folder known to sit at any of the reference's places.
     ///
     /// The Asset Folder the Asset comes from is recorded the first time one of its Assets is.
     ///
@@ -208,7 +213,11 @@ impl AssetReferences {
         reference: AssetReference,
         folder: AssetFolderReference,
     ) -> Result<AssetReferenceRow, AssetReferencesFull> {
-        if let Some(row) = self.row_of(&reference.folder, &reference.place) {
+        if let Some(row) = reference
+            .places
+            .iter()
+            .find_map(|place| self.row_of(&reference.folder, place))
+        {
             return Ok(row);
         }
         let row = u32::try_from(self.assets.len()).map_err(|_| AssetReferencesFull)?;
