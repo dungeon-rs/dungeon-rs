@@ -32,6 +32,9 @@ confidence-threshold = 0.8
 exceptions = [
   # unicode-ident bundles Unicode data under Unicode-DFS-2016 alongside MIT/Apache-2.0
   { name = "unicode-ident", allow = ["Unicode-DFS-2016"] },
+  # Pulled in by `directories` for the platform's configuration and cache directories;
+  # MPL-2.0 is file-level copyleft, compatible with GPL-3.0
+  { name = "option-ext", allow = ["MPL-2.0"] },
   # Bevy's audio backend; MPL-2.0 is file-level copyleft, compatible with AGPL-3.0
   { name = "symphonia", allow = ["MPL-2.0"] },
   { name = "symphonia-bundle-flac", allow = ["MPL-2.0"] },
@@ -54,6 +57,8 @@ ignore = true
 [bans]
 multiple-versions = "warn"
 wildcards = "deny"
+# Our own crates refer to each other by path alone; they are never published
+allow-wildcard-paths = true
 workspace-default-features = "allow"
 external-default-features = "allow"
 deny = [
