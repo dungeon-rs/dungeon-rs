@@ -31,7 +31,8 @@ fn resolved(path: &Path) -> Result<PathBuf, FolderRefusal> {
 ///
 /// # Errors
 ///
-/// The [`FolderRefusal`] that applies, the name checked before the folder.
+/// The [`FolderRefusal`] that applies: a blank name first, then the folder itself, then a name
+/// another folder already holds, so re-adding a folder under its own name says which folder it is.
 fn check(world: &mut World, path: &Path, name: &CanonicalName) -> Result<(), FolderRefusal> {
     if name.as_str().is_empty() {
         return Err(FolderRefusal::BlankName);
@@ -41,16 +42,7 @@ fn check(world: &mut World, path: &Path, name: &CanonicalName) -> Result<(), Fol
         reason: format!("{}: {error}", path.display()),
     })?;
 
-    let wanted = folded(name);
     let added: Vec<AssetFolder> = world.query::<&AssetFolder>().iter(world).cloned().collect();
-    for folder in &added {
-        if folded(&folder.name) == wanted {
-            return Err(FolderRefusal::NameInUse {
-                name: folder.name.clone(),
-                path: folder.path.clone(),
-            });
-        }
-    }
     for folder in &added {
         let existing = resolved(&folder.path).unwrap_or_else(|_| folder.path.clone());
         if existing == candidate {
@@ -66,6 +58,15 @@ fn check(world: &mut World, path: &Path, name: &CanonicalName) -> Result<(), Fol
         }
         if existing.starts_with(&candidate) {
             return Err(FolderRefusal::ContainsAdded {
+                name: folder.name.clone(),
+                path: folder.path.clone(),
+            });
+        }
+    }
+    let wanted = folded(name);
+    for folder in &added {
+        if folded(&folder.name) == wanted {
+            return Err(FolderRefusal::NameInUse {
                 name: folder.name.clone(),
                 path: folder.path.clone(),
             });
