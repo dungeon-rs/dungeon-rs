@@ -10,6 +10,16 @@ repository.workspace = true
 authors.workspace = true
 
 [dependencies]
+directories = { workspace = true }
+rfd = { workspace = true }
+thiserror = { workspace = true }
+time = { workspace = true, features = ["formatting", "macros"] }
+tracing = { workspace = true }
+tracing-appender = { workspace = true }
+tracing-subscriber = { workspace = true }
+
+[dev-dependencies]
+tempfile = { workspace = true }
 
 [features]
 default = []
