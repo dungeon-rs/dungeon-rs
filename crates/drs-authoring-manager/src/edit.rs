@@ -35,7 +35,7 @@ pub(crate) fn edit_element(
     let entity = id
         .entity(world)
         .map_err(|_| AuthoringError::UnknownElement(id))?;
-    // A Terrain is its strokes, which no Edit Element moves or reshapes: only its image changes.
+    // No Edit Element moves or reshapes a Terrain's strokes: only its image changes.
     if world.get::<Terrain>(entity).is_some()
         && !matches!(command.change, ElementChange::Material(_))
     {

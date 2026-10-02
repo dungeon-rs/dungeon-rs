@@ -108,7 +108,7 @@ impl Stroke {
 
 /// Painted ground: one Material and the strokes painted with it, in the order they were laid.
 ///
-/// The Terrain is its strokes, not its pixels: its coverage at a point, how much of the Material
+/// A Terrain keeps its strokes, never pixels: its coverage at a point, how much of the Material
 /// shows there, is the largest any of its strokes has there, computed afresh at whatever
 /// resolution it is drawn at.
 #[derive(Component, Reflect, Debug, Clone, PartialEq, Serialize, Deserialize)]
