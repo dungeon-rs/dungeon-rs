@@ -1,6 +1,6 @@
 # Reversible command
 
-**Use when**: a Manager records a new undoable step. **Not when**: the Command sets one reflected field of one component, or a whole component at the reflect path `""` (`drs_history::SetField`, as `edit.rs` does for a moved point or a Wall moved whole), or the work is not undone at all (Export Level, restoring folders at start). A step that swaps a whole component is still its own struct when later changes must hook into that step alone: `Reshape` in `wall.rs` adds and removes a Wall's or a Room's points, the only edits that renumber its segments or edges.
+**Use when**: a Manager records a new undoable step. **Not when**: the Command sets one reflected field of one component, or a whole component at the reflect path `""` (`drs_history::SetField`, as `edit.rs` does for a moved point or a Wall moved whole), or the work is not undone at all (Export Level, restoring folders at start). A step that swaps a whole component is still its own struct when later changes must hook into that step alone: `Reshape` in `outline.rs` adds and removes a Wall's or a Room's points, the only edits that renumber its segments or edges.
 **Exemplar**: `crates/drs-authoring-manager/src/remove.rs`
 
 ## Rules
@@ -87,8 +87,8 @@ pub(crate) fn remove_element(
         .element
         .entity(world)
         .map_err(|_| AuthoringError::UnknownElement(command.element))?;
-    if world.get::<Wall>(entity).is_some() || world.get::<Room>(entity).is_some() {
-        return crate::wall::remove_with_portals(world, command.element);
+    if crate::portal::host_path(world, entity).is_some() {
+        return crate::outline::remove_with_portals(world, command.element);
     }
     crate::record_step(world, Remove::of(command.element)).map(|()| None)
 }

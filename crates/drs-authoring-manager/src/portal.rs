@@ -1,8 +1,9 @@
 //! Portals: placing one set into a Wall or a Room or freestanding, Set Portal into Wall and Free
 //! Portal, the edits only a Portal has, and finding the Portals set into a Wall or a Room.
 
-use crate::AuthoringError;
+use crate::outline::path_of;
 use crate::place::{Place, Spawned, resolve};
+use crate::{AuthoringError, OutlineKind};
 use bevy_ecs::entity::Entity;
 use bevy_ecs::error::BevyError;
 use bevy_ecs::hierarchy::ChildOf;
@@ -19,10 +20,7 @@ use drs_shape_engine::{Path, PortalSetting, Standing, anchor_portals};
 /// set into, its parts being the Wall's segments or the Room's edges. The kind of the Element an
 /// anchor names says how its `index` is read.
 pub(crate) fn host_path(world: &World, entity: Entity) -> Option<Path> {
-    world
-        .get::<Wall>(entity)
-        .map(Path::of_wall)
-        .or_else(|| world.get::<Room>(entity).map(Path::of_room))
+    path_of::<Wall>(world, entity).or_else(|| path_of::<Room>(world, entity))
 }
 
 /// The Level an Element lies on: its nearest ancestor carrying [`Level`].
@@ -53,7 +51,7 @@ pub(crate) fn sets_into(
 ///
 /// [`AuthoringError::UnknownElement`] or [`AuthoringError::NotAHost`] when the host is neither a
 /// Wall nor a Room, [`AuthoringError::OnAnotherLevel`] when it lies on another Level, or
-/// [`AuthoringError::NoSegment`] or [`AuthoringError::NoEdge`] when it has no such part.
+/// [`AuthoringError::NoPart`] when it has no such part.
 pub(crate) fn host_of(
     world: &mut World,
     anchor: &PortalAnchor,
@@ -69,25 +67,23 @@ pub(crate) fn host_of(
     }
     let parts = host.parts();
     if anchor.index >= parts {
-        return Err(if host.closed {
-            AuthoringError::NoEdge {
-                edge: anchor.index,
-                edges: parts,
-            }
-        } else {
-            AuthoringError::NoSegment {
-                segment: anchor.index,
-                segments: parts,
-            }
+        return Err(AuthoringError::NoPart {
+            outline: if host.closed {
+                OutlineKind::Room
+            } else {
+                OutlineKind::Wall
+            },
+            part: anchor.index,
+            parts,
         });
     }
     Ok(host)
 }
 
 /// Whether the Portal `id` follows a host: it is anchored, and its anchor names a Wall or a Room
-/// on the Portal's Level and a segment or edge it has. A Portal whose anchor names none, as an editor
-/// that does not know Portals may leave it, is lost: it keeps its anchor but stands, turns, and
-/// mirrors as a freestanding one.
+/// on the Portal's Level and a segment or edge it has. A Portal whose anchor names none, as an
+/// editor that does not know Portals may leave it, is lost: it keeps its anchor but stands,
+/// turns, and mirrors as a freestanding one.
 ///
 /// # Errors
 ///
@@ -354,7 +350,7 @@ pub(crate) fn free_portal(world: &mut World, command: &FreePortal) -> Result<(),
 ///
 /// [`AuthoringError::NotAPortal`] when the Element is no Portal,
 /// [`AuthoringError::MalformedPortal`] for a width not above zero, a rotation that is not
-/// finite, or a parameter outside zero to one, [`AuthoringError::FollowsItsWall`] for the
+/// finite, or a parameter outside zero to one, [`AuthoringError::FollowsItsHost`] for the
 /// rotation or mirroring of a Portal that follows its Wall,
 /// [`AuthoringError::Freestanding`] for the side or place of a freestanding one, what
 /// [`host_of`] reports for a place its Wall does not have, or [`AuthoringError::History`] when
@@ -375,7 +371,7 @@ pub(crate) fn portal_change(
         ElementChange::Rotation(rotation) => {
             let mut portal = portal_of(world, id)?;
             if follows_host(world, id)? {
-                return Err(AuthoringError::FollowsItsWall);
+                return Err(AuthoringError::FollowsItsHost);
             }
             portal.rotation = *rotation;
             well_formed(&portal)?;
@@ -383,7 +379,7 @@ pub(crate) fn portal_change(
         }
         ElementChange::Mirrored(mirrored) => {
             if follows_host(world, id)? {
-                return Err(AuthoringError::FollowsItsWall);
+                return Err(AuthoringError::FollowsItsHost);
             }
             SetField::<ElementId>::new::<Portal>(id, "mirrored", *mirrored)
         }

@@ -1,7 +1,7 @@
 # Derived model component
 
 **Use when**: a Client or an Engine needs something computed from the model that it may not compute itself, because the computing Engine is not among its dependencies (a Wall's shape from ShapeEngine, a Project's resolution table from CatalogEngine). **Not when**: the value is saved (a serialisable component), or only the crate that computes it reads it (keep it private to that crate).
-**Exemplar**: `crates/drs-authoring-manager/src/wall.rs`
+**Exemplar**: `crates/drs-authoring-manager/src/derive.rs`
 
 ## Rules
 
@@ -14,18 +14,16 @@
 ## Example
 
 ```rust
-/// What a Wall's shape was last derived from: its points, segments, and thickness, and where
+/// What a Wall's or a Room's shape was last derived from: its outline, its thickness, and where
 /// the Portals set into it are and how wide. A change that leaves them as they were, a new
 /// colour, keeps the shape.
 #[derive(Component, Debug, Clone, PartialEq)]
 pub(crate) struct DerivedFrom {
-    /// The points the shape was derived from.
-    points: Vec<Vec2>,
-    /// The segments it was derived from.
-    segments: Vec<Segment>,
+    /// The outline the shape was derived from.
+    path: Path,
     /// The thickness it was derived at.
     thickness: f32,
-    /// The Portals set into the Wall, in the order of their identities.
+    /// The Portals set into it, in the order of their identities.
     portals: Vec<PortalSetting>,
 }
 
@@ -33,64 +31,55 @@ pub(crate) fn derive_shapes(
     mut commands: Commands,
     changed_outlines: Query<(), Or<(Changed<Wall>, Changed<Room>)>>,
     mut removed_portals: RemovedComponents<Portal>,
-    mut walls: Walls,
-    mut rooms: Rooms,
+    mut walls: Outlines<Wall>,
+    mut rooms: Outlines<Room>,
+    mut boxes: Boxes,
     mut portals: Portals,
     parents: Query<&ChildOf>,
     levels: Query<(), With<Level>>,
+    references: Query<&AssetReferences>,
 ) {
     let removed = removed_portals.read().count() > 0;
     // Looking at whether a Portal changed through the query that writes them marks nothing.
-    let portal_changed = portals
-        .iter_mut()
-        .any(|(_, _, portal, _)| portal.is_changed());
     if changed_outlines.is_empty() && !portal_changed && !removed {
         return;
     }
-    let parent_of = |child: Entity| parents.get(child).ok().map(ChildOf::parent);
-    let level_of = |entity: Entity| ancestor(entity, parent_of, |parent| levels.contains(parent));
-    let set = set_by_host(&walls, &rooms, &portals, level_of);
-    let mut standings = reshape_walls(&mut commands, &mut walls, &set);
-    standings.append(&mut reshape_rooms(&mut commands, &mut rooms, &set));
+    let mut standings = reshape(&mut commands, &mut walls, &mut boxes, &set);
+    standings.append(&mut reshape(&mut commands, &mut rooms, &mut boxes, &set));
 }
 
-/// Derives again the shape of every Wall whose points, segments, or thickness, or whose set
-/// Portals, differ from what its shape was last derived from, leaving out the stretches those
-/// Portals cover, and sets its Element's box around its points. Returns where each Portal set
-/// into those Walls stands.
-fn reshape_walls(
+fn reshape<H: OutlineHost>(
     commands: &mut Commands,
-    walls: &mut Walls,
+    outlines: &mut Outlines<H>,
+    boxes: &mut Boxes,
     set: &BTreeMap<ElementId, Vec<Anchored>>,
 ) -> BTreeMap<ElementId, Standing> {
     let mut standings = BTreeMap::new();
-    for (entity, id, wall, mut element, wall_shape, derived_from) in walls {
+    for (entity, id, outline, shape, derived_from) in outlines {
         let into = set.get(id).map_or(&[][..], Vec::as_slice);
-        let geometry = DerivedFrom::of(wall, into);
-        if wall_shape.is_some() && derived_from == Some(&geometry) {
+        let geometry = DerivedFrom::of(outline, into);
+        if shape.is_some() && derived_from == Some(&geometry) {
             continue;
         }
-        let path = Path::of_wall(wall);
-        let placed = anchor_portals(&path, &geometry.portals);
-        let stretches: Vec<_> = placed
-            .iter()
-            .flatten()
-            .map(|standing| standing.stretch)
-            .collect();
-        let shape = generate_walls(&combine_outlines(&path), wall.thickness, &stretches);
-        match wall_shape {
-            Some(mut wall_shape) => *wall_shape = shape,
+        let placed = anchor_portals(&geometry.path, &geometry.portals);
+        let combined = combine_outlines(&geometry.path);
+        let walls = generate_walls(&combined, outline.thickness(), &stretches);
+        let derived = H::shape(walls, combined.floor);
+        match shape {
+            Some(mut shape) => *shape = derived,
             None => {
-                commands.entity(entity).insert(shape);
+                commands.entity(entity).insert(derived);
             }
         }
         commands.entity(entity).insert(geometry);
-        let footprint = wall.element_box();
-        if element.position != footprint.center() {
-            element.position = footprint.center();
-        }
-        if element.size != footprint.size() {
-            element.size = footprint.size();
+        let footprint = outline.element_box();
+        if let Ok(mut element) = boxes.get_mut(entity) {
+            if element.position != footprint.center() {
+                element.position = footprint.center();
+            }
+            if element.size != footprint.size() {
+                element.size = footprint.size();
+            }
         }
     }
     standings

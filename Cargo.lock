@@ -2435,6 +2435,7 @@ dependencies = [
  "bevy_app",
  "bevy_ecs",
  "bevy_math",
+ "bevy_reflect",
  "drs-history",
  "drs-library-access",
  "drs-model",

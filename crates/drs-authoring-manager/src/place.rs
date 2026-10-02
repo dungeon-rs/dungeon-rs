@@ -194,7 +194,7 @@ pub(crate) fn place_element(
             points,
             thickness,
             colour,
-        } => crate::wall::place_wall(
+        } => crate::outline::place_outline(
             world,
             command.layer,
             Wall::straight(points.clone(), *thickness, *colour),
@@ -204,7 +204,7 @@ pub(crate) fn place_element(
             thickness,
             wall_colour,
             floor_colour,
-        } => crate::room::place_room(
+        } => crate::outline::place_outline(
             world,
             command.layer,
             Room::straight(points.clone(), *thickness, *wall_colour, *floor_colour),

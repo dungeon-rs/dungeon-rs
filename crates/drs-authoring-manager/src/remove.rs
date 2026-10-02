@@ -6,7 +6,7 @@ use bevy_ecs::error::BevyError;
 use bevy_ecs::hierarchy::{ChildOf, Children};
 use bevy_ecs::world::World;
 use drs_history::{HistoryError, ReversibleCommand, Snapshot, Target};
-use drs_model::{ElementId, PortalsRemoved, RemoveElement, Room, Wall};
+use drs_model::{ElementId, PortalsRemoved, RemoveElement};
 
 /// The recorded step: the Element's reflected components, its Layer, and its index among the
 /// Layer's children, so that undo puts it back exactly where it was.
@@ -79,8 +79,8 @@ pub(crate) fn remove_element(
         .element
         .entity(world)
         .map_err(|_| AuthoringError::UnknownElement(command.element))?;
-    if world.get::<Wall>(entity).is_some() || world.get::<Room>(entity).is_some() {
-        return crate::wall::remove_with_portals(world, command.element);
+    if crate::portal::host_path(world, entity).is_some() {
+        return crate::outline::remove_with_portals(world, command.element);
     }
     crate::record_step(world, Remove::of(command.element)).map(|()| None)
 }

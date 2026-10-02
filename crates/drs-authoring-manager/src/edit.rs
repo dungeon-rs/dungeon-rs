@@ -1,9 +1,9 @@
 //! Edit Element: a property change, grouped so that a gesture is one step.
 
 use crate::AuthoringError;
+use crate::outline::{OutlineEdit, outline_edit};
 use crate::portal::{follows_host, portal_change};
-use crate::room::{RoomEdit, room_edit};
-use crate::wall::{add_point, remove_point, translated, wall_of, well_formed};
+use bevy_ecs::entity::Entity;
 use bevy_ecs::world::World;
 use drs_history::{SetField, Target};
 use drs_model::{
@@ -21,14 +21,11 @@ use drs_model::{
 ///
 /// # Errors
 ///
-/// [`AuthoringError::UnknownElement`] when no Element carries the identity,
-/// [`AuthoringError::NotAWall`] for a change only a Wall has, [`AuthoringError::NoPoint`] or
-/// [`AuthoringError::NoSegment`] for a point or segment the Wall does not have,
-/// [`AuthoringError::Shape`] for a point added where the Wall cannot be split,
-/// [`AuthoringError::MalformedWall`] for a thickness not above zero or a point that is not
-/// finite, [`AuthoringError::FollowsItsWall`] for the position of a Portal that follows its
-/// Wall, what
-/// a Portal's own changes report, or [`AuthoringError::History`] when the change could not be
+/// [`AuthoringError::UnknownElement`] when no Element carries the identity, what an edit of a
+/// Wall or a Room reports, [`AuthoringError::NotAnOutline`] for a change only a Wall or a Room
+/// has, [`AuthoringError::NotARoom`] for a floor colour,
+/// [`AuthoringError::FollowsItsHost`] for the position of a Portal that follows its host, what a
+/// Portal's own changes report, or [`AuthoringError::History`] when the change could not be
 /// recorded.
 pub(crate) fn edit_element(
     world: &mut World,
@@ -44,81 +41,16 @@ pub(crate) fn edit_element(
     {
         return Err(AuthoringError::TerrainChangesOnlyItsMaterial(id));
     }
-    let history = |error: drs_history::HistoryError| AuthoringError::History(error.to_string());
-    let change = if world.get::<Room>(entity).is_some() {
-        match room_edit(world, id, &command.change)? {
-            RoomEdit::Field(field) => field,
-            RoomEdit::Recorded(removed) => return Ok(removed),
-        }
+    let edit = if world.get::<Wall>(entity).is_some() {
+        outline_edit::<Wall>(world, id, &command.change)?
+    } else if world.get::<Room>(entity).is_some() {
+        outline_edit::<Room>(world, id, &command.change)?
     } else {
-        match &command.change {
-            ElementChange::Position(position) => {
-                if let Some(wall) = world.get::<Wall>(entity) {
-                    let moved = translated(wall, *position);
-                    well_formed(&moved)?;
-                    SetField::<ElementId>::new::<Wall>(id, "", moved)
-                } else if world.get::<Portal>(entity).is_some() && follows_host(world, id)? {
-                    return Err(AuthoringError::FollowsItsWall);
-                } else {
-                    SetField::<ElementId>::new::<Element>(id, "position", *position)
-                }
-            }
-            ElementChange::Point { index, position } => {
-                let mut wall = wall_of(world, id)?;
-                let points = wall.points.len();
-                *wall.points.get_mut(*index).ok_or(AuthoringError::NoPoint {
-                    outline: "Wall",
-                    index: *index,
-                    points,
-                })? = *position;
-                well_formed(&wall)?;
-                SetField::<ElementId>::new::<Wall>(id, &format!("points[{index}]"), *position)
-            }
-            ElementChange::Control { segment, position } => {
-                let mut wall = wall_of(world, id)?;
-                let segments = wall.segments.len();
-                wall.segments
-                    .get_mut(*segment)
-                    .ok_or(AuthoringError::NoSegment {
-                        segment: *segment,
-                        segments,
-                    })?
-                    .control = *position;
-                well_formed(&wall)?;
-                SetField::<ElementId>::new::<Wall>(
-                    id,
-                    &format!("segments[{segment}].control"),
-                    *position,
-                )
-            }
-            ElementChange::Thickness(thickness) => {
-                let mut wall = wall_of(world, id)?;
-                wall.thickness = *thickness;
-                well_formed(&wall)?;
-                SetField::<ElementId>::new::<Wall>(id, "thickness", *thickness)
-            }
-            ElementChange::Colour(colour) => {
-                wall_of(world, id)?;
-                SetField::<ElementId>::new::<Wall>(id, "colour", *colour)
-            }
-            ElementChange::FloorColour(_) => return Err(AuthoringError::NotARoom(id)),
-            ElementChange::AddPoint { segment, t } => {
-                return add_point(world, id, *segment, *t).map(|()| None);
-            }
-            ElementChange::RemovePoint { index } => return remove_point(world, id, *index),
-            ElementChange::Width(_)
-            | ElementChange::Rotation(_)
-            | ElementChange::Mirrored(_)
-            | ElementChange::Side(_)
-            | ElementChange::Along { .. } => match portal_change(world, id, &command.change)? {
-                Some(field) => Ok(field),
-                None => return Err(AuthoringError::NotAPortal(id)),
-            },
-            ElementChange::Material(asset) => {
-                return crate::terrain::set_material(world, id, asset).map(|()| None);
-            }
-        }
-        .map_err(history)?
+        element_change(world, id, entity, &command.change)?
+    };
+    let change = match edit {
+        OutlineEdit::Field(field) => field,
+        OutlineEdit::Recorded(removed) => return Ok(removed),
     };
 
     match command.gesture {
@@ -131,4 +63,50 @@ pub(crate) fn edit_element(
         crate::history(world)?.end_group();
     }
     outcome.map(|()| None)
+}
+
+/// The edit of an Element that is neither a Wall nor a Room: the field command of its position,
+/// unless it is a Portal that follows its host, or of a change only a Portal has; or a Terrain's
+/// Material, recorded as a step of its own.
+///
+/// # Errors
+///
+/// [`AuthoringError::FollowsItsHost`] for the position of a Portal that follows its host,
+/// [`AuthoringError::NotAnOutline`] or [`AuthoringError::NotARoom`] for a change only a Wall or
+/// a Room has, what a Portal's own changes report, what setting a Terrain's Material reports, or
+/// [`AuthoringError::History`] when the field cannot be addressed.
+fn element_change(
+    world: &mut World,
+    id: ElementId,
+    entity: Entity,
+    change: &ElementChange,
+) -> Result<OutlineEdit, AuthoringError> {
+    let field = match change {
+        ElementChange::Position(position) => {
+            if world.get::<Portal>(entity).is_some() && follows_host(world, id)? {
+                return Err(AuthoringError::FollowsItsHost);
+            }
+            SetField::<ElementId>::new::<Element>(id, "position", *position)
+                .map_err(|error| AuthoringError::History(error.to_string()))
+        }
+        ElementChange::Point { .. }
+        | ElementChange::Control { .. }
+        | ElementChange::AddPoint { .. }
+        | ElementChange::RemovePoint { .. }
+        | ElementChange::Thickness(_)
+        | ElementChange::Colour(_) => Err(AuthoringError::NotAnOutline(id)),
+        ElementChange::FloorColour(_) => Err(AuthoringError::NotARoom(id)),
+        ElementChange::Width(_)
+        | ElementChange::Rotation(_)
+        | ElementChange::Mirrored(_)
+        | ElementChange::Side(_)
+        | ElementChange::Along { .. } => {
+            portal_change(world, id, change)?.ok_or(AuthoringError::NotAPortal(id))
+        }
+        ElementChange::Material(asset) => {
+            return crate::terrain::set_material(world, id, asset)
+                .map(|()| OutlineEdit::Recorded(None));
+        }
+    };
+    field.map(OutlineEdit::Field)
 }

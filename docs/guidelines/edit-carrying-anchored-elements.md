@@ -1,7 +1,7 @@
 # Edit that carries anchored Elements
 
-**Use when**: an authoring Command changes an Element that other Elements are anchored to in a way that renumbers what their anchors name (adding or removing a Wall's point), or removes the host with them. **Not when**: the change keeps every anchor valid as it is (moving a point, bending a segment, a new thickness): those go through `SetField`, and deriving moves the anchored Elements.
-**Exemplar**: `crates/drs-authoring-manager/src/wall.rs`
+**Use when**: an authoring Command changes an Element that other Elements are anchored to in a way that renumbers what their anchors name (adding or removing a Wall's or a Room's point), or removes the host with them. **Not when**: the change keeps every anchor valid as it is (moving a point, bending a segment, a new thickness): those go through `SetField`, and deriving moves the anchored Elements.
+**Exemplar**: `crates/drs-authoring-manager/src/outline.rs`
 
 ## Rules
 
@@ -15,31 +15,27 @@
 ## Example
 
 ```rust
-pub(crate) fn remove_point(
+fn remove_point<H: OutlineHost>(
     world: &mut World,
     element: ElementId,
+    before: &H,
     index: usize,
 ) -> Result<Option<PortalsRemoved>, AuthoringError> {
-    let before = wall_of(world, element)?;
-    let points = before.points.len();
+    let path = before.path();
+    let points = path.points.len();
     if index >= points {
         return Err(AuthoringError::NoPoint {
-            outline: "Wall",
+            outline: H::OUTLINE,
             index,
             points,
         });
     }
-    if points <= 2 {
+    if points <= H::FEWEST_POINTS {
         return remove_with_portals(world, element);
     }
-    let mut wall = before.clone();
-    wall.points.remove(index);
+    let outline = before.with_path(without_point(&path, index));
     let (portals, _) = anchored_to(world, element);
-    let places = anchor_portals_through(
-        &Path::of_wall(&before),
-        PointEdit::Removed { index },
-        &settings(&portals),
-    );
+    let places = anchor_portals_through(&path, PointEdit::Removed { index }, &settings(&portals));
     let mut gone = Vec::new();
     let mut moves = Vec::new();
     for ((portal, anchor, _), place) in portals.iter().zip(places) {
@@ -53,7 +49,7 @@ pub(crate) fn remove_point(
         gone.clone(),
         Reshape {
             element,
-            outline: wall,
+            outline,
             previous: None,
         },
         moves,
@@ -61,7 +57,7 @@ pub(crate) fn remove_point(
     Ok(removed(element, gone))
 }
 
-pub(crate) fn record_together(
+fn record_together(
     world: &mut World,
     gone: Vec<ElementId>,
     reshape: impl ReversibleCommand,
@@ -83,7 +79,7 @@ pub(crate) fn record_together(
 }
 
 /// The answer naming the Portals set into `host` that a Command removed, when it removed any.
-pub(crate) fn removed(host: ElementId, portals: Vec<ElementId>) -> Option<PortalsRemoved> {
+fn removed(host: ElementId, portals: Vec<ElementId>) -> Option<PortalsRemoved> {
     (!portals.is_empty()).then_some(PortalsRemoved { host, portals })
 }
 ```

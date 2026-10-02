@@ -1,6 +1,8 @@
 #![doc = include_str!("../README.md")]
 
+mod derive;
 mod edit;
+mod outline;
 mod place;
 mod portal;
 mod remove;
@@ -50,7 +52,7 @@ pub enum AuthoringError {
     NotOnALayer(ElementId),
     /// The change is one only a Wall or a Room has, and the Element is neither.
     #[error("the Element {0:?} is not a Wall or a Room")]
-    NotAWall(ElementId),
+    NotAnOutline(ElementId),
     /// The change is one only a Room has, and the Element is no Room.
     #[error("the Element {0:?} is not a Room")]
     NotARoom(ElementId),
@@ -60,28 +62,22 @@ pub enum AuthoringError {
     /// The Wall or the Room has no point of that number.
     #[error("the {outline} has no point {index}; it has {points}")]
     NoPoint {
-        /// What has no such point: a Wall or a Room.
-        outline: &'static str,
+        /// What has no such point.
+        outline: OutlineKind,
         /// The point named.
         index: usize,
         /// How many points it has.
         points: usize,
     },
-    /// The Wall has no segment of that number.
-    #[error("the Wall has no segment {segment}; it has {segments}")]
-    NoSegment {
-        /// The segment named.
-        segment: usize,
-        /// How many segments the Wall has.
-        segments: usize,
-    },
-    /// The Room has no edge of that number.
-    #[error("the Room has no edge {edge}; it has {edges}")]
-    NoEdge {
-        /// The edge named.
-        edge: usize,
-        /// How many edges the Room has.
-        edges: usize,
+    /// The Wall has no segment, or the Room no edge, of that number.
+    #[error("the {outline} has no {} {part}; it has {parts}", outline.part())]
+    NoPart {
+        /// What has no such part.
+        outline: OutlineKind,
+        /// The segment or edge named.
+        part: usize,
+        /// How many it has.
+        parts: usize,
     },
     /// The Wall would not be one: too few points, a thickness not above zero, or a coordinate
     /// that is not finite.
@@ -102,12 +98,12 @@ pub enum AuthoringError {
     /// A Portal is to be set into a Wall or a Room on another Level than its own.
     #[error("the Wall or Room {0:?} is on another Level than the Portal")]
     OnAnotherLevel(ElementId),
-    /// The position, rotation, or mirroring of a Portal set into a Wall is to change, which
-    /// follow its Wall.
-    #[error("the Portal is set into a Wall, which it follows; free it first")]
-    FollowsItsWall,
-    /// The side or the place along a Wall of a freestanding Portal is to change.
-    #[error("the Portal is freestanding; set it into a Wall first")]
+    /// The position, rotation, or mirroring of a Portal set into a Wall or a Room is to change,
+    /// which follow its host.
+    #[error("the Portal follows the Wall or Room it is set into; free it first")]
+    FollowsItsHost,
+    /// The side or the place along its host of a freestanding Portal is to change.
+    #[error("the Portal is freestanding; set it into a Wall or a Room first")]
     Freestanding,
     /// The stroke would not be one: no point, a point that is not finite, or Brush settings
     /// that are not a Brush's.
@@ -144,6 +140,43 @@ pub enum AuthoringError {
     History(String),
 }
 
+/// What an outline that an edit names is: a Wall's open line or a Room's closed outline.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum OutlineKind {
+    /// A Wall, whose parts are its segments.
+    Wall,
+    /// A Room, whose parts are its edges.
+    Room,
+}
+
+impl OutlineKind {
+    /// What its parts are called.
+    #[must_use]
+    pub const fn part(self) -> &'static str {
+        match self {
+            Self::Wall => "segment",
+            Self::Room => "edge",
+        }
+    }
+
+    /// The refusal of an outline of this kind that would not be one, for `reason`.
+    pub(crate) fn malformed(self, reason: String) -> AuthoringError {
+        match self {
+            Self::Wall => AuthoringError::MalformedWall(reason),
+            Self::Room => AuthoringError::MalformedRoom(reason),
+        }
+    }
+}
+
+impl std::fmt::Display for OutlineKind {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter.write_str(match self {
+            Self::Wall => "Wall",
+            Self::Room => "Room",
+        })
+    }
+}
+
 /// Handles the [`Apply`], [`Undo`], and [`Redo`] messages, answering a Command that removed
 /// Portals with [`PortalsRemoved`] and what fails with [`CommandFailed`] or [`HistoryFailed`].
 pub struct AuthoringManagerPlugin;
@@ -159,7 +192,7 @@ impl Plugin for AuthoringManagerPlugin {
                 // Every Manager has handled its Commands, Undo, and Redo by then, so a Wall, a
                 // Room, or a Portal placed, edited, undone, redone, or opened has its shape and
                 // its place before anything draws or picks it.
-                wall::derive_shapes.after(ManagerSystems::Redo),
+                derive::derive_shapes.after(ManagerSystems::Redo),
                 // Likewise a Terrain painted, undone, redone, or opened has its coverage before
                 // anything draws it.
                 terrain::derive_coverage.after(ManagerSystems::Redo),
