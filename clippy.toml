@@ -12,6 +12,13 @@ allow-print-in-tests = true
 # Bundled Files are found from the executable, so nothing may change it.
 # A file the Author gets is as readable as any file: a temporary file is private to its owner by
 # default, so a file written through one is created with `Builder` and the usual mode.
+# The floor and the Walls' centre line must be the same chords, the same on every machine: lyon
+# only fills the straight chords the shape Engine flattened, and never strokes, flattens a curve,
+# or builds a round shape, since its joins, caps, arcs, and curve flattening follow its own
+# tolerance and call the platform's `cos`, `sin`, and `acos`.
+disallowed-types = [
+  { path = "lyon_tessellation::StrokeTessellator", reason = "lyon's round joins and caps call the platform's trigonometry; the shape Engine strokes with its own code" },
+]
 disallowed-methods = [
   { path = "std::env::set_current_dir", reason = "the working directory never matters to the editor; nothing may depend on it" },
   { path = "tempfile::NamedTempFile::new", reason = "private to the owner; use `tempfile::Builder` with `permissions`, as the atomic file replacement guideline does" },
@@ -84,4 +91,29 @@ disallowed-methods = [
   { path = "f64::powi", reason = "the platform's libm differs between machines; compute it from arithmetic and `sqrt`, or through `bevy_math::ops` in single precision" },
   { path = "f64::cbrt", reason = "the platform's libm differs between machines; compute it from arithmetic and `sqrt`, or through `bevy_math::ops` in single precision" },
   { path = "f64::hypot", reason = "the platform's libm differs between machines; compute it from arithmetic and `sqrt`, or through `bevy_math::ops` in single precision" },
+  { path = "lyon_path::builder::NoAttributes::quadratic_bezier_to", reason = "lyon flattens curves and arcs at its own tolerance and through the platform's trigonometry; hand it the chords the shape Engine flattened" },
+  { path = "lyon_path::builder::NoAttributes::cubic_bezier_to", reason = "lyon flattens curves and arcs at its own tolerance and through the platform's trigonometry; hand it the chords the shape Engine flattened" },
+  { path = "lyon_path::builder::NoAttributes::add_circle", reason = "lyon flattens curves and arcs at its own tolerance and through the platform's trigonometry; hand it the chords the shape Engine flattened" },
+  { path = "lyon_path::builder::NoAttributes::add_ellipse", reason = "lyon flattens curves and arcs at its own tolerance and through the platform's trigonometry; hand it the chords the shape Engine flattened" },
+  { path = "lyon_path::builder::NoAttributes::add_rounded_rectangle", reason = "lyon flattens curves and arcs at its own tolerance and through the platform's trigonometry; hand it the chords the shape Engine flattened" },
+  { path = "lyon_path::builder::PathBuilder::quadratic_bezier_to", reason = "lyon flattens curves and arcs at its own tolerance and through the platform's trigonometry; hand it the chords the shape Engine flattened" },
+  { path = "lyon_path::builder::PathBuilder::cubic_bezier_to", reason = "lyon flattens curves and arcs at its own tolerance and through the platform's trigonometry; hand it the chords the shape Engine flattened" },
+  { path = "lyon_path::builder::PathBuilder::add_circle", reason = "lyon flattens curves and arcs at its own tolerance and through the platform's trigonometry; hand it the chords the shape Engine flattened" },
+  { path = "lyon_path::builder::PathBuilder::add_ellipse", reason = "lyon flattens curves and arcs at its own tolerance and through the platform's trigonometry; hand it the chords the shape Engine flattened" },
+  { path = "lyon_path::builder::PathBuilder::add_rounded_rectangle", reason = "lyon flattens curves and arcs at its own tolerance and through the platform's trigonometry; hand it the chords the shape Engine flattened" },
+  { path = "lyon_path::builder::WithSvg::quadratic_bezier_to", reason = "lyon flattens curves and arcs at its own tolerance and through the platform's trigonometry; hand it the chords the shape Engine flattened" },
+  { path = "lyon_path::builder::WithSvg::cubic_bezier_to", reason = "lyon flattens curves and arcs at its own tolerance and through the platform's trigonometry; hand it the chords the shape Engine flattened" },
+  { path = "lyon_path::builder::WithSvg::arc", reason = "lyon flattens curves and arcs at its own tolerance and through the platform's trigonometry; hand it the chords the shape Engine flattened" },
+  { path = "lyon_path::builder::SvgPathBuilder::quadratic_bezier_to", reason = "lyon flattens curves and arcs at its own tolerance and through the platform's trigonometry; hand it the chords the shape Engine flattened" },
+  { path = "lyon_path::builder::SvgPathBuilder::cubic_bezier_to", reason = "lyon flattens curves and arcs at its own tolerance and through the platform's trigonometry; hand it the chords the shape Engine flattened" },
+  { path = "lyon_path::builder::SvgPathBuilder::relative_quadratic_bezier_to", reason = "lyon flattens curves and arcs at its own tolerance and through the platform's trigonometry; hand it the chords the shape Engine flattened" },
+  { path = "lyon_path::builder::SvgPathBuilder::relative_cubic_bezier_to", reason = "lyon flattens curves and arcs at its own tolerance and through the platform's trigonometry; hand it the chords the shape Engine flattened" },
+  { path = "lyon_path::builder::SvgPathBuilder::smooth_cubic_bezier_to", reason = "lyon flattens curves and arcs at its own tolerance and through the platform's trigonometry; hand it the chords the shape Engine flattened" },
+  { path = "lyon_path::builder::SvgPathBuilder::smooth_relative_cubic_bezier_to", reason = "lyon flattens curves and arcs at its own tolerance and through the platform's trigonometry; hand it the chords the shape Engine flattened" },
+  { path = "lyon_path::builder::SvgPathBuilder::smooth_quadratic_bezier_to", reason = "lyon flattens curves and arcs at its own tolerance and through the platform's trigonometry; hand it the chords the shape Engine flattened" },
+  { path = "lyon_path::builder::SvgPathBuilder::smooth_relative_quadratic_bezier_to", reason = "lyon flattens curves and arcs at its own tolerance and through the platform's trigonometry; hand it the chords the shape Engine flattened" },
+  { path = "lyon_path::builder::SvgPathBuilder::arc_to", reason = "lyon flattens curves and arcs at its own tolerance and through the platform's trigonometry; hand it the chords the shape Engine flattened" },
+  { path = "lyon_path::builder::SvgPathBuilder::relative_arc_to", reason = "lyon flattens curves and arcs at its own tolerance and through the platform's trigonometry; hand it the chords the shape Engine flattened" },
+  { path = "lyon_tessellation::FillTessellator::tessellate_circle", reason = "lyon flattens curves and arcs at its own tolerance and through the platform's trigonometry; hand it the chords the shape Engine flattened" },
+  { path = "lyon_tessellation::FillTessellator::tessellate_ellipse", reason = "lyon flattens curves and arcs at its own tolerance and through the platform's trigonometry; hand it the chords the shape Engine flattened" },
 ]
