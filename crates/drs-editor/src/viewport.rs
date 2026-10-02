@@ -115,7 +115,7 @@ impl LevelView<'_, '_> {
     }
 
     /// The selected Element when it is a Wall, with its derived shape once it has one.
-    fn selected_wall(
+    pub(crate) fn selected_wall(
         &self,
         selected: Option<ElementId>,
     ) -> Option<(ElementId, &Wall, Option<&WallShape>)> {
@@ -127,7 +127,7 @@ impl LevelView<'_, '_> {
     }
 
     /// The selected Element when it is a Portal, with its box.
-    fn selected_portal(
+    pub(crate) fn selected_portal(
         &self,
         selected: Option<ElementId>,
     ) -> Option<(ElementId, &Element, &Portal)> {
@@ -146,8 +146,9 @@ impl LevelView<'_, '_> {
             .and_then(|(.., shape, _)| shape)
     }
 
-    /// Every Wall that has its derived shape, bottom first in the stacking order.
-    fn walls_in_order(&self) -> Vec<(ElementId, &Wall, &WallShape)> {
+    /// Every Wall that has its derived shape, bottom first in the stacking order, as picking
+    /// sees them, so whatever looks for the nearest Wall breaks a tie as a click would.
+    pub(crate) fn walls_in_order(&self) -> Vec<(ElementId, &Wall, &WallShape)> {
         self.levels
             .iter()
             .flat_map(|layers| layers.iter())

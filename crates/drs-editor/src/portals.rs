@@ -7,6 +7,7 @@
 //! gesture, and `F` and `X` send one Command each.
 
 use crate::state::{EditorState, Interaction, Tool};
+use crate::viewport::LevelView;
 use crate::walls::OptionGesture;
 use bevy::color::Color;
 use bevy::ecs::entity::Entity;
@@ -335,7 +336,7 @@ pub(crate) fn draw_marker(
     state: Res<EditorState>,
     viewport: Res<Viewport>,
     window: Single<&Window, With<PrimaryWindow>>,
-    walls: Query<(&ElementId, &Wall, &WallShape)>,
+    level: LevelView,
 ) {
     if state.exporting || state.tool != Tool::Portal {
         return;
@@ -347,11 +348,7 @@ pub(crate) fn draw_marker(
         return;
     };
     let cells = viewport.cells_at(cursor);
-    let Some(snapped) = snap(
-        walls.iter().map(|(id, wall, shape)| (*id, wall, shape)),
-        cells,
-        None,
-    ) else {
+    let Some(snapped) = snap(level.walls_in_order(), cells, None) else {
         return;
     };
     let across = match snapped.anchor.side {

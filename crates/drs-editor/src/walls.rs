@@ -7,6 +7,7 @@
 
 use crate::portals;
 use crate::state::{EditorState, Tool};
+use crate::viewport::LevelView;
 use bevy::color::{Alpha, Color};
 use bevy::ecs::entity::Entity;
 use bevy::ecs::message::MessageWriter;
@@ -17,8 +18,8 @@ use bevy::math::{Isometry2d, Vec2};
 use bevy::window::{PrimaryWindow, Window};
 use bevy_egui::EguiContexts;
 use drs_model::{
-    Apply, Colour, EditElement, Element, ElementChange, ElementId, Gesture, LinePlace,
-    PlaceElement, Placement, Portal, Viewport, Wall, WallShape,
+    Apply, Colour, EditElement, ElementChange, ElementId, Gesture, LinePlace, PlaceElement,
+    Placement, Viewport, Wall, WallShape,
 };
 
 /// The thickness the first Wall is drawn with: an eighth of a cell.
@@ -416,27 +417,19 @@ pub(crate) fn tool_strip(
     mut contexts: EguiContexts,
     mut state: ResMut<EditorState>,
     viewport: Res<Viewport>,
-    walls: Query<(&ElementId, &Wall, Option<&WallShape>)>,
-    portals: Query<(&ElementId, &Element, &Portal)>,
+    level: LevelView,
     mut apply: MessageWriter<Apply>,
 ) {
     let Ok(ctx) = contexts.ctx_mut() else {
         return;
     };
     let ctx = ctx.clone();
-    let selected = state
-        .selected
-        .and_then(|selected| walls.iter().find(|(id, ..)| **id == selected))
-        .map(|(id, wall, _)| (*id, wall.clone()));
-    let portal = state
-        .selected
-        .and_then(|selected| portals.iter().find(|(id, ..)| **id == selected))
-        .map(|(id, element, portal)| (*id, element.clone(), portal.clone()));
-    let shapes = || {
-        walls
-            .iter()
-            .filter_map(|(id, wall, shape)| Some((*id, wall, shape?)))
-    };
+    let selected = level
+        .selected_wall(state.selected)
+        .map(|(id, wall, _)| (id, wall.clone()));
+    let portal = level
+        .selected_portal(state.selected)
+        .map(|(id, element, portal)| (id, element.clone(), portal.clone()));
     let corner = egui::pos2(viewport.area.min.x + 8.0, viewport.area.min.y + 8.0);
     egui::Area::new(egui::Id::new("tool-strip"))
         .fixed_pos(corner)
@@ -481,7 +474,7 @@ pub(crate) fn tool_strip(
                             ui,
                             &mut state,
                             (*id, element, portal),
-                            shapes(),
+                            level.walls_in_order(),
                             &mut apply,
                         );
                     } else {
