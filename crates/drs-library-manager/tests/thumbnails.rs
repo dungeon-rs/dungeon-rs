@@ -20,6 +20,7 @@ use drs_model::{
 use image::{DynamicImage, Rgba, RgbaImage};
 use std::fs;
 use std::path::{Path, PathBuf};
+use std::sync::{Mutex, PoisonError};
 use std::time::{Duration, Instant};
 use tempfile::TempDir;
 
@@ -225,10 +226,40 @@ fn listing(folder: &Path) -> Vec<(PathBuf, u64, std::time::SystemTime)> {
     entries
 }
 
+/// Every message logged, with the name of the thread it was logged on.
+static LOGGED: Mutex<Vec<(String, String)>> = Mutex::new(Vec::new());
+
+/// Keeps every message logged in [`LOGGED`].
+struct Capture;
+
+impl log::Log for Capture {
+    fn enabled(&self, _: &log::Metadata<'_>) -> bool {
+        true
+    }
+
+    fn log(&self, record: &log::Record<'_>) {
+        let thread = std::thread::current()
+            .name()
+            .unwrap_or("unnamed")
+            .to_owned();
+        LOGGED
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .push((thread, record.args().to_string()));
+    }
+
+    fn flush(&self) {}
+}
+
 /// Generating thumbnails never runs on the main thread: the frame that indexes a folder returns
-/// with every thumbnail pending, and later frames turn them ready.
+/// with every thumbnail pending, later frames turn them ready, and the files were decoded on the
+/// generator's own threads.
 #[test]
 fn generated_in_the_background() {
+    // Another logger already set, as when the tests share a process, keeps this one out; the
+    // thread check is then left out.
+    let capturing = log::set_logger(&Capture).is_ok();
+    log::set_max_level(log::LevelFilter::Debug);
     let root = TempDir::new().expect("temporary root");
     let maps = folder(root.path(), "maps");
     for index in 0..8 {
@@ -240,18 +271,32 @@ fn generated_in_the_background() {
             [40, 90, 160, 255],
         );
     }
+    not_an_image(&maps, "not_a_tile.png");
     let mut app = editor(root.path());
 
     add(&mut app, &maps, "Maps");
 
     let first = states(&mut app);
-    assert_eq!(first.len(), 8);
+    assert_eq!(first.len(), 9);
     assert!(
         first
             .iter()
             .all(|(_, state)| *state == ThumbnailState::Pending)
     );
-    assert!(all_ready(&settle(&mut app)));
+    let settled = settle(&mut app);
+    assert_eq!(
+        settled[0],
+        ("not_a_tile.png".to_owned(), ThumbnailState::Broken)
+    );
+    assert!(all_ready(&settled[1..]), "{settled:?}");
+    if capturing {
+        let logged = LOGGED.lock().unwrap_or_else(PoisonError::into_inner);
+        let (thread, _) = logged
+            .iter()
+            .find(|(_, message)| message.contains("not_a_tile.png"))
+            .expect("the file that is not an image is logged as it is decoded");
+        assert!(thread.starts_with("thumbnails-"), "decoded on {thread}");
+    }
 }
 
 /// A PNG, JPEG, or WebP Asset gets a thumbnail.
