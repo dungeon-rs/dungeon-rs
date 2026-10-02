@@ -71,6 +71,9 @@ pub enum LibraryError {
         /// Why it could not be read.
         reason: String,
     },
+    /// Not a single thread could be started to generate thumbnails.
+    #[error("cannot start a thread to generate thumbnails: {0}")]
+    ThreadNotStarted(#[source] std::io::Error),
     /// A place climbs out of its folder or is otherwise not a relative path inside it.
     #[error("the place `{place}` is not inside the folder")]
     EscapesFolder {

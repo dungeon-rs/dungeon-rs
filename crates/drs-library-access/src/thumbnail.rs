@@ -315,7 +315,7 @@ impl ThumbnailGenerator {
     ///
     /// # Errors
     ///
-    /// [`LibraryError::Io`] when not a single thread can be started.
+    /// [`LibraryError::ThreadNotStarted`] when not a single thread can be started.
     pub fn start(cache: &ThumbnailCache, caught: CaughtPanics) -> Result<Self, LibraryError> {
         let count =
             std::thread::available_parallelism().map_or(1, |cores| (cores.get() / 2).max(1));
@@ -326,7 +326,7 @@ impl ThumbnailGenerator {
     ///
     /// # Errors
     ///
-    /// [`LibraryError::Io`] when not a single thread can be started.
+    /// [`LibraryError::ThreadNotStarted`] when not a single thread can be started.
     fn start_with(
         cache: &ThumbnailCache,
         count: usize,
@@ -358,11 +358,7 @@ impl ThumbnailGenerator {
         if threads.is_empty()
             && let Some(source) = failure
         {
-            return Err(LibraryError::Io {
-                action: "start a thread for",
-                path: PathBuf::from(THUMBNAIL_DIRECTORY),
-                source,
-            });
+            return Err(LibraryError::ThreadNotStarted(source));
         }
         Ok(Self {
             signal,
