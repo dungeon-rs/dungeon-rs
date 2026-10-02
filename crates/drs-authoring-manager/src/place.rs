@@ -1,6 +1,7 @@
 //! Place Element: a Prop of a chosen Asset on a Layer, and its undo.
 
 use crate::AuthoringError;
+use bevy_ecs::bundle::Bundle;
 use bevy_ecs::entity::Entity;
 use bevy_ecs::error::BevyError;
 use bevy_ecs::hierarchy::ChildOf;
@@ -63,8 +64,10 @@ impl ReversibleCommand for Place {
             .get_mut::<AssetReferences>(self.project)
             .ok_or(AuthoringError::NoProject)?
             .record(self.reference.clone(), self.folder.clone())?;
-        let entity = world
-            .spawn((
+        spawn_on_top(
+            world,
+            self.layer,
+            (
                 Element {
                     kind: PROP,
                     position: self.position,
@@ -72,22 +75,49 @@ impl ReversibleCommand for Place {
                 },
                 Prop { asset: row },
                 self.element,
-            ))
-            .id();
-        // A redone Place is always last too: every step after it has been undone first, so the
-        // Layer holds exactly the Elements it held when the Prop was first placed on top.
-        world
-            .get_entity_mut(self.layer)
-            .map_err(|_| AuthoringError::NotALayer)?
-            .add_child(entity);
-        Ok(())
+            ),
+        )
     }
 
     fn revert(&mut self, world: &mut World) -> Result<(), BevyError> {
-        let entity = self.element.entity(world)?;
-        world.despawn(entity);
-        Ok(())
+        take_off(world, self.element)
     }
+}
+
+/// Spawns an Element of `components`, its identity among them, as the last child of `layer`, on
+/// top of the Layer's stacking order.
+///
+/// A redone placement is always last too: every step after it has been undone first, so the
+/// Layer holds exactly the Elements it held when the Element was first placed on top.
+///
+/// # Errors
+///
+/// [`AuthoringError::NotALayer`] when the Layer is gone, before anything is spawned.
+pub(crate) fn spawn_on_top(
+    world: &mut World,
+    layer: Entity,
+    components: impl Bundle,
+) -> Result<(), BevyError> {
+    if world.get_entity(layer).is_err() {
+        return Err(AuthoringError::NotALayer.into());
+    }
+    let entity = world.spawn(components).id();
+    world
+        .get_entity_mut(layer)
+        .map_err(|_| AuthoringError::NotALayer)?
+        .add_child(entity);
+    Ok(())
+}
+
+/// Takes a placed Element off its Layer again, by its identity: the revert of a placement.
+///
+/// # Errors
+///
+/// The history's error when no Element carries the identity.
+pub(crate) fn take_off(world: &mut World, element: ElementId) -> Result<(), BevyError> {
+    let entity = element.entity(world)?;
+    world.despawn(entity);
+    Ok(())
 }
 
 /// Place Element: places a Prop of the chosen Asset or a Wall through the given points on top

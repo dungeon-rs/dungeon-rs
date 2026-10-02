@@ -1,6 +1,7 @@
 //! Walls: placing one, the edits that add and remove its points, and the shape derived from it.
 
 use crate::AuthoringError;
+use crate::place::{spawn_on_top, take_off};
 use crate::remove::Remove;
 use bevy_ecs::entity::Entity;
 use bevy_ecs::error::BevyError;
@@ -25,12 +26,11 @@ struct PlaceWall {
 
 impl ReversibleCommand for PlaceWall {
     fn apply(&mut self, world: &mut World) -> Result<(), BevyError> {
-        if world.get_entity(self.layer).is_err() {
-            return Err(AuthoringError::NotALayer.into());
-        }
         let footprint = self.wall.element_box();
-        let entity = world
-            .spawn((
+        spawn_on_top(
+            world,
+            self.layer,
+            (
                 Element {
                     kind: WALL,
                     position: footprint.center(),
@@ -38,20 +38,12 @@ impl ReversibleCommand for PlaceWall {
                 },
                 self.wall.clone(),
                 self.element,
-            ))
-            .id();
-        // A redone placement is always last too: every step after it has been undone first.
-        world
-            .get_entity_mut(self.layer)
-            .map_err(|_| AuthoringError::NotALayer)?
-            .add_child(entity);
-        Ok(())
+            ),
+        )
     }
 
     fn revert(&mut self, world: &mut World) -> Result<(), BevyError> {
-        let entity = self.element.entity(world)?;
-        world.despawn(entity);
-        Ok(())
+        take_off(world, self.element)
     }
 }
 
