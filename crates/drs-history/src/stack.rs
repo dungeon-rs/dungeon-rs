@@ -152,10 +152,11 @@ impl History {
         self.undo_depth() > 0
     }
 
-    /// Whether there is a step to redo.
+    /// Whether there is a step to redo. A group that has recorded a command discards what could
+    /// be redone once it ends, so while it is open there is none.
     #[must_use]
     pub fn can_redo(&self) -> bool {
-        !self.redo.is_empty()
+        !self.redo.is_empty() && self.group.as_ref().is_none_or(|(_, g)| g.is_empty())
     }
 
     /// Starts a group: every command applied until [`end_group`](Self::end_group) is one step.
@@ -167,11 +168,13 @@ impl History {
         self.group = Some((sequence, Vec::new()));
     }
 
-    /// Closes the open group, if any, making its commands one step. An empty group leaves no step.
+    /// Closes the open group, if any, making its commands one step and discarding whatever could
+    /// be redone. An empty group leaves no step and keeps what could be redone.
     pub fn end_group(&mut self) {
         if let Some((sequence, commands)) = self.group.take()
             && !commands.is_empty()
         {
+            self.redo.clear();
             self.undo.push(Step {
                 sequence,
                 commands: Commands::Group(commands),
@@ -179,12 +182,14 @@ impl History {
         }
     }
 
-    /// Records an applied command and discards whatever could be redone.
+    /// Records an applied command. A command of its own discards whatever could be redone at
+    /// once; one recorded in a group does so when the group ends, so a group abandoned instead
+    /// leaves the steps that could be redone as they were.
     fn record(&mut self, command: Boxed) {
-        self.redo.clear();
         if let Some((_, group)) = &mut self.group {
             group.push(command);
         } else {
+            self.redo.clear();
             let sequence = self.next_sequence();
             self.undo.push(Step {
                 sequence,
@@ -236,8 +241,9 @@ pub fn apply_step(world: &mut World, command: impl ReversibleCommand) -> Result<
 }
 
 /// Takes back every command of the open group, last first, and forgets the group, so a step
-/// whose later command failed leaves the World as it was before the group began, and nothing is
-/// recorded. With no group open it does nothing.
+/// whose later command failed leaves the World as it was before the group began, nothing is
+/// recorded, and every step that could be redone still can be. With no group open it does
+/// nothing.
 ///
 /// # Errors
 ///
@@ -436,5 +442,97 @@ mod tests {
                 .expect("a history")
                 .can_redo()
         );
+    }
+
+    /// The history of the World.
+    fn history(world: &mut World) -> bevy_ecs::world::Mut<'_, History> {
+        world.get_resource_mut::<History>().expect("a history")
+    }
+
+    /// A group abandoned after it recorded a command leaves every step that could be redone as it
+    /// was, while a group that ends discards them as any new step does.
+    #[test]
+    fn an_abandoned_group_keeps_what_could_be_redone() {
+        let mut world = world();
+        apply(&mut world, AddOne).expect("applied");
+        assert!(undo(&mut world).expect("undone"));
+
+        history(&mut world).begin_group();
+        apply(&mut world, AddOne).expect("applied");
+        assert!(
+            !history(&mut world).can_redo(),
+            "nothing to redo while it is open"
+        );
+        abandon_group(&mut world).expect("abandoned");
+        assert_eq!(count(&world), 0);
+        assert!(history(&mut world).can_redo());
+        assert!(redo(&mut world).expect("redone"));
+        assert_eq!(count(&world), 1);
+
+        assert!(undo(&mut world).expect("undone"));
+        history(&mut world).begin_group();
+        apply(&mut world, AddOne).expect("applied");
+        history(&mut world).end_group();
+        assert!(!history(&mut world).can_redo());
+        assert!(!redo(&mut world).expect("nothing to redo"));
+    }
+
+    /// A command that fails inside a group is not recorded and leaves what the group already
+    /// applied; abandoning the group then takes that back too.
+    #[test]
+    fn a_failing_second_command_leaves_the_group_to_abandon() {
+        let mut world = world();
+        history(&mut world).begin_group();
+        apply(&mut world, AddOne).expect("applied");
+        world
+            .get_resource_mut::<Count>()
+            .expect("a count")
+            .refuse_apply_at = Some(1);
+
+        assert!(apply(&mut world, AddOne).is_err());
+        assert_eq!(count(&world), 1, "the first command stays applied");
+        assert_eq!(history(&mut world).undo_depth(), 1);
+
+        abandon_group(&mut world).expect("abandoned");
+        assert_eq!(count(&world), 0);
+        assert!(!history(&mut world).can_undo());
+    }
+
+    /// A group whose command cannot be taken back while it is abandoned reports it; the commands
+    /// before that one stay applied and the group is forgotten, so nothing is recorded.
+    #[test]
+    fn an_abandoned_group_reports_what_it_cannot_take_back() {
+        let mut world = world();
+        history(&mut world).begin_group();
+        for _ in 0..3 {
+            apply(&mut world, AddOne).expect("applied");
+        }
+        world
+            .get_resource_mut::<Count>()
+            .expect("a count")
+            .refuse_revert_at = Some(2);
+
+        assert!(abandon_group(&mut world).is_err());
+        assert_eq!(count(&world), 2, "the last command alone is taken back");
+        assert!(!history(&mut world).can_undo());
+        assert!(abandon_group(&mut world).is_ok(), "no group is left open");
+    }
+
+    /// With nothing to undo or redo, undo and redo say so and change nothing; without a history
+    /// every operation reports it.
+    #[test]
+    fn nothing_to_undo_or_redo() {
+        let mut world = world();
+        assert!(!undo(&mut world).expect("nothing to undo"));
+        assert!(!redo(&mut world).expect("nothing to redo"));
+        assert_eq!(count(&world), 0);
+
+        let mut bare = World::new();
+        bare.init_resource::<Count>();
+        assert!(apply(&mut bare, AddOne).is_err());
+        assert_eq!(count(&bare), 0, "nothing is applied without a history");
+        assert!(undo(&mut bare).is_err());
+        assert!(redo(&mut bare).is_err());
+        assert!(abandon_group(&mut bare).is_err());
     }
 }

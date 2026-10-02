@@ -12,7 +12,8 @@ for a command that is a step of its own, and
 [`abandon_group`](crate::abandon_group) takes back an open group whose later
 command failed, so no step is left half applied. A group that cannot be undone
 or redone whole is put back as it was. Recording a new step discards the
-steps that were undone. [`History::position`](crate::History::position) tells
+steps that were undone, a group's once it ends, so an abandoned group leaves
+them to be redone. [`History::position`](crate::History::position) tells
 where the history stands, so whoever saved the World can later tell whether a
 step has been recorded, or undone, since; [`History::clear`](crate::History::clear)
 forgets every step.
