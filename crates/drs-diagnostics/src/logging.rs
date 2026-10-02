@@ -5,7 +5,7 @@ use std::path::{Path, PathBuf};
 use std::sync::{Mutex, PoisonError};
 use thiserror::Error;
 use tracing_subscriber::Layer;
-use tracing_subscriber::filter::{Directive, EnvFilter};
+use tracing_subscriber::filter::EnvFilter;
 use tracing_subscriber::registry::Registry;
 
 /// A boxed layer over the registry: the type Bevy's log plugin takes as its custom layer.
@@ -102,34 +102,25 @@ impl LogDirectives {
     }
 }
 
-/// Derives the filter from a `RUST_LOG` value: the default directives, with the value's
-/// directives added on top so each can override one; a malformed value leaves the default in
-/// place and is said in the fallback note.
+/// Derives the filter from a `RUST_LOG` value: the value's directives alone when it is
+/// well-formed, as Bevy's log plugin reads it for the terminal, so the file and the terminal
+/// agree; the default directives otherwise, with a malformed value said in the fallback note.
 #[must_use]
 pub fn log_directives(rust_log: Option<&str>) -> LogDirectives {
-    let defaults = EnvFilter::builder().parse_lossy(DEFAULT_LEVEL);
+    let defaults = || EnvFilter::builder().parse_lossy(DEFAULT_LEVEL);
     let Some(value) = rust_log.map(str::trim).filter(|value| !value.is_empty()) else {
         return LogDirectives {
-            filter: defaults,
+            filter: defaults(),
             fallback: None,
         };
     };
-    let parsed = value
-        .split(',')
-        .map(str::trim)
-        .filter(|directive| !directive.is_empty())
-        .try_fold(defaults.clone(), |filter, directive| {
-            directive
-                .parse::<Directive>()
-                .map(|directive| filter.add_directive(directive))
-        });
-    match parsed {
+    match EnvFilter::builder().parse(value) {
         Ok(filter) => LogDirectives {
             filter,
             fallback: None,
         },
         Err(error) => LogDirectives {
-            filter: defaults,
+            filter: defaults(),
             fallback: Some(format!(
                 "RUST_LOG is malformed ({error}); logging at the default level {DEFAULT_LEVEL}"
             )),
@@ -151,18 +142,17 @@ pub fn log_directory(resolved: Option<PathBuf>) -> PathBuf {
 /// The directory is created first. The layer that writes the file waits for [`take_layer`];
 /// until the Host composes it into a subscriber, nothing is written. When the directory or the
 /// file cannot be created, the reason is printed to the terminal and logging goes there only,
-/// so the editor starts regardless. A malformed `RUST_LOG` is said on the terminal too.
+/// so the editor starts regardless. A malformed `RUST_LOG` is said on the terminal after that,
+/// so the first line on the terminal is about where the log went.
 #[must_use]
-pub fn start_logging(directory: &Path, level: LogDirectives) -> Logging {
-    if let Some(note) = &level.fallback {
-        eprintln!("{note}");
-    }
-    match appender(directory) {
+pub fn start_logging(directory: &Path, directives: LogDirectives) -> Logging {
+    let LogDirectives { filter, fallback } = directives;
+    let logging = match appender(directory) {
         Ok(appender) => {
             let layer = tracing_subscriber::fmt::layer()
                 .with_ansi(false)
                 .with_writer(appender)
-                .with_filter(level.filter)
+                .with_filter(filter)
                 .boxed();
             *LAYER.lock().unwrap_or_else(PoisonError::into_inner) = Some(layer);
             *STATE.lock().unwrap_or_else(PoisonError::into_inner) = Some(State {
@@ -187,7 +177,11 @@ pub fn start_logging(directory: &Path, level: LogDirectives) -> Logging {
                 failure: Some(failure),
             }
         }
+    };
+    if let Some(note) = fallback {
+        eprintln!("{note}");
     }
+    logging
 }
 
 /// The layer [`start_logging`] built, once; `None` before logging started, after the layer was

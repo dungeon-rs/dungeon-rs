@@ -167,7 +167,8 @@ fn a_log_directory_that_cannot_be_made_leaves_the_terminal_only() {
     assert!(take_layer().is_none());
 }
 
-/// When `RUST_LOG` is set and well-formed, its directives decide which entries are logged.
+/// When `RUST_LOG` is set and well-formed, its directives alone decide which entries are
+/// logged; the default's exceptions for the engine no longer apply.
 #[test]
 fn the_level_comes_from_rust_log() {
     let root = TempDir::new().expect("temporary root");
@@ -178,11 +179,13 @@ fn the_level_comes_from_rust_log() {
     tracing::debug!(target: "drs_test", "a debug entry");
     tracing::warn!(target: "drs_quiet", "a quiet warning");
     tracing::error!(target: "drs_quiet", "a quiet error");
+    tracing::warn!(target: "wgpu::device", "a wgpu warning");
 
     let text = fs::read_to_string(&file).expect("the log file");
     assert!(text.contains("a debug entry"), "{text}");
     assert!(!text.contains("a quiet warning"), "{text}");
     assert!(text.contains("a quiet error"), "{text}");
+    assert!(text.contains("a wgpu warning"), "{text}");
 }
 
 /// Without `RUST_LOG`, entries at `info` and above are logged, except that `wgpu` logs at
