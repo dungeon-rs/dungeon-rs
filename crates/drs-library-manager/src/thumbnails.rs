@@ -1,5 +1,5 @@
 //! Driving thumbnail generation: the cache opened at startup, every indexed folder's Assets
-//! looked up and the missing ones enqueued, the finished ones written into the World, and the
+//! served from it and the missing ones enqueued, the finished ones written into the World, and the
 //! browser's wanted Assets put first.
 
 use bevy_ecs::entity::Entity;
@@ -69,7 +69,7 @@ fn key_of(key: &FolderKey, asset: &IndexedAsset) -> ThumbnailKey {
     }
 }
 
-/// Looks up the thumbnail of every Asset of a folder that was just indexed, writes their states
+/// Serves the thumbnail of every Asset of a folder that was just indexed, writes their states
 /// into the World, and enqueues the missing ones in place order.
 pub(crate) fn track(world: &mut World, folder: Entity) {
     let Some(added) = world.get::<AssetFolder>(folder) else {
@@ -82,7 +82,7 @@ pub(crate) fn track(world: &mut World, folder: Entity) {
         let key = key_of(&added.key, asset);
         let state = work
             .and_then(|work| work.cache.as_ref())
-            .map_or(ThumbnailState::Pending, |cache| cache.lookup(&key));
+            .map_or(ThumbnailState::Pending, |cache| cache.serve(&key));
         if state == ThumbnailState::Pending {
             jobs.push(ThumbnailJob {
                 key,

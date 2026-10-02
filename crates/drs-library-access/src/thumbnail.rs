@@ -165,12 +165,12 @@ impl ThumbnailCache {
         })
     }
 
-    /// Where the thumbnail of the Asset under `key` stands in the cache, the last record
-    /// appended for it winning: ready, broken, or, with no record, pending. From now on the
-    /// `thumb://` source serves the Asset at that place from what was found, or nothing when
-    /// there is no thumbnail.
+    /// Has the `thumb://` source serve the Asset at the place `key` names from what the cache
+    /// holds for it as it is now, the last record appended winning, or serve nothing there when
+    /// it holds no thumbnail; and says where its thumbnail stands: ready, broken, or, with no
+    /// record, pending.
     #[must_use]
-    pub fn lookup(&self, key: &ThumbnailKey) -> ThumbnailState {
+    pub fn serve(&self, key: &ThumbnailKey) -> ThumbnailState {
         let record = self
             .shared
             .records

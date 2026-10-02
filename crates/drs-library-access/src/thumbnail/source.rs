@@ -19,7 +19,7 @@ use std::path::Path;
 use std::sync::{Arc, PoisonError, RwLock};
 
 /// Which thumbnail serves each Asset at its current byte size and modification time, shared
-/// with the `thumb://` reader and changed at runtime as thumbnails are looked up and generated.
+/// with the `thumb://` reader and changed at runtime as thumbnails are served and generated.
 #[derive(Resource, Clone, Default)]
 pub struct ThumbnailTable {
     /// The pack and the records served.

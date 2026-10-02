@@ -45,10 +45,11 @@ syncs the pack before it writes the index, so no record outlives its thumbnail,
 and the first write that fails is handed back once and stops all writing.
 
 Thumbnails are read through a second dynamic asset source,
-`thumb://<folder-key>/<place>`, whose reader serves the thumbnail last looked up
-or generated for the Asset at its current size and modification time from a
-[`ThumbnailTable`](crate::ThumbnailTable), and refuses any path `lib://` would
-refuse. The Host registers it with
+`thumb://<folder-key>/<place>`, whose reader reads, out of a
+[`ThumbnailTable`](crate::ThumbnailTable), the thumbnail that
+[`ThumbnailCache::serve`](crate::ThumbnailCache::serve) or the generator last
+put there for the Asset at its current size and modification time, and refuses
+any path `lib://` would refuse. The Host registers it with
 [`register_thumbnail_source`](crate::register_thumbnail_source) before Bevy's
 `AssetPlugin` is added.
 
