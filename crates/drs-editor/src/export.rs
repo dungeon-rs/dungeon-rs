@@ -2,6 +2,7 @@
 //! a warning about placeholders, then the platform's save dialog and the Export request.
 
 use crate::files::{ProjectView, choose_save_file};
+use crate::outcomes::counted;
 use crate::panels::Outgoing;
 use crate::state::{EditorState, ExportDialog};
 use drs_model::ExportLevel;
@@ -65,12 +66,8 @@ pub(crate) fn dialog(
             ui.colored_label(
                 egui::Color32::YELLOW,
                 format!(
-                    "{placeholders} {} will be exported as shown.",
-                    if placeholders == 1 {
-                        "placeholder"
-                    } else {
-                        "placeholders"
-                    }
+                    "{} will be exported as shown.",
+                    counted(placeholders, "placeholder", "placeholders")
                 ),
             );
         }

@@ -5,6 +5,7 @@
 //! Save and Open are requests to the project Manager; the Editor only chooses the files and
 //! shows the answers. Unsaved changes are a history position that differs from the saved mark.
 
+use crate::outcomes::counted;
 use crate::panels::Outgoing;
 use crate::state::{EditorState, Pending, Phase, Question};
 use bevy::app::AppExit;
@@ -258,7 +259,7 @@ pub(crate) fn report(ctx: &egui::Context, state: &mut EditorState) {
 
 /// What the Author is told about a Missing Asset, in plain terms.
 fn describe_missing(asset: &MissingAsset) -> String {
-    let uses = elements(asset.elements);
+    let uses = counted(asset.elements, "Element", "Elements");
     let reason = match &asset.reason {
         MissingReason::FolderAbsent => {
             "the Asset Folder is not added on this device; add it under that name".to_owned()
@@ -272,11 +273,7 @@ fn describe_missing(asset: &MissingAsset) -> String {
         } => format!(
             "the Asset Folder on this device is version {version} and {} differ from the \
              recorded place only in spelling ({}), so none was chosen",
-            if candidates.len() == 1 {
-                "one file differs".to_owned()
-            } else {
-                format!("{} files", candidates.len())
-            },
+            counted(candidates.len(), "file", "files"),
             candidates.join(", ")
         ),
     };
@@ -291,39 +288,22 @@ fn describe_unknown(kind: &UnknownKind) -> String {
     format!(
         "• {} of the kind {}, which this editor does not know; they are kept and saved back as \
          they are.",
-        elements(kind.elements),
+        counted(kind.elements, "Element", "Elements"),
         kind.kind.as_str()
     )
-}
-
-/// A count of Elements in words.
-fn elements(count: usize) -> String {
-    if count == 1 {
-        "1 Element".to_owned()
-    } else {
-        format!("{count} Elements")
-    }
 }
 
 /// The report's one-line summary for the status line.
 pub(crate) fn summarise(report: &OpenReport) -> String {
     let missing = report.missing_assets.len();
     let unknown = report.unknown_kinds.len();
+    let assets = || counted(missing, "Missing Asset", "Missing Assets");
+    let kinds = || counted(unknown, "unknown Element kind", "unknown Element kinds");
     match (missing, unknown) {
         (0, 0) => String::new(),
-        (missing, 0) => format!(
-            " with {missing} Missing {}",
-            if missing == 1 { "Asset" } else { "Assets" }
-        ),
-        (0, unknown) => format!(
-            " with {unknown} unknown Element {}",
-            if unknown == 1 { "kind" } else { "kinds" }
-        ),
-        (missing, unknown) => format!(
-            " with {missing} Missing {} and {unknown} unknown Element {}",
-            if missing == 1 { "Asset" } else { "Assets" },
-            if unknown == 1 { "kind" } else { "kinds" }
-        ),
+        (_, 0) => format!(" with {}", assets()),
+        (0, _) => format!(" with {}", kinds()),
+        (_, _) => format!(" with {} and {}", assets(), kinds()),
     }
 }
 

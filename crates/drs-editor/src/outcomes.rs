@@ -113,6 +113,11 @@ pub(crate) fn report(
     }
 }
 
+/// A count in words: `1 Element`, `2 Elements`.
+pub(crate) fn counted(count: usize, one: &str, many: &str) -> String {
+    format!("{count} {}", if count == 1 { one } else { many })
+}
+
 /// What indexing left out, as a clause for the status line; empty when nothing was skipped.
 fn skipped(skips: &ScanSkips) -> String {
     let counts = [
@@ -135,7 +140,7 @@ fn skipped(skips: &ScanSkips) -> String {
     let parts: Vec<String> = counts
         .into_iter()
         .filter(|(count, _, _)| *count > 0)
-        .map(|(count, one, many)| format!("{count} {}", if count == 1 { one } else { many }))
+        .map(|(count, one, many)| counted(count, one, many))
         .collect();
     if parts.is_empty() {
         String::new()
