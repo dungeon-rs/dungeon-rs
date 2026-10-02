@@ -7,6 +7,7 @@ mod remove;
 mod wall;
 
 use bevy_app::{App, Plugin, Update};
+use bevy_ecs::entity::Entity;
 use bevy_ecs::message::MessageReader;
 use bevy_ecs::schedule::IntoScheduleConfigs;
 use bevy_ecs::system::SystemState;
@@ -152,6 +153,22 @@ pub(crate) fn undo(world: &mut World) -> Result<bool, AuthoringError> {
 /// [`AuthoringError::History`] when the step could not be applied again; it then stays where it was.
 pub(crate) fn redo(world: &mut World) -> Result<bool, AuthoringError> {
     drs_history::redo(world).map_err(|error| AuthoringError::History(error.to_string()))
+}
+
+/// The nearest ancestor of `entity` that `found` accepts, going up through `parent_of`.
+pub(crate) fn ancestor(
+    entity: Entity,
+    parent_of: impl Fn(Entity) -> Option<Entity>,
+    found: impl Fn(Entity) -> bool,
+) -> Option<Entity> {
+    let mut current = entity;
+    while let Some(parent) = parent_of(current) {
+        if found(parent) {
+            return Some(parent);
+        }
+        current = parent;
+    }
+    None
 }
 
 /// The history, which every step is recorded in.

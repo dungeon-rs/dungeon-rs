@@ -17,14 +17,22 @@ use drs_shape_engine::{PortalSetting, anchor_portals};
 
 /// The Level an Element lies on: its nearest ancestor carrying [`Level`].
 pub(crate) fn level_of(world: &World, entity: Entity) -> Option<Entity> {
-    let mut current = entity;
-    while let Some(parent) = world.get::<ChildOf>(current).map(ChildOf::parent) {
-        if world.get::<Level>(parent).is_some() {
-            return Some(parent);
-        }
-        current = parent;
-    }
-    None
+    crate::ancestor(
+        entity,
+        |child| world.get::<ChildOf>(child).map(ChildOf::parent),
+        |parent| world.get::<Level>(parent).is_some(),
+    )
+}
+
+/// Whether a Portal anchored at `anchor` is set into the Wall it names, a Wall of `segments`
+/// segments: the anchor names a segment the Wall has and a parameter from zero to one, and the
+/// Portal lies on the Wall's Level, `levels` being the Portal's and the Wall's.
+pub(crate) fn sets_into(
+    anchor: &PortalAnchor,
+    segments: usize,
+    levels: (Option<Entity>, Option<Entity>),
+) -> bool {
+    anchor.index < segments && (0.0..=1.0).contains(&anchor.t) && levels.0 == levels.1
 }
 
 /// The Wall an anchor names, checked for a Portal on `level`: the host must be a Wall on that
@@ -348,39 +356,15 @@ pub(crate) fn portal_change(
     field.map(Some).map_err(history)
 }
 
-/// The Portals set into the Wall `host`, in the order of their identities, with their anchors
-/// and widths: those whose anchor names the Wall, on its Level, at a segment it has.
-pub(crate) fn set_into(world: &mut World, host: ElementId) -> Vec<(ElementId, PortalAnchor, f32)> {
-    let Ok(wall_entity) = host.entity(world) else {
-        return Vec::new();
-    };
-    let segments = world
-        .get::<Wall>(wall_entity)
-        .map_or(0, |wall| wall.segments.len());
-    let level = level_of(world, wall_entity);
-    let mut portals: Vec<(Entity, ElementId, PortalAnchor, f32)> = world
-        .query::<(Entity, &ElementId, &Portal)>()
-        .iter(world)
-        .filter_map(|(entity, id, portal)| {
-            let anchor = portal.anchor?;
-            (anchor.host == host && anchor.index < segments && (0.0..=1.0).contains(&anchor.t))
-                .then_some((entity, *id, anchor, portal.width))
-        })
-        .collect();
-    portals.retain(|(entity, ..)| level_of(world, *entity) == level);
-    portals.sort_by_key(|(_, id, ..)| *id);
-    portals
-        .into_iter()
-        .map(|(_, id, anchor, width)| (id, anchor, width))
-        .collect()
-}
+/// A Portal anchored to a Wall, with its anchor and its width.
+pub(crate) type Anchored = (ElementId, PortalAnchor, f32);
 
-/// The Portals whose anchor names the Wall `host`, on its Level, at a segment it does not have,
-/// in the order of their identities, with their anchors and widths: those an editor that does
-/// not know Portals left behind when it removed the segment they were set into.
-pub(crate) fn lost_in(world: &mut World, host: ElementId) -> Vec<(ElementId, PortalAnchor, f32)> {
+/// The Portals whose anchor names the Wall `host`, in the order of their identities with their
+/// anchors and widths: first those set into it, then those on its Level it does not hold, whose
+/// anchor names a segment it lacks, as an editor that does not know Portals leaves them.
+pub(crate) fn anchored_to(world: &mut World, host: ElementId) -> (Vec<Anchored>, Vec<Anchored>) {
     let Ok(wall_entity) = host.entity(world) else {
-        return Vec::new();
+        return (Vec::new(), Vec::new());
     };
     let segments = world
         .get::<Wall>(wall_entity)
@@ -391,18 +375,19 @@ pub(crate) fn lost_in(world: &mut World, host: ElementId) -> Vec<(ElementId, Por
         .iter(world)
         .filter_map(|(entity, id, portal)| {
             let anchor = portal.anchor?;
-            (anchor.host == host && anchor.index >= segments).then_some((
-                entity,
-                *id,
-                anchor,
-                portal.width,
-            ))
+            (anchor.host == host).then_some((entity, *id, anchor, portal.width))
         })
         .collect();
-    portals.retain(|(entity, ..)| level_of(world, *entity) == level);
     portals.sort_by_key(|(_, id, ..)| *id);
-    portals
-        .into_iter()
-        .map(|(_, id, anchor, width)| (id, anchor, width))
-        .collect()
+    let mut set = Vec::new();
+    let mut lost = Vec::new();
+    for (entity, id, anchor, width) in portals {
+        let levels = (level_of(world, entity), level);
+        if sets_into(&anchor, segments, levels) {
+            set.push((id, anchor, width));
+        } else if levels.0 == levels.1 {
+            lost.push((id, anchor, width));
+        }
+    }
+    (set, lost)
 }

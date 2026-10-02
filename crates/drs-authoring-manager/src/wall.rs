@@ -2,8 +2,9 @@
 //! it, and the shape derived from it and from those Portals.
 
 use crate::AuthoringError;
+use crate::ancestor;
 use crate::place::{spawn_on_top, take_off};
-use crate::portal::{lost_in, set_into};
+use crate::portal::{Anchored, anchored_to, sets_into};
 use crate::remove::Remove;
 use bevy_ecs::change_detection::DetectChanges;
 use bevy_ecs::component::Component;
@@ -181,7 +182,7 @@ pub(crate) fn add_point(
 ) -> Result<(), AuthoringError> {
     let before = wall_of(world, element)?;
     let wall = split_wall(&before, segment, t)?;
-    let portals = set_into(world, element);
+    let (portals, lost) = anchored_to(world, element);
     let places = anchor_portals_through(
         &before,
         PointEdit::Added { segment, t },
@@ -196,7 +197,6 @@ pub(crate) fn add_point(
     // A Portal anchored at a segment the Wall lacks lies past every segment, so it moves one on
     // like a Portal on a later segment, and the new segment never becomes its own: it keeps
     // standing where it was saved.
-    let lost = lost_in(world, element);
     let renumbered =
         anchor_portals_through(&before, PointEdit::Added { segment, t }, &settings(&lost));
     for ((portal, anchor, _), place) in lost.iter().zip(renumbered) {
@@ -251,7 +251,7 @@ pub(crate) fn remove_point(
         wall.segments.remove(index);
         wall.segments[index - 1].control = None;
     }
-    let portals = set_into(world, element);
+    let (portals, _) = anchored_to(world, element);
     let places = anchor_portals_through(&before, PointEdit::Removed { index }, &settings(&portals));
     let mut gone = Vec::new();
     let mut moves = Vec::new();
@@ -286,7 +286,8 @@ pub(crate) fn remove_with_portals(
     world: &mut World,
     element: ElementId,
 ) -> Result<(), AuthoringError> {
-    let gone: Vec<ElementId> = set_into(world, element)
+    let gone: Vec<ElementId> = anchored_to(world, element)
+        .0
         .into_iter()
         .map(|(portal, ..)| portal)
         .collect();
@@ -303,7 +304,7 @@ pub(crate) fn remove_with_portals(
 }
 
 /// What `AnchorPortals` is told about the Portals set into a Wall.
-fn settings(portals: &[(ElementId, PortalAnchor, f32)]) -> Vec<PortalSetting> {
+fn settings(portals: &[Anchored]) -> Vec<PortalSetting> {
     portals
         .iter()
         .map(|(_, anchor, width)| PortalSetting {
@@ -392,7 +393,7 @@ pub(crate) struct DerivedFrom {
 
 impl DerivedFrom {
     /// What `wall`'s shape is derived from, with the Portals set into it.
-    fn of(wall: &Wall, portals: &[(ElementId, PortalAnchor, f32)]) -> Self {
+    fn of(wall: &Wall, portals: &[Anchored]) -> Self {
         Self {
             points: wall.points.clone(),
             segments: wall.segments.clone(),
@@ -400,22 +401,6 @@ impl DerivedFrom {
             portals: settings(portals),
         }
     }
-}
-
-/// The nearest ancestor of `entity` that `found` accepts.
-fn ancestor(
-    entity: Entity,
-    parents: &Query<&ChildOf>,
-    found: impl Fn(Entity) -> bool,
-) -> Option<Entity> {
-    let mut current = entity;
-    while let Ok(parent) = parents.get(current).map(ChildOf::parent) {
-        if found(parent) {
-            return Some(parent);
-        }
-        current = parent;
-    }
-    None
 }
 
 /// The Walls as deriving reads and writes them.
@@ -477,7 +462,8 @@ pub(crate) fn derive_shapes(
     if changed_walls.is_empty() && !portal_changed && !removed {
         return;
     }
-    let level_of = |entity: Entity| ancestor(entity, &parents, |parent| levels.contains(parent));
+    let parent_of = |child: Entity| parents.get(child).ok().map(ChildOf::parent);
+    let level_of = |entity: Entity| ancestor(entity, parent_of, |parent| levels.contains(parent));
     let set = set_by_host(&walls, &portals, level_of);
     let sides: BTreeMap<ElementId, bool> = set
         .values()
@@ -541,7 +527,7 @@ pub(crate) fn derive_shapes(
             portal.mirrored = *mirrored;
         }
         if changed {
-            let pixels = ancestor(entity, &parents, |parent| references.contains(parent))
+            let pixels = ancestor(entity, parent_of, |parent| references.contains(parent))
                 .and_then(|project| references.get(project).ok())
                 .and_then(|table| table.get(portal.asset))
                 .and_then(|reference| reference.pixel_size);
@@ -560,12 +546,12 @@ fn set_by_host(
     walls: &Walls,
     portals: &Portals,
     level_of: impl Fn(Entity) -> Option<Entity>,
-) -> BTreeMap<ElementId, Vec<(ElementId, PortalAnchor, f32)>> {
+) -> BTreeMap<ElementId, Vec<Anchored>> {
     let hosts: BTreeMap<ElementId, (Entity, usize)> = walls
         .iter()
         .map(|(entity, id, wall, ..)| (*id, (entity, wall.segments.len())))
         .collect();
-    let mut set: BTreeMap<ElementId, Vec<(ElementId, PortalAnchor, f32)>> = BTreeMap::new();
+    let mut set: BTreeMap<ElementId, Vec<Anchored>> = BTreeMap::new();
     for (entity, id, portal, _) in portals {
         let Some(anchor) = portal.anchor else {
             continue;
@@ -573,10 +559,7 @@ fn set_by_host(
         let Some(&(host, segments)) = hosts.get(&anchor.host) else {
             continue;
         };
-        if anchor.index < segments
-            && (0.0..=1.0).contains(&anchor.t)
-            && level_of(entity) == level_of(host)
-        {
+        if sets_into(&anchor, segments, (level_of(entity), level_of(host))) {
             set.entry(anchor.host)
                 .or_default()
                 .push((*id, anchor, portal.width));

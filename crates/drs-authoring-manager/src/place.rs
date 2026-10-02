@@ -22,14 +22,12 @@ use unicode_normalization::UnicodeNormalization;
 ///
 /// [`AuthoringError::NoProject`] when no ancestor is a Project.
 fn project_of(world: &World, layer: Entity) -> Result<Entity, AuthoringError> {
-    let mut current = layer;
-    while let Some(parent) = world.get::<ChildOf>(current).map(ChildOf::parent) {
-        if world.get::<Project>(parent).is_some() {
-            return Ok(parent);
-        }
-        current = parent;
-    }
-    Err(AuthoringError::NoProject)
+    crate::ancestor(
+        layer,
+        |child| world.get::<ChildOf>(child).map(ChildOf::parent),
+        |parent| world.get::<Project>(parent).is_some(),
+    )
+    .ok_or(AuthoringError::NoProject)
 }
 
 /// What an Element placed from an Asset shows its image as.
