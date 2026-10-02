@@ -1328,3 +1328,51 @@ fn overlapping_portals_stack() {
     assert_eq!(at(15.9, 15.8), BLACK_PIXEL, "the gap of the later");
     assert_eq!(at(16.6, 15.0), YELLOW_PIXEL, "the Wall past both");
 }
+
+/// A Portal whose Asset is Missing is drawn as the placeholder of its size, turned and set into
+/// its Wall as its image would be, and the Wall still gives way along it.
+#[test]
+fn a_missing_portal_keeps_its_gap() {
+    let mut fixture = Fixture::new();
+    fixture.wall(
+        &[Vec2::new(15.0, 5.0), Vec2::new(15.0, 25.0)],
+        &[None],
+        2.0,
+        YELLOW,
+    );
+    let wall = fixture.last();
+    fixture.portal(DOOR, Vec2::ZERO, Some(anchored(wall, 0, 0.5, Side::Left)));
+    // The saved file is made to record the door at a place its folder does not hold, so it
+    // opens with that Asset Missing.
+    let saved = fixture.save("missing-door.dungeon");
+    let text = fs::read_to_string(&saved).expect("the saved Project");
+    assert!(text.contains("\"door.png\""), "the place is recorded");
+    fs::write(
+        &saved,
+        text.replace("\"door.png\"", "\"elsewhere/door.png\""),
+    )
+    .expect("the Project rewritten");
+    fixture.open(&saved);
+
+    let exported = fixture
+        .export(WALL_PIXELS_PER_CELL, "missing-door.png", TILE)
+        .expect("the Export is written");
+    let picture = Picture::decode(&exported.path);
+    let at = |x: f32, y: f32| picture.at_point(Vec2::new(x, y), WALL_PIXELS_PER_CELL);
+
+    assert_eq!(at(15.0, 15.0), PLACEHOLDER_PIXEL, "the placeholder");
+    assert_eq!(
+        at(15.1, 15.9),
+        PLACEHOLDER_PIXEL,
+        "its width along the Wall"
+    );
+    assert_eq!(picture.count(CYAN_PIXEL), 0, "never its image");
+    let cells = (WALL_PIXELS_PER_CELL * WALL_PIXELS_PER_CELL) as usize;
+    assert_eq!(
+        picture.count(PLACEHOLDER_PIXEL),
+        cells,
+        "two cells along the Wall by half a cell across"
+    );
+    assert_eq!(at(15.6, 15.0), BLACK_PIXEL, "the gap beside it");
+    assert_eq!(at(15.6, 16.1), YELLOW_PIXEL, "the Wall past the stretch");
+}
