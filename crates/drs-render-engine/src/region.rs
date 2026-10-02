@@ -182,7 +182,9 @@ struct Completed {
 /// `RenderRegion`, first half: points the offscreen camera at the square of the Level whose
 /// lower-left corner is `bottom_left`, in cells, and whose side is `tile_size` pixels at
 /// `pixels_per_cell`, and asks for its pixels, its Terrains drawn from `coverages`, computed
-/// over that square at that resolution; a Terrain without one is not drawn there.
+/// over that square at that resolution; a Terrain without one is not drawn there. The coverages
+/// are taken out of `coverages` once the request is accepted, and left there when it is
+/// refused, for the request to be made again.
 ///
 /// The pixels come back through [`take_region`] a few frames later. One region is captured per
 /// frame: a request is refused while the previous region still waits for its frame to be drawn,
@@ -200,7 +202,7 @@ pub fn request_region(
     bottom_left: Vec2,
     pixels_per_cell: u32,
     tile_size: u32,
-    coverages: &[RegionCoverage],
+    coverages: &mut Vec<RegionCoverage>,
 ) -> Result<RegionRequest, RenderError> {
     if tile_size == 0 || tile_size > MOST_TILE_PIXELS {
         return Err(RenderError::BadTileSize(tile_size));
@@ -247,7 +249,7 @@ pub fn request_region(
             bottom_left,
             size: tile_size,
             cells,
-            coverages: coverages.to_vec(),
+            coverages: std::mem::take(coverages),
         });
         (entity, request)
     };
@@ -413,7 +415,7 @@ pub(crate) fn draw_region_terrains(
             continue;
         }
         let image = assets.images.add(coverage_image(
-            &coverage.pixels,
+            coverage.pixels,
             terrains.size,
             ImageSampler::nearest(),
         ));

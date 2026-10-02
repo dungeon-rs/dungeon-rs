@@ -285,7 +285,7 @@ pub(crate) struct TerrainAssets<'w> {
 
 /// A coverage of `side` texels a side as an image to sample: one byte a texel, rows from the
 /// top, on the GPU only.
-pub(crate) fn coverage_image(pixels: &[u8], side: u32, sampler: ImageSampler) -> Image {
+pub(crate) fn coverage_image(pixels: Vec<u8>, side: u32, sampler: ImageSampler) -> Image {
     let mut image = Image::new(
         Extent3d {
             width: side,
@@ -293,7 +293,7 @@ pub(crate) fn coverage_image(pixels: &[u8], side: u32, sampler: ImageSampler) ->
             depth_or_array_layers: 1,
         },
         TextureDimension::D2,
-        pixels.to_vec(),
+        pixels,
         TextureFormat::R8Unorm,
         RenderAssetUsages::RENDER_WORLD,
     );
@@ -486,8 +486,11 @@ fn sync_tiles(
         if let Some(mut kept) = tiles.remove(key) {
             let replaced = kept.revision != tile.revision;
             if replaced {
-                let image =
-                    coverage_image(&tile.pixels, COVERAGE_TILE_PIXELS, ImageSampler::linear());
+                let image = coverage_image(
+                    tile.pixels.to_vec(),
+                    COVERAGE_TILE_PIXELS,
+                    ImageSampler::linear(),
+                );
                 if assets.images.insert(&kept.coverage, image).is_err() {
                     log::warn!("the coverage of a Terrain could not be replaced");
                 }
@@ -511,7 +514,7 @@ fn sync_tiles(
             drawn.tiles.insert(*key, kept);
         } else {
             let coverage = assets.images.add(coverage_image(
-                &tile.pixels,
+                tile.pixels.to_vec(),
                 COVERAGE_TILE_PIXELS,
                 ImageSampler::linear(),
             ));

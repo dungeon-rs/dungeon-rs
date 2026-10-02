@@ -363,7 +363,7 @@ impl Export {
         }
         if self.requested < self.tiles {
             let bottom_left = self.bottom_left(self.requested);
-            let coverages = match self.next.take() {
+            let mut coverages = match self.next.take() {
                 Some(coverages) => coverages,
                 None => self.coverages(world, bottom_left),
             };
@@ -372,7 +372,7 @@ impl Export {
                 bottom_left,
                 self.pixels_per_cell,
                 self.tile_size,
-                &coverages,
+                &mut coverages,
             ) {
                 Ok(request) => {
                     self.pending.push_back(request);
