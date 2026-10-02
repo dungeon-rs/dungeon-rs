@@ -2456,3 +2456,137 @@ fn a_malformed_terrain_is_refused() {
     assert_eq!(saved.device.history().undo_depth(), depth);
     assert_eq!(saved.device.mark().file, Some(saved.file.clone()));
 }
+
+/// An editor that does not know the Portal kind keeps every Portal, set or freestanding, as a
+/// placeholder of its size where it stood, reports the kind as unknown, and writes it back
+/// unchanged, so the first editor reopens them set and standing as they were.
+#[test]
+fn unknown_portals_round_trip() {
+    let mut saved = SavedPortals::new();
+    let portals = saved.device.portals();
+    let mut unaware = Device::new();
+    unaware.forget_portals();
+
+    let opened = unaware.opens(&saved.file);
+
+    assert!(unaware.portals().is_empty(), "no Portal is known");
+    for (id, element, _) in &portals {
+        let placed = unaware
+            .elements()
+            .into_iter()
+            .find(|placed| placed.id == *id)
+            .expect("the Portal stays on its Layer");
+        assert_eq!(&placed.element, element, "a placeholder where it stood");
+        assert_eq!(
+            placed
+                .unknown
+                .expect("the Portal is kept")
+                .envelopes
+                .keys()
+                .collect::<Vec<_>>(),
+            vec!["portal"]
+        );
+    }
+    assert_eq!(
+        opened.report.unknown_kinds,
+        vec![UnknownKind {
+            kind: PORTAL,
+            elements: 2
+        }]
+    );
+
+    let copy = unaware.save_as(&unaware.root().join("copy.dungeon"));
+    assert_eq!(
+        fs::read(&copy).expect("the copy"),
+        fs::read(&saved.file).expect("the file")
+    );
+    saved.device.opens(&copy);
+    assert_eq!(saved.device.portals(), portals);
+}
+
+/// A file holding a Portal that is not one, a width not above zero or an anchor at a parameter
+/// outside zero to one, is refused naming the Portal and the reason, and the current Project is
+/// untouched.
+#[test]
+fn a_malformed_portal_is_refused() {
+    let mut saved = SavedPortals::new();
+    let portals = saved.device.portals();
+    let depth = saved.device.history().undo_depth();
+    let root = saved.device.root().to_path_buf();
+    let id = saved.portals[0].as_raw().to_string();
+
+    let mut malformed = json(&saved.file);
+    malformed["elements"][&id]["portal"]["data"]["width"] = json!(0.0);
+    let narrow = root.join("narrow.dungeon");
+    write_json(&narrow, &malformed);
+    let refused = saved
+        .device
+        .open(&narrow)
+        .expect_err("a Portal of no width");
+    assert!(
+        refused.reason.contains("portal") && refused.reason.contains("width"),
+        "{}",
+        refused.reason
+    );
+
+    let mut malformed = json(&saved.file);
+    malformed["elements"][&id]["portal"]["data"]["anchor"]["t"] = json!(1.5);
+    let beyond = root.join("beyond.dungeon");
+    write_json(&beyond, &malformed);
+    let refused = saved
+        .device
+        .open(&beyond)
+        .expect_err("a Portal past its segment's end");
+    assert!(
+        refused.reason.contains("portal") && refused.reason.contains("from 0 to 1"),
+        "{}",
+        refused.reason
+    );
+
+    assert_eq!(saved.device.portals(), portals);
+    assert_eq!(saved.device.history().undo_depth(), depth);
+    assert_eq!(saved.device.mark().file, Some(saved.file.clone()));
+}
+
+/// A Portal whose anchor names a segment its Wall lacks is neither moved nor removed when a point
+/// of that Wall is removed or the Wall itself is removed, nor when either is undone: it goes on
+/// standing where it was saved.
+#[test]
+fn a_lost_portal_outlives_its_wall() {
+    let mut saved = SavedPortals::new();
+    let (_, standing, _) = saved.set_portal();
+    let _copy = saved.lost_by(Apply::EditElement(EditElement {
+        element: saved.wall,
+        change: ElementChange::RemovePoint { index: 2 },
+        gesture: Gesture::Single,
+    }));
+    saved.device.apply(Apply::EditElement(EditElement {
+        element: saved.wall,
+        change: ElementChange::AddPoint { segment: 0, t: 0.5 },
+        gesture: Gesture::Single,
+    }));
+    let (_, _, lost) = saved.set_portal();
+
+    saved.device.apply(Apply::EditElement(EditElement {
+        element: saved.wall,
+        change: ElementChange::RemovePoint { index: 1 },
+        gesture: Gesture::Single,
+    }));
+    let (_, element, portal) = saved.set_portal();
+    assert_eq!(element, standing, "where it was saved");
+    assert_eq!(portal, lost, "its anchor untouched by the point");
+
+    saved.device.apply(Apply::RemoveElement(RemoveElement {
+        element: saved.wall,
+    }));
+    assert!(saved.device.walls().is_empty(), "the Wall is gone");
+    let (_, element, portal) = saved.set_portal();
+    assert_eq!(element, standing, "still where it was saved");
+    assert_eq!(portal, lost, "not removed with the Wall");
+
+    saved.device.undo();
+    saved.device.undo();
+    let (_, element, portal) = saved.set_portal();
+    assert_eq!(element, standing, "where it was saved after both undos");
+    assert_eq!(portal, lost);
+}

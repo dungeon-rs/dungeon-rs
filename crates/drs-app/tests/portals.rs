@@ -1408,3 +1408,42 @@ fn portal_commands_redo_exactly() {
         assert_eq!(fixture.state(), after, "{step:?}");
     }
 }
+
+/// A Portal placed, set into a Wall or freestanding, lands on top of the Elements already on the
+/// Layer, the Wall it is set into among them.
+#[test]
+fn portals_are_placed_on_top() {
+    let mut fixture = Fixture::new();
+    let table = fixture.prop(Vec2::new(1.0, 1.0));
+    let wall = fixture.wall(&CORNER);
+    let set = fixture.set_door(wall, 0, 0.5, Side::Left);
+    let free = fixture.free_door(Vec2::new(1.0, 1.0));
+
+    assert_eq!(fixture.order(), vec![table, wall, set, free]);
+}
+
+/// A drag of a freestanding Portal, however many moves it takes, is one undo step, and undo
+/// returns it to where the drag began.
+#[test]
+fn a_freestanding_portal_drag_is_one_step() {
+    let mut fixture = Fixture::new();
+    let door = fixture.free_door(Vec2::new(1.0, 1.0));
+    let depth = fixture.history().undo_depth();
+
+    let path = [
+        (Vec2::new(2.0, 1.0), Gesture::Begin),
+        (Vec2::new(3.0, 2.0), Gesture::Continue),
+        (Vec2::new(4.0, 3.0), Gesture::Continue),
+        (Vec2::new(4.0, 3.0), Gesture::End),
+    ];
+    for (position, gesture) in path {
+        fixture.apply(edit(door, ElementChange::Position(position), gesture));
+    }
+    assert_eq!(fixture.portal(door).element.position, Vec2::new(4.0, 3.0));
+    assert_eq!(fixture.history().undo_depth(), depth + 1);
+
+    fixture.undo();
+    assert_eq!(fixture.portal(door).element.position, Vec2::new(1.0, 1.0));
+    fixture.redo();
+    assert_eq!(fixture.portal(door).element.position, Vec2::new(4.0, 3.0));
+}
