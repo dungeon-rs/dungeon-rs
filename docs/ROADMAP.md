@@ -3,7 +3,6 @@
 ## I have a working editor: I can place Props from my own Asset Folder, undo, save, reopen, and export an image
 
 - **[Walking skeleton: save, reopen, export](changes/walking-skeleton-save-reopen-export.md)**: the Author saves the Project, reopens it with its Asset References resolved (Missing Assets kept as placeholders and reported), and exports the Level as a PNG at a chosen resolution within fixed Bounds. Commands: Export Level.
-- **[Diagnostics](changes/diagnostics.md)**: logs go to a daily-rolling file, a crash shows a dialog and leaves a crash report, and Bundled Files are found on every platform. Commands: none.
 
 ## I can build and export a simple dungeon: Walls, doors, Rooms, painted Terrain, and Layers, from a library I can actually browse
 
