@@ -544,9 +544,9 @@ fn zoom_and_scroll(input: &mut Input, viewport: &mut Viewport, cursor: Vec2) {
 /// sets the selected Portal, Delete (and Backspace on macOS) removes the selected point,
 /// straightens the selected control point's segment, or removes the selected Element, and the
 /// platform's usual shortcuts undo and redo. Nothing happens while egui has the keyboard, so a
-/// text field keeps its own editing keys, nor while an Export runs, and undo and redo wait while
-/// an Element or a handle is being dragged, a Wall is being drawn, or an option is held while it
-/// changes, since each is one step that is still being made.
+/// text field keeps its own editing keys, nor while an Export runs, and undo, redo, flipping, and
+/// freeing or setting wait while an Element or a handle is being dragged, a Wall is being drawn,
+/// or an option is held while it changes, since each is one step that is still being made.
 pub(crate) fn keys(
     keys: Res<ButtonInput<KeyCode>>,
     egui: Res<EguiWantsInput>,
@@ -565,16 +565,20 @@ pub(crate) fn keys(
     if bindings::any_pressed(bindings::PORTAL_TOOL, &keys) {
         portals::choose_portal_tool(&mut state);
     }
-    if let Some((element, shape, portal)) = level.selected_portal(state.selected) {
+    // A flip or a freeing in the middle of a slide or an option's drag would land inside the
+    // gesture's step, so both wait for it as undo does.
+    if !state.step_under_way()
+        && let Some((id, element, portal)) = level.selected_portal(state.selected)
+    {
         if bindings::any_pressed(bindings::FLIP, &keys) {
-            apply.write(portals::flip(element, portal));
+            apply.write(portals::flip(id, portal));
         }
         if bindings::any_pressed(bindings::FREE_OR_SET, &keys) {
             portals::free_or_set(
                 &mut state,
                 &mut apply,
-                element,
-                shape.position,
+                id,
+                element.position,
                 portal,
                 level.walls_in_order(),
             );
