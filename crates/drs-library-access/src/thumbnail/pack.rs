@@ -130,9 +130,9 @@ pub(crate) struct Opened {
 /// Opens the pack and index in `directory`, creating the directory and both files when absent.
 ///
 /// A pack or index that does not start with its header is replaced, with the other, by an empty
-/// one, which is logged when either was there. A record that is incomplete or whose entry ends beyond the pack is skipped and logged,
-/// and the index is written again without it, so that later appends line up and the record can
-/// never come to point at a later entry.
+/// one, which is logged when either was there. A record that is incomplete or whose entry ends
+/// beyond the pack is skipped and logged, and the index is written again without it, so that
+/// later appends line up and the record can never come to point at a later entry.
 ///
 /// # Errors
 ///
