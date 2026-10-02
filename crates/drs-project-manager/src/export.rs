@@ -17,7 +17,9 @@ use bevy_ecs::world::World;
 use bevy_math::Vec2;
 use drs_model::{Bounds, ExportLevel, ExportRefused, Level, LevelExported};
 use drs_output_access::{ImageWriter, OutputError, Tile, begin_image, finish_image, write_tile};
-use drs_render_engine::{RegionRequest, RenderError, release_regions, request_region, take_region};
+use drs_render_engine::{
+    MOST_TILE_PIXELS, RegionRequest, RenderError, release_regions, request_region, take_region,
+};
 use std::collections::VecDeque;
 use std::path::{Path, PathBuf};
 
@@ -74,6 +76,8 @@ pub(crate) struct Exports {
 struct Export {
     /// The Level being exported.
     level: Entity,
+    /// The file as the request named it, echoed when the Export fails.
+    asked: PathBuf,
     /// The file being written, `.png` included.
     path: PathBuf,
     /// The image's width in pixels.
@@ -112,7 +116,7 @@ enum Step {
 struct Failure {
     /// The Level that was to be exported.
     level: Entity,
-    /// The file that was to be written.
+    /// The file as the request named it.
     path: PathBuf,
     /// Why.
     error: ExportError,
@@ -129,8 +133,7 @@ pub(crate) fn handle_export_level(
         Err(_) => return,
     };
     for request in requests {
-        let path = png_path(&request.path);
-        match begin(world, &request, path.clone()) {
+        match begin(world, &request) {
             Ok(export) => {
                 world
                     .get_resource_or_init::<Exports>()
@@ -140,7 +143,7 @@ pub(crate) fn handle_export_level(
             Err(error) => {
                 world.write_message(ExportRefused {
                     level: request.level,
-                    path,
+                    path: request.path,
                     reason: error.to_string(),
                 });
             }
@@ -149,14 +152,15 @@ pub(crate) fn handle_export_level(
     advance(world);
 }
 
-/// Checks a request and opens its image: the resolution within its limits, the Level with its
-/// Project's Bounds, and the image as many pixels as the Bounds are cells times the resolution.
+/// Checks a request and opens its image: the resolution within its limits, the tile size one
+/// the Engine renders, the Level with its Project's Bounds, and the image as many pixels as the
+/// Bounds are cells times the resolution.
 ///
 /// # Errors
 ///
 /// The refusal, before any file is created, or the output's error when the image cannot be
 /// opened.
-fn begin(world: &mut World, request: &ExportLevel, path: PathBuf) -> Result<Export, ExportError> {
+fn begin(world: &mut World, request: &ExportLevel) -> Result<Export, ExportError> {
     let pixels_per_cell = request.pixels_per_cell;
     if !(ExportLevel::LEAST_PIXELS_PER_CELL..=ExportLevel::MOST_PIXELS_PER_CELL)
         .contains(&pixels_per_cell)
@@ -166,6 +170,10 @@ fn begin(world: &mut World, request: &ExportLevel, path: PathBuf) -> Result<Expo
             least: ExportLevel::LEAST_PIXELS_PER_CELL,
             most: ExportLevel::MOST_PIXELS_PER_CELL,
         });
+    }
+    let tile_size = request.tile_size;
+    if tile_size == 0 || tile_size > MOST_TILE_PIXELS {
+        return Err(RenderError::BadTileSize(tile_size).into());
     }
     if world.get::<Level>(request.level).is_none() {
         return Err(ExportError::NotALevel);
@@ -191,19 +199,20 @@ fn begin(world: &mut World, request: &ExportLevel, path: PathBuf) -> Result<Expo
         .y
         .checked_mul(pixels_per_cell)
         .ok_or_else(too_large)?;
-    let tile_size = request.tile_size.max(1);
     let tiles_across = width.div_ceil(tile_size);
     let tiles = tiles_across
         .checked_mul(height.div_ceil(tile_size))
         .ok_or_else(too_large)?;
+    let path = png_path(&request.path);
     let writer = begin_image(&path, width, height)?;
     Ok(Export {
         level: request.level,
+        asked: request.path.clone(),
         path,
         width,
         height,
         pixels_per_cell,
-        tile_size: request.tile_size,
+        tile_size,
         bounds,
         tiles_across,
         tiles,
@@ -255,6 +264,7 @@ impl Export {
             Ok(true) => {
                 let Self {
                     level,
+                    asked,
                     path,
                     width,
                     height,
@@ -270,7 +280,7 @@ impl Export {
                     })),
                     Err(error) => Err(Failure {
                         level,
-                        path,
+                        path: asked,
                         error: error.into(),
                     }),
                 }
@@ -278,7 +288,7 @@ impl Export {
             Ok(false) => Ok(Step::Working(self)),
             Err(error) => Err(Failure {
                 level: self.level,
-                path: self.path,
+                path: self.asked,
                 error,
             }),
         }
