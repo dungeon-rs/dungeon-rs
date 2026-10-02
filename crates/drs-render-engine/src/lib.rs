@@ -3,6 +3,8 @@
 mod projection;
 mod props;
 mod region;
+mod stacking;
+mod walls;
 
 pub use region::{
     MOST_TILE_PIXELS, RegionPixels, RegionRequest, RenderError, release_regions, request_region,
@@ -20,8 +22,9 @@ use bevy_render::{ExtractSchedule, Render, RenderApp, RenderSystems};
 use bevy_transform::TransformSystems;
 use drs_model::Viewport;
 
-/// Draws the Level: the viewport systems that keep one sprite per Prop, the projection that
-/// follows the [`Viewport`], and the offscreen rendering of regions for the Export.
+/// Draws the Level: the viewport systems that keep one sprite per Prop and one mesh per Wall,
+/// the projection that follows the [`Viewport`], and the offscreen rendering of regions for the
+/// Export.
 pub struct RenderEnginePlugin;
 
 impl Plugin for RenderEnginePlugin {
@@ -36,6 +39,7 @@ impl Plugin for RenderEnginePlugin {
                     ),
                     props::sync_props.run_if(props::props_changed),
                     props::settle_loads.run_if(any_with_component::<props::Loading>),
+                    walls::sync_walls.run_if(walls::walls_changed),
                     region::gate_regions.run_if(resource_exists::<region::Offscreen>),
                 )
                     .chain()

@@ -1,19 +1,20 @@
-//! One sprite per Prop, kept in step with the model through change detection.
+//! One sprite per Element but a Wall, kept in step with the model through change detection.
 
+use crate::stacking::Stacking;
 use bevy_asset::{AssetPath, AssetServer, Handle, LoadState};
 use bevy_color::Color;
 use bevy_ecs::component::Component;
 use bevy_ecs::entity::Entity;
 use bevy_ecs::hierarchy::Children;
 use bevy_ecs::lifecycle::RemovedComponents;
-use bevy_ecs::query::{Changed, Or, With};
+use bevy_ecs::query::{Changed, Has, Or, With};
 use bevy_ecs::system::{Commands, EntityCommands, Query, Res, SystemParam};
 use bevy_image::Image;
 use bevy_math::Vec3;
 use bevy_sprite::Sprite;
 use bevy_transform::components::Transform;
 use drs_library_access::asset_path;
-use drs_model::{Element, Layer, Level, Project, Prop, Resolution, ResolutionTable};
+use drs_model::{Element, Layer, Level, Project, Prop, Resolution, ResolutionTable, Wall};
 use std::collections::BTreeMap;
 
 /// Marks a sprite entity as drawing one Element.
@@ -36,14 +37,13 @@ const PLACEHOLDER: Color = Color::srgba(0.75, 0.3, 0.35, 0.8);
 /// The parts of the model the sprites are drawn from.
 #[derive(SystemParam)]
 pub(crate) struct Model<'w, 's> {
-    /// Each Project's resolution table and its Levels.
-    projects: Query<'w, 's, (&'static ResolutionTable, &'static Children), With<Project>>,
-    /// Each Level's Layers.
-    levels: Query<'w, 's, &'static Children, With<Level>>,
-    /// Each Layer's Elements in stacking order.
-    layers: Query<'w, 's, &'static Children, With<Layer>>,
-    /// What every Element has, and the Prop it is when it is one.
-    elements: Query<'w, 's, (&'static Element, Option<&'static Prop>)>,
+    /// The stacking order.
+    stacking: Stacking<'w, 's>,
+    /// Each Project's resolution table.
+    projects: Query<'w, 's, &'static ResolutionTable, With<Project>>,
+    /// What every Element has, the Prop it is when it is one, and whether it is a Wall, which is
+    /// drawn as a stroke rather than a sprite.
+    elements: Query<'w, 's, (&'static Element, Option<&'static Prop>, Has<Wall>)>,
 }
 
 /// Whether anything the sprites depend on changed since the sprites were last brought in step.
@@ -67,13 +67,10 @@ pub(crate) fn props_changed(
     !elements.is_empty() || !orders.is_empty() || !tables.is_empty() || removed > 0
 }
 
-/// Brings the sprites in step with the model: one per Element at its position and size, stacked
-/// in the order of the Layers' children, one depth unit apart; sprites of Elements that are gone
-/// are removed. A Prop shows the image its Asset Reference resolves to; a Missing Asset and an
-/// Element of a kind this editor does not know show the placeholder.
-///
-/// Depth counts up through every Level and Layer of every Project in the order of their
-/// children, so no two Elements share a depth and a later Element is drawn over an earlier one.
+/// Brings the sprites in step with the model: one per Element but a Wall, at its position and
+/// size and at its depth in the stacking order; sprites of Elements that are gone are removed. A
+/// Prop shows the image its Asset Reference resolves to; a Missing Asset and an Element of a kind
+/// this editor does not know show the placeholder.
 pub(crate) fn sync_props(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
@@ -84,64 +81,51 @@ pub(crate) fn sync_props(
         .iter()
         .map(|(sprite, drawing, _, _)| (drawing.element, sprite))
         .collect();
-    let mut depth: u32 = 0;
-    for (resolutions, levels) in &model.projects {
-        for &level in levels {
-            let Ok(layers) = model.levels.get(level) else {
+    for stacked in model.stacking.in_order() {
+        let element = stacked.element;
+        let (Ok(resolutions), Ok((shape, prop, wall))) = (
+            model.projects.get(stacked.project),
+            model.elements.get(element),
+        ) else {
+            continue;
+        };
+        if wall {
+            continue;
+        }
+        let translation = Vec3::new(shape.position.x, shape.position.y, stacked.depth);
+        let image = image_of(resolutions, prop);
+        if let Some(sprite_entity) = unseen.remove(&element) {
+            let Ok((_, mut drawing, mut sprite, mut transform)) = sprites.get_mut(sprite_entity)
+            else {
                 continue;
             };
-            for &layer in layers {
-                let Ok(elements) = model.layers.get(layer) else {
-                    continue;
-                };
-                for &element in elements {
-                    let Ok((shape, prop)) = model.elements.get(element) else {
-                        continue;
-                    };
-                    #[expect(
-                        clippy::cast_precision_loss,
-                        reason = "far fewer Elements are drawn than f32 counts exactly"
-                    )]
-                    let z = depth as f32;
-                    depth += 1;
-                    let translation = Vec3::new(shape.position.x, shape.position.y, z);
-                    let image = image_of(resolutions, prop);
-                    if let Some(sprite_entity) = unseen.remove(&element) {
-                        let Ok((_, mut drawing, mut sprite, mut transform)) =
-                            sprites.get_mut(sprite_entity)
-                        else {
-                            continue;
-                        };
-                        if transform.translation != translation {
-                            transform.translation = translation;
-                        }
-                        if sprite.custom_size != Some(shape.size) {
-                            sprite.custom_size = Some(shape.size);
-                        }
-                        if drawing.image != image {
-                            drawing.image.clone_from(&image);
-                            show(
-                                &mut commands.entity(sprite_entity),
-                                &mut sprite,
-                                image.as_ref(),
-                                &asset_server,
-                            );
-                        }
-                    } else {
-                        let mut sprite = Sprite {
-                            custom_size: Some(shape.size),
-                            ..Sprite::default()
-                        };
-                        let mut spawned = commands.spawn_empty();
-                        show(&mut spawned, &mut sprite, image.as_ref(), &asset_server);
-                        spawned.insert((
-                            sprite,
-                            Transform::from_translation(translation),
-                            Drawing { element, image },
-                        ));
-                    }
-                }
+            if transform.translation != translation {
+                transform.translation = translation;
             }
+            if sprite.custom_size != Some(shape.size) {
+                sprite.custom_size = Some(shape.size);
+            }
+            if drawing.image != image {
+                drawing.image.clone_from(&image);
+                show(
+                    &mut commands.entity(sprite_entity),
+                    &mut sprite,
+                    image.as_ref(),
+                    &asset_server,
+                );
+            }
+        } else {
+            let mut sprite = Sprite {
+                custom_size: Some(shape.size),
+                ..Sprite::default()
+            };
+            let mut spawned = commands.spawn_empty();
+            show(&mut spawned, &mut sprite, image.as_ref(), &asset_server);
+            spawned.insert((
+                sprite,
+                Transform::from_translation(translation),
+                Drawing { element, image },
+            ));
         }
     }
     for sprite in unseen.into_values() {

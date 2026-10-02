@@ -27,10 +27,11 @@ use drs_history::{History, HistoryPlugin};
 use drs_library_access::{LibraryAccessPlugin, register_library_source};
 use drs_library_manager::LibraryManagerPlugin;
 use drs_model::{
-    AddFolder, Apply, AssetAddress, CanonicalName, CommandFailed, EditorDirectories, Element,
-    ElementId, ExportLevel, ExportRefused, FolderAdded, FolderKey, FolderRefused, Layer, Level,
-    LevelExported, ModelPlugin, OpenProject, PlaceElement, Placement, ProjectOpened,
-    ProjectRefused, ProjectSaved, Prop, SaveProject, SavedMark, Viewport,
+    AddFolder, Apply, AssetAddress, CanonicalName, Colour, CommandFailed, EditElement,
+    EditorDirectories, Element, ElementChange, ElementId, ExportLevel, ExportRefused, FolderAdded,
+    FolderKey, FolderRefused, Gesture, Layer, Level, LevelExported, ModelPlugin, OpenProject,
+    PlaceElement, Placement, ProjectOpened, ProjectRefused, ProjectSaved, Prop, SaveProject,
+    SavedMark, Viewport,
 };
 use drs_project_manager::ProjectManagerPlugin;
 use drs_render_engine::RenderEnginePlugin;
@@ -62,6 +63,12 @@ const GREEN_PIXEL: [u8; 4] = [0, 255, 0, 255];
 const MAGENTA_PIXEL: [u8; 4] = [255, 0, 255, 255];
 /// The background of an Export.
 const BLACK_PIXEL: [u8; 4] = [0, 0, 0, 255];
+/// The colour the Walls are drawn in.
+const YELLOW: Colour = Colour::rgb(255, 255, 0);
+/// The colour of a yellow Wall in the Export.
+const YELLOW_PIXEL: [u8; 4] = [255, 255, 0, 255];
+/// The resolution the Walls are exported at, fine enough to tell a round cap from a square one.
+const WALL_PIXELS_PER_CELL: u32 = 16;
 /// The resolution most tests export at, which makes the default Bounds 240 pixels a side.
 const PIXELS_PER_CELL: u32 = 8;
 /// The tile size most tests export with.
@@ -206,6 +213,22 @@ impl Picture {
         self.pixel(x, y)
     }
 
+    /// The pixel under a point of the Level in cells, in an Export at `pixels_per_cell` whose
+    /// Bounds start at the Level's origin.
+    fn at_point(&self, point: Vec2, pixels_per_cell: u32) -> [u8; 4] {
+        #[expect(
+            clippy::cast_possible_truncation,
+            clippy::cast_sign_loss,
+            clippy::cast_precision_loss,
+            reason = "the points asked for lie inside the image"
+        )]
+        let (x, y) = (
+            (point.x * pixels_per_cell as f32).floor() as u32,
+            (point.y * pixels_per_cell as f32).floor() as u32,
+        );
+        self.pixel(x, self.height - y - 1)
+    }
+
     /// How many pixels have exactly `colour`.
     fn count(&self, colour: [u8; 4]) -> usize {
         self.rgba
@@ -278,6 +301,58 @@ impl Fixture {
     /// the test if the Command was refused.
     fn place(&mut self, place: &str, position: Vec2) {
         let command = self.placement(place, position);
+        self.app.world_mut().write_message(command);
+        self.app.update();
+        let failed: Vec<CommandFailed> = self
+            .app
+            .world_mut()
+            .resource_mut::<Messages<CommandFailed>>()
+            .drain()
+            .collect();
+        assert!(failed.is_empty(), "the Command failed: {failed:?}");
+    }
+
+    /// Places a Wall through `points` at `thickness` in `colour`, bending each segment that has
+    /// a control, and runs the editor until it is placed, failing the test if a Command was
+    /// refused.
+    fn wall(&mut self, points: &[Vec2], controls: &[Option<Vec2>], thickness: f32, colour: Colour) {
+        let layer = self.layer();
+        let mut commands = vec![Apply::PlaceElement(PlaceElement {
+            layer,
+            placement: Placement::Wall {
+                points: points.to_vec(),
+                thickness,
+                colour,
+            },
+        })];
+        self.run(commands.remove(0));
+        let element = {
+            let world = self.app.world_mut();
+            let children: Vec<Entity> = world
+                .get::<Children>(layer)
+                .map(|children| children.iter().copied().collect())
+                .unwrap_or_default();
+            *children
+                .last()
+                .and_then(|last| world.get::<ElementId>(*last))
+                .expect("the Wall is the last child of the Layer")
+        };
+        for (segment, control) in controls.iter().enumerate() {
+            if control.is_some() {
+                self.run(Apply::EditElement(EditElement {
+                    element,
+                    change: ElementChange::Control {
+                        segment,
+                        position: *control,
+                    },
+                    gesture: Gesture::Single,
+                }));
+            }
+        }
+    }
+
+    /// Sends a Command and runs one update, failing the test if the Command was refused.
+    fn run(&mut self, command: Apply) {
         self.app.world_mut().write_message(command);
         self.app.update();
         let failed: Vec<CommandFailed> = self
@@ -827,4 +902,143 @@ fn an_open_refuses_a_running_export() {
         .export(PIXELS_PER_CELL, "after.png", TILE)
         .expect("the Export is written");
     assert!(is_png(&exported.path));
+}
+
+/// A Wall is drawn centred on its line, as wide as its thickness, with round joins at its points
+/// and round caps at its ends, in its colour.
+#[test]
+fn a_wall_is_drawn_as_a_stroke() {
+    let mut fixture = Fixture::new();
+    fixture.wall(
+        &[
+            Vec2::new(5.0, 10.0),
+            Vec2::new(15.0, 10.0),
+            Vec2::new(15.0, 20.0),
+        ],
+        &[None, None],
+        2.0,
+        YELLOW,
+    );
+
+    let exported = fixture
+        .export(WALL_PIXELS_PER_CELL, "stroke.png", TILE)
+        .expect("the Export is written");
+    let picture = Picture::decode(&exported.path);
+    let at = |x: f32, y: f32| picture.at_point(Vec2::new(x, y), WALL_PIXELS_PER_CELL);
+
+    for x in [5.2, 8.0, 10.0, 14.9] {
+        assert_eq!(at(x, 10.0), YELLOW_PIXEL, "along the line at x = {x}");
+    }
+    assert_eq!(at(10.0, 10.9), YELLOW_PIXEL, "within half the thickness");
+    assert_eq!(at(10.0, 11.1), BLACK_PIXEL, "beyond half the thickness");
+    assert_eq!(
+        at(10.0, 8.9),
+        BLACK_PIXEL,
+        "beyond half the thickness below"
+    );
+    assert_eq!(at(4.2, 10.0), YELLOW_PIXEL, "just past the end, in the cap");
+    assert_eq!(at(3.9, 10.0), BLACK_PIXEL, "past the cap");
+    assert_eq!(
+        at(4.15, 10.85),
+        BLACK_PIXEL,
+        "the corner a square cap would fill"
+    );
+    assert_eq!(at(15.6, 9.4), YELLOW_PIXEL, "the round join at the corner");
+    assert_eq!(
+        at(15.85, 9.15),
+        BLACK_PIXEL,
+        "the corner a mitred join would fill"
+    );
+    assert_eq!(at(15.0, 19.0), YELLOW_PIXEL, "the second segment");
+}
+
+/// A curved Wall follows its quadratic curve, not the chord between its points.
+#[test]
+fn a_curved_wall_follows_its_curve() {
+    let mut fixture = Fixture::new();
+    fixture.wall(
+        &[Vec2::new(5.0, 5.0), Vec2::new(25.0, 5.0)],
+        &[Some(Vec2::new(15.0, 25.0))],
+        1.0,
+        YELLOW,
+    );
+
+    let exported = fixture
+        .export(WALL_PIXELS_PER_CELL, "curve.png", TILE)
+        .expect("the Export is written");
+    let picture = Picture::decode(&exported.path);
+    let at = |x: f32, y: f32| picture.at_point(Vec2::new(x, y), WALL_PIXELS_PER_CELL);
+
+    assert_eq!(at(15.0, 15.0), YELLOW_PIXEL, "the curve's middle");
+    assert_eq!(at(10.0, 12.5), YELLOW_PIXEL, "a quarter along the curve");
+    assert_eq!(at(15.0, 5.0), BLACK_PIXEL, "the chord's middle");
+    assert_eq!(at(15.0, 16.0), BLACK_PIXEL, "beyond the curve");
+}
+
+/// A Wall appears in the Export above the Elements before it and below those after it.
+#[test]
+fn walls_stack_with_props() {
+    let mut fixture = Fixture::new();
+    fixture.place(RED, Vec2::new(10.5, 10.5));
+    fixture.wall(
+        &[Vec2::new(8.0, 10.5), Vec2::new(14.0, 10.5)],
+        &[None],
+        0.5,
+        YELLOW,
+    );
+    fixture.place(GREEN, Vec2::new(12.5, 10.5));
+
+    let exported = fixture
+        .export(WALL_PIXELS_PER_CELL, "stacked-walls.png", TILE)
+        .expect("the Export is written");
+    let picture = Picture::decode(&exported.path);
+    let at = |x: f32, y: f32| picture.at_point(Vec2::new(x, y), WALL_PIXELS_PER_CELL);
+
+    assert_eq!(at(10.5, 10.5), YELLOW_PIXEL, "the Wall over the red Prop");
+    assert_eq!(at(10.5, 10.9), RED_PIXEL, "the red Prop beside the Wall");
+    assert_eq!(at(12.5, 10.5), GREEN_PIXEL, "the green Prop over the Wall");
+    assert_eq!(at(9.0, 10.5), YELLOW_PIXEL, "the Wall on its own");
+}
+
+/// A Wall appears in the Export only where it lies inside the Bounds: a Wall with a point outside
+/// leaves no trace past the edge.
+#[test]
+fn a_wall_is_clipped_at_the_edge() {
+    let mut fixture = Fixture::new();
+    fixture.wall(
+        &[Vec2::new(-6.0, 15.0), Vec2::new(5.0, 15.0)],
+        &[None],
+        1.0,
+        YELLOW,
+    );
+    fixture.wall(
+        &[Vec2::new(-4.0, 3.0), Vec2::new(-1.0, 3.0)],
+        &[None],
+        1.0,
+        YELLOW,
+    );
+
+    let exported = fixture
+        .export(WALL_PIXELS_PER_CELL, "clipped-walls.png", TILE)
+        .expect("the Export is written");
+    let picture = Picture::decode(&exported.path);
+    let at = |x: f32, y: f32| picture.at_point(Vec2::new(x, y), WALL_PIXELS_PER_CELL);
+
+    assert_eq!(at(0.01, 15.0), YELLOW_PIXEL, "cut at the left edge");
+    assert_eq!(at(5.4, 15.0), YELLOW_PIXEL, "the cap inside");
+    assert_eq!(at(0.01, 3.0), BLACK_PIXEL, "the Wall wholly outside");
+    let width = WALL_PIXELS_PER_CELL as usize;
+    let inside = picture.count(YELLOW_PIXEL);
+    let at_most = 6 * width * width;
+    let at_least = 5 * width * width;
+    assert!(
+        (at_least..at_most).contains(&inside),
+        "{inside} yellow pixels: the five cells inside and half a cap, nothing more"
+    );
+    let right_of_the_cap = WALL_PIXELS_PER_CELL * 56 / 10;
+    for x in right_of_the_cap..picture.width {
+        for y in 0..picture.height {
+            assert_eq!(picture.pixel(x, y), BLACK_PIXEL, "({x}, {y})");
+        }
+    }
 }
