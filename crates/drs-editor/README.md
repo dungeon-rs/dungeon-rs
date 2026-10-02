@@ -4,8 +4,11 @@ The Client: the egui interface through which the Author works.
 
 The [`EditorPlugin`](crate::EditorPlugin), built over what the diagnostics
 Utility set up and found at start, lays the window out with `egui_dock`:
-an Assets panel on the left that lists the Assets of every added Asset Folder
-under its Canonical Name, filtered by name, and the viewport in the centre,
+an Assets panel on the left that shows the Assets of every added Asset Folder
+as a grid of thumbnails with their names beneath, ordered by the Canonical Name
+of their folder and then by place, filtered by name, with one line per folder
+above the grid giving how many of its Assets are shown, and the viewport in the
+centre,
 which is left transparent so the Level drawn by the render Engine shows
 through. A status line at the bottom reports what happened last and what the
 Author is doing, including a bundle directory that was not found and a crash
@@ -34,11 +37,24 @@ for the Canonical Name. Edit → Undo and Redo are offered while no drag or
 Export is under way. Help → Show Logs opens the log directory in the
 platform's file manager.
 
+The grid lays out only the rows in view, as many columns as the panel's width
+holds. Each cell shows a neutral square until its thumbnail is generated, a
+placeholder of the thumbnail's proportions until it is decoded, then the
+thumbnail at its own size, or a crossed-out square for a file that is not an
+image; hovering shows the Asset's name, its folder's Canonical Name, and its
+place, and a click chooses it for placing. The Assets of the rows laid out and
+two rows either side are named to the library Manager with Browse whenever
+they change, so they are generated first; thumbnails are loaded through the
+`thumb://` asset source, so the asset system decodes them off the main thread,
+the rows either side are loaded ahead, a thumbnail is registered with egui only
+while its row is laid out, and at most 512 decoded thumbnails are kept, the
+least recently shown dropped first.
+
 The panels read the World and send Commands and requests as messages; they
 never own domain state. The Editor writes only the model's `Viewport` (panning
-and zooming) and its own state: the chosen Asset, the selection, the filter,
-the prompt, question, report, or dialog in progress, and whether an Export is
-being written. Clicking in the viewport places the chosen Asset or selects the
+and zooming) and its own state: the chosen Asset, the thumbnails it holds, the
+selection, the filter, the prompt, question, report, or dialog in progress, and
+whether an Export is being written. Clicking in the viewport places the chosen Asset or selects the
 topmost Prop under the pointer, dragging a selected Prop moves it as one
 gesture, Delete removes it, Escape stops placing, and the platform's usual
 shortcuts undo and redo. Scrolling pans, a wheel or a pinch zooms, and the
@@ -52,7 +68,8 @@ middle button or Space with the left button drags the view.
   to a file, the editor is driven by its steps, one per frame (`wait`, `move`, `down`,
   `up`, `click`, `drag`, `key`, `hold`, `release`, `text`, `scroll`, `pinch`,
   `screenshot`, `describe`, `close`, `quit`), fed
-  in as the messages the window would send so egui and the viewport see them alike.
+  in as the messages the window would send so egui and the viewport see them alike;
+  `describe` logs every clickable widget and every cell of the grid with its rectangle.
   With `DRS_PICK_FOLDER` set, Add Asset Folder… takes that folder instead of opening
   the dialog; with `DRS_PICK_FILE` set, Open… takes that file; with `DRS_SAVE_FILE`
   set, Save As… and Export Level… write to that path (the extension is added when it

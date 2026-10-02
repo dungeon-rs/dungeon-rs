@@ -60,6 +60,7 @@ impl Plugin for EditorPlugin {
         app.add_plugins(EguiPlugin::default())
             .insert_resource(diagnostics::Diagnostics(self.started.clone()))
             .init_resource::<state::EditorState>()
+            .init_resource::<browser::Browser>()
             .init_resource::<panels::Layout>()
             .add_systems(EguiPrimaryContextPass, panels::draw)
             .add_systems(Startup, diagnostics::report_bundled_files)

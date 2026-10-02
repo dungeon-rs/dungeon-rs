@@ -16,14 +16,16 @@
 //! - `scroll <dx> <dy> [line|pixel]`: scroll the wheel; lines unless told otherwise.
 //! - `pinch <delta>`: a trackpad pinch.
 //! - `screenshot <path>`: save a screenshot of the window there.
-//! - `describe`: log the title, the status line, the dialog open, and every clickable widget
-//!   with its rectangle, so a script can be checked and aimed without seeing the screen.
+//! - `describe`: log the title, the status line, the dialog open, every clickable widget with its
+//!   rectangle, and every cell of the Assets panel's grid with what it shows, so a script can be
+//!   checked and aimed without seeing the screen.
 //! - `close`: ask to close the window, as its close button does.
 //! - `quit`: exit the editor.
 //!
 //! Each step becomes the messages the window would have sent, so egui and the Editor's own
 //! systems see them alike.
 
+use crate::browser::Browser;
 use crate::state::{EditorState, Phase};
 use bevy::app::AppExit;
 use bevy::ecs::entity::Entity;
@@ -158,6 +160,7 @@ pub(crate) fn drive(
     mut commands: Commands,
     mut injected: Injected,
     state: Res<EditorState>,
+    browser: Res<Browser>,
     mut contexts: EguiContexts,
 ) {
     let (entity, window) = &mut *window;
@@ -184,6 +187,7 @@ pub(crate) fn drive(
                 bevy::log::debug!("script: {action:?}");
                 if let Action::Describe = action {
                     describe(&state, window, contexts.ctx_mut().ok());
+                    describe_grid(&browser);
                 } else {
                     perform(action, *entity, window, &mut commands, &mut injected);
                 }
@@ -359,6 +363,28 @@ fn describe(state: &EditorState, window: &Window, ctx: Option<&mut egui::Context
         bevy::log::info!(
             "describe: {:?} click [{:.0} {:.0} {:.0} {:.0}]",
             layer.order,
+            r.min.x,
+            r.min.y,
+            r.max.x,
+            r.max.y
+        );
+    }
+}
+
+/// Logs the Assets panel's grid: how many thumbnails are kept and registered, then every cell
+/// laid out in the last frame with what it showed and its rectangle in logical pixels.
+fn describe_grid(browser: &Browser) {
+    let (kept, registered) = browser.textures();
+    bevy::log::info!(
+        "describe: grid of {} cells laid out, {kept} thumbnails kept, {registered} registered",
+        browser.cells.len()
+    );
+    for cell in &browser.cells {
+        let r = cell.rect;
+        bevy::log::info!(
+            "describe: cell {:?} {:?} [{:.0} {:.0} {:.0} {:.0}]",
+            cell.name,
+            cell.shown,
             r.min.x,
             r.min.y,
             r.max.x,

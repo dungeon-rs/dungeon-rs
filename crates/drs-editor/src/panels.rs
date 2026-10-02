@@ -8,15 +8,14 @@ use crate::{bindings, browser, diagnostics, export, files};
 use bevy::app::AppExit;
 use bevy::ecs::message::MessageWriter;
 use bevy::ecs::resource::Resource;
-use bevy::ecs::system::{NonSendMarker, Query, Res, ResMut, SystemParam};
+use bevy::ecs::system::{NonSendMarker, Res, ResMut, SystemParam};
 use bevy::input::ButtonInput;
 use bevy::input::keyboard::KeyCode;
 use bevy::math::Rect;
 use bevy_egui::EguiContexts;
 use drs_history::History;
 use drs_model::{
-    AddFolder, AssetFolder, CanonicalName, ExportLevel, OpenProject, Redo, SaveProject, Undo,
-    Viewport,
+    AddFolder, CanonicalName, ExportLevel, OpenProject, Redo, SaveProject, Undo, Viewport,
 };
 use egui_dock::{DockArea, DockState, NodeIndex, Style, TabViewer};
 
@@ -71,8 +70,8 @@ pub(crate) struct Editor<'w, 's> {
     state: ResMut<'w, EditorState>,
     /// Where the Author is looking; the viewport tab lays its area out.
     viewport: ResMut<'w, Viewport>,
-    /// The Asset Folders added on this device.
-    folders: Query<'w, 's, &'static AssetFolder>,
+    /// The Asset Folders added on this device, as the Assets panel browses them.
+    library: browser::Library<'w, 's>,
     /// Whether there is anything to undo or redo.
     history: Res<'w, History>,
     /// Where the logs are, as the Host said.
@@ -108,7 +107,7 @@ pub(crate) fn draw(_main_thread: NonSendMarker, mut contexts: EguiContexts, mut 
         layout,
         state,
         viewport,
-        folders,
+        library,
         ..
     } = &mut editor;
     egui::CentralPanel::default()
@@ -117,7 +116,8 @@ pub(crate) fn draw(_main_thread: NonSendMarker, mut contexts: EguiContexts, mut 
             let mut panels = Panels {
                 state,
                 viewport,
-                folders,
+                library,
+                contexts: &mut contexts,
             };
             DockArea::new(&mut layout.0)
                 .style(Style::from_egui(ui.style().as_ref()))
@@ -379,16 +379,18 @@ fn name_prompt(ctx: &egui::Context, editor: &mut Editor) {
 }
 
 /// Draws the content of each tab.
-struct Panels<'a, 'w, 's> {
+struct Panels<'a, 'w, 's, 'cw, 'cs> {
     /// The Editor's own state.
     state: &'a mut EditorState,
     /// Where the Author is looking.
     viewport: &'a mut Viewport,
-    /// The Asset Folders added on this device.
-    folders: &'a Query<'w, 's, &'static AssetFolder>,
+    /// The Asset Folders added on this device, as the Assets panel browses them.
+    library: &'a mut browser::Library<'w, 's>,
+    /// The egui contexts, which the Assets panel registers thumbnails with.
+    contexts: &'a mut EguiContexts<'cw, 'cs>,
 }
 
-impl TabViewer for Panels<'_, '_, '_> {
+impl TabViewer for Panels<'_, '_, '_, '_, '_> {
     type Tab = Tab;
 
     fn id(&mut self, tab: &mut Tab) -> egui::Id {
@@ -404,7 +406,7 @@ impl TabViewer for Panels<'_, '_, '_> {
 
     fn ui(&mut self, ui: &mut egui::Ui, tab: &mut Tab) {
         match tab {
-            Tab::Assets => browser::show(ui, self.state, self.folders),
+            Tab::Assets => browser::show(ui, self.state, self.library, self.contexts),
             Tab::Viewport => {
                 let rect = ui.available_rect_before_wrap();
                 let area = Rect::new(rect.min.x, rect.min.y, rect.max.x, rect.max.y);

@@ -7,7 +7,21 @@ use bevy::ecs::system::{ResMut, SystemParam};
 use drs_model::{
     CommandFailed, ExportRefused, FolderAdded, FolderRefused, FolderUnavailable, HistoryFailed,
     LevelExported, ProjectOpened, ProjectRefused, ProjectRequest, ProjectSaved, ScanSkips,
+    ThumbnailsUnavailable,
 };
+
+/// The library Manager's answers.
+#[derive(SystemParam)]
+pub(crate) struct LibraryAnswers<'w, 's> {
+    /// An Asset Folder was added.
+    added: MessageReader<'w, 's, FolderAdded>,
+    /// An Add Asset Folder was refused.
+    refused: MessageReader<'w, 's, FolderRefused>,
+    /// A remembered Asset Folder could not be indexed.
+    unavailable: MessageReader<'w, 's, FolderUnavailable>,
+    /// Thumbnails cannot be kept.
+    thumbnails: MessageReader<'w, 's, ThumbnailsUnavailable>,
+}
 
 /// The project Manager's answers.
 #[derive(SystemParam)]
@@ -32,20 +46,18 @@ pub(crate) struct ProjectAnswers<'w, 's> {
 /// the reason when it is refused.
 pub(crate) fn report(
     mut state: ResMut<EditorState>,
-    mut added: MessageReader<FolderAdded>,
-    mut refused: MessageReader<FolderRefused>,
-    mut unavailable: MessageReader<FolderUnavailable>,
+    mut library: LibraryAnswers,
     mut failed: MessageReader<CommandFailed>,
     mut history_failed: MessageReader<HistoryFailed>,
     mut project: ProjectAnswers,
 ) {
-    for FolderAdded { name, skips, .. } in added.read() {
+    for FolderAdded { name, skips, .. } in library.added.read() {
         state.status = format!("Added the Asset Folder {name}{}", skipped(skips));
         if state.prompt.as_ref().is_some_and(|prompt| prompt.awaiting) {
             state.prompt = None;
         }
     }
-    for FolderRefused { reason, .. } in refused.read() {
+    for FolderRefused { reason, .. } in library.refused.read() {
         if reason.is_about_the_name()
             && let Some(prompt) = &mut state.prompt
         {
@@ -57,7 +69,7 @@ pub(crate) fn report(
             state.status = format!("The folder was not added: {reason}");
         }
     }
-    for FolderUnavailable { name, reason, .. } in unavailable.read() {
+    for FolderUnavailable { name, reason, .. } in library.unavailable.read() {
         state.status = format!("The Asset Folder {name} could not be indexed: {reason}");
     }
     for CommandFailed { reason, .. } in failed.read() {
@@ -65,6 +77,9 @@ pub(crate) fn report(
     }
     for HistoryFailed { reason } in history_failed.read() {
         state.status.clone_from(reason);
+    }
+    for ThumbnailsUnavailable { reason } in library.thumbnails.read() {
+        state.status = format!("Thumbnails cannot be kept on this device: {reason}");
     }
     for ProjectSaved { path } in project.saved.read() {
         state.status = format!("Saved to {}", path.display());
