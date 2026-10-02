@@ -1,4 +1,5 @@
 mod architecture;
+mod bevy_crates;
 mod bundle_marker;
 mod documented_features;
 mod engine_events;
@@ -50,6 +51,9 @@ pub enum Commands {
     /// Validates that every guideline's Example is taken, line by line, from its Exemplar file.
     #[clap(name = "guideline-examples")]
     ValidateGuidelineExamples,
+    /// Validates that every Bevy crate in use is a narrow crate or restricted in `ARCHITECTURE.md`.
+    #[clap(name = "bevy-crates")]
+    ValidateBevyCrates,
 }
 
 fn main() -> Result<()> {
@@ -83,6 +87,9 @@ fn run(command: Commands, metadata: &Metadata) -> Result<Vec<Violation>> {
         Commands::ValidateEngineEvents => engine_events::check(&architecture(metadata)?, metadata)?,
         Commands::ValidateBundleMarker => bundle_marker::check(metadata),
         Commands::ValidateGuidelineExamples => guideline_examples::check(metadata)?,
+        Commands::ValidateBevyCrates => {
+            bevy_crates::check(&architecture_markdown(metadata)?, metadata)?
+        }
     })
 }
 
@@ -93,6 +100,14 @@ fn architecture(metadata: &Metadata) -> Result<Architecture> {
         .join("docs/architecture/ARCHITECTURE.md");
     let markdown = std::fs::read_to_string(&path).with_context(|| format!("reading {path}"))?;
     Architecture::parse(&markdown)
+}
+
+/// The text of `ARCHITECTURE.md`, read from the workspace.
+fn architecture_markdown(metadata: &Metadata) -> Result<String> {
+    let path = metadata
+        .workspace_root
+        .join("docs/architecture/ARCHITECTURE.md");
+    std::fs::read_to_string(&path).with_context(|| format!("reading {path}"))
 }
 
 /// Runs every check, so one run reports everything that is wrong.
