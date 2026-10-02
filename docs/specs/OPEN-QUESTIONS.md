@@ -21,7 +21,6 @@ Spec-level decisions parked during domain work. The spec skill picks these up; r
 
 - Show a broken Shader's error to the Author (today it only reaches the log and the surface disappears); validate with naga and keep the last good version.
 - WebP exports are limited to 16,383 px per side by the format; how the export UI communicates this.
-- Fast painting at high zoom needs GPU rasterization of the stroke cache.
 - 100k fully visible Props is borderline: level-of-detail or static batching.
 - Lighting under tiled export (single camera per config; per-tile light maps).
 - Export: screen-space effects (soft shadows, light maps, blur) need tile gutters or seams appear; JPEG at that size needs a scanline or streaming encoder; lossy WebP needs libwebp.

@@ -11,7 +11,6 @@
 - **Walls**: the Author draws straight or curved Walls and edits their points at any time. Commands: none.
 - **Portals**: doors and windows set into Walls stay anchored through every Wall edit, or stand free. Commands: Set Portal into Wall, Free Portal.
 - **Rooms**: Room outlines generate their Walls, and outlines combine and cut. Commands: none.
-- **GPU stroke rasterization**: Answer: can soft strokes be rasterized on the GPU fast enough for editing at high zoom? Commands: none.
 - **Paint Terrain with one Material**: the Author paints Terrain with a Brush, and every stroke stays editable. Commands: Paint.
 - **Blend any number of Materials**: Terrain blends as many Materials as the Author paints. Commands: none.
 - **Levels and Layers**: the Author adds, removes, and orders Levels and Layers, and restacks Elements. Commands: Add Level, Remove Level, Reorder Levels, Add Layer, Remove Layer, Reorder Layers, Restack.
