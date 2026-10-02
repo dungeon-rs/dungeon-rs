@@ -57,7 +57,7 @@ and to announce a pending crash report.
   [`BundledFilesNotFound`](crate::BundledFilesNotFound) naming every location
   tried. [`BundledFiles::file`](crate::BundledFiles::file) gives one Bundled
   File by a plain relative name and refuses a name that is empty, absolute, holds
-  `..`, carries a source prefix, or uses `\` or `:`.
+  `..`, begins with `./`, carries a source prefix, or uses `\` or `:`.
 - **`RevealLogs`**: [`reveal_logs`](crate::reveal_logs) opens the log
   directory in the platform's file manager, creating it first.
 

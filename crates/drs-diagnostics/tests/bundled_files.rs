@@ -172,7 +172,8 @@ fn a_missing_bundled_file_is_reported_by_name() {
     ));
 }
 
-/// A name that is absolute or holds `..` is refused, so no lookup leaves the bundle directory.
+/// A name that is empty, absolute, holds `..`, begins with `./`, or uses `\` or `:` is refused,
+/// so no lookup leaves the bundle directory.
 #[test]
 fn names_that_leave_the_directory_are_refused() {
     let root = TempDir::new().expect("temporary root");
@@ -184,8 +185,10 @@ fn names_that_leave_the_directory_are_refused() {
         "/etc/hosts",
         "../dungeon-rs",
         "fonts/../../secret",
+        "./fonts/label.ttf",
         "",
         "C:\\Windows",
+        "fonts:label.ttf",
     ] {
         assert_eq!(
             found.file(name),

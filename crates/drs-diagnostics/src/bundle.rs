@@ -44,9 +44,9 @@ impl BundledFiles {
     ///
     /// # Errors
     ///
-    /// [`BundledFileError::NotPlainRelative`] when the name is absolute, holds `..`, carries a
-    /// source prefix such as `lib://`, or uses `\` or `:`, which are not the same path on every
-    /// platform, so no lookup leaves the directory;
+    /// [`BundledFileError::NotPlainRelative`] when the name is empty, absolute, holds `..`,
+    /// begins with `./`, carries a source prefix such as `lib://`, or uses `\` or `:`, which are
+    /// not the same path on every platform, so no lookup leaves the directory;
     /// [`BundledFileError::Missing`] when nothing is there; [`BundledFileError::Unreadable`] when what
     /// is there cannot be read.
     pub fn file(&self, name: &str) -> Result<PathBuf, BundledFileError> {

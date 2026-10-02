@@ -325,6 +325,15 @@ fn the_first_entry_names_the_log_file() {
     assert!(first.contains(&file.display().to_string()), "{first}");
     assert_eq!(started.log_file.as_deref(), Some(file.as_path()));
     assert_eq!(started.logs, logs);
+    // With the executable's location unknown, nothing was tried, and the asset root is a
+    // directory under the temporary directory that nothing creates.
+    let asset_root = started.asset_root();
+    assert!(
+        asset_root.starts_with(std::env::temp_dir()),
+        "{}",
+        asset_root.display()
+    );
+    assert!(!asset_root.exists(), "{}", asset_root.display());
 }
 
 /// A bundle directory whose marker names a version other than the editor's is used, and the
