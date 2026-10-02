@@ -82,7 +82,7 @@ _Why_: unpacking on every load is what makes very large libraries slow to open.
 
 ## Events
 
-**Asset Folder Changed**: Assets in an Asset Folder were added, removed, or changed, for example by a vendor update. Listened to by: Authoring, which re-resolves the Asset References pointing into it.
+**Asset Folder Changed**: an Asset Folder became available or stopped being available on this device, or Assets in it were added, removed, or changed, for example by a vendor update. Listened to by: Authoring, which re-resolves the Asset References pointing into it.
 
 **Prefab Updated**: a Prefab changed. Listened to by: Authoring, which updates, detaches, or marks as out of date the linked Prefab Instances, as chosen in Update Prefab.
 
