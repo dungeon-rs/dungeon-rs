@@ -53,7 +53,7 @@ Contract: ApplyStroke, BlendWeights, Rasterize.
 
 ### CatalogEngine
 Volatility: cataloguing.
-Contract: Classify, Resolve, Suggest, Search.
+Contract: Classify, Resolve (including Canonical Name equality), Suggest, Search.
 
 ### RenderEngine
 Volatility: look.
