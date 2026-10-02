@@ -1973,7 +1973,8 @@ fn a_rooms_floor_lies_under_its_walls() {
 
 /// Along a stretch a Portal covers, a Room's Wall is left out: the floor still reaches the
 /// outline on the inner half, the background shows on the outer half beside a Portal narrower
-/// than the Wall is thick, and the Wall stands just past the stretch.
+/// than the Wall is thick, and the Wall stands just past the stretch, ending squarely across the
+/// line at either end of it.
 #[test]
 fn a_room_wall_gives_way_to_its_portal() {
     let mut fixture = Fixture::new();
@@ -2008,6 +2009,22 @@ fn a_room_wall_gives_way_to_its_portal() {
         "the Wall just past the stretch"
     );
     assert_eq!(at(13.9, 5.6), YELLOW_PIXEL, "the Wall just before it");
+    assert_eq!(at(16.1, 4.1), YELLOW_PIXEL, "a square end, not a round one");
+    assert_eq!(
+        at(13.9, 5.9),
+        YELLOW_PIXEL,
+        "the square end before the stretch"
+    );
+    assert_eq!(
+        at(15.9, 4.1),
+        BLACK_PIXEL,
+        "no cap reaching into the stretch"
+    );
+    assert_eq!(
+        at(14.1, 5.9),
+        WHITE_PIXEL,
+        "no cap over the floor in the stretch"
+    );
 }
 
 /// A Room appears in the Export only where it lies inside the Bounds: one with points outside is
