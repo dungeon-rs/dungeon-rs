@@ -80,7 +80,7 @@ fn matches(app: &mut App) -> (String, usize, Vec<(String, String)>) {
                 .expect("a match names an added folder");
             (
                 folder.name.0.clone(),
-                folder.assets[found.position].place.clone(),
+                folder.assets[found.position as usize].place.clone(),
             )
         })
         .collect();

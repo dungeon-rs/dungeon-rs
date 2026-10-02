@@ -5,7 +5,7 @@ mod resolve;
 mod search;
 
 pub use resolve::{resolve, same_name};
-pub use search::{FolderSearch, Match, Matches, SearchOrder, search};
+pub use search::{LibrarySearch, Match, Matches};
 
 use drs_model::AssetKind;
 use std::path::Path;

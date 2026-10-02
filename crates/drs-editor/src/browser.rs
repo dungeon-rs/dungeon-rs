@@ -173,7 +173,7 @@ impl Grid<'_> {
             Self::Matches(matches) => matches
                 .assets
                 .get(slot)
-                .map(|found| (found.folder, found.position)),
+                .map(|found| (found.folder, found.position as usize)),
         }
     }
 }
@@ -259,7 +259,7 @@ pub(crate) fn show(
     }
     // Until the answer to the text typed arrives, a frame later, the last answer stays shown;
     // with nothing typed, the whole library is shown at once.
-    let searching = has_words(&state.search) && has_words(&matches.text);
+    let searching = has_words(&state.search) && matches.has_words;
     let grid = grid_of(&sorted, matches, searching);
     let shown = searching.then(|| matches.text.clone());
     let to_top = typed || shown != browser.shown;

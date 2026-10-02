@@ -9,7 +9,7 @@ pub struct AssetMatch {
     /// The entity of the Asset Folder it sits in.
     pub folder: Entity,
     /// Its position in that folder's index of Assets.
-    pub position: usize,
+    pub position: u32,
 }
 
 /// The answer to the search text the browser last sent with [`crate::Browse`]: what matches it
@@ -19,9 +19,14 @@ pub struct AssetMatch {
 pub struct SearchMatches {
     /// The text answered, as it was sent.
     pub text: String,
+    /// Whether the text holds a word. A text without one matches every Asset of every folder,
+    /// and `assets` lists none of them: the browser shows the folders' indexes as they are.
+    pub has_words: bool,
     /// How many Assets match: with a text of no words, every Asset of every folder.
     pub total: usize,
-    /// How many Assets of each added folder match, by folder entity, in no particular order.
+    /// How many Assets of each added folder match, by folder entity, in the order of the
+    /// folders' Canonical Names, folded and then as spelled, which is the order matches of the
+    /// same name follow.
     pub counts: Vec<(Entity, usize)>,
     /// The Assets that match, in order: those in which every word begins a word of the name
     /// first, then the others, each by name, then by Canonical Name, then by place.

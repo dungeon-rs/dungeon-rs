@@ -124,9 +124,9 @@ impl ReversibleCommand for AddAssetFolder {
         let (directories, table) = library(world)?;
         forget_manifest(&directories, &table, &self.manifest.key)?;
         crate::thumbnails::withdraw(world, &self.manifest.key);
+        crate::search::remove(world, &self.manifest.key);
         if let Some(folder) = self.folder.take() {
             world.despawn(folder);
-            crate::search::dropped(world);
         }
         world.write_message(AssetFolderChanged {
             name: self.manifest.name.clone(),

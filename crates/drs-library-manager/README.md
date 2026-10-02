@@ -42,14 +42,17 @@ thumbnails it holds. Generation stops as soon as the
 editor is asked to quit, keeping what was finished.
 
 Every folder indexed also has its search built from its index by the catalog
-Engine and kept on the folder's entity; it is never written to disk, so it is
-built again at each start and dropped with the entity when the folder's adding
-is undone, and a folder whose scan fails has an empty one. The search text the
-browser sends with [`Browse`](drs_model::Browse) is answered, after Redo, into
-[`SearchMatches`](drs_model::SearchMatches): the matching Assets in order, how
-many match in all and in each folder. The text last sent is answered again in
-any frame in which it changed or a folder's search was built or dropped, so a
-folder added, undone, redone, or refreshed changes the matches in that frame.
+Engine, kept in the one search of the whole library that the Manager holds; it
+is never written to disk, so it is built again at each start and dropped when
+the folder's adding is undone, and a folder whose scan fails has an empty one.
+The search text the browser sends with [`Browse`](drs_model::Browse) is
+answered, after Redo, into [`SearchMatches`](drs_model::SearchMatches): whether
+the text holds a word, the matching Assets in order, and how many match in all
+and in each folder, the folders in the order of their Canonical Names. A text
+without words lists no match, since every Asset matches. The text last sent is
+answered again in any frame in which it changed or a folder's search was built
+or dropped, so a folder added, undone, redone, or refreshed changes the matches
+in that frame.
 
 ## Features
 

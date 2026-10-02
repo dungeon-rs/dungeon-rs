@@ -130,7 +130,7 @@ fn matching(app: &mut App) -> Vec<String> {
             world
                 .get::<AssetFolder>(found.folder)
                 .expect("a match names an added folder")
-                .assets[found.position]
+                .assets[found.position as usize]
                 .place
                 .clone()
         })
