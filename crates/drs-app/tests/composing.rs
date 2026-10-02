@@ -22,7 +22,7 @@ use drs_model::{
     AddFolder, Apply, AssetFolder, AssetFolderReference, AssetKind, AssetReferences, CanonicalName,
     ChosenAsset, CommandFailed, EditElement, EditorDirectories, Element, ElementChange, ElementId,
     Fingerprint, FolderAdded, FolderKey, FolderRefused, Gesture, Layer, ModelPlugin, PROP,
-    PlaceElement, Prop, Redo, RemoveElement, Resolution, ResolutionTable, Undo,
+    PlaceElement, Prop, Redo, RemoveElement, Resolution, ResolutionTable, Undo, Viewport,
 };
 use drs_project_manager::ProjectManagerPlugin;
 use std::fs;
@@ -601,4 +601,34 @@ fn one_history() {
     fixture.undo();
     assert!(fixture.folders().is_empty());
     assert!(!fixture.history().can_undo());
+}
+
+/// Panning and zooming change the view, never the Level, and record no history step.
+#[test]
+fn view_is_not_a_step() {
+    let mut fixture = Fixture::new();
+    fixture.place(TABLE, Vec2::ZERO);
+    fixture.undo();
+    let props = fixture.props();
+    let depth = fixture.history().undo_depth();
+    let position = fixture.history().position();
+
+    {
+        let mut viewport = fixture.app.world_mut().resource_mut::<Viewport>();
+        viewport.centre = Vec2::new(7.0, -3.0);
+        viewport.zoom *= 2.0;
+    }
+    fixture.app.update();
+
+    assert_eq!(fixture.history().undo_depth(), depth);
+    assert_eq!(fixture.history().position(), position);
+    assert!(
+        fixture.history().can_redo(),
+        "the view took nothing away from redo"
+    );
+    assert_eq!(fixture.props(), props);
+    assert_eq!(
+        fixture.app.world().resource::<Viewport>().centre,
+        Vec2::new(7.0, -3.0)
+    );
 }
