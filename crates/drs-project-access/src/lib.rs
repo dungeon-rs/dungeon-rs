@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use std::io::Write;
 use std::path::{Path, PathBuf};
-use tempfile::NamedTempFile;
+use tempfile::{Builder, NamedTempFile};
 
 /// The version of the file's own shape; the components inside carry versions of their own.
 pub const FORMAT_VERSION: u32 = 1;
@@ -224,11 +224,30 @@ pub fn write_project(path: &Path, snapshot: &ProjectSnapshot) -> Result<(), Proj
         .parent()
         .filter(|parent| !parent.as_os_str().is_empty())
         .unwrap_or(Path::new("."));
-    let mut temporary = NamedTempFile::new_in(beside).map_err(io("create a file beside"))?;
+    let mut temporary = file_beside(beside).map_err(io("create a file beside"))?;
     temporary.write_all(text.as_bytes()).map_err(io("write"))?;
     temporary.as_file().sync_all().map_err(io("flush"))?;
     temporary
         .persist(path)
         .map_err(|error| io("rename")(error.error))?;
     Ok(())
+}
+
+/// A temporary file in `directory`, removed when dropped unless it is persisted.
+///
+/// The file is created as readable as any file the Author makes: a temporary file is private by
+/// default, but a saved Project is for sharing, so it is created with the usual mode, which the
+/// process's umask narrows as it does for every new file.
+///
+/// # Errors
+///
+/// The error of creating the file.
+fn file_beside(directory: &Path) -> std::io::Result<NamedTempFile> {
+    let mut builder = Builder::new();
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        builder.permissions(std::fs::Permissions::from_mode(0o666));
+    }
+    builder.tempfile_in(directory)
 }

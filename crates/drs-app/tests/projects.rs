@@ -420,7 +420,7 @@ impl Saved {
 }
 
 /// Save writes the whole Project into a single file with the `.dungeon` extension, which is
-/// added when the chosen name lacks it.
+/// added when the chosen name lacks it, as readable as any file made in the same place.
 #[test]
 fn saved_as_one_file() {
     let mut device = Device::new();
@@ -435,7 +435,24 @@ fn saved_as_one_file() {
         .expect("output folder")
         .map(|entry| entry.expect("entry").path())
         .collect();
-    assert_eq!(files, vec![written]);
+    assert_eq!(files, vec![written.clone()]);
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        let plain = device.root().join("plain");
+        fs::write(&plain, b"").expect("a plain file");
+        assert_eq!(
+            fs::metadata(&written)
+                .expect("the file")
+                .permissions()
+                .mode(),
+            fs::metadata(&plain)
+                .expect("the plain file")
+                .permissions()
+                .mode(),
+            "the saved file is as readable as any file"
+        );
+    }
     assert_eq!(
         device.save_as(&out.join("other.dungeon")),
         out.join("other.dungeon")

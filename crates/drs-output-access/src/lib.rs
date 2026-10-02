@@ -351,6 +351,10 @@ impl std::fmt::Debug for ImageWriter {
 /// random infix, and a `.part` suffix, in the same directory so the final rename never crosses a
 /// file system.
 ///
+/// The file is created as readable as any file the Author makes: a temporary file is private by
+/// default, but an Export is for sharing, so it is created with the usual mode, which the
+/// process's umask narrows as it does for every new file.
+///
 /// # Errors
 ///
 /// The error of creating the file.
@@ -365,10 +369,14 @@ fn partial_file(path: &Path) -> std::io::Result<tempfile::NamedTempFile> {
         .unwrap_or(Path::new("."));
     let mut prefix = name;
     prefix.push(".");
-    tempfile::Builder::new()
-        .prefix(&prefix)
-        .suffix(".part")
-        .tempfile_in(beside)
+    let mut builder = tempfile::Builder::new();
+    builder.prefix(&prefix).suffix(".part");
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        builder.permissions(std::fs::Permissions::from_mode(0o666));
+    }
+    builder.tempfile_in(beside)
 }
 
 #[cfg(test)]
@@ -501,6 +509,36 @@ mod tests {
                 ..
             })
         ));
+    }
+
+    /// The finished image is as readable as any file made in the same place.
+    #[cfg(unix)]
+    #[test]
+    fn the_image_is_as_readable_as_any_file() {
+        use std::os::unix::fs::PermissionsExt;
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("image.png");
+        let mut writer = begin_image(&path, 1, 1).unwrap();
+        let rgba = solid(1, 1, [0; 4]);
+        write_tile(
+            &mut writer,
+            Tile {
+                x: 0,
+                y: 0,
+                width: 1,
+                height: 1,
+                rgba: &rgba,
+            },
+        )
+        .unwrap();
+        finish_image(writer).unwrap();
+        let plain = dir.path().join("plain");
+        fs::write(&plain, b"").unwrap();
+
+        assert_eq!(
+            fs::metadata(&path).unwrap().permissions().mode(),
+            fs::metadata(&plain).unwrap().permissions().mode()
+        );
     }
 
     #[test]
