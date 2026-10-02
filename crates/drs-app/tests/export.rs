@@ -93,6 +93,10 @@ const BLACK_PIXEL: [u8; 4] = [0, 0, 0, 255];
 const YELLOW: Colour = Colour::rgb(255, 255, 0);
 /// The colour of a yellow Wall in the Export.
 const YELLOW_PIXEL: [u8; 4] = [255, 255, 0, 255];
+/// The colour the Rooms' floors are drawn in.
+const WHITE: Colour = Colour::rgb(255, 255, 255);
+/// The colour of a white floor in the Export.
+const WHITE_PIXEL: [u8; 4] = [255, 255, 255, 255];
 /// The resolution the Walls are exported at, fine enough to tell a round cap from a square one.
 const WALL_PIXELS_PER_CELL: u32 = 16;
 /// The resolution most tests export at, which makes the default Bounds 240 pixels a side.
@@ -359,6 +363,35 @@ impl Fixture {
                 }));
             }
         }
+    }
+
+    /// Places a Room through `points` with Walls `thickness` thick in yellow and a white floor,
+    /// bending each edge that has a control, and runs the editor until it is placed, failing the
+    /// test if a Command was refused. Returns its identity.
+    fn room(&mut self, points: &[Vec2], controls: &[Option<Vec2>], thickness: f32) -> ElementId {
+        let layer = self.layer();
+        self.run(Apply::PlaceElement(PlaceElement {
+            layer,
+            placement: Placement::Room {
+                points: points.to_vec(),
+                thickness,
+                wall_colour: YELLOW,
+                floor_colour: WHITE,
+            },
+        }));
+        let room = self.last();
+        for (segment, control) in controls.iter().enumerate() {
+            if control.is_some() {
+                self.edit(
+                    room,
+                    ElementChange::Control {
+                        segment,
+                        position: *control,
+                    },
+                );
+            }
+        }
+        room
     }
 
     /// The identity of the last Element on the Layer.
@@ -1793,4 +1826,232 @@ fn the_material_stays_editable() {
         "the new image along the stroke"
     );
     assert_eq!(picture.count(RED_PIXEL), 0, "never the image it had");
+}
+
+/// A rectangle ten cells wide and seven high from (5, 5), counter-clockwise from its lower-left
+/// corner.
+const ROOM: [Vec2; 4] = [
+    Vec2::new(5.0, 5.0),
+    Vec2::new(15.0, 5.0),
+    Vec2::new(15.0, 12.0),
+    Vec2::new(5.0, 12.0),
+];
+
+/// A Room's floor covers every place its outline winds around, up to the outline's line, in the
+/// floor colour, and nothing beyond its Walls.
+#[test]
+fn a_room_fills_its_floor() {
+    let mut fixture = Fixture::new();
+    fixture.room(&ROOM, &[], 1.0);
+
+    let exported = fixture
+        .export(WALL_PIXELS_PER_CELL, "floor.png", TILE)
+        .expect("the Export is written");
+    let picture = Picture::decode(&exported.path);
+    let at = |x: f32, y: f32| picture.at_point(Vec2::new(x, y), WALL_PIXELS_PER_CELL);
+
+    assert_eq!(at(10.0, 8.5), WHITE_PIXEL, "the floor at the centre");
+    assert_eq!(at(5.6, 11.4), WHITE_PIXEL, "the floor in a corner");
+    assert_eq!(
+        at(4.4, 8.5),
+        BLACK_PIXEL,
+        "outside, beyond half the thickness"
+    );
+    assert_eq!(
+        at(10.0, 12.6),
+        BLACK_PIXEL,
+        "above, beyond half the thickness"
+    );
+}
+
+/// A curved edge's floor reaches its curve, not the chord between its points.
+#[test]
+fn a_curved_room_fills_its_curve() {
+    let mut fixture = Fixture::new();
+    fixture.room(
+        &[
+            Vec2::new(5.0, 15.0),
+            Vec2::new(25.0, 15.0),
+            Vec2::new(25.0, 25.0),
+            Vec2::new(5.0, 25.0),
+        ],
+        &[Some(Vec2::new(15.0, 5.0))],
+        0.5,
+    );
+
+    let exported = fixture
+        .export(WALL_PIXELS_PER_CELL, "curved-floor.png", TILE)
+        .expect("the Export is written");
+    let picture = Picture::decode(&exported.path);
+    let at = |x: f32, y: f32| picture.at_point(Vec2::new(x, y), WALL_PIXELS_PER_CELL);
+
+    assert_eq!(
+        at(15.0, 12.5),
+        WHITE_PIXEL,
+        "between the chord and the curve"
+    );
+    assert_eq!(
+        at(15.0, 10.0),
+        YELLOW_PIXEL,
+        "the Wall on the curve's middle"
+    );
+    assert_eq!(at(15.0, 9.4), BLACK_PIXEL, "beyond the curve");
+}
+
+/// A Room's Walls are its outline drawn centred on the line, as wide as its thickness, with a
+/// round join at every point, the first included, in its wall colour.
+#[test]
+fn a_room_is_walled_all_round() {
+    let mut fixture = Fixture::new();
+    fixture.room(&ROOM, &[], 1.0);
+
+    let exported = fixture
+        .export(WALL_PIXELS_PER_CELL, "walled.png", TILE)
+        .expect("the Export is written");
+    let picture = Picture::decode(&exported.path);
+    let at = |x: f32, y: f32| picture.at_point(Vec2::new(x, y), WALL_PIXELS_PER_CELL);
+
+    for (middle, across) in [
+        (Vec2::new(10.0, 5.0), Vec2::Y),
+        (Vec2::new(15.0, 8.5), Vec2::X),
+        (Vec2::new(10.0, 12.0), Vec2::Y),
+        (Vec2::new(5.0, 8.5), Vec2::X),
+    ] {
+        for offset in [-0.4, 0.0, 0.4] {
+            let p = middle + across * offset;
+            assert_eq!(at(p.x, p.y), YELLOW_PIXEL, "the Wall at {p}");
+        }
+    }
+    assert_eq!(
+        at(4.7, 4.7),
+        YELLOW_PIXEL,
+        "the round join at the first point"
+    );
+    assert_eq!(
+        at(4.6, 4.6),
+        BLACK_PIXEL,
+        "the corner a mitred join would fill"
+    );
+    assert_eq!(
+        at(15.3, 12.3),
+        YELLOW_PIXEL,
+        "the round join at another point"
+    );
+}
+
+/// A Room is drawn at its place in the stacking order, its floor first and its Walls over it:
+/// an Element before it is drawn under both, an Element after it over both.
+#[test]
+fn a_rooms_floor_lies_under_its_walls() {
+    let mut fixture = Fixture::new();
+    fixture.place(RED, Vec2::new(8.5, 8.5));
+    fixture.room(&ROOM, &[], 1.0);
+    fixture.place(GREEN, Vec2::new(12.5, 8.5));
+
+    let exported = fixture
+        .export(WALL_PIXELS_PER_CELL, "floor-stacked.png", TILE)
+        .expect("the Export is written");
+    let picture = Picture::decode(&exported.path);
+    let at = |x: f32, y: f32| picture.at_point(Vec2::new(x, y), WALL_PIXELS_PER_CELL);
+
+    assert_eq!(
+        at(10.0, 5.4),
+        YELLOW_PIXEL,
+        "the Wall's inner half over the floor"
+    );
+    assert_eq!(
+        at(8.5, 8.5),
+        WHITE_PIXEL,
+        "the Prop before the Room under its floor"
+    );
+    assert_eq!(
+        at(12.5, 8.5),
+        GREEN_PIXEL,
+        "the Prop after the Room over its floor"
+    );
+}
+
+/// Along a stretch a Portal covers, a Room's Wall is left out: the floor still reaches the
+/// outline on the inner half, the background shows on the outer half beside a Portal narrower
+/// than the Wall is thick, and the Wall stands just past the stretch.
+#[test]
+fn a_room_wall_gives_way_to_its_portal() {
+    let mut fixture = Fixture::new();
+    let room = fixture.room(
+        &[
+            Vec2::new(5.0, 5.0),
+            Vec2::new(25.0, 5.0),
+            Vec2::new(25.0, 15.0),
+            Vec2::new(5.0, 15.0),
+        ],
+        &[],
+        2.0,
+    );
+    fixture.portal(DOOR, Vec2::ZERO, Some(anchored(room, 0, 0.5, Side::Left)));
+
+    let exported = fixture
+        .export(WALL_PIXELS_PER_CELL, "room-gap.png", TILE)
+        .expect("the Export is written");
+    let picture = Picture::decode(&exported.path);
+    let at = |x: f32, y: f32| picture.at_point(Vec2::new(x, y), WALL_PIXELS_PER_CELL);
+
+    assert_eq!(at(15.0, 5.0), CYAN_PIXEL, "the Portal at its centre");
+    assert_eq!(at(15.0, 5.6), WHITE_PIXEL, "the floor on the inner half");
+    assert_eq!(
+        at(15.0, 4.4),
+        BLACK_PIXEL,
+        "the background on the outer half"
+    );
+    assert_eq!(
+        at(16.1, 4.4),
+        YELLOW_PIXEL,
+        "the Wall just past the stretch"
+    );
+    assert_eq!(at(13.9, 5.6), YELLOW_PIXEL, "the Wall just before it");
+}
+
+/// A Room appears in the Export only where it lies inside the Bounds: one with points outside is
+/// cut at the edge.
+#[test]
+fn a_room_is_clipped_at_the_edge() {
+    let mut fixture = Fixture::new();
+    fixture.room(
+        &[
+            Vec2::new(-5.0, 10.0),
+            Vec2::new(5.0, 10.0),
+            Vec2::new(5.0, 20.0),
+            Vec2::new(-5.0, 20.0),
+        ],
+        &[],
+        1.0,
+    );
+
+    let exported = fixture
+        .export(WALL_PIXELS_PER_CELL, "clipped-room.png", TILE)
+        .expect("the Export is written");
+    let picture = Picture::decode(&exported.path);
+    let at = |x: f32, y: f32| picture.at_point(Vec2::new(x, y), WALL_PIXELS_PER_CELL);
+
+    assert_eq!(
+        at(0.01, 15.0),
+        WHITE_PIXEL,
+        "the floor cut at the left edge"
+    );
+    assert_eq!(
+        at(0.01, 10.0),
+        YELLOW_PIXEL,
+        "the Wall cut at the left edge"
+    );
+    let width = WALL_PIXELS_PER_CELL as usize;
+    let floor = picture.count(WHITE_PIXEL);
+    assert!(
+        (4 * 9 * width * width..5 * 10 * width * width).contains(&floor),
+        "{floor} white pixels: the floor inside, nothing more"
+    );
+    let right_of_the_wall = WALL_PIXELS_PER_CELL * 56 / 10;
+    for x in right_of_the_wall..picture.width {
+        for y in 0..picture.height {
+            assert_eq!(picture.pixel(x, y), BLACK_PIXEL, "({x}, {y})");
+        }
+    }
 }

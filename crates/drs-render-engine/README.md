@@ -38,6 +38,13 @@ image loads, is Missing, or failed, the placeholder's flat colour is drawn maske
 by the same coverage. A Terrain whose coverage has not been derived yet is not
 drawn that frame.
 
+An Element drawn as a filled outline, a Room, is drawn as two such meshes from
+its derived shape: its floor in its floor colour, half a depth unit below its
+Walls, which are stroked round its closed outline in its wall colour and
+already leave out the stretches its Portals cover. Everything else before the
+Room in the stacking order lies under both and everything after over both. A
+Room whose shape has not been derived yet is not drawn that frame.
+
 One Grid cell is one world unit, `x` to the right and `y` upwards, so an
 Element's position and size in cells are its translation and size as drawn.
 The projection is a 2D camera that follows the model's `Viewport`: it looks at

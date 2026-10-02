@@ -1,5 +1,6 @@
-//! One mesh with a flat-colour Material per Element drawn as a stroked path, kept in step with the
-//! model through change detection.
+//! Meshes with flat-colour Materials for the Elements drawn from a derived outline, kept in step
+//! with the model through change detection: one per Element drawn as a stroked path, a Wall, and
+//! two per Element drawn as a filled outline, a Room, its floor and its Walls.
 
 use crate::drawn_as;
 use crate::stacking::Stacking;
@@ -19,26 +20,44 @@ use bevy_mesh::{Indices, Mesh, Mesh2d, PrimitiveTopology};
 use bevy_sprite_render::{AlphaMode2d, ColorMaterial, MeshMaterial2d};
 use bevy_transform::components::Transform;
 use drs_model::{
-    Colour, DrawnAs, Element, ElementKindRegistry, Layer, Level, Project, Wall, WallShape,
+    Colour, DrawnAs, Element, ElementKindRegistry, FillMesh, Layer, Level, Project, Room,
+    RoomShape, StrokeMesh, Wall, WallShape,
 };
 use std::collections::{BTreeMap, BTreeSet};
 
-/// Marks a mesh entity as drawing one Wall.
+/// Which part of an Element a mesh draws.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+enum Part {
+    /// The stroke of a Wall's line or of a Room's Walls.
+    Stroke,
+    /// A Room's floor.
+    Floor,
+}
+
+/// How far below its Element's depth a floor is drawn: under the Element's own Walls and over
+/// the Element before it, one whole unit below.
+const FLOOR_BELOW: f32 = 0.5;
+
+/// Marks a mesh entity as drawing one part of one Element.
 #[derive(Component)]
 pub(crate) struct WallDrawing {
-    /// The Wall drawn.
+    /// The Element drawn.
     element: Entity,
+    /// The part of it drawn.
+    part: Part,
     /// The colour its Material has.
     colour: Colour,
 }
 
-/// Whether anything the Walls' meshes depend on changed since they were last brought in step.
+/// Whether anything the meshes of Walls and Rooms depend on changed since they were last brought
+/// in step.
 #[expect(
     clippy::type_complexity,
     reason = "a Bevy query filter is spelled out by the components it watches"
 )]
 pub(crate) fn walls_changed(
     walls: Query<(), Or<(Changed<Wall>, Changed<WallShape>)>>,
+    rooms: Query<(), Or<(Changed<Room>, Changed<RoomShape>)>>,
     orders: Query<
         (),
         (
@@ -47,19 +66,21 @@ pub(crate) fn walls_changed(
         ),
     >,
     mut removed: RemovedComponents<WallShape>,
+    mut removed_rooms: RemovedComponents<RoomShape>,
 ) -> bool {
-    let removed = removed.read().count();
-    !walls.is_empty() || !orders.is_empty() || removed > 0
+    let removed = removed.read().count() + removed_rooms.read().count();
+    !walls.is_empty() || !rooms.is_empty() || !orders.is_empty() || removed > 0
 }
 
-/// One flat-colour Material per colour a Wall is drawn in, shared by every Wall of that colour.
+/// One flat-colour Material per colour a Wall, a Room's Walls, or a Room's floor is drawn in,
+/// shared by everything drawn in that colour.
 #[derive(Resource, Default)]
 pub(crate) struct WallMaterials(BTreeMap<[u8; 3], Handle<ColorMaterial>>);
 
 impl WallMaterials {
-    /// The Material of `colour`, added the first time a Wall is drawn in it.
+    /// The Material of `colour`, added the first time something is drawn in it.
     ///
-    /// It blends rather than being opaque, though the colour is, so that the Wall sorts with the
+    /// It blends rather than being opaque, though the colour is, so that the mesh sorts with the
     /// sprites by depth.
     fn of(
         &mut self,
@@ -79,10 +100,10 @@ impl WallMaterials {
     }
 }
 
-/// The assets the Walls are drawn with.
+/// The assets the Walls and Rooms are drawn with.
 #[derive(SystemParam)]
 pub(crate) struct WallAssets<'w> {
-    /// The meshes, one per Wall.
+    /// The meshes, one per Wall and two per Room.
     meshes: ResMut<'w, Assets<Mesh>>,
     /// The Materials, one per colour.
     materials: ResMut<'w, Assets<ColorMaterial>>,
@@ -100,17 +121,15 @@ fn colour_of(colour: Colour) -> Color {
     Color::srgb_u8(colour.red, colour.green, colour.blue)
 }
 
-/// The mesh of a Wall's stroke: its vertices in cells, its triangles, and the arc length of the
-/// line at each vertex as the first texture coordinate, for a Material that repeats along it.
-fn mesh_of(shape: &WallShape) -> Mesh {
-    let positions: Vec<[f32; 3]> = shape
-        .mesh
+/// The mesh of a stroke: its vertices in cells, its triangles, and the arc length of the line at
+/// each vertex as the first texture coordinate, for a Material that repeats along it.
+fn stroke_mesh(stroke: &StrokeMesh) -> Mesh {
+    let positions: Vec<[f32; 3]> = stroke
         .vertices
         .iter()
         .map(|vertex| [vertex.x, vertex.y, 0.0])
         .collect();
-    let along: Vec<[f32; 2]> = shape
-        .mesh
+    let along: Vec<[f32; 2]> = stroke
         .arc_lengths
         .iter()
         .map(|length| [*length, 0.0])
@@ -121,20 +140,71 @@ fn mesh_of(shape: &WallShape) -> Mesh {
     )
     .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, positions)
     .with_inserted_attribute(Mesh::ATTRIBUTE_UV_0, along)
-    .with_inserted_indices(Indices::U32(shape.mesh.indices.clone()))
+    .with_inserted_indices(Indices::U32(stroke.indices.clone()))
 }
 
-/// Brings the Walls' meshes in step with the model: one mesh per Element whose kind is drawn as a
-/// stroked path and that has its derived shape, in its colour, at its depth in the stacking order
-/// shared with the sprites, replaced when the shape changes; the meshes of Walls that are gone
-/// are removed. A Wall whose shape is not derived yet is not drawn that frame.
+/// The mesh of a floor: its vertices in cells, with their position as the first texture
+/// coordinate, for a Material that repeats across it, and its triangles.
+fn floor_mesh(floor: &FillMesh) -> Mesh {
+    let positions: Vec<[f32; 3]> = floor
+        .vertices
+        .iter()
+        .map(|vertex| [vertex.x, vertex.y, 0.0])
+        .collect();
+    let across: Vec<[f32; 2]> = floor
+        .vertices
+        .iter()
+        .map(|vertex| [vertex.x, vertex.y])
+        .collect();
+    Mesh::new(
+        PrimitiveTopology::TriangleList,
+        RenderAssetUsages::RENDER_WORLD,
+    )
+    .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, positions)
+    .with_inserted_attribute(Mesh::ATTRIBUTE_UV_0, across)
+    .with_inserted_indices(Indices::U32(floor.indices.clone()))
+}
+
+/// One part of an Element to draw: which, in what colour, at what depth, whether its shape
+/// changed since it was last drawn, and how its mesh is built.
+struct Piece<'a> {
+    /// The Element.
+    element: Entity,
+    /// The part.
+    part: Part,
+    /// Its colour.
+    colour: Colour,
+    /// Its depth.
+    depth: f32,
+    /// Whether the derived shape it is built from changed.
+    changed: bool,
+    /// Builds its mesh.
+    mesh: Box<dyn Fn() -> Mesh + 'a>,
+}
+
+/// The meshes being brought in step: the drawings of the last frame not yet seen this frame, and
+/// the colours drawn in.
+struct Sync {
+    /// The drawings not yet seen, by Element and part.
+    unseen: BTreeMap<(Entity, Part), Entity>,
+    /// The colours something is drawn in this frame.
+    in_use: BTreeSet<[u8; 3]>,
+}
+
+/// Brings the meshes of Walls and Rooms in step with the model: one mesh per Element whose kind
+/// is drawn as a stroked path, and a floor mesh under a stroke mesh per Element whose kind is
+/// drawn as a filled outline, once it has its derived shape, each in its colour, at the
+/// Element's depth in the stacking order shared with the sprites, the floor half a unit below,
+/// replaced when the shape changes; the meshes of Elements that are gone are removed. An Element
+/// whose shape is not derived yet is not drawn that frame.
 ///
-/// Walls of one colour share its Material.
+/// Everything drawn in one colour shares its Material.
 pub(crate) fn sync_walls(
     mut commands: Commands,
     stacking: Stacking,
     kinds: Option<Res<ElementKindRegistry>>,
     walls: Query<(&Element, &Wall, Ref<WallShape>)>,
+    rooms: Query<(&Element, &Room, Ref<RoomShape>)>,
     mut drawings: Query<(
         Entity,
         &mut WallDrawing,
@@ -144,53 +214,105 @@ pub(crate) fn sync_walls(
     )>,
     mut assets: WallAssets,
 ) {
-    let mut unseen: BTreeMap<Entity, Entity> = drawings
-        .iter()
-        .map(|(drawing, wall, ..)| (wall.element, drawing))
-        .collect();
-    let mut in_use = BTreeSet::new();
+    let mut sync = Sync {
+        unseen: drawings
+            .iter()
+            .map(|(drawing, drawn, ..)| ((drawn.element, drawn.part), drawing))
+            .collect(),
+        in_use: BTreeSet::new(),
+    };
     for stacked in stacking.in_order() {
-        let Ok((element, wall, shape)) = walls.get(stacked.element) else {
-            continue;
-        };
-        match drawn_as(kinds.as_deref(), element) {
-            Some(DrawnAs::StrokedPath) => {}
-            Some(DrawnAs::Image | DrawnAs::PaintedSurface | DrawnAs::FilledOutline) | None => {
-                continue;
+        if let Ok((element, wall, shape)) = walls.get(stacked.element) {
+            match drawn_as(kinds.as_deref(), element) {
+                Some(DrawnAs::StrokedPath) => {
+                    let piece = Piece {
+                        element: stacked.element,
+                        part: Part::Stroke,
+                        colour: wall.colour,
+                        depth: stacked.depth,
+                        changed: shape.is_changed(),
+                        mesh: Box::new(|| stroke_mesh(&shape.mesh)),
+                    };
+                    draw(&mut sync, piece, &mut commands, &mut drawings, &mut assets);
+                }
+                Some(DrawnAs::Image | DrawnAs::PaintedSurface | DrawnAs::FilledOutline) | None => {}
             }
-        }
-        in_use.insert(key(wall.colour));
-        let translation = Vec3::new(0.0, 0.0, stacked.depth);
-        if let Some(drawn) = unseen.remove(&stacked.element) {
-            let Ok((_, mut drawing, mesh, mut material, mut transform)) = drawings.get_mut(drawn)
-            else {
-                continue;
-            };
-            if transform.translation != translation {
-                transform.translation = translation;
+        } else if let Ok((element, room, shape)) = rooms.get(stacked.element) {
+            match drawn_as(kinds.as_deref(), element) {
+                Some(DrawnAs::FilledOutline) => {
+                    let changed = shape.is_changed();
+                    let floor = Piece {
+                        element: stacked.element,
+                        part: Part::Floor,
+                        colour: room.floor_colour,
+                        depth: stacked.depth - FLOOR_BELOW,
+                        changed,
+                        mesh: Box::new(|| floor_mesh(&shape.floor)),
+                    };
+                    draw(&mut sync, floor, &mut commands, &mut drawings, &mut assets);
+                    let walls = Piece {
+                        element: stacked.element,
+                        part: Part::Stroke,
+                        colour: room.wall_colour,
+                        depth: stacked.depth,
+                        changed,
+                        mesh: Box::new(|| stroke_mesh(&shape.walls.mesh)),
+                    };
+                    draw(&mut sync, walls, &mut commands, &mut drawings, &mut assets);
+                }
+                Some(DrawnAs::Image | DrawnAs::StrokedPath | DrawnAs::PaintedSurface) | None => {}
             }
-            if shape.is_changed() && assets.meshes.insert(&mesh.0, mesh_of(&shape)).is_err() {
-                log::warn!("the mesh of a Wall could not be replaced");
-            }
-            if drawing.colour != wall.colour {
-                drawing.colour = wall.colour;
-                material.0 = assets.shared.of(wall.colour, &mut assets.materials);
-            }
-        } else {
-            commands.spawn((
-                Mesh2d(assets.meshes.add(mesh_of(&shape))),
-                MeshMaterial2d(assets.shared.of(wall.colour, &mut assets.materials)),
-                Transform::from_translation(translation),
-                WallDrawing {
-                    element: stacked.element,
-                    colour: wall.colour,
-                },
-            ));
         }
     }
-    for drawn in unseen.into_values() {
+    for drawn in sync.unseen.into_values() {
         commands.entity(drawn).despawn();
     }
-    // A colour no Wall is drawn in any more lets its Material go.
+    // A colour nothing is drawn in any more lets its Material go.
+    let in_use = sync.in_use;
     assets.shared.0.retain(|colour, _| in_use.contains(colour));
+}
+
+/// Draws one piece: updates the mesh entity that drew it last frame, or spawns one.
+fn draw(
+    sync: &mut Sync,
+    piece: Piece,
+    commands: &mut Commands,
+    drawings: &mut Query<(
+        Entity,
+        &mut WallDrawing,
+        &Mesh2d,
+        &mut MeshMaterial2d<ColorMaterial>,
+        &mut Transform,
+    )>,
+    assets: &mut WallAssets,
+) {
+    sync.in_use.insert(key(piece.colour));
+    let translation = Vec3::new(0.0, 0.0, piece.depth);
+    if let Some(drawn) = sync.unseen.remove(&(piece.element, piece.part)) {
+        let Ok((_, mut drawing, mesh, mut material, mut transform)) = drawings.get_mut(drawn)
+        else {
+            return;
+        };
+        if transform.translation != translation {
+            transform.translation = translation;
+        }
+        if piece.changed && assets.meshes.insert(&mesh.0, (piece.mesh)()).is_err() {
+            log::warn!("the mesh of a Wall or a Room could not be replaced");
+        }
+        if drawing.colour != piece.colour {
+            drawing.colour = piece.colour;
+            material.0 = assets.shared.of(piece.colour, &mut assets.materials);
+        }
+    } else {
+        commands.spawn((
+            Mesh2d(assets.meshes.add((piece.mesh)())),
+            MeshMaterial2d(assets.shared.of(piece.colour, &mut assets.materials)),
+            Transform::from_translation(translation),
+            WallDrawing {
+                element: piece.element,
+                part: piece.part,
+                colour: piece.colour,
+            },
+        ));
+    }
 }

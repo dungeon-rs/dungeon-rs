@@ -18,7 +18,7 @@ use bevy_transform::components::Transform;
 use drs_library_access::asset_path;
 use drs_model::{
     AssetReferenceRow, DrawnAs, Element, ElementKindRegistry, Layer, Level, Portal, Project, Prop,
-    Resolution, ResolutionTable, ShownAsset, WallShape,
+    Resolution, ResolutionTable, RoomShape, ShownAsset, WallShape,
 };
 use std::collections::BTreeMap;
 
@@ -66,6 +66,7 @@ pub(crate) fn props_changed(
         (
             Or<(Changed<Element>, Changed<Prop>, Changed<Portal>)>,
             Without<WallShape>,
+            Without<RoomShape>,
         ),
     >,
     orders: Query<

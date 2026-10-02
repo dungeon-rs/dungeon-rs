@@ -26,9 +26,10 @@ use bevy_sprite_render::Material2dPlugin;
 use bevy_transform::TransformSystems;
 use drs_model::{DrawnAs, Element, ElementKindRegistry, Viewport};
 
-/// Draws the Level: the viewport systems that keep one sprite per Prop, one mesh per Wall, and one
-/// quad per coverage tile of a Terrain, the projection that follows the [`Viewport`], and the
-/// offscreen rendering of regions for the Export.
+/// Draws the Level: the viewport systems that keep one sprite per Prop, one mesh per Wall, two per
+/// Room, and one quad per coverage tile of a Terrain,
+/// the projection that follows the [`Viewport`], and the offscreen rendering of regions for the
+/// Export.
 pub struct RenderEnginePlugin;
 
 impl Plugin for RenderEnginePlugin {
