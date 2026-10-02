@@ -44,17 +44,12 @@ pub(crate) struct Browser {
     /// Whether the panel was drawn in this frame.
     drawn: bool,
     /// The cells laid out in the last frame, for the development script to describe.
+    #[cfg(feature = "dev")]
     pub cells: Vec<Cell>,
 }
 
+#[cfg(feature = "dev")]
 impl Browser {
-    #[cfg_attr(
-        not(feature = "dev"),
-        expect(
-            dead_code,
-            reason = "read by the development script's describe step only"
-        )
-    )]
     /// How many thumbnails are decoded and kept, and how many of them are registered with egui.
     pub(crate) fn textures(&self) -> (usize, usize) {
         let registered = self
@@ -67,13 +62,7 @@ impl Browser {
 }
 
 /// One cell as it was laid out.
-#[cfg_attr(
-    not(feature = "dev"),
-    expect(
-        dead_code,
-        reason = "read by the development script's describe step only"
-    )
-)]
+#[cfg(feature = "dev")]
 pub(crate) struct Cell {
     /// The Asset's name.
     pub name: String,
@@ -170,6 +159,7 @@ pub(crate) fn show(
     let browser = &mut **browser;
     browser.frame += 1;
     browser.drawn = true;
+    #[cfg(feature = "dev")]
     browser.cells.clear();
     rematch(browser, state.filter.trim(), folders);
     if browser.matching.folders.is_empty() {
@@ -221,6 +211,7 @@ pub(crate) fn show(
 pub(crate) fn release_if_hidden(library: &mut Library, contexts: &mut EguiContexts) {
     let browser = &mut *library.browser;
     if !std::mem::take(&mut browser.drawn) {
+        #[cfg(feature = "dev")]
         browser.cells.clear();
         release(browser, contexts, &BTreeSet::new());
     }
@@ -445,11 +436,15 @@ fn cell(
     let galley = painter.layout_job(job);
     let name_at = egui::pos2(rect.center().x - galley.size().x / 2.0, square.bottom());
     painter.galley(name_at, galley, visuals.text_color());
+    #[cfg(feature = "dev")]
     browser.cells.push(Cell {
         name: asset.asset.name.clone(),
         shown,
         rect,
     });
+    // Only the development script reads what a cell showed.
+    #[cfg(not(feature = "dev"))]
+    let _ = shown;
     let response = response.on_hover_text(format!(
         "{}\n{}\n{}",
         asset.asset.name, asset.folder.name, asset.asset.place
