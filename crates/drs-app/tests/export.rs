@@ -567,7 +567,8 @@ impl Fixture {
     }
 
     /// Makes the Bounds `size` cells with their lower-left corner at `origin`, so an Export at a
-    /// high resolution stays small.
+    /// high resolution stays small. No Command resizes the Bounds yet, so the fixture sets them
+    /// in the World directly, as a Command would once there is one.
     fn bounds(&mut self, origin: bevy::math::IVec2, size: UVec2) {
         let world = self.app.world_mut();
         let mut bounds = world
