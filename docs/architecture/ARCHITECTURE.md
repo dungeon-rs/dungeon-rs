@@ -159,7 +159,7 @@ Löwy's rules ([LOWY-RULES.md](../../.claude/skills/architect/LOWY-RULES.md)), p
 | drs-editor | Client | drs-authoring-manager, drs-library-manager, drs-project-manager, drs-history, drs-diagnostics, drs-model |
 | drs-authoring-manager | Manager | drs-shape-engine, drs-paint-engine, drs-project-access, drs-library-access, drs-history, drs-model |
 | drs-library-manager | Manager | drs-catalog-engine, drs-library-access, drs-history, drs-model |
-| drs-project-manager | Manager | drs-catalog-engine, drs-render-engine, drs-project-access, drs-library-access, drs-output-access, drs-history, drs-model |
+| drs-project-manager | Manager | drs-catalog-engine, drs-render-engine, drs-paint-engine, drs-project-access, drs-library-access, drs-output-access, drs-history, drs-model |
 | drs-shape-engine | Engine | drs-model |
 | drs-paint-engine | Engine | drs-model |
 | drs-catalog-engine | Engine | drs-model |
@@ -187,6 +187,7 @@ PluginAccess (`drs-plugin-access`) joins the table when it is built.
 | bevy_sprite | drs-render-engine, Client, Host |
 | bevy_sprite_render | drs-render-engine, drs-paint-engine, Client, Host |
 | bevy_mesh | drs-render-engine, drs-paint-engine, Client, Host |
+| bevy_shader | drs-render-engine, drs-paint-engine, Client, Host |
 | bevy_text | drs-render-engine, Client, Host |
 | bevy_asset | drs-library-access, drs-render-engine, Client, Host |
 | bevy_camera | drs-render-engine, drs-paint-engine, Client, Host |
@@ -253,7 +254,8 @@ sequenceDiagram
   Editor->>ProjectManager: Export(Level, resolution, format)
   ProjectManager->>OutputAccess: BeginImage
   loop each tile
-    ProjectManager->>RenderEngine: RenderRegion(tile)
+    ProjectManager->>PaintEngine: Rasterize(painted Elements, tile, resolution)
+    ProjectManager->>RenderEngine: RenderRegion(tile, coverages)
     ProjectManager->>OutputAccess: WriteTile
   end
   ProjectManager->>OutputAccess: FinishImage
