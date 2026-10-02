@@ -47,6 +47,9 @@ The light that fills a whole Level before any Light is placed, such as the dark 
 **Brush**:
 A way of painting onto a Level. Its settings can be saved as a [Brush Preset](./asset-library.md#language).
 
+**Stroke**:
+One pass of a Brush along a path, laid by one Paint, that adds to a painted Element or, as an erase, removes from it. A painted Element's shape is its strokes, in order.
+
 **Prefab Instance**:
 A group of Elements placed from a [Prefab](./asset-library.md#language) and linked to it until detached. A linked Prefab Instance may lag behind its Prefab until it is synced.
 
