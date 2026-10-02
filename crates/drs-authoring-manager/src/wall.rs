@@ -293,8 +293,7 @@ pub(crate) fn remove_with_portals(
         outcome = outcome.and_then(|()| crate::record(world, Remove::of(*portal)));
     }
     outcome = outcome.and_then(|()| crate::record(world, Remove::of(element)));
-    crate::history(world)?.end_group();
-    outcome?;
+    crate::close_group(world, outcome)?;
     Ok(removed(element, gone))
 }
 
@@ -344,7 +343,7 @@ fn moved(
 /// # Errors
 ///
 /// [`AuthoringError::History`] when a command could not be applied; what was applied before it
-/// stays in the step.
+/// is taken back, so nothing of the step is left.
 fn record_together(
     world: &mut World,
     gone: Vec<ElementId>,
@@ -363,8 +362,7 @@ fn record_together(
     for field in moves {
         outcome = outcome.and_then(|()| crate::record(world, field));
     }
-    crate::history(world)?.end_group();
-    outcome
+    crate::close_group(world, outcome)
 }
 
 /// The answer naming the Portals set into `host` that a Command removed, when it removed any.

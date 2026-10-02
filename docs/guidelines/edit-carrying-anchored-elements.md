@@ -8,7 +8,7 @@
 - Read the host as it is before the edit, then ask `portal::anchored_to` for the Elements anchored to it: those set into it and those it has lost. Whether an Element is set is decided by `portal::sets_into` alone, never by a check of the edit's own.
 - The shape Engine says where each anchor goes, from the host as it was (`anchor_portals_through` with the `PointEdit`): `Some` place to move it to, or `None` when its part of the host goes. The Manager never renumbers by hand; a lost anchor goes through the same call when the edit could make it name a real part again, so it keeps naming none.
 - Each anchor that moves becomes a `SetField` at the path `"anchor"` through `moved`, which gives `None` for a place the anchor already holds, so the step records no change that is none.
-- Record one history group in this order: a `Remove::of` for each Element that goes, then the host's own step, then the anchor moves (`record_together`), so undo restores the host before what is anchored to it. Chain the outcomes with `and_then` and call `end_group` before `?`, so a failure never leaves the group open; with nothing anchored, the host's step is a step of its own.
+- Record one history group in this order: a `Remove::of` for each Element that goes, then the host's own step, then the anchor moves (`record_together`), so undo restores the host before what is anchored to it. Chain the outcomes with `and_then` and hand the last to `crate::close_group`, which ends the group on success and on failure takes back what was already applied, so a Command is never left half done nor its group open; with nothing anchored, the host's step is a step of its own.
 - The work returns the answer naming the Elements that went (`removed` gives `None` when none did) and `handle_apply` writes it; the work never writes a message.
 - Where the anchored Elements now stand is not written here: deriving follows their anchors once every Manager has handled the frame, so undo, redo, and Open put them back the same way.
 
@@ -71,8 +71,7 @@ fn record_together(
     for field in moves {
         outcome = outcome.and_then(|()| crate::record(world, field));
     }
-    crate::history(world)?.end_group();
-    outcome
+    crate::close_group(world, outcome)
 }
 
 /// The answer naming the Portals set into `host` that a Command removed, when it removed any.

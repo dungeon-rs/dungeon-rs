@@ -8,7 +8,10 @@ to take itself back; [`apply`](crate::apply) carries one out and records it,
 [`undo`](crate::undo) and [`redo`](crate::redo) walk the stack. Several commands
 recorded while a group is open form one step, so a gesture such as a drag is
 undone as a whole; [`apply_step`](crate::apply_step) closes an open group first,
-for a command that is a step of its own. Recording a new step discards the
+for a command that is a step of its own, and
+[`abandon_group`](crate::abandon_group) takes back an open group whose later
+command failed, so no step is left half applied. A group that cannot be undone
+or redone whole is put back as it was. Recording a new step discards the
 steps that were undone. [`History::position`](crate::History::position) tells
 where the history stands, so whoever saved the World can later tell whether a
 step has been recorded, or undone, since; [`History::clear`](crate::History::clear)

@@ -240,6 +240,31 @@ pub(crate) fn record_step(
         .map_err(|error| AuthoringError::History(error.to_string()))
 }
 
+/// Closes the group a Command opened for its commands: on success they become one step, and on
+/// failure the part already applied is taken back and nothing is recorded, so a Command is never
+/// left half done. Returns `outcome`.
+///
+/// # Errors
+///
+/// `outcome`'s error, or [`AuthoringError::History`] when the history is gone or the applied
+/// part could not be taken back.
+pub(crate) fn close_group(
+    world: &mut World,
+    outcome: Result<(), AuthoringError>,
+) -> Result<(), AuthoringError> {
+    match outcome {
+        Ok(()) => {
+            history(world)?.end_group();
+            Ok(())
+        }
+        Err(error) => {
+            drs_history::abandon_group(world)
+                .map_err(|undone| AuthoringError::History(undone.to_string()))?;
+            Err(error)
+        }
+    }
+}
+
 /// Carries out every [`Apply`] request, answering one that removed Portals with
 /// [`PortalsRemoved`] and one that fails with [`CommandFailed`].
 fn handle_apply(world: &mut World, requests: &mut SystemState<MessageReader<Apply>>) {

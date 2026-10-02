@@ -4,7 +4,7 @@ mod generic;
 mod stack;
 
 pub use generic::{SetField, Snapshot, Target};
-pub use stack::{History, HistoryPlugin, Position, apply, apply_step, redo, undo};
+pub use stack::{History, HistoryPlugin, Position, abandon_group, apply, apply_step, redo, undo};
 
 use bevy_ecs::error::BevyError;
 use bevy_ecs::world::World;
