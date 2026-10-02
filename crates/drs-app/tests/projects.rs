@@ -1659,15 +1659,15 @@ fn unknown_walls_round_trip() {
     let mut saved = SavedWalls::new();
     let walls = saved.device.walls();
     let order = saved.device.order();
-    let mut older = Device::new();
-    older.forget_walls();
+    let mut unaware = Device::new();
+    unaware.forget_walls();
 
-    let opened = older.opens(&saved.file);
+    let opened = unaware.opens(&saved.file);
 
-    assert_eq!(older.order(), order);
-    assert!(older.walls().is_empty(), "no Wall is known");
+    assert_eq!(unaware.order(), order);
+    assert!(unaware.walls().is_empty(), "no Wall is known");
     for (id, element, _, _) in &walls {
-        let placed = older
+        let placed = unaware
             .elements()
             .into_iter()
             .find(|placed| placed.id == *id)
@@ -1691,7 +1691,7 @@ fn unknown_walls_round_trip() {
         }]
     );
 
-    let copy = older.save_as(&older.root().join("copy.dungeon"));
+    let copy = unaware.save_as(&unaware.root().join("copy.dungeon"));
     assert_eq!(
         fs::read(&copy).expect("the copy"),
         fs::read(&saved.file).expect("the file")
