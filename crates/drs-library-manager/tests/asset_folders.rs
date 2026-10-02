@@ -472,9 +472,12 @@ fn unreadable_names_are_skipped() {
     fs::write(maps.join(OsStr::from_bytes(b"bad\xff.png")), b"fixture").expect("odd file");
     let mut app = editor(root.path());
 
-    add(&mut app, &maps, "Maps").expect("the folder is added");
+    let added = add(&mut app, &maps, "Maps").expect("the folder is added");
 
-    assert_eq!(places(&folders(&mut app)[0]), vec!["fine.png"]);
+    assert_eq!(added.skips.non_unicode_names, 1);
+    let folders = folders(&mut app);
+    assert_eq!(places(&folders[0]), vec!["fine.png"]);
+    assert_eq!(folders[0].skips.non_unicode_names, 1);
 }
 
 /// An Asset's name is its file name without the extension; two files with the same name in
