@@ -1,20 +1,23 @@
 //! What the seam tests of the Host share: the headless editor of every Manager with no window
-//! and no render Engine, fixture images, adding an Asset Folder, and sending Commands, Undo, and
-//! Redo to the editor and reading back what they did.
+//! and no render Engine, fixture images, adding an Asset Folder, sending Commands, Undo, and
+//! Redo to the editor and reading back what they did, and comparing the geometry it derives.
 #![allow(
     dead_code,
+    reason = "each test file uses the part of the fixture it needs, so which part is unused \
+              depends on the file"
+)]
+#![expect(
     clippy::missing_panics_doc,
     clippy::expect_used,
     clippy::disallowed_methods,
-    reason = "each test file uses the part of the fixture it needs, and a fixture stops at the \
-              first thing that is not as expected"
+    reason = "a fixture stops at the first thing that is not as expected"
 )]
 
 use bevy::app::App;
 use bevy::ecs::entity::Entity;
 use bevy::ecs::hierarchy::Children;
 use bevy::ecs::message::Messages;
-use bevy::math::UVec2;
+use bevy::math::{UVec2, Vec2};
 use drs_authoring_manager::AuthoringManagerPlugin;
 use drs_history::{History, HistoryPlugin};
 use drs_library_access::LibraryAccessPlugin;
@@ -169,4 +172,29 @@ pub fn entity(app: &mut App, id: ElementId) -> Option<Entity> {
         .iter(world)
         .find(|(_, found)| **found == id)
         .map(|(entity, _)| entity)
+}
+
+/// How far apart two points computed along different paths may lie, in cells.
+pub const CLOSE: f32 = 1e-4;
+
+/// The point of the quadratic curve from `start` through `control` to `end` at `t`.
+pub fn quadratic(start: Vec2, control: Vec2, end: Vec2, t: f32) -> Vec2 {
+    let u = 1.0 - t;
+    start * (u * u) + control * (2.0 * u * t) + end * (t * t)
+}
+
+/// Asserts that two points lie within [`CLOSE`] of each other.
+pub fn assert_near(found: Vec2, expected: Vec2, what: &str) {
+    assert!(
+        found.distance(expected) < CLOSE,
+        "{what}: {found} against {expected}"
+    );
+}
+
+/// Asserts that two numbers lie within [`CLOSE`] of each other.
+pub fn assert_close(found: f32, expected: f32, what: &str) {
+    assert!(
+        (found - expected).abs() < CLOSE,
+        "{what}: {found} against {expected}"
+    );
 }

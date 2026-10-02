@@ -28,7 +28,7 @@ use drs_model::{
     WallShape,
 };
 use std::f32::consts::FRAC_PI_2;
-use support::edit;
+use support::{assert_close, assert_near, edit, quadratic};
 use tempfile::TempDir;
 
 /// The place of the door image: 512 by 128 pixels, two cells wide and half a cell tall.
@@ -39,8 +39,6 @@ const DOOR_PIXELS: UVec2 = UVec2::new(512, 128);
 const TABLE: &str = "table.png";
 /// A dark grey.
 const GREY: Colour = Colour::rgb(60, 60, 60);
-/// How far apart two points computed along different paths may lie, in cells.
-const CLOSE: f32 = 1e-4;
 
 /// The headless editor with the fixture folder added.
 struct Fixture {
@@ -317,32 +315,10 @@ impl Fixture {
     }
 }
 
-/// The point of the quadratic curve from `start` through `control` to `end` at `t`.
-fn quadratic(start: Vec2, control: Vec2, end: Vec2, t: f32) -> Vec2 {
-    let u = 1.0 - t;
-    start * (u * u) + control * (2.0 * u * t) + end * (t * t)
-}
-
 /// The direction of that curve at `t`, as an angle.
 fn quadratic_angle(start: Vec2, control: Vec2, end: Vec2, t: f32) -> f32 {
     let along = (control - start) * (2.0 * (1.0 - t)) + (end - control) * (2.0 * t);
     ops::atan2(along.y, along.x)
-}
-
-/// Asserts that two points lie within [`CLOSE`] of each other.
-fn assert_near(found: Vec2, expected: Vec2, what: &str) {
-    assert!(
-        found.distance(expected) < CLOSE,
-        "{what}: {found} against {expected}"
-    );
-}
-
-/// Asserts that two numbers lie within [`CLOSE`] of each other.
-fn assert_close(found: f32, expected: f32, what: &str) {
-    assert!(
-        (found - expected).abs() < CLOSE,
-        "{what}: {found} against {expected}"
-    );
 }
 
 /// An L-shaped Wall: four cells along the x axis, then four up.

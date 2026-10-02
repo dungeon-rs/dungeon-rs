@@ -22,6 +22,7 @@ use drs_model::{
     Apply, AssetAddress, Bounds, Colour, EditElement, Element, ElementChange, ElementId, FolderKey,
     Gesture, PlaceElement, Placement, Prop, RemoveElement, Segment, WALL, Wall, WallShape,
 };
+use support::quadratic;
 use tempfile::TempDir;
 
 /// The place of the one image in the fixture folder.
@@ -203,12 +204,6 @@ impl Fixture {
     fn wall_of(&mut self, id: ElementId) -> Wall {
         self.element(id).wall().clone()
     }
-}
-
-/// The point of the quadratic curve from `start` through `control` to `end` at `t`.
-fn quadratic(start: Vec2, control: Vec2, end: Vec2, t: f32) -> Vec2 {
-    let u = 1.0 - t;
-    start * (u * u) + control * (2.0 * u * t) + end * (t * t)
 }
 
 /// The distance from `p` to the nearest chord of a flattened line.

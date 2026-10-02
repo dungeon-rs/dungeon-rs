@@ -27,7 +27,7 @@ use drs_model::{
     PortalsRemoved, Project, ROOM, RemoveElement, Room, RoomShape, SetPortalIntoWall, Side,
 };
 use std::f32::consts::{FRAC_PI_2, PI};
-use support::edit;
+use support::{CLOSE, assert_close, assert_near, edit, quadratic};
 use tempfile::TempDir;
 
 /// The place of the door image: 512 by 128 pixels, two cells wide and half a cell tall.
@@ -40,8 +40,6 @@ const GREY: Colour = Colour::rgb(60, 60, 60);
 const LIGHT: Colour = Colour::rgb(200, 200, 200);
 /// A red.
 const RED: Colour = Colour::rgb(200, 30, 30);
-/// How far apart two points computed along different paths may lie, in cells.
-const CLOSE: f32 = 1e-4;
 /// A rectangle eight cells wide and six high, from its lower-left corner counter-clockwise: its
 /// outline is 28 cells round.
 const RECTANGLE: [Vec2; 4] = [
@@ -347,28 +345,6 @@ impl Fixture {
         state.sort_by_key(|(id, ..)| *id);
         state
     }
-}
-
-/// The point of the quadratic curve from `start` through `control` to `end` at `t`.
-fn quadratic(start: Vec2, control: Vec2, end: Vec2, t: f32) -> Vec2 {
-    let u = 1.0 - t;
-    start * (u * u) + control * (2.0 * u * t) + end * (t * t)
-}
-
-/// Asserts that two points lie within [`CLOSE`] of each other.
-fn assert_near(found: Vec2, expected: Vec2, what: &str) {
-    assert!(
-        found.distance(expected) < CLOSE,
-        "{what}: {found} against {expected}"
-    );
-}
-
-/// Asserts that two numbers lie within [`CLOSE`] of each other.
-fn assert_close(found: f32, expected: f32, what: &str) {
-    assert!(
-        (found - expected).abs() < CLOSE,
-        "{what}: {found} against {expected}"
-    );
 }
 
 /// Whether `p` lies in a triangle of `vertices` and `indices`, edges included.
