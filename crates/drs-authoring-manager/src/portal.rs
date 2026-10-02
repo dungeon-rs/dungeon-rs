@@ -140,9 +140,9 @@ fn standing_in(
     Some(stood(&standing, anchor, rotation))
 }
 
-/// Places a Portal of the chosen Asset at its image's natural size on top of the Layer, set
-/// into the Wall or the Room the anchor names or freestanding, unturned, and centred on `position`, as one
-/// history step.
+/// Places a Portal of the chosen Asset at its image's natural size on top of the Layer, set into
+/// the Wall or the Room the anchor names or freestanding, unturned, and centred on `position`, as
+/// one history step.
 ///
 /// # Errors
 ///

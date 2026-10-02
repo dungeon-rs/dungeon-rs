@@ -1,8 +1,8 @@
-//! The Portal tool and the selected Portal: finding the Wall or the Room's Walls under the
-//! pointer, the nearest within reach, and the point of its line nearest the pointer, which is hit-testing as picking
-//! is, showing them with its marker, placing a Portal set into a Wall or freestanding, picking a Portal by its turned
-//! rectangle, sliding a set Portal along its Wall, flipping, freeing, and setting it, and its
-//! options in the tool strip.
+//! The Portal tool and the selected Portal: finding the Wall or the Room's Walls under the pointer,
+//! the nearest within reach, and the point of its line nearest the pointer, which is hit-testing as
+//! picking is, showing them with its marker, placing a Portal set into a Wall or freestanding,
+//! picking a Portal by its turned rectangle, sliding a set Portal along its Wall, flipping,
+//! freeing, and setting it, and its options in the tool strip.
 //!
 //! Every change is a Command: a click places with one Place Element, a slide is an Edit Element
 //! gesture, and `F` and `X` send one Command each.
@@ -243,8 +243,8 @@ pub(crate) fn press_set(state: &mut EditorState, element: ElementId, cursor: Vec
     };
 }
 
-/// The options of the selected Portal in the tool strip: its width, its rotation in degrees
-/// unless it `follows` its Wall, the flip button, and the Free Portal or Set into Wall button, each change
+/// The options of the selected Portal in the tool strip: its width, its rotation in degrees unless
+/// it `follows` its Wall, the flip button, and the Free Portal or Set into Wall button, each change
 /// sent as one step, a drag of the width or the rotation as one gesture.
 pub(crate) fn options<'a>(
     ui: &mut egui::Ui,

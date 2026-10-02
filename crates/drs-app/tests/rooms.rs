@@ -939,9 +939,9 @@ fn the_floor_fills_the_outline() {
 }
 
 /// A Portal can be set into a Room's Walls, anchored by the Room's `ElementId`, an edge, a
-/// parameter along it, and a side: it stands on the outline facing its side, and is placed,
-/// set, freed, slid, flipped, and removed as a Portal set into a Wall, with the Room's edges in place of the
-/// Wall's segments.
+/// parameter along it, and a side: it stands on the outline facing its side, and is placed, set,
+/// freed, slid, flipped, and removed as a Portal set into a Wall, with the Room's edges in place of
+/// the Wall's segments.
 #[test]
 fn portals_set_into_rooms() {
     let mut fixture = Fixture::new();

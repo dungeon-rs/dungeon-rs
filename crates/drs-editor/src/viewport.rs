@@ -787,8 +787,8 @@ type Outlined = (
     Option<&'static Room>,
 );
 
-/// Outlines the selected Element, a Portal turned as it is drawn, drops a selection whose
-/// Element is gone, and lets go of a handle the selected Wall or Room no longer has. Nothing is drawn or
+/// Outlines the selected Element, a Portal turned as it is drawn, drops a selection whose Element
+/// is gone, and lets go of a handle the selected Wall or Room no longer has. Nothing is drawn or
 /// dropped while an Export runs, so the outline never appears in the image.
 pub(crate) fn outline_selection(
     mut gizmos: Gizmos,
