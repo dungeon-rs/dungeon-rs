@@ -1,16 +1,16 @@
 # Element kind
 
-**Use when**: the editor gains a kind of Element beside the Prop and the Wall (a Portal, a Room, a Light). **Not when**: the new thing is a property of an existing kind (a field of its component, edited through `ElementChange`), or it is not an Element at all (a Layer, a Level, device state).
+**Use when**: the editor gains a kind of Element beside the Prop, the Wall, and the Portal (a Room, a Light). **Not when**: the new thing is a property of an existing kind (a field of its component, edited through `ElementChange`), or it is not an Element at all (a Layer, a Level, device state).
 **Exemplar**: `crates/drs-model/src/wall.rs`
 
 ## Rules
 
 - `drs-model` holds the kind: a `pub const` `ElementKindName` with its stable name, one component deriving `Component`, `Reflect` with `#[reflect(Component)]`, `Serialize`, and `Deserialize` that holds only what the Author edits, in Grid cells, registered with `register_type` in `ModelPlugin`, and a descriptor in `ElementKindRegistry::default` whose `drawn_as` says how it is drawn. The kind's box and name stay on the common `Element`, which the authoring Manager sets. _Why_ `register_type`: Remove Element snapshots and `SetField` paths go through reflection, so an unregistered component is silently lost on undo.
-- The component has one `malformation()` that says why a value is not one of its kind; the placement, every edit (through `well_formed` in the authoring Manager's `wall.rs`), and reading a file (the checked component of the serialisable-component guideline) all refuse through it, so they never disagree.
-- Placing is a `Placement` arm in `messages.rs`, matched in `place_element`: the arm builds the component, checks it, and records a step that spawns it with a fresh `ElementId` through `place::spawn_on_top` and reverts through `place::take_off`.
+- The component has one `malformation()` that says why a value is not one of its kind; the placement, every edit (through the `well_formed` of the authoring Manager's `wall.rs` or `portal.rs`), and reading a file (the checked component of the serialisable-component guideline) all refuse through it, so they never disagree.
+- Placing is a `Placement` arm in `messages.rs`, matched in `place_element`: the arm builds the component, checks it, and records a step that spawns it with a fresh `ElementId` through `place::spawn_on_top` and reverts through `place::take_off`. A kind that shows an image Asset adds its component to `ShownAsset` in the model's `element.rs`, so counting Missing Assets, counting placeholders, and drawing find its Asset without naming the kind.
 - Editing is one `ElementChange` arm per property, handled in `edit.rs` by applying the change to a clone, checking the clone, and recording `SetField` at the property's reflect path; `Position` on a kind whose box follows its points translates the whole component at the path `""`. A change that renumbers what other Elements anchor to (adding or removing a Wall's point) is a reversible command of its own.
 - Drawing dispatches on the descriptor's `drawn_as`, never on the component's presence: RenderEngine's `drawn_as` picks the sprite path or the stroke path, and a kind the registry lacks falls to the placeholder sprite. What a kind is drawn and picked from, when it is computed, is a derived model component.
-- The Editor picks the kind in `LevelView::topmost_at` with its own hit test against the derived component, keeps the kind's tool state and handles in a module of their own (`walls.rs`), and adds its tool as a `Tool` variant on `EditorState`.
+- The Editor picks the kind in `LevelView::topmost_at` with its own hit test against the derived component, keeps the kind's tool state and handles in a module of their own (`walls.rs`, `portals.rs`), and adds its tool as a `Tool` variant on `EditorState`.
 - Tests: the composing seam per Rule in `crates/drs-app/tests/<kind>s.rs`, the export seam for its pixels, and the projects seam for a save and reopen plus a round trip through an editor whose registries `remove` the kind.
 
 ## Example
