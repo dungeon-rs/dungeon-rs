@@ -407,8 +407,8 @@ fn press(
     }
     let cells = viewport.cells_at(cursor);
     if state.tool == Tool::Portal {
-        let snapped = portals::snap(level.walls_in_order(), cells, None);
-        portals::place_click(state, apply, level.current_layer(), snapped, cells);
+        let under = portals::line_under(level.walls_in_order(), cells, None);
+        portals::place_click(state, apply, level.current_layer(), under, cells);
         return;
     }
     if let Some(chosen) = &state.chosen {

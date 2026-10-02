@@ -1,5 +1,6 @@
-//! The Portal tool and the selected Portal: snapping to the nearest Wall within reach with its
-//! marker, placing a Portal set into a Wall or freestanding, picking a Portal by its turned
+//! The Portal tool and the selected Portal: finding the Wall under the pointer, the nearest
+//! within reach, and the point of its line nearest the pointer, which is hit-testing as picking
+//! is, showing them with its marker, placing a Portal set into a Wall or freestanding, picking a Portal by its turned
 //! rectangle, sliding a set Portal along its Wall, flipping, freeing, and setting it, and its
 //! options in the tool strip.
 //!
@@ -52,9 +53,10 @@ impl PortalTool {
     }
 }
 
-/// The nearest point on a Wall's line within the Portal tool's reach.
+/// The Wall under the pointer as the Portal tool finds it: the nearest point of its line within
+/// the tool's reach, and where a Portal would be set there.
 #[derive(Debug, Clone, Copy, PartialEq)]
-pub(crate) struct Snap {
+pub(crate) struct LineUnderPointer {
     /// Where the Portal would be set.
     pub anchor: PortalAnchor,
     /// The point on the line, in cells.
@@ -79,12 +81,12 @@ fn side_of(along: Vec2, at: Vec2, cells: Vec2) -> Side {
 /// The nearest Wall within reach of `cells` of those given bottom first, the topmost winning a
 /// tie: no farther from its line than half a cell or half its thickness, whichever is more. The
 /// side is the side of the line `cells` lies on, or `side` when given.
-pub(crate) fn snap<'a>(
+pub(crate) fn line_under<'a>(
     walls: impl IntoIterator<Item = (ElementId, &'a Wall, &'a WallShape)>,
     cells: Vec2,
     side: Option<Side>,
-) -> Option<Snap> {
-    let mut best: Option<Snap> = None;
+) -> Option<LineUnderPointer> {
+    let mut best: Option<LineUnderPointer> = None;
     for (host, wall, shape) in walls {
         let Some(NearestPoint {
             distance,
@@ -101,7 +103,7 @@ pub(crate) fn snap<'a>(
         if best.is_some_and(|best| distance > best.distance) {
             continue;
         }
-        best = Some(Snap {
+        best = Some(LineUnderPointer {
             anchor: PortalAnchor {
                 host,
                 index: place.segment,
@@ -126,14 +128,14 @@ pub(crate) fn choose_portal_tool(state: &mut EditorState) {
     state.tool = Tool::Portal;
 }
 
-/// A click with the Portal tool: with no Asset chosen it asks for one in the status line; within
-/// reach of a Wall it places a Portal set into it at the snapped place, and elsewhere one
-/// freestanding, unturned and centred on the click. The tool stays chosen.
+/// A click with the Portal tool: with no Asset chosen it asks for one in the status line; with a
+/// Wall under the pointer it places a Portal set into it at the nearest point of its line, and
+/// elsewhere one freestanding, unturned and centred on the click. The tool stays chosen.
 pub(crate) fn place_click(
     state: &mut EditorState,
     apply: &mut MessageWriter<Apply>,
     layer: Option<Entity>,
-    snapped: Option<Snap>,
+    under: Option<LineUnderPointer>,
     cells: Vec2,
 ) {
     let Some(chosen) = &state.chosen else {
@@ -148,7 +150,7 @@ pub(crate) fn place_click(
         placement: Placement::Portal {
             position: cells,
             asset: chosen.asset.clone(),
-            anchor: snapped.map(|snap| snap.anchor),
+            anchor: under.map(|under| under.anchor),
         },
     }));
 }
@@ -213,11 +215,11 @@ pub(crate) fn free_or_set<'a>(
         apply.write(Apply::FreePortal(FreePortal { portal: element }));
         return;
     }
-    match snap(walls, centre, Some(Side::of_mirroring(portal.mirrored))) {
-        Some(snapped) => {
+    match line_under(walls, centre, Some(Side::of_mirroring(portal.mirrored))) {
+        Some(under) => {
             apply.write(Apply::SetPortalIntoWall(SetPortalIntoWall {
                 portal: element,
-                anchor: snapped.anchor,
+                anchor: under.anchor,
             }));
         }
         None => {
@@ -320,17 +322,17 @@ pub(crate) fn draw_marker(
         return;
     };
     let cells = viewport.cells_at(cursor);
-    let Some(snapped) = snap(level.walls_in_order(), cells, None) else {
+    let Some(under) = line_under(level.walls_in_order(), cells, None) else {
         return;
     };
-    let across = match snapped.anchor.side {
-        Side::Left => snapped.along.perp(),
-        Side::Right => -snapped.along.perp(),
+    let across = match under.anchor.side {
+        Side::Left => under.along.perp(),
+        Side::Right => -under.along.perp(),
     };
-    let reach = snapped.thickness / 2.0 + MARKER_PIXELS / viewport.zoom;
-    gizmos.line_2d(snapped.at - across * reach, snapped.at, MARKER);
+    let reach = under.thickness / 2.0 + MARKER_PIXELS / viewport.zoom;
+    gizmos.line_2d(under.at - across * reach, under.at, MARKER);
     gizmos
-        .arrow_2d(snapped.at, snapped.at + across * reach, MARKER)
+        .arrow_2d(under.at, under.at + across * reach, MARKER)
         .with_tip_length(ARROWHEAD_PIXELS / viewport.zoom);
 }
 
