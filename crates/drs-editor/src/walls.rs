@@ -36,6 +36,13 @@ const HANDLE_PIXELS: f32 = 6.0;
 const LINE_PIXELS: f32 = 4.0;
 /// The thinnest and the thickest Wall the options offer, in cells.
 const THICKNESS_RANGE: std::ops::RangeInclusive<f32> = 0.01..=16.0;
+/// How wide a control point's square is drawn, against a point's radius.
+const CONTROL_SIDE: f32 = 1.6;
+/// How opaque the guide lines from a control point to its segment's points are drawn.
+const GUIDE_ALPHA: f32 = 0.5;
+/// The nearest a point added by a double-click comes to either end of its segment, as a
+/// parameter along it: a segment is split strictly between its points, never at one.
+const NEAREST_TO_AN_END: f32 = 0.001;
 /// The colour of the handles and the guide lines.
 const HANDLES: Color = Color::srgb(0.35, 0.75, 1.0);
 /// The colour of the selected handle.
@@ -269,7 +276,7 @@ pub(crate) fn press_selected(
             element,
             change: ElementChange::AddPoint {
                 segment,
-                t: t.clamp(0.001, 0.999),
+                t: t.clamp(NEAREST_TO_AN_END, 1.0 - NEAREST_TO_AN_END),
             },
             gesture: Gesture::Single,
         }));
@@ -524,22 +531,6 @@ pub(crate) fn draw_overlays(
         return;
     };
     let picked = state.walls.handle_of(*id);
-    for (index, (segment, ends)) in wall.segments.iter().zip(wall.points.windows(2)).enumerate() {
-        if let Some(control) = segment.control {
-            gizmos.line_2d(ends[0], control, HANDLES.with_alpha(0.5));
-            gizmos.line_2d(control, ends[1], HANDLES.with_alpha(0.5));
-            let colour = if picked == Some(WallHandle::Control(index)) {
-                PICKED
-            } else {
-                HANDLES
-            };
-            gizmos.rect_2d(
-                Isometry2d::from_translation(control),
-                Vec2::splat(radius * 1.6),
-                colour,
-            );
-        }
-    }
     for (handle, at) in handles(wall) {
         let colour = if picked == Some(handle) {
             PICKED
@@ -550,10 +541,19 @@ pub(crate) fn draw_overlays(
             WallHandle::Point(_) => {
                 gizmos.circle_2d(Isometry2d::from_translation(at), radius, colour);
             }
+            WallHandle::Control(segment) => {
+                for end in wall.points.iter().skip(segment).take(2) {
+                    gizmos.line_2d(*end, at, HANDLES.with_alpha(GUIDE_ALPHA));
+                }
+                gizmos.rect_2d(
+                    Isometry2d::from_translation(at),
+                    Vec2::splat(radius * CONTROL_SIDE),
+                    colour,
+                );
+            }
             WallHandle::Middle(_) => {
                 gizmos.circle_2d(Isometry2d::from_translation(at), radius / 2.0, colour);
             }
-            WallHandle::Control(_) => {}
         }
     }
 }
