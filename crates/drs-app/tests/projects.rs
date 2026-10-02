@@ -1053,6 +1053,37 @@ fn a_bad_file_is_refused() {
         .expect_err("a Grid that is not one");
     assert!(refused.reason.contains("grid"), "{}", refused.reason);
 
+    let mut malformed = json(&saved.file);
+    let id = saved.ids[0].as_raw().to_string();
+    let element = malformed["elements"][&id]
+        .as_object_mut()
+        .expect("the Element's envelopes");
+    element.remove("prop");
+    element["element"]["data"]["kind"] = json!("wall");
+    element.insert(
+        "wall".to_owned(),
+        json!({
+            "version": 1,
+            "data": {
+                "points": [[1.0, 1.0]],
+                "segments": [],
+                "thickness": 0.125,
+                "colour": { "red": 64, "green": 64, "blue": 64 }
+            }
+        }),
+    );
+    let lone_point = root.join("lone-point.dungeon");
+    write_json(&lone_point, &malformed);
+    let refused = saved
+        .device
+        .open(&lone_point)
+        .expect_err("a Wall of one point");
+    assert!(
+        refused.reason.contains("wall") && refused.reason.contains("two or more points"),
+        "{}",
+        refused.reason
+    );
+
     assert_eq!(saved.device.elements(), elements);
     assert_eq!(saved.device.history().undo_depth(), depth);
     assert!(saved.device.history().can_redo());
