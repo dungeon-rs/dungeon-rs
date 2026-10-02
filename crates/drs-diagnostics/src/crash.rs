@@ -1,8 +1,10 @@
 //! A crash handler that leaves a report and announces it.
 
 use crate::Product;
+use std::cell::Cell;
 use std::collections::VecDeque;
 use std::fmt::Write as _;
+use std::io::Write as _;
 use std::panic::{AssertUnwindSafe, PanicHookInfo};
 use std::path::{Path, PathBuf};
 use std::sync::{Mutex, Once, PoisonError};
@@ -40,6 +42,12 @@ static INSTALL: Once = Once::new();
 /// Reports written on other threads that the main thread has not announced yet.
 static PENDING: Mutex<VecDeque<CrashReport>> = Mutex::new(VecDeque::new());
 
+thread_local! {
+    /// Whether the hook is already running on this thread, so a panic inside it is not handled
+    /// again.
+    static HANDLING: Cell<bool> = const { Cell::new(false) };
+}
+
 /// What the hook knows.
 #[derive(Debug, Clone)]
 struct Installed {
@@ -71,13 +79,15 @@ pub fn dialogs_possible() -> bool {
 
 /// Installs the crash handler on the calling thread, which is taken to be the main thread.
 ///
-/// Installed before Bevy's plugins, so that the panic hook they build chains this one. A panic
-/// on any thread then writes a report named `crash-<UTC timestamp>.txt` in the log directory,
-/// or in the platform's temporary directory when the log directory cannot be written; prints
-/// its path to the terminal; logs it at `error`; and, when dialogs are on, shows the dialog at
-/// once on the main thread, or otherwise leaves the report pending for [`take_pending_report`].
-/// The hook never panics and ignores every error it meets. Installing again replaces the
-/// set-up; the hook itself is installed once per process.
+/// Installed before Bevy's plugins; a plugin that sets a hook of its own afterwards is expected
+/// to chain the one it finds, as Bevy's log plugin does, so this one keeps running. A panic on
+/// any thread then writes a report named `crash-<UTC timestamp>.txt` in the log directory, or
+/// in the platform's temporary directory when the log directory cannot be written; prints its
+/// path to the terminal; logs it at `error`; and, when dialogs are on, shows the dialog at once
+/// on the main thread, or otherwise leaves the report pending for [`take_pending_report`]. A
+/// panic inside the hook itself, as from a closed terminal or a dialog that cannot open, is
+/// caught and changes nothing else. Installing again replaces the set-up; the hook itself is
+/// installed once per process.
 pub fn install_crash_handler(handler: CrashHandler) {
     *INSTALLED.lock().unwrap_or_else(PoisonError::into_inner) = Some(Installed {
         handler,
@@ -86,9 +96,13 @@ pub fn install_crash_handler(handler: CrashHandler) {
     INSTALL.call_once(|| {
         let previous = std::panic::take_hook();
         std::panic::set_hook(Box::new(move |info| {
-            on_panic(info);
-            previous(info);
-            announce_at_once();
+            if HANDLING.replace(true) {
+                return;
+            }
+            let _ = std::panic::catch_unwind(AssertUnwindSafe(|| on_panic(info)));
+            let _ = std::panic::catch_unwind(AssertUnwindSafe(|| previous(info)));
+            let _ = std::panic::catch_unwind(AssertUnwindSafe(announce_at_once));
+            HANDLING.set(false);
         }));
     });
 }
@@ -121,7 +135,7 @@ pub fn announce(report: &CrashReport) {
         || "none: logging went to the terminal only".to_owned(),
         |file| file.display().to_string(),
     );
-    rfd::MessageDialog::new()
+    let dialog = rfd::MessageDialog::new()
         .set_level(rfd::MessageLevel::Error)
         .set_title(format!("{name} crashed"))
         .set_description(format!(
@@ -129,8 +143,9 @@ pub fn announce(report: &CrashReport) {
             report.message,
             report.path.display(),
         ))
-        .set_buttons(rfd::MessageButtons::Ok)
-        .show();
+        .set_buttons(rfd::MessageButtons::Ok);
+    // A dialog that cannot be shown changes nothing else: the report is already written.
+    let _ = std::panic::catch_unwind(AssertUnwindSafe(|| dialog.show()));
 }
 
 /// Runs the editor and, when it ends, announces a report that was left pending, so a crash the
@@ -163,11 +178,19 @@ fn on_panic(info: &PanicHookInfo<'_>) {
     let log_file = crate::logging::current_log_file(now);
     let text = report_text(&installed.handler, info, &message, now, log_file.as_deref());
     let name = installed.handler.product.name;
+    // A terminal that is gone must not keep the report from being announced elsewhere.
     let Some(path) = write_report(&installed.handler.log_directory, now, &text) else {
-        eprintln!("{name} crashed and the crash report could not be written anywhere");
+        let _ = writeln!(
+            std::io::stderr(),
+            "{name} crashed and the crash report could not be written anywhere"
+        );
         return;
     };
-    eprintln!("{name} crashed; the crash report is at {}", path.display());
+    let _ = writeln!(
+        std::io::stderr(),
+        "{name} crashed; the crash report is at {}",
+        path.display()
+    );
     tracing::error!(report = %path.display(), "{name} crashed: {message}");
     PENDING
         .lock()
@@ -257,23 +280,36 @@ fn report_text(
 /// Writes the report into the log directory, or into the temporary directory when the log
 /// directory cannot be written; `None` when neither could be.
 fn write_report(log_directory: &Path, now: time::OffsetDateTime, text: &str) -> Option<PathBuf> {
-    let name = format!("crash-{}.txt", file_timestamp(now));
-    write_into(log_directory, &name, text)
-        .or_else(|| write_into(&std::env::temp_dir(), &name, text))
+    let stem = format!("crash-{}", file_timestamp(now));
+    write_into(log_directory, &stem, text)
+        .or_else(|| write_into(&std::env::temp_dir(), &stem, text))
 }
 
-/// Writes the report as `name` in `directory`, creating the directory first and never
-/// overwriting an earlier report of the same name; the path written, or `None`.
-fn write_into(directory: &Path, name: &str, text: &str) -> Option<PathBuf> {
+/// Writes the report as `<stem>.txt` in `directory`, creating the directory first and never
+/// overwriting an earlier report: the file is created only if it does not exist yet, so two
+/// threads crashing in the same second each keep their own; the path written, or `None`.
+fn write_into(directory: &Path, stem: &str, text: &str) -> Option<PathBuf> {
     std::fs::create_dir_all(directory).ok()?;
-    let mut path = directory.join(name);
-    let mut attempt = 1;
-    while path.exists() {
-        attempt += 1;
-        path = directory.join(format!("{}-{attempt}.txt", name.trim_end_matches(".txt")));
+    for attempt in 1..=1000_u32 {
+        let path = if attempt == 1 {
+            directory.join(format!("{stem}.txt"))
+        } else {
+            directory.join(format!("{stem}-{attempt}.txt"))
+        };
+        match std::fs::OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .open(&path)
+        {
+            Ok(mut file) => {
+                file.write_all(text.as_bytes()).ok()?;
+                return Some(path);
+            }
+            Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => {}
+            Err(_) => return None,
+        }
     }
-    std::fs::write(&path, text).ok()?;
-    Some(path)
+    None
 }
 
 /// The timestamp as the report states it.
