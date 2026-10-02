@@ -80,18 +80,20 @@ struct Shared {
 }
 
 impl Shared {
-    /// Writes out what was appended, serves it, and hands the completions back; or, when it
-    /// cannot be written, hands back that the cache failed.
+    /// Writes out what was appended, serves it, hands the completions back, and returns the
+    /// digests now served; or, when it cannot be written, hands back that the cache failed and
+    /// returns `None`.
     fn flush(
         &self,
         writer: &mut Writer,
         pending: &mut Vec<Completed>,
         completions: &Sender<ThumbnailCompletion>,
-    ) -> bool {
+    ) -> Option<Vec<Digest>> {
         let written = writer.flush();
         let done = std::mem::take(pending);
         match written {
             Ok(records) => {
+                let digests = records.iter().map(|(digest, _)| *digest).collect();
                 {
                     let mut served = self.records.write().unwrap_or_else(PoisonError::into_inner);
                     served.extend(records);
@@ -108,13 +110,21 @@ impl Shared {
                         outcome: completed.outcome,
                     });
                 }
-                true
+                Some(digests)
             }
             Err(error) => {
                 let _ = completions.send(ThumbnailCompletion::CacheFailed(error.to_string()));
-                false
+                None
             }
         }
+    }
+
+    /// Whether a record is served for the Asset under `digest`.
+    fn is_served(&self, digest: &Digest) -> bool {
+        self.records
+            .read()
+            .unwrap_or_else(PoisonError::into_inner)
+            .contains_key(digest)
     }
 }
 
@@ -258,7 +268,10 @@ struct Queue {
     front: VecDeque<ThumbnailJob>,
     /// Every Asset enqueued, in order.
     rest: VecDeque<ThumbnailJob>,
-    /// The digests of the Assets handed out.
+    /// The digests of the Assets handed out whose records are not served yet. A copy of one
+    /// that waits further back, as when a wanted Asset also waits in the rest, or that is
+    /// enqueued again meanwhile, as when a redo comes while it is in flight, is skipped rather
+    /// than generated twice; once the record is served, the record itself is what skips it.
     taken: HashSet<Digest>,
 }
 
@@ -279,27 +292,34 @@ impl Queue {
         self.rest.retain(|job| &job.key.folder != key);
     }
 
-    /// The next Asset to generate, front first.
-    fn next(&mut self) -> Option<ThumbnailJob> {
-        self.settle();
+    /// Forgets that the Assets under `digests` were handed out.
+    fn release(&mut self, digests: impl IntoIterator<Item = Digest>) {
+        for digest in digests {
+            self.taken.remove(&digest);
+        }
+    }
+
+    /// The next Asset to generate, front first, passing over those `served` says have a record.
+    fn next(&mut self, served: &dyn Fn(&Digest) -> bool) -> Option<ThumbnailJob> {
+        self.settle(served);
         let job = self.front.pop_front().or_else(|| self.rest.pop_front())?;
         self.taken.insert(job.key.digest());
         Some(job)
     }
 
-    /// Whether nothing is waiting.
-    fn is_empty(&mut self) -> bool {
-        self.settle();
+    /// Whether nothing is waiting but Assets handed out or `served`.
+    fn is_empty(&mut self, served: &dyn Fn(&Digest) -> bool) -> bool {
+        self.settle(served);
         self.front.is_empty() && self.rest.is_empty()
     }
 
-    /// Drops Assets already handed out from the head of the front and of the rest.
-    fn settle(&mut self) {
+    /// Drops Assets already handed out or `served` from the head of the front and of the rest.
+    fn settle(&mut self, served: &dyn Fn(&Digest) -> bool) {
         for jobs in [&mut self.front, &mut self.rest] {
-            while jobs
-                .front()
-                .is_some_and(|job| self.taken.contains(&job.key.digest()))
-            {
+            while jobs.front().is_some_and(|job| {
+                let digest = job.key.digest();
+                self.taken.contains(&digest) || served(&digest)
+            }) {
                 jobs.pop_front();
             }
         }
@@ -528,21 +548,27 @@ impl Worker {
                         "{} could not be read for its thumbnail: {error}",
                         job.file.display()
                     );
+                    self.work().queue.release([digest]);
                     let _ = self.completions.send(ThumbnailCompletion::Finished {
                         key: job.key,
                         outcome: ThumbnailOutcome::Unreadable,
                     });
                 }
             }
-            let drained = self.work().queue.is_empty();
-            if (drained || writer.due())
-                && !self
+            let drained = self
+                .work()
+                .queue
+                .is_empty(&|digest| self.shared.is_served(digest));
+            if drained || writer.due() {
+                let Some(served) = self
                     .shared
                     .flush(&mut writer, &mut pending, &self.completions)
-            {
-                self.work().stopping = true;
-                self.signal.arrived.notify_all();
-                return;
+                else {
+                    self.work().stopping = true;
+                    self.signal.arrived.notify_all();
+                    return;
+                };
+                self.work().queue.release(served);
             }
         }
     }
@@ -575,7 +601,7 @@ impl Worker {
             if work.stopping {
                 return None;
             }
-            if let Some(job) = work.queue.next() {
+            if let Some(job) = work.queue.next(&|digest| self.shared.is_served(digest)) {
                 return Some(job);
             }
             work = self
@@ -640,7 +666,7 @@ mod tests {
 
     /// Every Asset the queue hands out, in order.
     fn drain(queue: &mut Queue) -> Vec<String> {
-        std::iter::from_fn(|| queue.next())
+        std::iter::from_fn(|| queue.next(&|_| false))
             .map(|job| job.key.place)
             .collect()
     }
@@ -650,13 +676,16 @@ mod tests {
     fn wanted_assets_come_first() {
         let mut queue = Queue::default();
         queue.enqueue(["a", "b", "c", "d", "e", "f"].map(job));
-        assert_eq!(queue.next().map(|job| job.key.place), Some("a".to_owned()));
+        assert_eq!(
+            queue.next(&|_| false).map(|job| job.key.place),
+            Some("a".to_owned())
+        );
 
         queue.want(vec![job("e"), job("a")]);
         queue.want(vec![job("d"), job("a"), job("f")]);
 
         assert_eq!(drain(&mut queue), vec!["d", "f", "b", "c", "e"]);
-        assert!(queue.is_empty());
+        assert!(queue.is_empty(&|_| false));
     }
 
     thread_local! {
