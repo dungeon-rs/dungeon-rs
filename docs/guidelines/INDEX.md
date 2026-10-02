@@ -4,6 +4,7 @@
 - [Background worker pool in a ResourceAccess](./background-worker-pool.md): use when a ResourceAccess runs a queue of jobs a Manager feeds, on threads of its own.
 - [Development switch](./development-switch.md): use when adding a switch the editor needs only for development or autonomous verification.
 - [Editor modal dialog](./editor-modal-dialog.md): use when the Editor asks or tells the Author something that must be answered before the window is used again.
+- [Element kind](./element-kind.md): use when the editor gains a new kind of Element.
 - [Failure shown in the status line](./status-line-failure.md): use when the Editor learns of a failure the Author must see without a modal.
 - [Headless seam test](./headless-seam-test.md): use when writing a test at a Manager seam.
 - [Message handler of a Manager](./manager-message-handler.md): use when a Manager handles a new Command or request message.
