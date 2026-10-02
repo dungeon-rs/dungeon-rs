@@ -249,7 +249,8 @@ fn handle_at(wall: &Wall, cells: Vec2, zoom: f32) -> Option<(WallHandle, Vec2)> 
 
 /// A left press with the Select tool on the selected Wall, which is hit before any Element: a
 /// double-click on its line adds a point at the nearest place on it, and a press on a handle
-/// selects the handle and arms a drag of it. Returns whether the press was the Wall's.
+/// arms a drag of it and selects it, unless it is a straight segment's middle, which selects
+/// nothing more than the Wall. Returns whether the press was the Wall's.
 pub(crate) fn press_selected(
     state: &mut EditorState,
     apply: &mut MessageWriter<Apply>,
@@ -286,7 +287,12 @@ pub(crate) fn press_selected(
     let Some((handle, origin)) = handle else {
         return false;
     };
-    state.walls.handle = Some((element, handle));
+    // A straight segment's middle is only for dragging: a click on it leaves the Wall selected
+    // with no handle, so Delete removes the Wall rather than doing nothing.
+    state.walls.handle = match handle {
+        WallHandle::Point(_) | WallHandle::Control(_) => Some((element, handle)),
+        WallHandle::Middle(_) => None,
+    };
     state.interaction = crate::state::Interaction::Handle {
         element,
         handle,
