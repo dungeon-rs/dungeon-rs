@@ -70,13 +70,18 @@ impl Plugin for ProjectManagerPlugin {
                 Update,
                 export::handle_export_level.in_set(ManagerSystems::Commands),
             )
+            // Resolution runs after the last Manager set of the frame, because every set can
+            // change what it depends on: a Command adds a row to the Asset Reference table, an
+            // Undo or Redo takes an Asset Folder away or brings it back, and the library Manager
+            // announces the change in the same frame. Resolving once after them all means the
+            // sprites drawn in `PostUpdate` see the rows resolved in the frame they appeared.
             .add_systems(
                 Update,
-                resolve::handle_folder_changed.after(ManagerSystems::Redo),
-            )
-            .add_systems(
-                Update,
-                resolve::resolve_changed_references.after(ManagerSystems::Redo),
+                (
+                    resolve::handle_folder_changed,
+                    resolve::resolve_changed_references,
+                )
+                    .after(ManagerSystems::Redo),
             );
     }
 }
