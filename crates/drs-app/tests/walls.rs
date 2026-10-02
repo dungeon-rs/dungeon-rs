@@ -855,7 +855,8 @@ fn two_points_or_none() {
     fixture.undo();
     assert_eq!(fixture.elements(), before);
     fixture.redo();
-    assert_eq!(fixture.elements().len(), 2);
+    let order: Vec<ElementId> = fixture.elements().iter().map(|placed| placed.id).collect();
+    assert_eq!(order, vec![below, above]);
 }
 
 /// A Wall's thickness and colour are each changed through Edit Element, every change a step of

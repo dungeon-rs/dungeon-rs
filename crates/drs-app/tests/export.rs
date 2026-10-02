@@ -317,15 +317,14 @@ impl Fixture {
     /// refused.
     fn wall(&mut self, points: &[Vec2], controls: &[Option<Vec2>], thickness: f32, colour: Colour) {
         let layer = self.layer();
-        let mut commands = vec![Apply::PlaceElement(PlaceElement {
+        self.run(Apply::PlaceElement(PlaceElement {
             layer,
             placement: Placement::Wall {
                 points: points.to_vec(),
                 thickness,
                 colour,
             },
-        })];
-        self.run(commands.remove(0));
+        }));
         let element = {
             let world = self.app.world_mut();
             let children: Vec<Entity> = world
