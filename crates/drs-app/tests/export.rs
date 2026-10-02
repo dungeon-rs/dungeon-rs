@@ -35,7 +35,7 @@ use drs_project_manager::ProjectManagerPlugin;
 use drs_render_engine::RenderEnginePlugin;
 use std::fs;
 use std::path::{Path, PathBuf};
-use std::time::Instant;
+use std::time::{Duration, Instant};
 use tempfile::TempDir;
 
 /// A solid red image of one cell by one cell at the Grid's 256 pixels per cell.
@@ -67,6 +67,8 @@ const PIXELS_PER_CELL: u32 = 8;
 const TILE: u32 = 128;
 /// How many frames an Export may take before the test gives up.
 const MOST_FRAMES: u32 = 2_000;
+/// How long the renderer may take to initialise before the test gives up.
+const RENDERER_START: Duration = Duration::from_secs(60);
 
 /// The Asset Folder every test places from, the headless editor with it added, and where the
 /// Exports go.
@@ -128,7 +130,12 @@ fn editor(root: &Path) -> App {
         AuthoringManagerPlugin,
         RenderEnginePlugin,
     ));
+    let deadline = Instant::now() + RENDERER_START;
     while app.plugins_state() == PluginsState::Adding {
+        assert!(
+            Instant::now() < deadline,
+            "the renderer did not initialise within {RENDERER_START:?}; is there a GPU adapter?"
+        );
         bevy::tasks::tick_global_task_pools_on_main_thread();
     }
     app.finish();
