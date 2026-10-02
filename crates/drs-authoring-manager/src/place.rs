@@ -131,6 +131,31 @@ pub(crate) fn spawn_on_top(
     Ok(())
 }
 
+/// Spawns an Element of `components`, its identity among them, as the first child of `layer`,
+/// beneath every Element on the Layer.
+///
+/// A redone step that spawned beneath is first again for the same reason a redone placement is
+/// last: every step after it has been undone first.
+///
+/// # Errors
+///
+/// [`AuthoringError::NotALayer`] when the Layer is gone, before anything is spawned.
+pub(crate) fn spawn_beneath(
+    world: &mut World,
+    layer: Entity,
+    components: impl Bundle,
+) -> Result<(), BevyError> {
+    if world.get_entity(layer).is_err() {
+        return Err(AuthoringError::NotALayer.into());
+    }
+    let entity = world.spawn(components).id();
+    world
+        .get_entity_mut(layer)
+        .map_err(|_| AuthoringError::NotALayer)?
+        .insert_children(0, &[entity]);
+    Ok(())
+}
+
 /// Takes a placed Element off its Layer again, by its identity: the revert of a placement.
 ///
 /// # Errors

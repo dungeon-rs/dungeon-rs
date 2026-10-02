@@ -3,7 +3,7 @@
 //! its strokes.
 
 use crate::AuthoringError;
-use crate::place::{Resolved, project_of, resolve, take_off};
+use crate::place::{Resolved, project_of, resolve, spawn_beneath, take_off};
 use bevy_ecs::component::Component;
 use bevy_ecs::entity::Entity;
 use bevy_ecs::error::BevyError;
@@ -53,8 +53,10 @@ impl ReversibleCommand for PaintTerrain {
             strokes: vec![self.stroke.clone()],
         };
         let footprint = terrain.element_box();
-        let entity = world
-            .spawn((
+        spawn_beneath(
+            world,
+            self.layer,
+            (
                 Element {
                     kind: TERRAIN,
                     position: footprint.center(),
@@ -62,13 +64,8 @@ impl ReversibleCommand for PaintTerrain {
                 },
                 terrain,
                 self.element,
-            ))
-            .id();
-        world
-            .get_entity_mut(self.layer)
-            .map_err(|_| AuthoringError::NotALayer)?
-            .insert_children(0, &[entity]);
-        Ok(())
+            ),
+        )
     }
 
     fn revert(&mut self, world: &mut World) -> Result<(), BevyError> {

@@ -11,7 +11,7 @@
 - Inside `apply`, what can fail comes before the first World mutation, and a later failure takes the earlier side effect back (`forget_manifest` when `index_folder` fails), so a failed step leaves the World and the disk as they were.
 - `apply` is also redo, so it reads nothing another step could have changed since: what the request resolves (the Asset's size, the Manifest, a fresh `ElementId`) is resolved once and kept on the struct. An Element is addressed by `ElementId` (a `Target`); an entity handle is kept only for an entity this step alone spawns.
 - A step that takes an Element off its Layer remembers its index among the Layer's `Children`; `revert` restores it through `Snapshot` and `restored()`, then rebuilds the whole order without it and calls `replace_children` with it inserted at `index.min(order.len())`. _Why_: the Props above it keep their places whatever the children collection does on insert.
-- A step that places an Element spawns it through `place::spawn_on_top` and reverts through `place::take_off`, by identity; `revert` of a removal restores first, then the order.
+- A step that places an Element spawns it through `place::spawn_on_top`, or through `place::spawn_beneath` for an Element that goes under every Element on its Layer (`PaintTerrain` in `terrain.rs`, which a Paint records), and reverts through `place::take_off`, by identity; `revert` of a removal restores first, then the order.
 
 ## Example
 
