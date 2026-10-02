@@ -4,7 +4,9 @@ use crate::ProjectManagerError;
 use crate::snapshot::gather;
 use bevy_ecs::world::World;
 use drs_history::{History, Position};
-use drs_model::{Project, ProjectSaved, SavedMark, project_name_of, with_project_extension};
+use drs_model::{
+    PROJECT_EXTENSION, Project, ProjectSaved, SavedMark, project_name_of, with_extension_if_missing,
+};
 use drs_project_access::write_project;
 use std::path::PathBuf;
 
@@ -30,7 +32,7 @@ pub(crate) fn save_project(
     path: Option<PathBuf>,
 ) -> Result<ProjectSaved, ProjectManagerError> {
     let path = match path {
-        Some(path) => with_project_extension(path),
+        Some(path) => with_extension_if_missing(path, PROJECT_EXTENSION),
         None => world
             .get_resource::<SavedMark>()
             .and_then(|mark| mark.file.clone())

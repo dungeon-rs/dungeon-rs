@@ -20,7 +20,7 @@ pub use directories::{EditorDirectories, NoPlatformDirectories, ResolvedDirector
 pub use element::{
     Element, ElementId, ElementKindDescriptor, ElementKindName, ElementKindRegistry, PROP, Prop,
 };
-pub use file::{PROJECT_EXTENSION, SavedMark, project_name_of, with_project_extension};
+pub use file::{PROJECT_EXTENSION, SavedMark, project_name_of, with_extension_if_missing};
 pub use messages::{
     AddFolder, Apply, AssetFolderChanged, ChosenAsset, CommandFailed, EditElement, ElementChange,
     ExportLevel, ExportRefused, FolderAdded, FolderRefusal, FolderRefused, FolderUnavailable,

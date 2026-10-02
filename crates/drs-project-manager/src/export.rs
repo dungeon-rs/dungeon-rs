@@ -16,13 +16,15 @@ use bevy_ecs::resource::Resource;
 use bevy_ecs::system::SystemState;
 use bevy_ecs::world::World;
 use bevy_math::Vec2;
-use drs_model::{Bounds, ExportLevel, ExportRefused, Level, LevelExported};
+use drs_model::{
+    Bounds, ExportLevel, ExportRefused, Level, LevelExported, with_extension_if_missing,
+};
 use drs_output_access::{ImageWriter, OutputError, Tile, begin_image, finish_image, write_tile};
 use drs_render_engine::{
     MOST_TILE_PIXELS, RegionRequest, RenderError, release_regions, request_region, take_region,
 };
 use std::collections::VecDeque;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 /// Why an Export could not be made; answered through [`ProjectManagerError::Export`].
 #[derive(Debug, thiserror::Error)]
@@ -205,7 +207,7 @@ fn begin(world: &mut World, request: &ExportLevel) -> Result<Export, ProjectMana
     let tiles = tiles_across
         .checked_mul(height.div_ceil(tile_size))
         .ok_or_else(too_large)?;
-    let path = png_path(&request.path);
+    let path = with_extension_if_missing(request.path.clone(), "png");
     let writer = begin_image(&path, width, height).map_err(ExportError::from)?;
     Ok(Export {
         level: request.level,
@@ -362,17 +364,4 @@ impl Export {
             origin.y + height - cells(y.saturating_add(self.tile_size)),
         )
     }
-}
-
-/// The path with `.png` added when its name lacks it.
-fn png_path(path: &Path) -> PathBuf {
-    let is_png = path
-        .extension()
-        .is_some_and(|extension| extension.eq_ignore_ascii_case("png"));
-    if is_png {
-        return path.to_path_buf();
-    }
-    let mut with_png = path.as_os_str().to_os_string();
-    with_png.push(".png");
-    PathBuf::from(with_png)
 }

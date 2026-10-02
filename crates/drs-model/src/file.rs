@@ -8,18 +8,19 @@ use std::path::{Path, PathBuf};
 /// The extension of Project files.
 pub const PROJECT_EXTENSION: &str = "dungeon";
 
-/// `path` with the Project extension added when its name lacks it, in any letter case.
+/// `path` with `.extension` added to its name when the name lacks that extension in any letter
+/// case, as a file chosen in a dialog often does.
 #[must_use]
-pub fn with_project_extension(path: PathBuf) -> PathBuf {
+pub fn with_extension_if_missing(path: PathBuf, extension: &str) -> PathBuf {
     let has_extension = path
         .extension()
-        .is_some_and(|extension| extension.eq_ignore_ascii_case(PROJECT_EXTENSION));
+        .is_some_and(|present| present.eq_ignore_ascii_case(extension));
     if has_extension {
         return path;
     }
     let mut name = path.file_name().map(ToOwned::to_owned).unwrap_or_default();
     name.push(".");
-    name.push(PROJECT_EXTENSION);
+    name.push(extension);
     path.with_file_name(name)
 }
 
