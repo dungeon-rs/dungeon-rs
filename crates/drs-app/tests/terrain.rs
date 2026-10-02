@@ -314,6 +314,12 @@ impl Fixture {
 
     /// Saves the Project under the root and opens the file again.
     fn save_and_open(&mut self) {
+        let path = self.save();
+        self.open(path);
+    }
+
+    /// Saves the Project under the root, returning the file.
+    fn save(&mut self) -> PathBuf {
         let path: PathBuf = self.root.path().join("painted.dungeon");
         self.app.world_mut().write_message(SaveProject {
             path: Some(path.clone()),
@@ -330,6 +336,11 @@ impl Fixture {
             .drain()
             .next()
             .expect("the Project is saved");
+        path
+    }
+
+    /// Opens the Project file at `path`.
+    fn open(&mut self, path: PathBuf) {
         self.app.world_mut().write_message(OpenProject { path });
         self.app.update();
         let world = self.app.world_mut();
@@ -643,8 +654,8 @@ fn terrain_goes_under() {
     assert_eq!(fixture.order(), vec![terrain, prop, wall, later]);
 }
 
-/// A Paint on a Layer adds its stroke to the Layer's Terrain, and makes a Terrain only when the
-/// Layer has none.
+/// A Paint on a Layer adds its stroke to the topmost Terrain on that Layer, and makes a Terrain
+/// only when the Layer has none.
 #[test]
 fn one_terrain_per_layer() {
     let mut fixture = Fixture::new();
@@ -659,6 +670,38 @@ fn one_terrain_per_layer() {
     assert_eq!(terrains[0].0, terrain);
     assert_eq!(terrains[0].2.strokes.len(), 3);
     assert_eq!(fixture.order().len(), 2, "the Terrain and the Prop");
+
+    // Only a file can hold a second Terrain on a Layer, here one of no strokes on top of the
+    // Prop: a Paint adds to the topmost.
+    let path = fixture.save();
+    let mut file: serde_json::Value =
+        serde_json::from_slice(&std::fs::read(&path).expect("the saved Project"))
+            .expect("the saved Project is JSON");
+    let mut second = file["elements"][terrain.as_raw().to_string()].clone();
+    second["terrain"]["data"]["strokes"] = serde_json::json!([]);
+    file["elements"]["77"] = second;
+    file["levels"][0]["layers"][0]["elements"]
+        .as_array_mut()
+        .expect("the Layer's order")
+        .push(serde_json::json!("77"));
+    std::fs::write(&path, file.to_string()).expect("the Project rewritten");
+    fixture.open(path);
+
+    fixture.paint(stroke(&[Vec2::new(12.0, 2.0)], SOFT), None);
+    let terrains = fixture.terrains();
+    assert_eq!(terrains.len(), 2, "both Terrains of the file");
+    assert_eq!(terrains[0].0, terrain);
+    assert_eq!(
+        terrains[0].2.strokes.len(),
+        3,
+        "the lower one keeps its strokes"
+    );
+    assert_eq!(terrains[1].0.as_raw(), 77);
+    assert_eq!(
+        terrains[1].2.strokes.len(),
+        1,
+        "the topmost takes the stroke"
+    );
 }
 
 /// A Paint adds one stroke at the end of its Terrain's strokes as one history step; undo takes
