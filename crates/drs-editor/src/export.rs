@@ -94,7 +94,7 @@ pub(crate) fn dialog(
         let Some(path) = choose_save_file("Export Level", "PNG image", "png", &proposed) else {
             return;
         };
-        state.exporting = Some(path.clone());
+        state.exporting = true;
         "Exporting…".clone_into(&mut state.status);
         outgoing.export.write(ExportLevel {
             level,

@@ -201,7 +201,7 @@ fn shortcuts(ctx: &egui::Context, editor: &mut Editor) {
 
 /// Whether Export Level… is offered: there is a Level, and no Export is running.
 fn can_export(editor: &Editor) -> bool {
-    editor.project.level().is_some() && editor.state.exporting.is_none()
+    editor.project.level().is_some() && !editor.state.exporting
 }
 
 /// The menu bar: File, Library, Edit, and Help.
@@ -244,7 +244,7 @@ fn menu_bar(ctx: &egui::Context, root: &mut egui::Ui, editor: &mut Editor) {
             });
             // Neither is offered while a Prop is being dragged, as the drag is one step that is
             // still being recorded, nor while an Export runs, so the image is of one Level.
-            let settled = !editor.state.dragging() && editor.state.exporting.is_none();
+            let settled = !editor.state.dragging() && !editor.state.exporting;
             ui.menu_button("Edit", |ui| {
                 let undo = egui::Button::new("Undo")
                     .shortcut_text(bindings::shortcut_text(ctx, bindings::UNDO));
@@ -310,7 +310,7 @@ fn choose_folder() -> Option<std::path::PathBuf> {
 fn status_line(root: &mut egui::Ui, state: &EditorState) {
     egui::Panel::bottom("status").show(root, |ui| {
         ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-            if state.exporting.is_some() {
+            if state.exporting {
                 ui.weak("The viewport waits for the Export");
             } else if let Some(chosen) = &state.chosen {
                 ui.weak("Escape stops placing");

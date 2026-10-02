@@ -105,11 +105,11 @@ pub(crate) fn report(
     } in project.exported.read()
     {
         state.status = format!("Exported {width}×{height} px to {}", path.display());
-        state.exporting = None;
+        state.exporting = false;
     }
     for ExportRefused { reason, .. } in project.export_refused.read() {
         state.status = format!("The Level was not exported: {reason}");
-        state.exporting = None;
+        state.exporting = false;
     }
 }
 

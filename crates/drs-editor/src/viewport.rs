@@ -103,7 +103,7 @@ pub(crate) fn pointer(
     level: LevelView,
     mut apply: MessageWriter<Apply>,
 ) {
-    if state.exporting.is_some() {
+    if state.exporting {
         return;
     }
     let Some(cursor) = input.window.cursor_position() else {
@@ -289,7 +289,7 @@ pub(crate) fn keys(
     mut undo: MessageWriter<Undo>,
     mut redo: MessageWriter<Redo>,
 ) {
-    if egui.wants_any_keyboard_input() || state.exporting.is_some() {
+    if egui.wants_any_keyboard_input() || state.exporting {
         return;
     }
     if keys.just_pressed(KeyCode::Escape) && state.chosen.is_some() {

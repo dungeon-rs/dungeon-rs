@@ -325,7 +325,7 @@ fn describe(state: &EditorState, window: &Window, ctx: Option<&mut egui::Context
         "none".to_owned()
     };
     bevy::log::info!(
-        "describe: title {:?}, status {:?}, dialog: {dialog}, exporting: {:?}, chosen: {:?}, \
+        "describe: title {:?}, status {:?}, dialog: {dialog}, exporting: {}, chosen: {:?}, \
          selected: {:?}",
         window.title,
         state.status,

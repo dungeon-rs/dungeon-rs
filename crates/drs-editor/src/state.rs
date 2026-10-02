@@ -27,8 +27,8 @@ pub(crate) struct EditorState {
     pub report: Option<OpenReport>,
     /// The Export dialog, while the Author chooses a resolution.
     pub export: Option<ExportDialog>,
-    /// The file an Export is being written to, while one runs.
-    pub exporting: Option<PathBuf>,
+    /// Whether an Export is being written, so the viewport waits for it.
+    pub exporting: bool,
     /// The pointer gesture under way in the viewport.
     pub interaction: Interaction,
 }
