@@ -7,6 +7,7 @@
 #![expect(
     clippy::missing_panics_doc,
     clippy::expect_used,
+    clippy::disallowed_methods,
     clippy::float_cmp,
     reason = "a test and its fixtures stop at the first thing that is not as expected, and the \
               geometry asserted on is exact where it is compared exactly"
@@ -151,13 +152,7 @@ impl Fixture {
     }
 
     /// The Place Element Command for a Room through `points` on `layer`.
-    fn room_placement_on(
-        &mut self,
-        layer: Entity,
-        points: &[Vec2],
-        thickness: f32,
-        floor: Colour,
-    ) -> Apply {
+    fn room_placement_on(layer: Entity, points: &[Vec2], thickness: f32, floor: Colour) -> Apply {
         Apply::PlaceElement(PlaceElement {
             layer,
             placement: Placement::Room {
@@ -172,12 +167,12 @@ impl Fixture {
     /// The Place Element Command for a Room through `points` on the first Layer.
     fn room_placement(&mut self, points: &[Vec2], thickness: f32) -> Apply {
         let layer = self.layer();
-        self.room_placement_on(layer, points, thickness, LIGHT)
+        Self::room_placement_on(layer, points, thickness, LIGHT)
     }
 
     /// Places a Room through `points` with Walls an eighth of a cell thick on `layer`.
     fn room_on(&mut self, layer: Entity, points: &[Vec2]) -> ElementId {
-        let command = self.room_placement_on(layer, points, 0.125, LIGHT);
+        let command = Self::room_placement_on(layer, points, 0.125, LIGHT);
         self.apply(command);
         support::last_on(&mut self.app, layer)
     }
@@ -967,7 +962,7 @@ fn the_floor_fills_the_outline() {
     );
 }
 
-/// A Portal can be set into a Room's Walls, anchored by the Room's ElementId, an edge, a
+/// A Portal can be set into a Room's Walls, anchored by the Room's `ElementId`, an edge, a
 /// parameter along it, and a side: it stands on the outline facing its side, and is placed,
 /// set, freed, and slid as a Portal set into a Wall, with the Room's edges in place of the
 /// Wall's segments.
