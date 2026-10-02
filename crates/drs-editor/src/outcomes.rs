@@ -82,7 +82,7 @@ pub(crate) fn report(
     for PortalsRemoved { portals, .. } in portals_removed.read() {
         let stood = if portals.len() == 1 { "it" } else { "they" };
         state.status = format!(
-            "Removed {} with the part of the Wall {stood} stood in",
+            "Removed {} with the part of the Wall or Room {stood} stood in",
             counted(portals.len(), "Portal", "Portals")
         );
     }
