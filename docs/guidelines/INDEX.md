@@ -11,3 +11,4 @@
 - [Message handler of a Manager](./manager-message-handler.md): use when a Manager handles a new Command or request message.
 - [Reversible command](./reversible-command.md): use when a Manager records a new undoable step.
 - [Serialisable component](./serialisable-component.md): use when a crate adds a component a Project file must hold.
+- [Timed budget test](./timed-budget-test.md): use when a test bounds how long the code takes.
