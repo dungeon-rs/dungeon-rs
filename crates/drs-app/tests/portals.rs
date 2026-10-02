@@ -918,6 +918,25 @@ fn moves_with_its_wall() {
         "turned to the curve",
     );
 
+    fixture.edit(
+        wall,
+        ElementChange::Control {
+            segment: 1,
+            position: None,
+        },
+    );
+    let straight = fixture.portal(door);
+    assert_near(
+        straight.element.position,
+        placed.element.position,
+        "back on the straight segment",
+    );
+    assert_close(
+        straight.portal.rotation,
+        placed.portal.rotation,
+        "turned to it again",
+    );
+
     let before = fixture.portal(door).element.position;
     let wall_box = fixture.state();
     let centre = wall_box
