@@ -60,6 +60,7 @@ bevy = { version = "=0.20.0-rc.2", default-features = false, features = [
   "png",
   "jpeg",
   "webp",
+  "libm",
 ] }
 bevy_ecs = { version = "=0.20.0-rc.2", default-features = false, features = [
   "std",
@@ -71,10 +72,12 @@ bevy_app = { version = "=0.20.0-rc.2", default-features = false, features = [
   "bevy_reflect",
 ] }
 bevy_reflect = { version = "=0.20.0-rc.2", default-features = false, features = ["std", "glam"] }
+# `libm` makes `bevy_math::ops` (and glam) compute the same bits on every machine.
 bevy_math = { version = "=0.20.0-rc.2", default-features = false, features = [
   "std",
   "bevy_reflect",
   "serialize",
+  "libm",
 ] }
 bevy_asset = { version = "=0.20.0-rc.2", default-features = false, features = ["multi_threaded"] }
 bevy_tasks = { version = "=0.20.0-rc.2", default-features = false }
