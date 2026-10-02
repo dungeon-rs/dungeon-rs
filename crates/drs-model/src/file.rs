@@ -1,14 +1,9 @@
-//! The shape of a Project file, and what the editor remembers about the file a Project is in.
+//! What the editor knows about the file a Project is in: its extension, the name it gives the
+//! Project, and where the history stood when the file was last written or read.
 
-use crate::{ElementId, Envelopes};
 use bevy_ecs::resource::Resource;
 use drs_history::Position;
-use serde::{Deserialize, Serialize};
-use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
-
-/// The version of the file's own shape; the components inside carry versions of their own.
-pub const FORMAT_VERSION: u32 = 1;
 
 /// The extension of Project files.
 pub const PROJECT_EXTENSION: &str = "dungeon";
@@ -34,43 +29,6 @@ pub fn project_name_of(path: &Path) -> String {
     path.file_stem()
         .map(|stem| stem.to_string_lossy().into_owned())
         .unwrap_or_default()
-}
-
-/// A whole Project as one file: the Project's own components, its Levels with their Layers in
-/// order, and every Element keyed by its identity.
-///
-/// Every component is an envelope under its stable name; an Element's kind component sits beside
-/// its common `element` envelope. Elements are sorted by identity and each Layer lists its
-/// Elements in stacking order, so the same Project always writes the same file.
-#[derive(Debug, Serialize, Deserialize)]
-pub struct ProjectFile {
-    /// The version of this shape.
-    pub format: u32,
-    /// The components of the Project entity: the Project, its Grid, its Bounds, and its Asset
-    /// Reference table.
-    pub project: Envelopes,
-    /// The Levels, in order.
-    pub levels: Vec<LevelRecord>,
-    /// Every Element, by identity.
-    pub elements: BTreeMap<ElementId, Envelopes>,
-}
-
-/// One Level in a Project file.
-#[derive(Debug, Serialize, Deserialize)]
-pub struct LevelRecord {
-    /// The components of the Level entity.
-    pub components: Envelopes,
-    /// The Layers, in order.
-    pub layers: Vec<LayerRecord>,
-}
-
-/// One Layer in a Project file.
-#[derive(Debug, Serialize, Deserialize)]
-pub struct LayerRecord {
-    /// The components of the Layer entity.
-    pub components: Envelopes,
-    /// The Elements on the Layer in stacking order, the first drawn first.
-    pub elements: Vec<ElementId>,
 }
 
 /// The file the Project was last saved to or opened from, and where the history stood then.

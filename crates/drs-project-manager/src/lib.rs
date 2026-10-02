@@ -1,10 +1,10 @@
 #![doc = include_str!("../README.md")]
 
 mod export;
-mod file;
 mod open;
 mod resolve;
 mod save;
+mod snapshot;
 
 pub use export::ExportError;
 

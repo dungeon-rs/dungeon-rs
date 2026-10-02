@@ -8,6 +8,7 @@ mod messages;
 mod project;
 mod resolution;
 mod serialisation;
+mod snapshot;
 mod viewport;
 
 pub use assets::{
@@ -19,10 +20,7 @@ pub use directories::{EditorDirectories, NoPlatformDirectories, ResolvedDirector
 pub use element::{
     Element, ElementId, ElementKindDescriptor, ElementKindName, ElementKindRegistry, PROP, Prop,
 };
-pub use file::{
-    FORMAT_VERSION, LayerRecord, LevelRecord, PROJECT_EXTENSION, ProjectFile, SavedMark,
-    project_name_of, with_project_extension,
-};
+pub use file::{PROJECT_EXTENSION, SavedMark, project_name_of, with_project_extension};
 pub use messages::{
     AddFolder, Apply, AssetFolderChanged, ChosenAsset, CommandFailed, EditElement, ElementChange,
     ExportLevel, ExportRefused, FolderAdded, FolderRefusal, FolderRefused, FolderUnavailable,
@@ -36,6 +34,7 @@ pub use serialisation::{
     Envelope, Envelopes, Serialisable, SerialisableComponent, SerialisationError,
     SerialisationRegistry, UnknownComponents, read_only_version,
 };
+pub use snapshot::{LayerSnapshot, LevelSnapshot, ProjectSnapshot};
 pub use viewport::Viewport;
 
 use bevy_app::{App, Plugin, Update};

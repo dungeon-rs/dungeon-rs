@@ -1,7 +1,7 @@
 //! Save: the whole Project written to its file.
 
 use crate::ProjectManagerError;
-use crate::file::gather;
+use crate::snapshot::gather;
 use bevy_ecs::world::World;
 use drs_history::{History, Position};
 use drs_model::{Project, ProjectSaved, SavedMark, project_name_of, with_project_extension};
@@ -46,7 +46,7 @@ pub(crate) fn save_project(
         .get_mut::<Project>(project)
         .map(|mut current| std::mem::replace(&mut current.name, project_name_of(&path)))
         .ok_or(ProjectManagerError::NoProject)?;
-    let written = gather(world, project).and_then(|file| Ok(write_project(&path, &file)?));
+    let written = gather(world, project).and_then(|snapshot| Ok(write_project(&path, &snapshot)?));
     if let Err(error) = written {
         if let Some(mut current) = world.get_mut::<Project>(project) {
             current.name = previous_name;

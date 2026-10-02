@@ -1,13 +1,13 @@
-//! The Project between the World and its file: gathering every component through the
-//! serialisation registry, and materialising a file into a Project tree.
+//! The Project between the World and its snapshot: gathering every component through the
+//! serialisation registry, and materialising a snapshot into a Project tree.
 
 use crate::ProjectManagerError;
 use bevy_ecs::entity::Entity;
 use bevy_ecs::hierarchy::{ChildOf, Children};
 use bevy_ecs::world::World;
 use drs_model::{
-    Element, ElementId, Envelopes, FORMAT_VERSION, Layer, LayerRecord, Level, LevelRecord, Project,
-    ProjectFile, SerialisationRegistry,
+    Element, ElementId, Envelopes, Layer, LayerSnapshot, Level, LevelSnapshot, Project,
+    ProjectSnapshot, SerialisationRegistry,
 };
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::Path;
@@ -54,13 +54,16 @@ fn envelopes_of(
     Ok(registry.write_all(entity)?)
 }
 
-/// Gathers the Project at `project` from the World into the shape of its file.
+/// Gathers the Project at `project` from the World into its snapshot.
 ///
 /// # Errors
 ///
 /// [`ProjectManagerError::NoRegistry`] without a registry, or the registry's error when a
 /// component cannot be written.
-pub(crate) fn gather(world: &World, project: Entity) -> Result<ProjectFile, ProjectManagerError> {
+pub(crate) fn gather(
+    world: &World,
+    project: Entity,
+) -> Result<ProjectSnapshot, ProjectManagerError> {
     let registry = registry(world)?;
     let mut elements = BTreeMap::new();
     let mut levels = Vec::new();
@@ -75,25 +78,25 @@ pub(crate) fn gather(world: &World, project: Entity) -> Result<ProjectFile, Proj
                 elements.insert(id, envelopes_of(world, &registry, element)?);
                 order.push(id);
             }
-            layers.push(LayerRecord {
+            layers.push(LayerSnapshot {
                 components: envelopes_of(world, &registry, layer)?,
                 elements: order,
             });
         }
-        levels.push(LevelRecord {
+        levels.push(LevelSnapshot {
             components: envelopes_of(world, &registry, level)?,
             layers,
         });
     }
-    Ok(ProjectFile {
-        format: FORMAT_VERSION,
+    Ok(ProjectSnapshot {
         project: envelopes_of(world, &registry, project)?,
         levels,
         elements,
     })
 }
 
-/// Materialises `file` as a new Project tree named `name`, beside whatever the World holds.
+/// Materialises `snapshot`, read from the file at `path`, as a new Project tree named `name`,
+/// beside whatever the World holds.
 ///
 /// Nothing of the current Project is touched: every entity of the tree is spawned as a child
 /// first, so on any failure despawning the half-built Project takes the whole tree with it and
@@ -102,19 +105,19 @@ pub(crate) fn gather(world: &World, project: Entity) -> Result<ProjectFile, Proj
 /// # Errors
 ///
 /// [`ProjectManagerError::NoRegistry`] without a registry, the registry's error when a
-/// component cannot be read, or [`ProjectManagerError::Malformed`] when the file's parts do not
-/// fit together: a Level or Layer without its component, an Element without its common
-/// component, an Element listed on no Layer or on more than one, or a listed identity the file
-/// does not hold.
+/// component cannot be read, or [`ProjectManagerError::Malformed`] when the snapshot's parts do
+/// not fit together: a Level or Layer without its component, an Element without its common
+/// component, an Element listed on no Layer or on more than one, or a listed identity the
+/// snapshot does not hold.
 pub(crate) fn materialise(
     world: &mut World,
     path: &Path,
-    file: &ProjectFile,
+    snapshot: &ProjectSnapshot,
     name: String,
 ) -> Result<Entity, ProjectManagerError> {
     let registry = registry(world)?;
     let project = world.spawn_empty().id();
-    match build(world, &registry, project, path, file, name) {
+    match build(world, &registry, project, path, snapshot, name) {
         Ok(()) => Ok(project),
         Err(error) => {
             world.despawn(project);
@@ -123,7 +126,7 @@ pub(crate) fn materialise(
     }
 }
 
-/// Fills the tree under `project` from `file`.
+/// Fills the tree under `project` from `snapshot`.
 ///
 /// # Errors
 ///
@@ -133,7 +136,7 @@ fn build(
     registry: &SerialisationRegistry,
     project: Entity,
     path: &Path,
-    file: &ProjectFile,
+    snapshot: &ProjectSnapshot,
     name: String,
 ) -> Result<(), ProjectManagerError> {
     let malformed = |reason: String| ProjectManagerError::Malformed {
@@ -142,30 +145,30 @@ fn build(
     };
     {
         let mut entity = world.entity_mut(project);
-        registry.read_all(&mut entity, &file.project)?;
+        registry.read_all(&mut entity, &snapshot.project)?;
         entity.insert(Project { name });
     }
     let mut placed: BTreeSet<ElementId> = BTreeSet::new();
-    for (level_index, level_record) in file.levels.iter().enumerate() {
+    for (level_index, level_snapshot) in snapshot.levels.iter().enumerate() {
         let mut level = world.spawn(ChildOf(project));
-        registry.read_all(&mut level, &level_record.components)?;
+        registry.read_all(&mut level, &level_snapshot.components)?;
         if !level.contains::<Level>() {
             return Err(malformed(format!(
                 "Level {level_index} has no `level` component"
             )));
         }
         let level = level.id();
-        for (layer_index, layer_record) in level_record.layers.iter().enumerate() {
+        for (layer_index, layer_snapshot) in level_snapshot.layers.iter().enumerate() {
             let mut layer = world.spawn(ChildOf(level));
-            registry.read_all(&mut layer, &layer_record.components)?;
+            registry.read_all(&mut layer, &layer_snapshot.components)?;
             if !layer.contains::<Layer>() {
                 return Err(malformed(format!(
                     "Layer {layer_index} of Level {level_index} has no `layer` component"
                 )));
             }
             let layer = layer.id();
-            for id in &layer_record.elements {
-                let Some(envelopes) = file.elements.get(id) else {
+            for id in &layer_snapshot.elements {
+                let Some(envelopes) = snapshot.elements.get(id) else {
                     return Err(malformed(format!(
                         "the Element {} is listed on a Layer but not held",
                         id.as_raw()
@@ -190,7 +193,7 @@ fn build(
             }
         }
     }
-    if placed.len() != file.elements.len() {
+    if placed.len() != snapshot.elements.len() {
         return Err(malformed(
             "an Element is held but listed on no Layer".to_owned(),
         ));

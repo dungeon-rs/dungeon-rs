@@ -1,9 +1,9 @@
 //! Open: a saved Project replacing the current one.
 
 use crate::ProjectManagerError;
-use crate::file::{materialise, registry};
 use crate::resolve::resolve_project;
 use crate::save::history_position;
+use crate::snapshot::{materialise, registry};
 use bevy_ecs::entity::Entity;
 use bevy_ecs::hierarchy::Children;
 use bevy_ecs::world::World;
@@ -29,9 +29,9 @@ pub(crate) fn open_project(
     path: PathBuf,
 ) -> Result<ProjectOpened, ProjectManagerError> {
     let registry = registry(world)?;
-    let file = read_project(&path, &registry)?;
+    let snapshot = read_project(&path, &registry)?;
     let current = crate::projects(world);
-    let project = materialise(world, &path, &file, project_name_of(&path))?;
+    let project = materialise(world, &path, &snapshot, project_name_of(&path))?;
     for old in current {
         world.despawn(old);
     }
