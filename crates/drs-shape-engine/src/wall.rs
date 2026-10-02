@@ -197,6 +197,11 @@ impl Builder {
         reason = "the model keeps the mesh in single precision"
     )]
     fn vertex(&mut self, at: Point, arc_length: f64) -> u32 {
+        // A Wall would need a billion chords to come near; the index saturates rather than wraps.
+        debug_assert!(
+            u32::try_from(self.mesh.vertices.len()).is_ok(),
+            "a stroke of more vertices than a mesh index reaches"
+        );
         let index = u32::try_from(self.mesh.vertices.len()).unwrap_or(u32::MAX);
         self.mesh.vertices.push(vector(at));
         self.mesh.arc_lengths.push(arc_length as f32);
@@ -327,7 +332,9 @@ fn stroke(line: &[LinePoint], radius: f64) -> StrokeMesh {
             (left(before), left(after))
         };
         let centre = points[index + 1];
-        if before.dot(after) <= -1.0 + f64::EPSILON || from.dot(to) <= -1.0 + f64::EPSILON {
+        // `from` and `to` are `before` and `after` turned by the same quarter turn, so their dot
+        // product is the same.
+        if before.dot(after) <= -1.0 + f64::EPSILON {
             // The line turns right back on itself: the outer side is the whole way round the
             // front.
             builder.fan(centre, radius, &half_turn(from, before, radius));
