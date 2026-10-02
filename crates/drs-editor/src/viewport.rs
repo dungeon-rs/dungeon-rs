@@ -625,12 +625,16 @@ pub(crate) fn keys(
 }
 
 /// Outlines the selected Element, a Portal turned as it is drawn, drops a selection whose
-/// Element is gone, and lets go of a handle the selected Wall no longer has.
+/// Element is gone, and lets go of a handle the selected Wall no longer has. Nothing is drawn or
+/// dropped while an Export runs, so the outline never appears in the image.
 pub(crate) fn outline_selection(
     mut gizmos: Gizmos,
     mut state: ResMut<EditorState>,
     elements: Query<(&ElementId, &Element, Option<&Wall>, Option<&Portal>)>,
 ) {
+    if state.exporting {
+        return;
+    }
     // The state is written only when something changes, so it is not marked changed every frame.
     let Some(selected) = state.selected else {
         if state.walls.handle.is_some() {
