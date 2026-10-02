@@ -228,8 +228,8 @@ sequenceDiagram
   Editor->>ProjectManager: Open(file)
   ProjectManager->>ProjectAccess: ReadProject (migrate, keep unknown data)
   ProjectManager->>CatalogEngine: Resolve(each Asset Reference)
-  ProjectManager->>LibraryAccess: LoadAsset(resolved)
-  Note over ProjectManager: Missing Assets and Missing Element Kinds recorded in the model for the Editor to report
+  Note over ProjectManager: the resolution table and the Missing Assets and Missing Element Kinds recorded in the model for the Editor to report
+  Note over RenderEngine: viewport systems load each resolved Asset through the resolution table and draw a placeholder for each Missing one
 ```
 
 ### Export a Level
