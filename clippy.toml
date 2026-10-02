@@ -9,8 +9,16 @@ allow-print-in-tests = true
 # libm differ between them, so transcendental functions go through `bevy_math::ops`.
 # The working directory never matters to the editor: its own files go to its directories and its
 # Bundled Files are found from the executable, so nothing may change it.
+# A file the Author gets is as readable as any file: a temporary file is private to its owner by
+# default, so a file written through one is created with `Builder` and the usual mode.
 disallowed-methods = [
   { path = "std::env::set_current_dir", reason = "the working directory never matters to the editor; nothing may depend on it" },
+  { path = "tempfile::NamedTempFile::new", reason = "private to the owner; use `tempfile::Builder` with `permissions`, as the atomic file replacement guideline does" },
+  { path = "tempfile::NamedTempFile::new_in", reason = "private to the owner; use `tempfile::Builder` with `permissions`, as the atomic file replacement guideline does" },
+  { path = "tempfile::NamedTempFile::with_prefix", reason = "private to the owner; use `tempfile::Builder` with `permissions`, as the atomic file replacement guideline does" },
+  { path = "tempfile::NamedTempFile::with_prefix_in", reason = "private to the owner; use `tempfile::Builder` with `permissions`, as the atomic file replacement guideline does" },
+  { path = "tempfile::NamedTempFile::with_suffix", reason = "private to the owner; use `tempfile::Builder` with `permissions`, as the atomic file replacement guideline does" },
+  { path = "tempfile::NamedTempFile::with_suffix_in", reason = "private to the owner; use `tempfile::Builder` with `permissions`, as the atomic file replacement guideline does" },
   { path = "bevy_ecs::world::World::resource", reason = "panics when the resource is missing; use `get_resource` and report" },
   { path = "bevy_ecs::world::World::resource_mut", reason = "panics when the resource is missing; use `get_resource_mut` and report" },
   { path = "f32::algebraic_add", reason = "fast-math differs between machines" },

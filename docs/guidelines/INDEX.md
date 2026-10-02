@@ -1,5 +1,6 @@
 # Guidelines
 
+- [Atomic file replacement](./atomic-file-replacement.md): use when a ResourceAccess writes a file the Author must never find half-written.
 - [Development switch](./development-switch.md): use when adding a switch the editor needs only for development or autonomous verification.
 - [Failure shown in the status line](./status-line-failure.md): use when the Editor learns of a failure the Author must see without a modal.
 - [Headless seam test](./headless-seam-test.md): use when writing a test at a Manager seam.
