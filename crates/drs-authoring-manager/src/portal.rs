@@ -68,6 +68,26 @@ pub(crate) fn host_of(
     Ok(wall)
 }
 
+/// Whether the Portal `id` follows a host: it is anchored, and its anchor names a Wall on the
+/// Portal's Level and a segment that Wall has. A Portal whose anchor names none, as an editor
+/// that does not know Portals may leave it, is lost: it keeps its anchor but stands, turns, and
+/// mirrors as a freestanding one.
+///
+/// # Errors
+///
+/// [`AuthoringError::UnknownElement`] or [`AuthoringError::NotAPortal`] when the Element is no
+/// Portal.
+pub(crate) fn follows_host(world: &mut World, id: ElementId) -> Result<bool, AuthoringError> {
+    let Some(anchor) = portal_of(world, id)?.anchor else {
+        return Ok(false);
+    };
+    let entity = id
+        .entity(world)
+        .map_err(|_| AuthoringError::UnknownElement(id))?;
+    let level = level_of(world, entity);
+    Ok(host_of(world, &anchor, level).is_ok())
+}
+
 /// Refuses a Portal that would not be one, for the reason [`Portal::malformation`] gives.
 ///
 /// # Errors
@@ -311,14 +331,15 @@ pub(crate) fn free_portal(world: &mut World, command: &FreePortal) -> Result<(),
 }
 
 /// The field command of an Edit Element change only a Portal has, checked against the Portal
-/// as it is: its width, a freestanding Portal's rotation and mirroring, and a set Portal's side
-/// and place along its Wall. `None` for a change that is not one of those.
+/// as it is: its width, the rotation and mirroring of a Portal that follows no Wall, and a set
+/// Portal's side and place along its Wall. `None` for a change that is not one of those.
 ///
 /// # Errors
 ///
 /// [`AuthoringError::NotAPortal`] when the Element is no Portal,
 /// [`AuthoringError::MalformedPortal`] for a width not above zero, a rotation that is not
-/// finite, or a parameter outside zero to one, [`AuthoringError::FollowsItsWall`] for the rotation or mirroring of a set Portal,
+/// finite, or a parameter outside zero to one, [`AuthoringError::FollowsItsWall`] for the
+/// rotation or mirroring of a Portal that follows its Wall,
 /// [`AuthoringError::Freestanding`] for the side or place of a freestanding one, what
 /// [`host_of`] reports for a place its Wall does not have, or [`AuthoringError::History`] when
 /// the field cannot be addressed.
@@ -337,7 +358,7 @@ pub(crate) fn portal_change(
         }
         ElementChange::Rotation(rotation) => {
             let mut portal = portal_of(world, id)?;
-            if portal.anchor.is_some() {
+            if follows_host(world, id)? {
                 return Err(AuthoringError::FollowsItsWall);
             }
             portal.rotation = *rotation;
@@ -345,7 +366,7 @@ pub(crate) fn portal_change(
             SetField::<ElementId>::new::<Portal>(id, "rotation", *rotation)
         }
         ElementChange::Mirrored(mirrored) => {
-            if portal_of(world, id)?.anchor.is_some() {
+            if follows_host(world, id)? {
                 return Err(AuthoringError::FollowsItsWall);
             }
             SetField::<ElementId>::new::<Portal>(id, "mirrored", *mirrored)

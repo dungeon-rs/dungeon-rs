@@ -187,11 +187,12 @@ pub(crate) fn slide(
     }))
 }
 
-/// `X`: flips the side a set Portal faces, or the mirroring of a freestanding one.
-pub(crate) fn flip(element: ElementId, portal: &Portal) -> Apply {
+/// `X`: flips the side a Portal that `follows` its Wall faces, or the mirroring of any other,
+/// freestanding or lost.
+pub(crate) fn flip(element: ElementId, portal: &Portal, follows: bool) -> Apply {
     let change = match portal.anchor {
-        Some(anchor) => ElementChange::Side(anchor.side.flipped()),
-        None => ElementChange::Mirrored(!portal.mirrored),
+        Some(anchor) if follows => ElementChange::Side(anchor.side.flipped()),
+        Some(_) | None => ElementChange::Mirrored(!portal.mirrored),
     };
     Apply::EditElement(EditElement {
         element,
@@ -239,16 +240,16 @@ pub(crate) fn press_set(state: &mut EditorState, element: ElementId, cursor: Vec
 }
 
 /// The options of the selected Portal in the tool strip: its width, its rotation in degrees
-/// while freestanding, the flip button, and the Free Portal or Set into Wall button, each change
+/// unless it `follows` its Wall, the flip button, and the Free Portal or Set into Wall button, each change
 /// sent as one step, a drag of the width or the rotation as one gesture.
 pub(crate) fn options<'a>(
     ui: &mut egui::Ui,
     state: &mut EditorState,
-    selected: (ElementId, &Element, &Portal),
+    selected: (ElementId, &Element, &Portal, bool),
     walls: impl IntoIterator<Item = (ElementId, &'a Wall, &'a WallShape)>,
     apply: &mut MessageWriter<Apply>,
 ) {
-    let (id, element, portal) = selected;
+    let (id, element, portal, follows) = selected;
     ui.label("Width");
     let mut width = portal.width;
     let drag = ui.add(
@@ -263,7 +264,7 @@ pub(crate) fn options<'a>(
     }
     let mut held = drag.dragged();
     let mut change = drag.changed().then_some(ElementChange::Width(width));
-    if portal.anchor.is_none() {
+    if !follows {
         ui.label("Rotation");
         let mut degrees = portal.rotation.to_degrees();
         let turn = ui.add(
@@ -286,7 +287,7 @@ pub(crate) fn options<'a>(
         crate::walls::end_option(&mut state.portals.option, apply);
     }
     if ui.button("Flip").on_hover_text("X").clicked() {
-        apply.write(flip(id, portal));
+        apply.write(flip(id, portal, follows));
     }
     let label = if portal.anchor.is_some() {
         "Free Portal"

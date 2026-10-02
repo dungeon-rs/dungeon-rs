@@ -4,19 +4,19 @@
 use crate::diagnostics::Diagnostics;
 use crate::files::ProjectView;
 use crate::state::{EditorState, NamePrompt, Tool};
+use crate::viewport::LevelView;
 use crate::{bindings, browser, diagnostics, export, files};
 use bevy::app::AppExit;
 use bevy::ecs::message::MessageWriter;
 use bevy::ecs::resource::Resource;
-use bevy::ecs::system::{NonSendMarker, Query, Res, ResMut, SystemParam};
+use bevy::ecs::system::{NonSendMarker, Res, ResMut, SystemParam};
 use bevy::input::ButtonInput;
 use bevy::input::keyboard::KeyCode;
 use bevy::math::Rect;
 use bevy_egui::EguiContexts;
 use drs_history::History;
 use drs_model::{
-    AddFolder, CanonicalName, ElementId, ExportLevel, OpenProject, Portal, Redo, SaveProject, Undo,
-    Viewport,
+    AddFolder, CanonicalName, ExportLevel, OpenProject, Redo, SaveProject, Undo, Viewport,
 };
 use egui_dock::{DockArea, DockState, NodeIndex, Style, TabViewer};
 
@@ -79,8 +79,8 @@ pub(crate) struct Editor<'w, 's> {
     diagnostics: Res<'w, Diagnostics>,
     /// The Project as the File menu reads it.
     project: ProjectView<'w, 's>,
-    /// Every Portal, for the status line to tell a set one from the rest.
-    portals: Query<'w, 's, (&'static ElementId, &'static Portal)>,
+    /// The Level, for the status line to tell a Portal that follows its Wall from the rest.
+    level: LevelView<'w, 's>,
     /// The keys, for the menu's shortcuts.
     keys: Res<'w, ButtonInput<KeyCode>>,
     /// The messages to send.
@@ -105,12 +105,10 @@ pub(crate) fn draw(_main_thread: NonSendMarker, mut contexts: EguiContexts, mut 
             .max_rect(ctx.viewport_rect()),
     );
     menu_bar(&ctx, &mut root, &mut editor);
-    let set_portal = editor.state.selected.is_some_and(|selected| {
-        editor
-            .portals
-            .iter()
-            .any(|(id, portal)| *id == selected && portal.anchor.is_some())
-    });
+    let set_portal = editor
+        .state
+        .selected
+        .is_some_and(|selected| editor.level.follows_host(selected));
     status_line(&mut root, &editor.state, set_portal);
     let Editor {
         layout,
@@ -314,7 +312,7 @@ fn choose_folder() -> Option<std::path::PathBuf> {
 
 /// The status line: what happened last on the left, what the Author is doing on the right, a
 /// drag of the selected Element sliding it along its Wall when `set_portal` says it is a Portal
-/// set into one.
+/// that follows one.
 ///
 /// The right-hand hint is laid out first and the report is truncated to the width that is left,
 /// so the two never overlap however long the report.

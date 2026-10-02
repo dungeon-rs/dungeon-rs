@@ -516,7 +516,7 @@ pub(crate) fn tool_strip(
                         portals::options(
                             ui,
                             &mut state,
-                            (*id, element, portal),
+                            (*id, element, portal, level.follows_host(*id)),
                             level.walls_in_order(),
                             &mut apply,
                         );

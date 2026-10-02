@@ -122,7 +122,9 @@ impl LevelView<'_, '_> {
                             Rect::from_center_size(element.position, element.size).contains(cells)
                         }
                     };
-                    let set = portal.is_some_and(|portal| portal.anchor.is_some());
+                    let set = hit
+                        && portal.is_some_and(|portal| portal.anchor.is_some())
+                        && self.follows_host(*id);
                     hit.then_some((*id, element.position, set))
                 })
             })
@@ -159,6 +161,41 @@ impl LevelView<'_, '_> {
             .iter()
             .find(|(id, ..)| **id == selected)
             .and_then(|(id, element, _, _, portal)| Some((*id, element, portal?)))
+    }
+
+    /// Whether the Portal `portal` follows a host: its anchor names a Wall on the Portal's own
+    /// Level and a segment that Wall has. A Portal anchored to none, as an editor that does not
+    /// know Portals may leave it, is lost: it is dragged, flipped, and turned as a freestanding
+    /// one, and never set again by a drag.
+    pub(crate) fn follows_host(&self, portal: ElementId) -> bool {
+        let Some(anchor) = self
+            .elements
+            .iter()
+            .find(|(id, ..)| **id == portal)
+            .and_then(|(.., portal)| portal?.anchor)
+        else {
+            return false;
+        };
+        self.levels.iter().any(|layers| {
+            let on_level = |wanted: ElementId| {
+                layers.iter().any(|&layer| {
+                    self.layers.get(layer).is_ok_and(|(_, elements)| {
+                        elements.iter().any(|&element| {
+                            self.elements
+                                .get(element)
+                                .is_ok_and(|(id, ..)| *id == wanted)
+                        })
+                    })
+                })
+            };
+            let has_part = self
+                .elements
+                .iter()
+                .find(|(id, ..)| **id == anchor.host)
+                .and_then(|(_, _, wall, ..)| wall)
+                .is_some_and(|wall| anchor.index < wall.segments.len());
+            has_part && on_level(portal) && on_level(anchor.host)
+        })
     }
 
     /// The derived shape of the Wall with an identity, once it has one.
@@ -611,7 +648,7 @@ pub(crate) fn keys(
         && let Some((id, element, portal)) = level.selected_portal(state.selected)
     {
         if bindings::any_pressed(bindings::FLIP, &keys) {
-            apply.write(portals::flip(id, portal));
+            apply.write(portals::flip(id, portal, level.follows_host(id)));
         }
         if bindings::any_pressed(bindings::FREE_OR_SET, &keys) {
             portals::free_or_set(

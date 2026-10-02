@@ -1,7 +1,7 @@
 //! Edit Element: a property change, grouped so that a gesture is one step.
 
 use crate::AuthoringError;
-use crate::portal::portal_change;
+use crate::portal::{follows_host, portal_change};
 use crate::wall::{add_point, remove_point, translated, wall_of, well_formed};
 use bevy_ecs::world::World;
 use drs_history::{SetField, Target};
@@ -24,7 +24,8 @@ use drs_model::{
 /// [`AuthoringError::NoSegment`] for a point or segment the Wall does not have,
 /// [`AuthoringError::Shape`] for a point added where the Wall cannot be split,
 /// [`AuthoringError::MalformedWall`] for a thickness not above zero or a point that is not
-/// finite, [`AuthoringError::FollowsItsWall`] for the position of a Portal set into a Wall, what
+/// finite, [`AuthoringError::FollowsItsWall`] for the position of a Portal that follows its
+/// Wall, what
 /// a Portal's own changes report, or [`AuthoringError::History`] when the change could not be
 /// recorded.
 pub(crate) fn edit_element(
@@ -48,10 +49,7 @@ pub(crate) fn edit_element(
                 let moved = translated(wall, *position);
                 well_formed(&moved)?;
                 SetField::<ElementId>::new::<Wall>(id, "", moved)
-            } else if world
-                .get::<Portal>(entity)
-                .is_some_and(|portal| portal.anchor.is_some())
-            {
+            } else if world.get::<Portal>(entity).is_some() && follows_host(world, id)? {
                 return Err(AuthoringError::FollowsItsWall);
             } else {
                 SetField::<ElementId>::new::<Element>(id, "position", *position)

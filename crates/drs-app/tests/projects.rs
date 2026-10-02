@@ -2590,3 +2590,34 @@ fn a_lost_portal_outlives_its_wall() {
     assert_eq!(element, standing, "where it was saved after both undos");
     assert_eq!(portal, lost);
 }
+
+/// A Portal whose Wall is gone is moved, turned, and mirrored as a freestanding Portal is,
+/// keeping the anchor it was saved with, each change one step.
+#[test]
+fn a_lost_portal_is_edited_as_freestanding() {
+    let mut saved = SavedPortals::new();
+    let _copy = saved.lost_by(Apply::RemoveElement(RemoveElement {
+        element: saved.wall,
+    }));
+    let (id, _, before) = saved.set_portal();
+    let depth = saved.device.history().undo_depth();
+
+    for change in [
+        ElementChange::Position(Vec2::new(9.0, 9.0)),
+        ElementChange::Rotation(1.0),
+        ElementChange::Mirrored(!before.mirrored),
+    ] {
+        saved.device.apply(Apply::EditElement(EditElement {
+            element: id,
+            change,
+            gesture: Gesture::Single,
+        }));
+    }
+
+    let (_, element, portal) = saved.set_portal();
+    assert_eq!(element.position, Vec2::new(9.0, 9.0), "moved");
+    assert!((portal.rotation - 1.0).abs() < f32::EPSILON, "turned");
+    assert_eq!(portal.mirrored, !before.mirrored, "mirrored the other way");
+    assert_eq!(portal.anchor, before.anchor, "the anchor kept");
+    assert_eq!(saved.device.history().undo_depth(), depth + 3);
+}
