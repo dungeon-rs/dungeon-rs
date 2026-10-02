@@ -2,6 +2,7 @@
 
 **Capabilities**:
 - composing: Place Element, Edit Element, Remove Element, Set Portal into Wall, Free Portal
+- projects: none of its Commands; saving and opening Rooms
 
 ## Problem Statement
 
