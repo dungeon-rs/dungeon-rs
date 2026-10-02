@@ -292,9 +292,7 @@ impl Queue {
         for jobs in [&mut self.front, &mut self.rest] {
             while jobs.front().is_some_and(|job| {
                 let digest = job.key.digest();
-                self.taken.contains(&digest)
-                    || self.unreadable.contains(&digest)
-                    || served(&digest)
+                self.taken.contains(&digest) || self.unreadable.contains(&digest) || served(&digest)
             }) {
                 jobs.pop_front();
             }
@@ -322,7 +320,8 @@ struct Signal {
 
 /// Generates thumbnails in the background on a pool of threads of its own, half the available
 /// cores and at least one, so that it never competes with the asset system's decoding of
-/// thumbnails for display. A panic while making one thumbnail makes that Asset broken and
+/// thumbnails for display, and one more that writes out what they made on time while all of
+/// them are busy. A panic while making one thumbnail makes that Asset broken and
 /// leaves the thread serving the rest. Dropping it stops its threads after the thumbnails in
 /// flight and writes out what they made.
 pub struct ThumbnailGenerator {
@@ -390,6 +389,21 @@ impl ThumbnailGenerator {
             && let Some(source) = failure
         {
             return Err(LibraryError::ThreadNotStarted(source));
+        }
+        let timer = Timer {
+            signal: Arc::clone(&signal),
+            shared: Arc::clone(&cache.shared),
+            pending: Arc::clone(&pending),
+            completions: sender.clone(),
+        };
+        match std::thread::Builder::new()
+            .name("thumbnails-timer".to_owned())
+            .spawn(move || timer.run())
+        {
+            Ok(thread) => threads.push(thread),
+            Err(error) => log::warn!(
+                "thumbnails are written out only as each one finishes: no timer thread: {error}"
+            ),
         }
         Ok(Self {
             signal,
@@ -489,6 +503,7 @@ impl Worker {
                 .unwrap_or_else(PoisonError::into_inner);
             let mut pending = self.pending.lock().unwrap_or_else(PoisonError::into_inner);
             let digest = job.key.digest();
+            let starts_batch = !writer.holds_any();
             match made {
                 Ok(Made::Thumbnail {
                     bytes,
@@ -526,10 +541,14 @@ impl Worker {
                     });
                 }
             }
-            let drained = self
-                .work()
-                .queue
-                .is_empty(&|digest| self.shared.is_served(digest));
+            let drained = {
+                let mut work = self.work();
+                if starts_batch && writer.holds_any() {
+                    // The timer waits for nothing while nothing is kept; it now has a deadline.
+                    self.signal.arrived.notify_all();
+                }
+                work.queue.is_empty(&|digest| self.shared.is_served(digest))
+            };
             if drained || writer.due() {
                 let Some(served) = self
                     .shared
@@ -583,6 +602,69 @@ impl Worker {
                 .arrived
                 .wait(work)
                 .unwrap_or_else(PoisonError::into_inner);
+        }
+    }
+
+    /// The queue, locked.
+    fn work(&self) -> std::sync::MutexGuard<'_, Work> {
+        self.signal
+            .work
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+    }
+}
+
+/// The generator's thread that writes out what the others appended once it has waited long
+/// enough, so that a thumbnail finished while every other thread is busy with a slow file is
+/// served on time rather than when the next one finishes.
+struct Timer {
+    /// The queue, and the signal a thread gives when it appends the first of a batch.
+    signal: Arc<Signal>,
+    /// The cache.
+    shared: Arc<Shared>,
+    /// What was appended but not yet written out, shared by every thread.
+    pending: Arc<Mutex<Vec<Completed>>>,
+    /// Where completions go.
+    completions: Sender<ThumbnailCompletion>,
+}
+
+impl Timer {
+    /// Writes out whatever is due until the generator stops or the cache fails, sleeping until
+    /// the oldest unwritten thumbnail is due, or until one is appended while none is kept.
+    fn run(self) {
+        loop {
+            let mut writer = self
+                .shared
+                .writer
+                .lock()
+                .unwrap_or_else(PoisonError::into_inner);
+            let due_in = writer.due_in();
+            if due_in == Some(Duration::ZERO) {
+                let mut pending = self.pending.lock().unwrap_or_else(PoisonError::into_inner);
+                let Some(served) = self
+                    .shared
+                    .flush(&mut writer, &mut pending, &self.completions)
+                else {
+                    self.work().stopping = true;
+                    self.signal.arrived.notify_all();
+                    return;
+                };
+                self.work().queue.release(served);
+                continue;
+            }
+            // The queue is locked before the writer is let go, so the signal of a thread that
+            // appends in between cannot come before this thread waits for it.
+            let work = self.work();
+            drop(writer);
+            if work.stopping {
+                return;
+            }
+            // Whether it woke on time or was signalled, the loop looks again; a poisoned lock
+            // is let go as any other.
+            match due_in {
+                Some(timeout) => drop(self.signal.arrived.wait_timeout(work, timeout)),
+                None => drop(self.signal.arrived.wait(work)),
+            }
         }
     }
 
@@ -728,6 +810,55 @@ mod tests {
             vec![("a.png".to_owned(), ThumbnailState::Ready(UVec2::ONE))]
         );
         assert_eq!(UNREADABLE_TRIED.load(Ordering::SeqCst), 1);
+    }
+
+    /// Whether the slow file may finish.
+    static SLOW_RELEASED: AtomicBool = AtomicBool::new(false);
+
+    /// Makes a one-pixel thumbnail, except that `slow.png` takes until the test lets it finish.
+    #[expect(
+        clippy::unnecessary_wraps,
+        clippy::missing_errors_doc,
+        reason = "it stands in for the maker, which reads a file"
+    )]
+    fn make_slowly(path: &Path) -> std::io::Result<Made> {
+        if path.ends_with("slow.png") {
+            let start = Instant::now();
+            while !SLOW_RELEASED.load(Ordering::SeqCst) && start.elapsed() < Duration::from_secs(40)
+            {
+                std::thread::sleep(Duration::from_millis(2));
+            }
+        }
+        Ok(Made::Thumbnail {
+            bytes: vec![1, 2, 3],
+            width: 1,
+            height: 1,
+        })
+    }
+
+    /// A thumbnail finished while the only thread is busy with a slow file is written out and
+    /// handed back without waiting for the slow one.
+    #[test]
+    fn written_out_while_every_thread_is_busy() {
+        let root = tempfile::TempDir::new().expect("temporary root");
+        let directories = LibraryDirectories {
+            configuration: root.path().join("configuration"),
+            cache: root.path().join("cache"),
+        };
+        let cache =
+            ThumbnailCache::open(&directories, &ThumbnailTable::default()).expect("the cache");
+        let generator =
+            ThumbnailGenerator::start_with(&cache, 1, make_slowly, CaughtPanics::default())
+                .expect("the thread");
+
+        generator.enqueue(["a.png", "slow.png"].map(job));
+        let early = finished(&generator, "a.png");
+        SLOW_RELEASED.store(true, Ordering::SeqCst);
+
+        assert_eq!(
+            early,
+            vec![("a.png".to_owned(), ThumbnailState::Ready(UVec2::ONE))]
+        );
     }
 
     thread_local! {

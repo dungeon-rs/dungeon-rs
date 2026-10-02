@@ -329,10 +329,22 @@ impl Writer {
 
     /// Whether enough is kept in memory, or for long enough, that it should be flushed.
     pub(crate) fn due(&self) -> bool {
-        self.appended.len() >= FLUSH_EVERY
-            || self
-                .since
-                .is_some_and(|since| since.elapsed() >= FLUSH_AFTER)
+        self.due_in() == Some(Duration::ZERO)
+    }
+
+    /// How long until what is kept in memory should be flushed, zero when it should be now, or
+    /// `None` while nothing is kept.
+    pub(crate) fn due_in(&self) -> Option<Duration> {
+        let since = self.since?;
+        if self.appended.len() >= FLUSH_EVERY {
+            return Some(Duration::ZERO);
+        }
+        Some(FLUSH_AFTER.saturating_sub(since.elapsed()))
+    }
+
+    /// Whether anything appended is kept in memory, not yet flushed.
+    pub(crate) fn holds_any(&self) -> bool {
+        self.since.is_some()
     }
 
     /// Writes what was appended to the pack, makes it durable, then writes the records to the
