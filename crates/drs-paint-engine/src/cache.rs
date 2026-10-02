@@ -84,8 +84,9 @@ fn region(key: TileKey) -> Region {
     )
 }
 
-/// The tiles a stroke may cover: those its box, a pixel wider either way, reaches.
-fn tiles_of(stroke: &Stroke) -> impl Iterator<Item = TileKey> {
+/// The lowest and the highest tile a stroke may cover: those its box, a pixel wider either way,
+/// reaches.
+fn tile_span(stroke: &Stroke) -> (TileKey, TileKey) {
     let reach = stroke.reach();
     #[expect(
         clippy::cast_precision_loss,
@@ -100,9 +101,22 @@ fn tiles_of(stroke: &Stroke) -> impl Iterator<Item = TileKey> {
         reason = "the tiles a stroke reaches are far inside the range of i32"
     )]
     let tile = |cells_at: f32| (cells_at / cells).floor() as i32;
-    let (left, right) = (tile(reach.min.x - margin), tile(reach.max.x + margin));
-    let (bottom, top) = (tile(reach.min.y - margin), tile(reach.max.y + margin));
-    (bottom..=top).flat_map(move |y| (left..=right).map(move |x| TileKey { x, y }))
+    (
+        TileKey {
+            x: tile(reach.min.x - margin),
+            y: tile(reach.min.y - margin),
+        },
+        TileKey {
+            x: tile(reach.max.x + margin),
+            y: tile(reach.max.y + margin),
+        },
+    )
+}
+
+/// The tiles a stroke may cover.
+fn tiles_of(stroke: &Stroke) -> impl Iterator<Item = TileKey> {
+    let (low, high) = tile_span(stroke);
+    (low.y..=high.y).flat_map(move |y| (low.x..=high.x).map(move |x| TileKey { x, y }))
 }
 
 /// `ApplyStroke`: brings `cache` up to `strokes`, a Terrain's strokes in order, and says whether
@@ -110,9 +124,9 @@ fn tiles_of(stroke: &Stroke) -> impl Iterator<Item = TileKey> {
 ///
 /// Strokes appended since the cache last ran are composited onto the tiles they touch. When an
 /// earlier stroke changed or went, as an undo makes it go, only the tiles touched by the strokes
-/// that differ, before or after, are rasterized again from every stroke, so undoing a stroke
-/// recomputes that stroke's tiles alone. Either way the tiles end up holding exactly what
-/// rasterizing every stroke afresh gives.
+/// that differ, before or after, are rasterized again from every stroke that reaches them, so
+/// undoing a stroke recomputes that stroke's tiles alone. Either way the tiles end up holding
+/// exactly what rasterizing every stroke afresh gives.
 pub fn apply_stroke(cache: &mut PaintCache, strokes: &[Stroke]) -> bool {
     bring_up(cache, strokes).changed
 }
@@ -145,10 +159,14 @@ fn bring_up(cache: &mut PaintCache, strokes: &[Stroke]) -> Applied {
             .chain(&strokes[kept..])
             .flat_map(tiles_of)
             .collect();
+        let spans: Vec<(TileKey, TileKey)> = strokes.iter().map(tile_span).collect();
         for key in &applied.touched {
             let region = region(*key);
             let mut pixels = vec![0; (COVERAGE_TILE_PIXELS * COVERAGE_TILE_PIXELS) as usize];
-            for stroke in strokes {
+            let reaching = strokes.iter().zip(&spans).filter(|(_, (low, high))| {
+                (low.x..=high.x).contains(&key.x) && (low.y..=high.y).contains(&key.y)
+            });
+            for (stroke, _) in reaching {
                 composite(&mut pixels, stroke, &region);
             }
             applied.changed |= cache.store(*key, pixels);
