@@ -13,6 +13,8 @@
     reason = "a test and its fixtures stop at the first thing that is not as expected"
 )]
 
+mod support;
+
 use bevy::app::{App, PluginGroup, PluginsState};
 use bevy::asset::{AssetMetaCheck, AssetPlugin};
 use bevy::ecs::entity::Entity;
@@ -27,11 +29,10 @@ use drs_history::{History, HistoryPlugin};
 use drs_library_access::{LibraryAccessPlugin, register_library_source};
 use drs_library_manager::LibraryManagerPlugin;
 use drs_model::{
-    AddFolder, Apply, AssetAddress, CanonicalName, Colour, CommandFailed, EditElement,
-    EditorDirectories, Element, ElementChange, ElementId, ExportLevel, ExportRefused, FolderAdded,
-    FolderKey, FolderRefused, Gesture, Layer, Level, LevelExported, ModelPlugin, OpenProject,
-    PlaceElement, Placement, PortalAnchor, ProjectOpened, ProjectRefused, ProjectSaved, Prop,
-    SaveProject, SavedMark, Side, Viewport,
+    Apply, AssetAddress, Colour, CommandFailed, EditElement, EditorDirectories, Element,
+    ElementChange, ElementId, ExportLevel, ExportRefused, FolderKey, Gesture, Layer, Level,
+    LevelExported, ModelPlugin, OpenProject, PlaceElement, Placement, PortalAnchor, ProjectOpened,
+    ProjectRefused, ProjectSaved, Prop, SaveProject, SavedMark, Side, Viewport,
 };
 use drs_model::{Bounds, BrushSettings, Paint, Resolution, ResolutionTable, Stroke};
 use drs_project_manager::ProjectManagerPlugin;
@@ -39,6 +40,7 @@ use drs_render_engine::RenderEnginePlugin;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
+use support::png;
 use tempfile::TempDir;
 
 /// A solid red image of one cell by one cell at the Grid's 256 pixels per cell.
@@ -113,17 +115,6 @@ struct Fixture {
     app: App,
 }
 
-/// Writes an opaque PNG of one colour and `size` pixels at `place` under `folder`.
-fn png(folder: &Path, place: &str, size: UVec2, colour: [u8; 4]) {
-    let path = folder.join(place);
-    if let Some(parent) = path.parent() {
-        fs::create_dir_all(parent).expect("fixture folder");
-    }
-    image::RgbaImage::from_pixel(size.x, size.y, image::Rgba(colour))
-        .save(&path)
-        .expect("fixture image");
-}
-
 /// A headless editor with offscreen rendering whose configuration and cache directories live
 /// under `root`, started once: Bevy's default plugins without a window or winit, the `lib://`
 /// asset source, and every plugin of the editor but the Editor's own panels.
@@ -174,29 +165,6 @@ fn editor(root: &Path) -> App {
     app.cleanup();
     app.update();
     app
-}
-
-/// Sends Add Asset Folder and returns what came back.
-fn add_folder(app: &mut App, path: &Path, name: &str) -> FolderAdded {
-    app.world_mut().write_message(AddFolder {
-        path: path.to_path_buf(),
-        name: CanonicalName(name.to_owned()),
-    });
-    app.update();
-    let world = app.world_mut();
-    let refused: Vec<FolderRefused> = world
-        .resource_mut::<Messages<FolderRefused>>()
-        .drain()
-        .collect();
-    assert!(
-        refused.is_empty(),
-        "the fixture folder was refused: {refused:?}"
-    );
-    world
-        .resource_mut::<Messages<FolderAdded>>()
-        .drain()
-        .next()
-        .expect("the fixture folder is added")
 }
 
 /// A decoded Export.
@@ -293,7 +261,7 @@ impl Fixture {
         png(&folder, GLASS, UVec2::splat(256), [255, 0, 0, 128]);
         fs::write(folder.join(BROKEN), b"no image here").expect("the broken image");
         let mut app = editor(root.path());
-        let added = add_folder(&mut app, &folder, "Fixtures");
+        let added = support::add_folder(&mut app, &folder, "Fixtures");
         Self {
             root,
             key: added.key,

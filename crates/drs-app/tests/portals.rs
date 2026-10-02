@@ -13,25 +13,22 @@
               geometry asserted on is exact where it is compared exactly"
 )]
 
+mod support;
+
 use bevy::app::App;
 use bevy::ecs::entity::Entity;
-use bevy::ecs::hierarchy::{ChildOf, Children};
+use bevy::ecs::hierarchy::ChildOf;
 use bevy::ecs::message::Messages;
 use bevy::math::{UVec2, Vec2, ops};
-use drs_authoring_manager::AuthoringManagerPlugin;
-use drs_history::{History, HistoryPlugin};
-use drs_library_access::LibraryAccessPlugin;
-use drs_library_manager::LibraryManagerPlugin;
+use drs_history::History;
 use drs_model::{
-    AddFolder, Apply, AssetAddress, AssetReferences, CanonicalName, Colour, CommandFailed,
-    EditElement, EditorDirectories, Element, ElementChange, ElementId, FolderAdded, FolderKey,
-    FreePortal, Gesture, Layer, Level, LinePlace, ModelPlugin, PORTAL, PlaceElement, Placement,
-    Portal, PortalAnchor, PortalsRemoved, Project, Redo, RemoveElement, SetPortalIntoWall, Side,
-    Undo, Wall, WallShape,
+    Apply, AssetAddress, AssetReferences, CanonicalName, Colour, Element, ElementChange, ElementId,
+    FolderKey, FreePortal, Gesture, Layer, Level, LinePlace, PORTAL, PlaceElement, Placement,
+    Portal, PortalAnchor, PortalsRemoved, Project, RemoveElement, SetPortalIntoWall, Side, Wall,
+    WallShape,
 };
-use drs_project_manager::ProjectManagerPlugin;
 use std::f32::consts::FRAC_PI_2;
-use std::path::Path;
+use support::edit;
 use tempfile::TempDir;
 
 /// The place of the door image: 512 by 128 pixels, two cells wide and half a cell tall.
@@ -71,30 +68,10 @@ impl Fixture {
     fn new() -> Self {
         let root = TempDir::new().expect("temporary root");
         let folder = root.path().join("fixtures");
-        std::fs::create_dir_all(&folder).expect("fixture folder");
-        image::RgbaImage::from_pixel(
-            DOOR_PIXELS.x,
-            DOOR_PIXELS.y,
-            image::Rgba([150, 90, 40, 255]),
-        )
-        .save(folder.join(DOOR))
-        .expect("the door image");
-        image::RgbaImage::from_pixel(256, 256, image::Rgba([120, 80, 40, 255]))
-            .save(folder.join(TABLE))
-            .expect("the table image");
-        let mut app = editor(root.path());
-        app.world_mut().write_message(AddFolder {
-            path: folder,
-            name: CanonicalName("Fixtures".to_owned()),
-        });
-        app.update();
-        let key = app
-            .world_mut()
-            .resource_mut::<Messages<FolderAdded>>()
-            .drain()
-            .next()
-            .expect("the fixture folder is added")
-            .key;
+        support::png(&folder, DOOR, DOOR_PIXELS, [150, 90, 40, 255]);
+        support::png(&folder, TABLE, UVec2::splat(256), [120, 80, 40, 255]);
+        let mut app = support::editor(root.path());
+        let key = support::add_folder(&mut app, &folder, "Fixtures").key;
         Self {
             _root: root,
             key,
@@ -104,20 +81,7 @@ impl Fixture {
 
     /// The first Layer of the first Level of the Project.
     fn layer(&mut self) -> Entity {
-        let world = self.app.world_mut();
-        let project = world
-            .query::<(Entity, &Project)>()
-            .single(world)
-            .expect("one Project")
-            .0;
-        let first = |entity: Entity| {
-            world
-                .get::<Children>(entity)
-                .and_then(|children| children.iter().next().copied())
-        };
-        first(project)
-            .and_then(first)
-            .expect("the first Level has a Layer")
+        support::first_layer(&mut self.app)
     }
 
     /// A second Level with a Layer of its own on the Project, returning the Layer.
@@ -156,20 +120,12 @@ impl Fixture {
 
     /// Sends a Command and runs one update, returning the reasons of any failure.
     fn try_apply(&mut self, command: Apply) -> Vec<String> {
-        self.app.world_mut().write_message(command);
-        self.app.update();
-        self.app
-            .world_mut()
-            .resource_mut::<Messages<CommandFailed>>()
-            .drain()
-            .map(|failed| failed.reason)
-            .collect()
+        support::try_apply(&mut self.app, command)
     }
 
     /// Sends a Command and runs one update, failing the test if the Command was refused.
     fn apply(&mut self, command: Apply) {
-        let failed = self.try_apply(command);
-        assert!(failed.is_empty(), "the Command failed: {failed:?}");
+        support::apply(&mut self.app, command);
     }
 
     /// Sends a Command, failing the test unless it is refused with nothing recorded, nothing
@@ -271,19 +227,17 @@ impl Fixture {
 
     /// Sends Undo and runs one update.
     fn undo(&mut self) {
-        self.app.world_mut().write_message(Undo);
-        self.app.update();
+        support::undo(&mut self.app);
     }
 
     /// Sends Redo and runs one update.
     fn redo(&mut self) {
-        self.app.world_mut().write_message(Redo);
-        self.app.update();
+        support::redo(&mut self.app);
     }
 
     /// The history.
     fn history(&self) -> &History {
-        self.app.world().resource::<History>()
+        support::history(&self.app)
     }
 
     /// The answers naming removed Portals since the last call.
@@ -297,36 +251,18 @@ impl Fixture {
 
     /// The identity of the last Element on `layer`.
     fn last_on(&mut self, layer: Entity) -> ElementId {
-        let world = self.app.world_mut();
-        let last = world
-            .get::<Children>(layer)
-            .and_then(|children| children.iter().last().copied())
-            .expect("the Layer has Elements");
-        *world.get::<ElementId>(last).expect("an Element")
+        support::last_on(&mut self.app, layer)
     }
 
     /// The identities on the first Layer, in stacking order.
     fn order(&mut self) -> Vec<ElementId> {
         let layer = self.layer();
-        let world = self.app.world_mut();
-        let children: Vec<Entity> = world
-            .get::<Children>(layer)
-            .map(|children| children.iter().copied().collect())
-            .unwrap_or_default();
-        children
-            .into_iter()
-            .filter_map(|entity| world.get::<ElementId>(entity).copied())
-            .collect()
+        support::order(&mut self.app, layer)
     }
 
     /// The entity of an Element, if one carries the identity.
     fn entity(&mut self, id: ElementId) -> Option<Entity> {
-        let world = self.app.world_mut();
-        world
-            .query::<(Entity, &ElementId)>()
-            .iter(world)
-            .find(|(_, found)| **found == id)
-            .map(|(entity, _)| entity)
+        support::entity(&mut self.app, id)
     }
 
     /// The Portal with an identity.
@@ -379,31 +315,6 @@ impl Fixture {
             .expect("one Project")
             .clone()
     }
-}
-
-/// An Edit Element of `change` to `element` at `gesture`.
-fn edit(element: ElementId, change: ElementChange, gesture: Gesture) -> Apply {
-    Apply::EditElement(EditElement {
-        element,
-        change,
-        gesture,
-    })
-}
-
-/// A headless editor whose configuration and cache directories live under `root`, started once.
-fn editor(root: &Path) -> App {
-    let mut app = App::new();
-    app.insert_resource(EditorDirectories::under(root));
-    app.add_plugins((
-        ModelPlugin,
-        HistoryPlugin,
-        LibraryAccessPlugin,
-        LibraryManagerPlugin,
-        ProjectManagerPlugin,
-        AuthoringManagerPlugin,
-    ));
-    app.update();
-    app
 }
 
 /// The point of the quadratic curve from `start` through `control` to `end` at `t`.

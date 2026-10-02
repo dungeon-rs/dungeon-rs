@@ -6,29 +6,22 @@
 #![expect(
     clippy::missing_panics_doc,
     clippy::expect_used,
-    clippy::disallowed_methods,
     clippy::float_cmp,
     reason = "a test and its fixtures stop at the first thing that is not as expected, and the \
               geometry asserted on is exact"
 )]
 
+mod support;
+
 use bevy::app::App;
 use bevy::ecs::entity::Entity;
 use bevy::ecs::hierarchy::Children;
-use bevy::ecs::message::Messages;
-use bevy::math::Vec2;
-use drs_authoring_manager::AuthoringManagerPlugin;
-use drs_history::{History, HistoryPlugin};
-use drs_library_access::LibraryAccessPlugin;
-use drs_library_manager::LibraryManagerPlugin;
+use bevy::math::{UVec2, Vec2};
+use drs_history::History;
 use drs_model::{
-    AddFolder, Apply, AssetAddress, Bounds, CanonicalName, Colour, CommandFailed, EditElement,
-    EditorDirectories, Element, ElementChange, ElementId, FolderAdded, FolderKey, Gesture, Layer,
-    ModelPlugin, PlaceElement, Placement, Prop, Redo, RemoveElement, Segment, Undo, WALL, Wall,
-    WallShape,
+    Apply, AssetAddress, Bounds, Colour, EditElement, Element, ElementChange, ElementId, FolderKey,
+    Gesture, PlaceElement, Placement, Prop, RemoveElement, Segment, WALL, Wall, WallShape,
 };
-use drs_project_manager::ProjectManagerPlugin;
-use std::path::Path;
 use tempfile::TempDir;
 
 /// The place of the one image in the fixture folder.
@@ -82,23 +75,9 @@ impl Fixture {
     fn new() -> Self {
         let root = TempDir::new().expect("temporary root");
         let folder = root.path().join("fixtures");
-        std::fs::create_dir_all(&folder).expect("fixture folder");
-        image::RgbaImage::from_pixel(256, 256, image::Rgba([120, 80, 40, 255]))
-            .save(folder.join(TABLE))
-            .expect("fixture image");
-        let mut app = editor(root.path());
-        app.world_mut().write_message(AddFolder {
-            path: folder,
-            name: CanonicalName("Fixtures".to_owned()),
-        });
-        app.update();
-        let key = app
-            .world_mut()
-            .resource_mut::<Messages<FolderAdded>>()
-            .drain()
-            .next()
-            .expect("the fixture folder is added")
-            .key;
+        support::png(&folder, TABLE, UVec2::splat(256), [120, 80, 40, 255]);
+        let mut app = support::editor(root.path());
+        let key = support::add_folder(&mut app, &folder, "Fixtures").key;
         Self {
             _root: root,
             key,
@@ -108,30 +87,17 @@ impl Fixture {
 
     /// The one Layer of the new Project.
     fn layer(&mut self) -> Entity {
-        let world = self.app.world_mut();
-        world
-            .query::<(Entity, &Layer)>()
-            .single(world)
-            .expect("exactly one Layer")
-            .0
+        support::first_layer(&mut self.app)
     }
 
     /// Sends a Command and runs one update, returning the reasons of any failure.
     fn try_apply(&mut self, command: Apply) -> Vec<String> {
-        self.app.world_mut().write_message(command);
-        self.app.update();
-        self.app
-            .world_mut()
-            .resource_mut::<Messages<CommandFailed>>()
-            .drain()
-            .map(|failed| failed.reason)
-            .collect()
+        support::try_apply(&mut self.app, command)
     }
 
     /// Sends a Command and runs one update, failing the test if the Command was refused.
     fn apply(&mut self, command: Apply) {
-        let failed = self.try_apply(command);
-        assert!(failed.is_empty(), "the Command failed: {failed:?}");
+        support::apply(&mut self.app, command);
     }
 
     /// The Place Element Command for a Wall through `points`.
@@ -182,28 +148,22 @@ impl Fixture {
 
     /// Changes an Element as part of a gesture.
     fn gesture(&mut self, element: ElementId, change: ElementChange, gesture: Gesture) {
-        self.apply(Apply::EditElement(EditElement {
-            element,
-            change,
-            gesture,
-        }));
+        self.apply(support::edit(element, change, gesture));
     }
 
     /// Sends Undo and runs one update.
     fn undo(&mut self) {
-        self.app.world_mut().write_message(Undo);
-        self.app.update();
+        support::undo(&mut self.app);
     }
 
     /// Sends Redo and runs one update.
     fn redo(&mut self) {
-        self.app.world_mut().write_message(Redo);
-        self.app.update();
+        support::redo(&mut self.app);
     }
 
     /// The history.
     fn history(&self) -> &History {
-        self.app.world().resource::<History>()
+        support::history(&self.app)
     }
 
     /// The Elements on the Layer in stacking order, bottom first.
@@ -243,22 +203,6 @@ impl Fixture {
     fn wall_of(&mut self, id: ElementId) -> Wall {
         self.element(id).wall().clone()
     }
-}
-
-/// A headless editor whose configuration and cache directories live under `root`, started once.
-fn editor(root: &Path) -> App {
-    let mut app = App::new();
-    app.insert_resource(EditorDirectories::under(root));
-    app.add_plugins((
-        ModelPlugin,
-        HistoryPlugin,
-        LibraryAccessPlugin,
-        LibraryManagerPlugin,
-        ProjectManagerPlugin,
-        AuthoringManagerPlugin,
-    ));
-    app.update();
-    app
 }
 
 /// The point of the quadratic curve from `start` through `control` to `end` at `t`.

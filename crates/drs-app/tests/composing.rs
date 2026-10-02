@@ -8,24 +8,22 @@
     reason = "a test and its fixtures stop at the first thing that is not as expected"
 )]
 
+mod support;
+
 use bevy::app::App;
 use bevy::asset::io::AssetSourceId;
 use bevy::ecs::entity::Entity;
 use bevy::ecs::hierarchy::Children;
 use bevy::ecs::message::Messages;
 use bevy::math::{UVec2, Vec2};
-use drs_authoring_manager::AuthoringManagerPlugin;
-use drs_history::{History, HistoryPlugin};
-use drs_library_access::{LIBRARY_SOURCE, LibraryAccessPlugin, asset_path};
-use drs_library_manager::LibraryManagerPlugin;
+use drs_history::History;
+use drs_library_access::{LIBRARY_SOURCE, asset_path};
 use drs_model::{
-    AddFolder, Apply, AssetAddress, AssetFolder, AssetFolderReference, AssetKind, AssetReferences,
-    BrushSettings, CanonicalName, CommandFailed, EditElement, EditorDirectories, Element,
-    ElementChange, ElementId, Fingerprint, FolderAdded, FolderKey, FolderRefused, Gesture, Layer,
-    ModelPlugin, PROP, Paint, PlaceElement, Placement, Prop, Redo, RemoveElement, Resolution,
-    ResolutionTable, Stroke, Undo, Viewport,
+    Apply, AssetAddress, AssetFolder, AssetFolderReference, AssetKind, AssetReferences,
+    BrushSettings, CanonicalName, CommandFailed, EditElement, Element, ElementChange, ElementId,
+    Fingerprint, FolderKey, Gesture, PROP, Paint, PlaceElement, Placement, Prop, RemoveElement,
+    Resolution, ResolutionTable, Stroke, Viewport,
 };
-use drs_project_manager::ProjectManagerPlugin;
 use std::fs;
 use std::path::{Path, PathBuf};
 use tempfile::TempDir;
@@ -63,52 +61,7 @@ const CRATE_PIXELS: UVec2 = UVec2::new(128, 128);
 
 /// Writes an opaque PNG of `size` pixels at `place` under `folder`.
 fn png(folder: &Path, place: &str, size: UVec2) {
-    let path = folder.join(place);
-    if let Some(parent) = path.parent() {
-        fs::create_dir_all(parent).expect("fixture folder");
-    }
-    image::RgbaImage::from_pixel(size.x, size.y, image::Rgba([120, 80, 40, 255]))
-        .save(&path)
-        .expect("fixture image");
-}
-
-/// A headless editor whose configuration and cache directories live under `root`, started once.
-fn editor(root: &Path) -> App {
-    let mut app = App::new();
-    app.insert_resource(EditorDirectories::under(root));
-    app.add_plugins((
-        ModelPlugin,
-        HistoryPlugin,
-        LibraryAccessPlugin,
-        LibraryManagerPlugin,
-        ProjectManagerPlugin,
-        AuthoringManagerPlugin,
-    ));
-    app.update();
-    app
-}
-
-/// Sends Add Asset Folder and returns what came back.
-fn add_folder(app: &mut App, path: &Path, name: &str) -> FolderAdded {
-    app.world_mut().write_message(AddFolder {
-        path: path.to_path_buf(),
-        name: CanonicalName(name.to_owned()),
-    });
-    app.update();
-    let world = app.world_mut();
-    let refused: Vec<FolderRefused> = world
-        .resource_mut::<Messages<FolderRefused>>()
-        .drain()
-        .collect();
-    assert!(
-        refused.is_empty(),
-        "the fixture folder was refused: {refused:?}"
-    );
-    world
-        .resource_mut::<Messages<FolderAdded>>()
-        .drain()
-        .next()
-        .expect("the fixture folder is added")
+    support::png(folder, place, size, [120, 80, 40, 255]);
 }
 
 impl Fixture {
@@ -119,8 +72,8 @@ impl Fixture {
         png(&folder, TABLE, TABLE_PIXELS);
         png(&folder, BARREL, BARREL_PIXELS);
         png(&folder, CRATE, CRATE_PIXELS);
-        let mut app = editor(root.path());
-        let added = add_folder(&mut app, &folder, "Fixtures");
+        let mut app = support::editor(root.path());
+        let added = support::add_folder(&mut app, &folder, "Fixtures");
         Self {
             _root: root,
             folder,
@@ -131,25 +84,12 @@ impl Fixture {
 
     /// The one Layer of the new Project.
     fn layer(&mut self) -> Entity {
-        let world = self.app.world_mut();
-        world
-            .query::<(Entity, &Layer)>()
-            .single(world)
-            .expect("exactly one Layer")
-            .0
+        support::first_layer(&mut self.app)
     }
 
     /// Sends a Command and runs one update, failing the test if the Command was refused.
     fn apply(&mut self, command: Apply) {
-        self.app.world_mut().write_message(command);
-        self.app.update();
-        let failed: Vec<CommandFailed> = self
-            .app
-            .world_mut()
-            .resource_mut::<Messages<CommandFailed>>()
-            .drain()
-            .collect();
-        assert!(failed.is_empty(), "the Command failed: {failed:?}");
+        support::apply(&mut self.app, command);
     }
 
     /// Places a Prop of the Asset at `place` centred on `position`, returning its identity.
@@ -173,11 +113,11 @@ impl Fixture {
 
     /// Moves an Element as part of a gesture.
     fn edit(&mut self, element: ElementId, position: Vec2, gesture: Gesture) {
-        self.apply(Apply::EditElement(EditElement {
+        self.apply(support::edit(
             element,
-            change: ElementChange::Position(position),
+            ElementChange::Position(position),
             gesture,
-        }));
+        ));
     }
 
     /// Removes an Element.
@@ -187,19 +127,17 @@ impl Fixture {
 
     /// Sends Undo and runs one update.
     fn undo(&mut self) {
-        self.app.world_mut().write_message(Undo);
-        self.app.update();
+        support::undo(&mut self.app);
     }
 
     /// Sends Redo and runs one update.
     fn redo(&mut self) {
-        self.app.world_mut().write_message(Redo);
-        self.app.update();
+        support::redo(&mut self.app);
     }
 
     /// The history.
     fn history(&self) -> &History {
-        self.app.world().resource::<History>()
+        support::history(&self.app)
     }
 
     /// The Props on the Layer in stacking order, bottom first.

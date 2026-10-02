@@ -10,29 +10,25 @@
     reason = "a test and its fixtures stop at the first thing that is not as expected"
 )]
 
+mod support;
+
 use bevy::app::App;
 use bevy::ecs::entity::Entity;
 use bevy::ecs::hierarchy::Children;
 use bevy::ecs::message::Messages;
 use bevy::math::{IVec2, UVec2, Vec2};
-use drs_authoring_manager::AuthoringManagerPlugin;
-use drs_history::{History, HistoryPlugin};
-use drs_library_access::{
-    LibraryAccessPlugin, LibraryDirectories, Manifest, asset_path, write_manifest,
-};
-use drs_library_manager::LibraryManagerPlugin;
+use drs_history::History;
+use drs_library_access::{LibraryDirectories, Manifest, asset_path, write_manifest};
 use drs_model::{
-    AddFolder, Apply, AssetAddress, AssetReferences, Bounds, CanonicalName, Colour, CommandFailed,
+    Apply, AssetAddress, AssetReferences, Bounds, CanonicalName, Colour, CommandFailed,
     EditElement, EditorDirectories, Element, ElementChange, ElementId, ElementKindName,
-    ElementKindRegistry, FolderAdded, FolderKey, FolderRefused, FreePortal, Gesture, Grid, Layer,
-    Level, MissingAsset, MissingReason, ModelPlugin, OpenProject, PORTAL, PlaceElement, Placement,
-    Portal, PortalAnchor, Project, ProjectOpened, ProjectRefused, ProjectRequest, ProjectSaved,
-    Prop, Redo, RemoveElement, Resolution, ResolutionTable, SaveProject, SavedMark, Serialisable,
-    SerialisationRegistry, Side, Undo, UnknownComponents, UnknownKind, Viewport, WALL, Wall,
-    WallShape,
+    ElementKindRegistry, FolderKey, FreePortal, Gesture, Grid, Layer, Level, MissingAsset,
+    MissingReason, OpenProject, PORTAL, PlaceElement, Placement, Portal, PortalAnchor, Project,
+    ProjectOpened, ProjectRefused, ProjectRequest, ProjectSaved, Prop, RemoveElement, Resolution,
+    ResolutionTable, SaveProject, SavedMark, Serialisable, SerialisationRegistry, Side,
+    UnknownComponents, UnknownKind, Viewport, WALL, Wall, WallShape,
 };
 use drs_model::{BrushSettings, Paint, Stroke, TERRAIN, Terrain, TerrainCoverage, TileKey};
-use drs_project_manager::ProjectManagerPlugin;
 use serde_json::{Value, json};
 use std::collections::BTreeMap;
 use std::fs;
@@ -59,13 +55,7 @@ const FIXTURES: &str = "Fixtures";
 
 /// Writes an opaque PNG of `size` pixels at `place` under `folder`.
 fn png(folder: &Path, place: &str, size: UVec2) {
-    let path = folder.join(place);
-    if let Some(parent) = path.parent() {
-        fs::create_dir_all(parent).expect("fixture folder");
-    }
-    image::RgbaImage::from_pixel(size.x, size.y, image::Rgba([120, 80, 40, 255]))
-        .save(&path)
-        .expect("fixture image");
+    support::png(folder, place, size, [120, 80, 40, 255]);
 }
 
 /// A folder of images at `root/<name>`, each at its place with its pixel size.
@@ -123,7 +113,7 @@ impl Device {
     /// A device with no Asset Folders, started once.
     fn new() -> Self {
         let root = TempDir::new().expect("temporary root");
-        let app = editor(root.path());
+        let app = support::editor(root.path());
         Self { root, app }
     }
 
@@ -136,7 +126,7 @@ impl Device {
         let mut manifest = Manifest::new(path.to_path_buf(), CanonicalName(name.to_owned()));
         version.clone_into(&mut manifest.version);
         write_manifest(&directories, &manifest).expect("the Manifest is written");
-        let app = editor(root.path());
+        let app = support::editor(root.path());
         Self { root, app }
     }
 
@@ -147,23 +137,7 @@ impl Device {
 
     /// Sends Add Asset Folder and returns the folder's key.
     fn add_folder(&mut self, path: &Path, name: &str) -> FolderKey {
-        self.app.world_mut().write_message(AddFolder {
-            path: path.to_path_buf(),
-            name: CanonicalName(name.to_owned()),
-        });
-        self.app.update();
-        let world = self.app.world_mut();
-        let refused: Vec<FolderRefused> = world
-            .resource_mut::<Messages<FolderRefused>>()
-            .drain()
-            .collect();
-        assert!(refused.is_empty(), "the folder was refused: {refused:?}");
-        world
-            .resource_mut::<Messages<FolderAdded>>()
-            .drain()
-            .next()
-            .expect("the folder is added")
-            .key
+        support::add_folder(&mut self.app, path, name).key
     }
 
     /// The one Layer of the Project.
@@ -207,15 +181,7 @@ impl Device {
 
     /// Sends a Command and runs one update, failing the test if the Command was refused.
     fn apply(&mut self, command: Apply) {
-        self.app.world_mut().write_message(command);
-        self.app.update();
-        let failed: Vec<CommandFailed> = self
-            .app
-            .world_mut()
-            .resource_mut::<Messages<CommandFailed>>()
-            .drain()
-            .collect();
-        assert!(failed.is_empty(), "the Command failed: {failed:?}");
+        support::apply(&mut self.app, command);
     }
 
     /// Places a Wall through `points` and bends each segment that has a control.
@@ -349,14 +315,12 @@ impl Device {
 
     /// Sends Undo and runs one update.
     fn undo(&mut self) {
-        self.app.world_mut().write_message(Undo);
-        self.app.update();
+        support::undo(&mut self.app);
     }
 
     /// Sends Redo and runs one update.
     fn redo(&mut self) {
-        self.app.world_mut().write_message(Redo);
-        self.app.update();
+        support::redo(&mut self.app);
     }
 
     /// Sends Save, to `path` or to the Project's file, and returns what came back.
@@ -511,22 +475,6 @@ impl Device {
             world.query::<&Layer>().iter(world).count(),
         )
     }
-}
-
-/// A headless editor whose configuration and cache directories live under `root`, started once.
-fn editor(root: &Path) -> App {
-    let mut app = App::new();
-    app.insert_resource(EditorDirectories::under(root));
-    app.add_plugins((
-        ModelPlugin,
-        HistoryPlugin,
-        LibraryAccessPlugin,
-        LibraryManagerPlugin,
-        ProjectManagerPlugin,
-        AuthoringManagerPlugin,
-    ));
-    app.update();
-    app
 }
 
 /// The device that saves: the fixture folder added under `Fixtures`, a table placed at
