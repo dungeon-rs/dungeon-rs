@@ -779,47 +779,50 @@ fn a_torn_record_is_skipped() {
 /// is generated again, and nothing crashes.
 #[test]
 fn an_unreadable_cache_starts_afresh() {
-    let root = TempDir::new().expect("temporary root");
-    let maps = folder(root.path(), "maps");
-    for index in 0..3 {
-        image_file(
-            &maps,
-            &format!("tile_{index}.png"),
-            40,
-            40,
-            [40, 90, 160, 255],
+    for damaged in ["thumbnails.index", "thumbnails.pack"] {
+        let root = TempDir::new().expect("temporary root");
+        let maps = folder(root.path(), "maps");
+        for index in 0..3 {
+            image_file(
+                &maps,
+                &format!("tile_{index}.png"),
+                40,
+                40,
+                [40, 90, 160, 255],
+            );
+        }
+        {
+            let mut app = editor(root.path());
+            add(&mut app, &maps, "Maps");
+            settle(&mut app);
+        }
+        fs::write(
+            thumbnail_directory(root.path()).join(damaged),
+            b"not a thumbnail cache at all",
+        )
+        .expect("damage the cache");
+
+        let mut again = editor(root.path());
+
+        assert!(
+            states(&mut again)
+                .iter()
+                .all(|(_, state)| *state == ThumbnailState::Pending),
+            "{damaged}"
         );
+        assert!(
+            again
+                .world_mut()
+                .resource_mut::<Messages<ThumbnailsUnavailable>>()
+                .drain()
+                .next()
+                .is_none(),
+            "a damaged {damaged} is not reported"
+        );
+        assert!(all_ready(&settle(&mut again)), "{damaged}");
+        let decoded = thumbnail(&mut again, "tile_0.png");
+        assert_eq!((decoded.width(), decoded.height()), (40, 40));
     }
-    {
-        let mut app = editor(root.path());
-        add(&mut app, &maps, "Maps");
-        settle(&mut app);
-    }
-    fs::write(
-        thumbnail_directory(root.path()).join("thumbnails.index"),
-        b"not a thumbnail index at all",
-    )
-    .expect("damage the index");
-
-    let mut again = editor(root.path());
-
-    assert!(
-        states(&mut again)
-            .iter()
-            .all(|(_, state)| *state == ThumbnailState::Pending)
-    );
-    assert!(
-        again
-            .world_mut()
-            .resource_mut::<Messages<ThumbnailsUnavailable>>()
-            .drain()
-            .next()
-            .is_none(),
-        "a damaged cache is not reported"
-    );
-    assert!(all_ready(&settle(&mut again)));
-    let decoded = thumbnail(&mut again, "tile_0.png");
-    assert_eq!((decoded.width(), decoded.height()), (40, 40));
 }
 
 /// When the pack cannot be opened or written, the Author is told once, the browser shows
