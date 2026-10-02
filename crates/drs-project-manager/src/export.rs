@@ -19,9 +19,10 @@ use bevy_ecs::message::MessageReader;
 use bevy_ecs::resource::Resource;
 use bevy_ecs::system::SystemState;
 use bevy_ecs::world::World;
-use bevy_math::{UVec2, Vec2};
+use bevy_math::{Rect, UVec2, Vec2};
 use drs_model::{
-    Bounds, ExportLevel, ExportRefused, Level, LevelExported, Terrain, with_extension_if_missing,
+    Bounds, Element, ExportLevel, ExportRefused, Level, LevelExported, Terrain,
+    with_extension_if_missing,
 };
 use drs_output_access::{ImageWriter, OutputError, Tile, begin_image, finish_image, write_tile};
 use drs_paint_engine::rasterize;
@@ -387,16 +388,29 @@ impl Export {
     /// The coverage of every Terrain of the Level that covers something in the tile whose
     /// lower-left corner is `bottom_left`, rasterized over the tile at the Export's resolution.
     ///
-    /// The rasterizer visits only the pixels a stroke may cover, so a tile without Terrain costs
-    /// next to nothing.
+    /// A Terrain whose box misses the tile is passed over without rasterizing, so a tile away
+    /// from every Terrain costs next to nothing.
     fn coverages(&self, world: &World, bottom_left: Vec2) -> Vec<RegionCoverage> {
+        #[expect(
+            clippy::cast_precision_loss,
+            reason = "a tile is far fewer pixels a side than f32 counts exactly"
+        )]
+        let tile = Rect::from_corners(
+            bottom_left,
+            bottom_left + Vec2::splat(self.tile_size as f32 / self.pixels_per_cell as f32),
+        );
         let layers = world.get::<Children>(self.level);
         let terrains = layers
             .into_iter()
             .flat_map(|layers| layers.iter())
             .filter_map(|layer| world.get::<Children>(*layer))
             .flat_map(|elements| elements.iter())
-            .filter_map(|element| Some((*element, world.get::<Terrain>(*element)?)));
+            .filter_map(|element| {
+                let terrain = world.get::<Terrain>(*element)?;
+                let shape = world.get::<Element>(*element)?;
+                let reach = Rect::from_center_size(shape.position, shape.size);
+                (!reach.intersect(tile).is_empty()).then_some((*element, terrain))
+            });
         terrains
             .filter_map(|(element, terrain)| {
                 let pixels = rasterize(
