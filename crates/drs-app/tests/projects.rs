@@ -2130,6 +2130,7 @@ fn a_wall_edit_leaves_a_lost_portal_standing() {
     assert_eq!(portal, before, "anchored as it was saved");
     assert!(!gives_way(&mut saved.device), "no Wall gives way");
 }
+
 /// A Portal whose anchor names no Wall on its Level, its Wall removed by an editor that does not
 /// know Portals, is drawn at its saved position, rotation, and mirroring, is saved back
 /// unchanged, and can be freed.
