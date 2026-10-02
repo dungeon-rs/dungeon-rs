@@ -73,7 +73,7 @@ impl ReversibleCommand for Remove {
 }
 
 /// Remove Element: takes the Element off its Layer as one history step; a Wall takes the
-/// Portals set into it with it, in the same step.
+/// Portals set into it with it, in the same step, and the answer naming them is returned.
 ///
 /// # Errors
 ///
@@ -82,7 +82,7 @@ impl ReversibleCommand for Remove {
 pub(crate) fn remove_element(
     world: &mut World,
     command: &RemoveElement,
-) -> Result<(), AuthoringError> {
+) -> Result<Option<PortalsRemoved>, AuthoringError> {
     let entity = command
         .element
         .entity(world)
@@ -90,7 +90,7 @@ pub(crate) fn remove_element(
     if world.get::<Wall>(entity).is_some() {
         return crate::wall::remove_with_portals(world, command.element);
     }
-    crate::record_step(world, Remove::of(command.element))
+    crate::record_step(world, Remove::of(command.element)).map(|()| None)
 }
 
 impl Remove {

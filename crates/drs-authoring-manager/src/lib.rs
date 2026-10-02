@@ -15,8 +15,8 @@ use bevy_ecs::world::{Mut, World};
 use drs_history::History;
 use drs_library_access::LibraryError;
 use drs_model::{
-    Apply, CanonicalName, CommandFailed, ElementId, FolderKey, HistoryFailed, ManagerSystems, Redo,
-    Undo,
+    Apply, CanonicalName, CommandFailed, ElementId, FolderKey, HistoryFailed, ManagerSystems,
+    PortalsRemoved, Redo, Undo,
 };
 use drs_shape_engine::ShapeError;
 
@@ -98,8 +98,8 @@ pub enum AuthoringError {
     History(String),
 }
 
-/// Handles the [`Apply`], [`Undo`], and [`Redo`] messages, answering what fails with
-/// [`CommandFailed`] or [`HistoryFailed`].
+/// Handles the [`Apply`], [`Undo`], and [`Redo`] messages, answering a Command that removed
+/// Portals with [`PortalsRemoved`] and what fails with [`CommandFailed`] or [`HistoryFailed`].
 pub struct AuthoringManagerPlugin;
 
 impl Plugin for AuthoringManagerPlugin {
@@ -119,18 +119,23 @@ impl Plugin for AuthoringManagerPlugin {
     }
 }
 
-/// Apply: carries an authoring Command out and records it in the history.
+/// Apply: carries an authoring Command out and records it in the history. Returns the answer
+/// naming the Portals the Command removed with the part of a Wall they were set into, when it
+/// removed any.
 ///
 /// # Errors
 ///
 /// The [`AuthoringError`] that applies, in which case nothing is recorded.
-pub(crate) fn apply(world: &mut World, command: &Apply) -> Result<(), AuthoringError> {
+pub(crate) fn apply(
+    world: &mut World,
+    command: &Apply,
+) -> Result<Option<PortalsRemoved>, AuthoringError> {
     match command {
-        Apply::PlaceElement(place) => place::place_element(world, place),
+        Apply::PlaceElement(place) => place::place_element(world, place).map(|()| None),
         Apply::EditElement(edit) => edit::edit_element(world, edit),
         Apply::RemoveElement(remove) => remove::remove_element(world, remove),
-        Apply::SetPortalIntoWall(set) => portal::set_portal_into_wall(world, set),
-        Apply::FreePortal(free) => portal::free_portal(world, free),
+        Apply::SetPortalIntoWall(set) => portal::set_portal_into_wall(world, set).map(|()| None),
+        Apply::FreePortal(free) => portal::free_portal(world, free).map(|()| None),
     }
 }
 
@@ -206,18 +211,25 @@ pub(crate) fn record_step(
         .map_err(|error| AuthoringError::History(error.to_string()))
 }
 
-/// Carries out every [`Apply`] request, answering one that fails with [`CommandFailed`].
+/// Carries out every [`Apply`] request, answering one that removed Portals with
+/// [`PortalsRemoved`] and one that fails with [`CommandFailed`].
 fn handle_apply(world: &mut World, requests: &mut SystemState<MessageReader<Apply>>) {
     let requests: Vec<Apply> = match requests.get_mut(world) {
         Ok(mut reader) => reader.read().cloned().collect(),
         Err(_) => return,
     };
     for command in requests {
-        if let Err(error) = apply(world, &command) {
-            world.write_message(CommandFailed {
-                command,
-                reason: error.to_string(),
-            });
+        match apply(world, &command) {
+            Ok(Some(removed)) => {
+                world.write_message(removed);
+            }
+            Ok(None) => {}
+            Err(error) => {
+                world.write_message(CommandFailed {
+                    command,
+                    reason: error.to_string(),
+                });
+            }
         }
     }
 }

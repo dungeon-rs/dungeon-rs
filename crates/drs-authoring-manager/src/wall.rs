@@ -220,8 +220,8 @@ pub(crate) fn add_point(
 /// one straight segment, and an end point takes its segment with it. A Wall of two points is
 /// removed whole, in a group of its own. The Portals set into the part of the Wall that goes
 /// are removed in the same step, before the point, and the other Portals set into the Wall move
-/// to the segment and parameter that keep them on their part of it; the authoring Manager
-/// answers with [`PortalsRemoved`] when any went.
+/// to the segment and parameter that keep them on their part of it. Returns the answer naming
+/// the Portals that went, when any did.
 ///
 /// # Errors
 ///
@@ -232,7 +232,7 @@ pub(crate) fn remove_point(
     world: &mut World,
     element: ElementId,
     index: usize,
-) -> Result<(), AuthoringError> {
+) -> Result<Option<PortalsRemoved>, AuthoringError> {
     let before = wall_of(world, element)?;
     let points = before.points.len();
     if index >= points {
@@ -271,13 +271,12 @@ pub(crate) fn remove_point(
         },
         moves,
     )?;
-    tell_removed(world, element, gone);
-    Ok(())
+    Ok(removed(element, gone))
 }
 
 /// Removes a Wall and every Portal set into it as one history step, the Portals first, so undo
-/// restores the Wall and then its Portals; the authoring Manager answers with
-/// [`PortalsRemoved`] when any went.
+/// restores the Wall and then its Portals. Returns the answer naming the Portals that went, when
+/// any did.
 ///
 /// # Errors
 ///
@@ -285,7 +284,7 @@ pub(crate) fn remove_point(
 pub(crate) fn remove_with_portals(
     world: &mut World,
     element: ElementId,
-) -> Result<(), AuthoringError> {
+) -> Result<Option<PortalsRemoved>, AuthoringError> {
     let gone: Vec<ElementId> = anchored_to(world, element)
         .0
         .into_iter()
@@ -299,8 +298,7 @@ pub(crate) fn remove_with_portals(
     outcome = outcome.and_then(|()| crate::record(world, Remove::of(element)));
     crate::history(world)?.end_group();
     outcome?;
-    tell_removed(world, element, gone);
-    Ok(())
+    Ok(removed(element, gone))
 }
 
 /// What `AnchorPortals` is told about the Portals set into a Wall.
@@ -369,11 +367,9 @@ fn record_together(
     outcome
 }
 
-/// Tells the Editor which Portals set into `host` a Command removed, when it removed any.
-fn tell_removed(world: &mut World, host: ElementId, portals: Vec<ElementId>) {
-    if !portals.is_empty() {
-        world.write_message(PortalsRemoved { host, portals });
-    }
+/// The answer naming the Portals set into `host` that a Command removed, when it removed any.
+fn removed(host: ElementId, portals: Vec<ElementId>) -> Option<PortalsRemoved> {
+    (!portals.is_empty()).then_some(PortalsRemoved { host, portals })
 }
 
 /// What a Wall's shape was last derived from: its points, segments, and thickness, and where

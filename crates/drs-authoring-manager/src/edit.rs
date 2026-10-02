@@ -5,7 +5,9 @@ use crate::portal::portal_change;
 use crate::wall::{add_point, remove_point, translated, wall_of, well_formed};
 use bevy_ecs::world::World;
 use drs_history::{SetField, Target};
-use drs_model::{EditElement, Element, ElementChange, ElementId, Gesture, Portal, Wall};
+use drs_model::{
+    EditElement, Element, ElementChange, ElementId, Gesture, Portal, PortalsRemoved, Wall,
+};
 
 /// Edit Element: sets the changed property through the generic field command, or adds or
 /// removes a point of a Wall as a step of its own, carrying the Portals set into it.
@@ -25,7 +27,10 @@ use drs_model::{EditElement, Element, ElementChange, ElementId, Gesture, Portal,
 /// finite, [`AuthoringError::FollowsItsWall`] for the position of a Portal set into a Wall, what
 /// a Portal's own changes report, or [`AuthoringError::History`] when the change could not be
 /// recorded.
-pub(crate) fn edit_element(world: &mut World, command: &EditElement) -> Result<(), AuthoringError> {
+pub(crate) fn edit_element(
+    world: &mut World,
+    command: &EditElement,
+) -> Result<Option<PortalsRemoved>, AuthoringError> {
     let id = command.element;
     let entity = id
         .entity(world)
@@ -83,7 +88,9 @@ pub(crate) fn edit_element(world: &mut World, command: &EditElement) -> Result<(
             wall_of(world, id)?;
             SetField::<ElementId>::new::<Wall>(id, "colour", *colour)
         }
-        ElementChange::AddPoint { segment, t } => return add_point(world, id, *segment, *t),
+        ElementChange::AddPoint { segment, t } => {
+            return add_point(world, id, *segment, *t).map(|()| None);
+        }
         ElementChange::RemovePoint { index } => return remove_point(world, id, *index),
         ElementChange::Width(_)
         | ElementChange::Rotation(_)
@@ -105,5 +112,5 @@ pub(crate) fn edit_element(world: &mut World, command: &EditElement) -> Result<(
     if matches!(command.gesture, Gesture::End) {
         crate::history(world)?.end_group();
     }
-    outcome
+    outcome.map(|()| None)
 }
