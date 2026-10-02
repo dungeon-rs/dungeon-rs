@@ -463,7 +463,8 @@ struct Restyle {
 }
 
 /// Brings one Terrain's quads in step with its coverage: a tile whose revision changed is
-/// uploaded again, a new tile gets a quad, and the quads of tiles that are gone are removed.
+/// uploaded again and its Material marked changed, a new tile gets a quad, and the quads of tiles
+/// that are gone are removed.
 fn sync_tiles(
     drawn: &mut TerrainDrawn,
     coverage: &TerrainCoverage,
@@ -479,7 +480,8 @@ fn sync_tiles(
         #[expect(clippy::cast_precision_loss, reason = "a tile is sixteen cells a side")]
         let extent = Vec2::splat(COVERAGE_TILE_CELLS as f32);
         if let Some(mut kept) = tiles.remove(key) {
-            if kept.revision != tile.revision {
+            let replaced = kept.revision != tile.revision;
+            if replaced {
                 let image =
                     coverage_image(&tile.pixels, COVERAGE_TILE_PIXELS, ImageSampler::linear());
                 if assets.images.insert(&kept.coverage, image).is_err() {
@@ -487,10 +489,15 @@ fn sync_tiles(
                 }
                 kept.revision = tile.revision;
             }
-            if change.restyled
-                && let Some(mut material) = assets.materials.get_mut(&kept.material)
+            // The Material's bind group holds the coverage texture it was prepared with, so a
+            // replaced coverage shows only once the Material is marked changed too.
+            if (replaced || change.restyled)
+                && let Some(material) = assets.materials.get_mut(&kept.material)
             {
-                *material = drawn.look.material(origin, extent, kept.coverage.clone());
+                let material = material.into_inner();
+                if change.restyled {
+                    *material = drawn.look.material(origin, extent, kept.coverage.clone());
+                }
             }
             if change.moved
                 && let Ok(mut transform) = transforms.get_mut(kept.entity)
