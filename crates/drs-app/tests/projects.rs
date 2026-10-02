@@ -22,12 +22,13 @@ use drs_library_access::{
 };
 use drs_library_manager::LibraryManagerPlugin;
 use drs_model::{
-    AddFolder, Apply, AssetAddress, AssetReferences, Bounds, CanonicalName, CommandFailed,
-    EditorDirectories, Element, ElementId, ElementKindName, FolderAdded, FolderKey, FolderRefused,
-    Grid, Layer, Level, MissingAsset, MissingReason, ModelPlugin, OpenProject, PlaceElement,
-    Placement, Project, ProjectOpened, ProjectRefused, ProjectRequest, ProjectSaved, Prop, Redo,
-    Resolution, ResolutionTable, SaveProject, SavedMark, Undo, UnknownComponents, UnknownKind,
-    Viewport,
+    AddFolder, Apply, AssetAddress, AssetReferences, Bounds, CanonicalName, Colour, CommandFailed,
+    EditElement, EditorDirectories, Element, ElementChange, ElementId, ElementKindName,
+    ElementKindRegistry, FolderAdded, FolderKey, FolderRefused, Gesture, Grid, Layer, Level,
+    MissingAsset, MissingReason, ModelPlugin, OpenProject, PlaceElement, Placement, Project,
+    ProjectOpened, ProjectRefused, ProjectRequest, ProjectSaved, Prop, Redo, Resolution,
+    ResolutionTable, SaveProject, SavedMark, Serialisable, SerialisationRegistry, Undo,
+    UnknownComponents, UnknownKind, Viewport, WALL, Wall, WallShape,
 };
 use drs_project_manager::ProjectManagerPlugin;
 use serde_json::{Value, json};
@@ -199,6 +200,89 @@ impl Device {
             .last()
             .map(|placed| placed.id)
             .expect("the placed Prop is the last child of the Layer")
+    }
+
+    /// Sends a Command and runs one update, failing the test if the Command was refused.
+    fn apply(&mut self, command: Apply) {
+        self.app.world_mut().write_message(command);
+        self.app.update();
+        let failed: Vec<CommandFailed> = self
+            .app
+            .world_mut()
+            .resource_mut::<Messages<CommandFailed>>()
+            .drain()
+            .collect();
+        assert!(failed.is_empty(), "the Command failed: {failed:?}");
+    }
+
+    /// Places a Wall through `points` and bends each segment that has a control.
+    fn wall(
+        &mut self,
+        points: &[Vec2],
+        controls: &[Option<Vec2>],
+        thickness: f32,
+        colour: Colour,
+    ) -> ElementId {
+        let layer = self.layer();
+        self.apply(Apply::PlaceElement(PlaceElement {
+            layer,
+            placement: Placement::Wall {
+                points: points.to_vec(),
+                thickness,
+                colour,
+            },
+        }));
+        let id = self
+            .elements()
+            .last()
+            .map(|placed| placed.id)
+            .expect("the placed Wall is the last child of the Layer");
+        for (segment, control) in controls.iter().enumerate() {
+            if control.is_some() {
+                self.apply(Apply::EditElement(EditElement {
+                    element: id,
+                    change: ElementChange::Control {
+                        segment,
+                        position: *control,
+                    },
+                    gesture: Gesture::Single,
+                }));
+            }
+        }
+        id
+    }
+
+    /// Every Wall on the Layer in stacking order, with its Element and derived shape.
+    fn walls(&mut self) -> Vec<(ElementId, Element, Wall, Option<WallShape>)> {
+        let layer = self.layer();
+        let world = self.app.world_mut();
+        let children: Vec<Entity> = world
+            .get::<Children>(layer)
+            .map(|children| children.iter().copied().collect())
+            .unwrap_or_default();
+        children
+            .into_iter()
+            .filter_map(|entity| {
+                Some((
+                    *world.get::<ElementId>(entity)?,
+                    world.get::<Element>(entity)?.clone(),
+                    world.get::<Wall>(entity)?.clone(),
+                    world.get::<WallShape>(entity).cloned(),
+                ))
+            })
+            .collect()
+    }
+
+    /// Makes the device an editor that does not know the Wall kind, as an older one would be.
+    fn forget_walls(&mut self) {
+        let world = self.app.world_mut();
+        world.resource_mut::<ElementKindRegistry>().remove(&WALL);
+        assert!(
+            world
+                .resource_mut::<SerialisationRegistry>()
+                .remove(<Wall as Serialisable>::NAME),
+            "the Wall was known"
+        );
     }
 
     /// Sends Undo and runs one update.
@@ -1483,4 +1567,135 @@ fn identity_survives_the_file() {
     let mut third = Device::new();
     third.opens(&copy);
     assert_eq!(third.order(), saved.ids);
+}
+
+/// A device that saved a straight and a curved Wall between the fixture's Props.
+struct SavedWalls {
+    /// The device.
+    device: Device,
+    /// The straight Wall and the curved one.
+    walls: [ElementId; 2],
+    /// The file saved.
+    file: PathBuf,
+}
+
+impl SavedWalls {
+    /// Places the Props of [`Saved`] and two Walls among them, and saves.
+    fn new() -> Self {
+        let mut saved = Saved::new();
+        let straight = saved.device.wall(
+            &[
+                Vec2::new(1.0, 1.0),
+                Vec2::new(6.0, 1.0),
+                Vec2::new(6.0, 4.0),
+            ],
+            &[None, None],
+            0.125,
+            Colour::rgb(60, 60, 60),
+        );
+        let curved = saved.device.wall(
+            &[
+                Vec2::new(-2.0, 0.5),
+                Vec2::new(3.0, -1.25),
+                Vec2::new(8.0, 2.0),
+            ],
+            &[Some(Vec2::new(0.5, 4.0)), None],
+            0.5,
+            Colour::rgb(200, 30, 30),
+        );
+        let file = saved
+            .device
+            .save_as(&saved.device.root().join("walls.dungeon"));
+        Self {
+            device: saved.device,
+            walls: [straight, curved],
+            file,
+        }
+    }
+}
+
+/// A saved Wall holds its points, which segments are curved and their control points, its
+/// thickness, and its colour, and reopens the same.
+#[test]
+fn walls_are_saved_as_their_points() {
+    let mut saved = SavedWalls::new();
+    let walls = saved.device.walls();
+    let order = saved.device.order();
+
+    let written = json(&saved.file);
+    let curved = &written["elements"][saved.walls[1].as_raw().to_string()];
+    assert_eq!(curved["element"]["data"]["kind"], json!("wall"));
+    assert_eq!(
+        curved["wall"],
+        json!({
+            "version": 1,
+            "data": {
+                "points": [[-2.0, 0.5], [3.0, -1.25], [8.0, 2.0]],
+                "segments": [{ "control": [0.5, 4.0] }, { "control": null }],
+                "thickness": 0.5,
+                "colour": { "red": 200, "green": 30, "blue": 30 }
+            }
+        })
+    );
+
+    let mut other = Device::new();
+    other.opens(&saved.file);
+    assert_eq!(other.order(), order);
+    let reopened = other.walls();
+    assert_eq!(reopened, walls);
+    assert!(reopened.iter().all(|(_, _, _, shape)| shape.is_some()));
+
+    let again = other.save_as(&other.root().join("again.dungeon"));
+    assert_eq!(
+        fs::read(&again).expect("the file saved again"),
+        fs::read(&saved.file).expect("the file")
+    );
+}
+
+/// An editor that does not know the Wall kind keeps a saved Wall as a placeholder of its size
+/// and writes it back unchanged.
+#[test]
+fn unknown_walls_round_trip() {
+    let mut saved = SavedWalls::new();
+    let walls = saved.device.walls();
+    let order = saved.device.order();
+    let mut older = Device::new();
+    older.forget_walls();
+
+    let opened = older.opens(&saved.file);
+
+    assert_eq!(older.order(), order);
+    assert!(older.walls().is_empty(), "no Wall is known");
+    for (id, element, _, _) in &walls {
+        let placed = older
+            .elements()
+            .into_iter()
+            .find(|placed| placed.id == *id)
+            .expect("the Wall stays on its Layer");
+        assert_eq!(&placed.element, element, "a placeholder of the Wall's size");
+        assert_eq!(
+            placed
+                .unknown
+                .expect("the Wall is kept")
+                .envelopes
+                .keys()
+                .collect::<Vec<_>>(),
+            vec!["wall"]
+        );
+    }
+    assert_eq!(
+        opened.report.unknown_kinds,
+        vec![UnknownKind {
+            kind: WALL,
+            elements: 2
+        }]
+    );
+
+    let copy = older.save_as(&older.root().join("copy.dungeon"));
+    assert_eq!(
+        fs::read(&copy).expect("the copy"),
+        fs::read(&saved.file).expect("the file")
+    );
+    saved.device.opens(&copy);
+    assert_eq!(saved.device.walls(), walls);
 }
