@@ -2,6 +2,7 @@ mod architecture;
 mod bundle_marker;
 mod documented_features;
 mod engine_events;
+mod guideline_examples;
 mod required_features;
 #[cfg(test)]
 mod testing;
@@ -46,6 +47,9 @@ pub enum Commands {
     /// Validates that the bundle marker names the workspace's version.
     #[clap(name = "bundle-marker")]
     ValidateBundleMarker,
+    /// Validates that every guideline's Example is taken, line by line, from its Exemplar file.
+    #[clap(name = "guideline-examples")]
+    ValidateGuidelineExamples,
 }
 
 fn main() -> Result<()> {
@@ -78,6 +82,7 @@ fn run(command: Commands, metadata: &Metadata) -> Result<Vec<Violation>> {
         Commands::ValidateArchitecture => architecture(metadata)?.check(metadata),
         Commands::ValidateEngineEvents => engine_events::check(&architecture(metadata)?, metadata)?,
         Commands::ValidateBundleMarker => bundle_marker::check(metadata),
+        Commands::ValidateGuidelineExamples => guideline_examples::check(metadata)?,
     })
 }
 

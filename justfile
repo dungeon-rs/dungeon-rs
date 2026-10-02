@@ -4,7 +4,7 @@
 # Run every check the CI will run
 check: format lint typos dependencies workspace commits test msrv docs
 
-# Check the workspace rules: required, documented and propagated features, and the architecture's dependency tables
+# Check the workspace rules: required, documented and propagated features, the architecture's dependency tables, and that guideline examples come from their exemplars
 [working-directory('tools/ci')]
 workspace:
     cargo run all

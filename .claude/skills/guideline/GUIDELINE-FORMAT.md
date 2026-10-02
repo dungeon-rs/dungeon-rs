@@ -38,4 +38,4 @@ docs/guidelines/
 - {optional: mistakes this building block invites}
 ````
 
-The example is an excerpt of the exemplar, so it stays true to code that runs. The standards review flags an example that has drifted from its exemplar.
+The example is an excerpt of the exemplar, so it stays true to code that runs: the `guideline-examples` check of `just workspace` fails when any of its lines, indentation aside, is not in the exemplar in the same order.

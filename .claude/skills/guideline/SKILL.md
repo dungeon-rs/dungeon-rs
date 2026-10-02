@@ -20,7 +20,7 @@ Invoke it as `/guideline <building block>`.
 - **Extracted, not invented.** A guideline describes code that exists and works; write it from that code.
 - **How, never what or why.** Don't restate architecture rules (link to `docs/architecture/ARCHITECTURE.md`), behaviour (specs), or domain meaning (`docs/domain/`).
 - **Current state.** A guideline changes in the same commit as the pattern it describes. No history.
-- **Examples are real.** An example is a trimmed excerpt of the exemplar, so it stays true to code that runs. The standards review flags an example that has drifted from its exemplar.
+- **Examples are real.** An example is a trimmed excerpt of the exemplar, so it stays true to code that runs: lines may be left out, never changed or reordered. The `guideline-examples` check of `just workspace` fails when a line of the example, indentation aside, is not in the exemplar in that order.
 
 ## Write
 
