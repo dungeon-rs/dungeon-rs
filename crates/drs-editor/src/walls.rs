@@ -196,9 +196,21 @@ pub(crate) fn draw_click(
     }
 }
 
-/// Where along a Wall's line the point nearest `cells` lies: its distance in cells, the segment,
-/// and the parameter along the segment, interpolated along the nearest chord.
-pub(crate) fn nearest_on_line(shape: &WallShape, cells: Vec2) -> Option<(f32, usize, f32)> {
+/// The point of a Wall's line nearest a point in cells.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub(crate) struct NearestPoint {
+    /// How far it is from the point, in cells.
+    pub distance: f32,
+    /// Where along the line it lies, interpolated along the nearest chord.
+    pub place: LinePlace,
+    /// The point itself, in cells.
+    pub at: Vec2,
+    /// The unit direction of the chord it lies on.
+    pub along: Vec2,
+}
+
+/// The point of a Wall's flattened line nearest `cells`.
+pub(crate) fn nearest_on_line(shape: &WallShape, cells: Vec2) -> Option<NearestPoint> {
     shape
         .line
         .windows(2)
@@ -215,10 +227,18 @@ pub(crate) fn nearest_on_line(shape: &WallShape, cells: Vec2) -> Option<(f32, us
             } else {
                 1.0
             };
-            let distance = cells.distance(from.position + along * s);
-            (distance, from.segment, from.t + (end - from.t) * s)
+            let at = from.position + along * s;
+            NearestPoint {
+                distance: cells.distance(at),
+                place: LinePlace {
+                    segment: from.segment,
+                    t: from.t + (end - from.t) * s,
+                },
+                at,
+                along: along.normalize_or_zero(),
+            }
         })
-        .min_by(|a, b| a.0.total_cmp(&b.0))
+        .min_by(|a, b| a.distance.total_cmp(&b.distance))
 }
 
 /// Whether a point in cells is on a Wall: no farther from its line than half its thickness or
@@ -226,9 +246,12 @@ pub(crate) fn nearest_on_line(shape: &WallShape, cells: Vec2) -> Option<(f32, us
 /// a Portal covers.
 pub(crate) fn on_wall(wall: &Wall, shape: &WallShape, cells: Vec2, zoom: f32) -> bool {
     let reach = (wall.thickness / 2.0).max(LINE_PIXELS / zoom);
-    nearest_on_line(shape, cells).is_some_and(|(distance, segment, t)| {
-        let place = LinePlace { segment, t };
-        distance <= reach && !shape.stretches.iter().any(|stretch| stretch.covers(place))
+    nearest_on_line(shape, cells).is_some_and(|nearest| {
+        nearest.distance <= reach
+            && !shape
+                .stretches
+                .iter()
+                .any(|stretch| stretch.covers(nearest.place))
     })
 }
 
@@ -286,13 +309,16 @@ pub(crate) fn press_selected(
         )
         && let Some(shape) = shape
         && on_wall(wall, shape, cells, viewport.zoom)
-        && let Some((_, segment, t)) = nearest_on_line(shape, cells)
+        && let Some(nearest) = nearest_on_line(shape, cells)
     {
         apply.write(Apply::EditElement(EditElement {
             element,
             change: ElementChange::AddPoint {
-                segment,
-                t: t.clamp(NEAREST_TO_AN_END, 1.0 - NEAREST_TO_AN_END),
+                segment: nearest.place.segment,
+                t: nearest
+                    .place
+                    .t
+                    .clamp(NEAREST_TO_AN_END, 1.0 - NEAREST_TO_AN_END),
             },
             gesture: Gesture::Single,
         }));

@@ -8,7 +8,7 @@
 
 use crate::state::{EditorState, Interaction, Tool};
 use crate::viewport::LevelView;
-use crate::walls::OptionGesture;
+use crate::walls::{NearestPoint, OptionGesture, nearest_on_line};
 use bevy::color::Color;
 use bevy::ecs::entity::Entity;
 use bevy::ecs::message::MessageWriter;
@@ -18,9 +18,8 @@ use bevy::gizmos::gizmos::Gizmos;
 use bevy::math::{Isometry2d, Rot2, Vec2, ops};
 use bevy::window::{PrimaryWindow, Window};
 use drs_model::{
-    Apply, EditElement, Element, ElementChange, ElementId, FreePortal, Gesture, LinePlace,
-    PlaceElement, Placement, Portal, PortalAnchor, SetPortalIntoWall, Side, Viewport, Wall,
-    WallShape,
+    Apply, EditElement, Element, ElementChange, ElementId, FreePortal, Gesture, PlaceElement,
+    Placement, Portal, PortalAnchor, SetPortalIntoWall, Side, Viewport, Wall, WallShape,
 };
 
 /// How far from a Wall's line, in cells, the Portal tool reaches it however thin the Wall: half a
@@ -68,39 +67,6 @@ pub(crate) struct Snap {
     pub thickness: f32,
 }
 
-/// The nearest point on a Wall's flattened line to `cells`: its distance, the place along the
-/// line, interpolated along the nearest chord, the point, and the chord's unit direction.
-pub(crate) fn nearest(shape: &WallShape, cells: Vec2) -> Option<(f32, LinePlace, Vec2, Vec2)> {
-    shape
-        .line
-        .windows(2)
-        .map(|pair| {
-            let (from, to) = (pair[0], pair[1]);
-            let along = to.position - from.position;
-            let s = if along.length_squared() > 0.0 {
-                ((cells - from.position).dot(along) / along.length_squared()).clamp(0.0, 1.0)
-            } else {
-                0.0
-            };
-            let end = if to.segment == from.segment {
-                to.t
-            } else {
-                1.0
-            };
-            let point = from.position + along * s;
-            (
-                cells.distance(point),
-                LinePlace {
-                    segment: from.segment,
-                    t: from.t + (end - from.t) * s,
-                },
-                point,
-                along.normalize_or_zero(),
-            )
-        })
-        .min_by(|a, b| a.0.total_cmp(&b.0))
-}
-
 /// The side of a chord running along `along` through `at` that `cells` lies on.
 fn side_of(along: Vec2, at: Vec2, cells: Vec2) -> Side {
     if along.perp_dot(cells - at) >= 0.0 {
@@ -120,7 +86,13 @@ pub(crate) fn snap<'a>(
 ) -> Option<Snap> {
     let mut best: Option<Snap> = None;
     for (host, wall, shape) in walls {
-        let Some((distance, place, at, along)) = nearest(shape, cells) else {
+        let Some(NearestPoint {
+            distance,
+            place,
+            at,
+            along,
+        }) = nearest_on_line(shape, cells)
+        else {
             continue;
         };
         if distance > HALF_A_CELL.max(wall.thickness / 2.0) {
@@ -201,7 +173,7 @@ pub(crate) fn slide(
     cells: Vec2,
     gesture: Gesture,
 ) -> Option<Apply> {
-    let (_, place, ..) = nearest(shape, cells)?;
+    let place = nearest_on_line(shape, cells)?.place;
     Some(Apply::EditElement(EditElement {
         element,
         change: ElementChange::Along {
