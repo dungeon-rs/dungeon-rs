@@ -19,13 +19,28 @@ mod window;
 
 use bevy::app::{App, Plugin, Startup, Update};
 use bevy::ecs::schedule::IntoScheduleConfigs;
+use bevy::window::{Window, WindowPlugin};
 use bevy_egui::{EguiPlugin, EguiPrimaryContextPass};
 use drs_diagnostics::Started;
 
-/// The egui interface: the panels, the menu, the dialogs, and the viewport's interaction.
-///
-/// The Host must build its `WindowPlugin` with `close_when_requested` off: the Editor answers
-/// the window's close request itself, asking about unsaved changes before it quits.
+/// The window the Editor runs in, for the Host to `set` on Bevy's default plugins: it is not
+/// closed on request, because the Editor answers the window's close request itself, asking
+/// about unsaved changes before it quits, and it carries the editor's name until a Project
+/// names it.
+#[must_use]
+pub fn window_plugin() -> WindowPlugin {
+    WindowPlugin {
+        primary_window: Some(Window {
+            title: window::EDITOR.to_owned(),
+            ..Window::default()
+        }),
+        close_when_requested: false,
+        ..WindowPlugin::default()
+    }
+}
+
+/// The egui interface: the panels, the menu, the dialogs, and the viewport's interaction, in
+/// the window [`window_plugin`] describes.
 pub struct EditorPlugin {
     /// What the diagnostics Utility set up and found at start.
     started: Started,

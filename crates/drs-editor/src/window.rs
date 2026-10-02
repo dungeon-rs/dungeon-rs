@@ -10,8 +10,8 @@ use bevy::window::{PrimaryWindow, Window, WindowCloseRequested};
 use drs_history::History;
 use drs_model::SavedMark;
 
-/// The editor's name, after the Project's in the title.
-const EDITOR: &str = "DungeonRS";
+/// The editor's name: the title until a Project names it, and after the Project's name then.
+pub(crate) const EDITOR: &str = "DungeonRS";
 /// What precedes the Project's name while it has unsaved changes.
 const UNSAVED: &str = "• ";
 

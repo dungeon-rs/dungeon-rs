@@ -4,10 +4,9 @@ use bevy::DefaultPlugins;
 use bevy::app::{App, AppExit, PluginGroup};
 use bevy::asset::{AssetMetaCheck, AssetPlugin};
 use bevy::log::LogPlugin;
-use bevy::window::{Window, WindowPlugin};
 use drs_authoring_manager::AuthoringManagerPlugin;
 use drs_diagnostics::{CrashHandler, LogDirectives, Product};
-use drs_editor::EditorPlugin;
+use drs_editor::{EditorPlugin, window_plugin};
 use drs_history::HistoryPlugin;
 use drs_library_access::{LibraryAccessPlugin, register_library_source};
 use drs_library_manager::LibraryManagerPlugin;
@@ -30,7 +29,7 @@ const PRODUCT: Product = Product {
 /// `RUST_LOG` is laid over both; then the Bundled Files, which the default asset source is
 /// rooted at. The `lib://` asset source is registered before Bevy's `AssetPlugin` builds, since
 /// sources freeze then, and `.meta` lookups are off because Asset Folders never hold them. The
-/// window is not closed on request: the Editor answers the request, asking about unsaved changes.
+/// window is the one the Editor describes, so what the Editor needs of it holds by construction.
 fn main() -> AppExit {
     let directories = directories();
     let logs = drs_diagnostics::log_directory(directories.resolve().ok().map(|found| found.logs));
@@ -59,14 +58,7 @@ fn main() -> AppExit {
                 meta_check: AssetMetaCheck::Never,
                 ..AssetPlugin::default()
             })
-            .set(WindowPlugin {
-                primary_window: Some(Window {
-                    title: PRODUCT.name.to_owned(),
-                    ..Window::default()
-                }),
-                close_when_requested: false,
-                ..WindowPlugin::default()
-            }),
+            .set(window_plugin()),
     );
     app.add_plugins((
         ModelPlugin,
