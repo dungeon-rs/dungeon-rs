@@ -34,8 +34,11 @@ const DOUBLE_CLICK_PIXELS: f32 = 5.0;
 const HANDLE_PIXELS: f32 = 6.0;
 /// How close to a Wall's line, in screen pixels, the pointer is on it however thin the Wall.
 const LINE_PIXELS: f32 = 4.0;
-/// The thinnest and the thickest Wall the options offer, in cells.
-const THICKNESS_RANGE: std::ops::RangeInclusive<f32> = 0.01..=16.0;
+/// The thinnest Wall a drag of the thickness reaches, in cells; a typed thickness is sent as
+/// typed, so one not above zero is refused with the reason.
+const THINNEST_DRAGGED: f32 = 0.01;
+/// The thickest Wall the options offer, dragged or typed, in cells.
+const THICKEST: f32 = 16.0;
 /// How wide a control point's square is drawn, against a point's radius.
 const CONTROL_SIDE: f32 = 1.6;
 /// How opaque the guide lines from a control point to its segment's points are drawn.
@@ -458,14 +461,19 @@ fn options(
             (wall.thickness, wall.colour)
         });
     ui.label("Thickness");
+    // The range has no lower end, as egui clamps typed values into it too: a drag is kept above
+    // zero here instead.
     let drag = ui.add(
         egui::DragValue::new(&mut thickness)
-            .range(THICKNESS_RANGE)
+            .range(f32::NEG_INFINITY..=THICKEST)
             .speed(0.005)
             .max_decimals(3)
             .suffix(" cells")
             .update_while_editing(false),
     );
+    if drag.dragged() {
+        thickness = thickness.max(THINNEST_DRAGGED);
+    }
     ui.label("Colour");
     // The colour button's popup takes the id the button's own next id is salted with.
     let popup = ui.auto_id_with("popup");
@@ -475,7 +483,10 @@ fn options(
     let picked = Colour::rgb(channels[0], channels[1], channels[2]);
 
     let Some((element, wall)) = selected else {
-        state.walls.thickness = thickness;
+        // A thickness no Wall could have leaves the next Wall's as it was.
+        if thickness > 0.0 && thickness.is_finite() {
+            state.walls.thickness = thickness;
+        }
         state.walls.colour = picked;
         end_option(&mut state.walls.option, apply);
         return;
