@@ -110,6 +110,9 @@ fn matched_by_part_of_a_name() {
             "barrels/Crate.png",
             "Straße.png",
             "Table.png",
+            // A capital `Ϊ`, written composed, and a combining acute: it has no composed form,
+            // and folds to a small `ϊ` and the acute, which compose to `ΐ`.
+            "Ϊ\u{301}_Rune.png",
         ],
     );
 
@@ -117,6 +120,9 @@ fn matched_by_part_of_a_name() {
     assert_eq!(places("RRE", &props), vec!["Old_BARREL.png"]);
     assert_eq!(places("STRASSE", &props), vec!["Straße.png"]);
     assert_eq!(places("straße", &props), vec!["Straße.png"]);
+    // `ΐ` is written composed; it folds to a small iota and two combining marks.
+    assert_eq!(places("ΐ", &props), vec!["Ϊ\u{301}_Rune.png"]);
+    assert_eq!(places("ι\u{308}\u{301}", &props), vec!["Ϊ\u{301}_Rune.png"]);
     assert!(
         places("png", &props).is_empty(),
         "the extension is not part of the name"
