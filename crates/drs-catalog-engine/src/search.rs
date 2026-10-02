@@ -1,12 +1,12 @@
 //! Search: the Assets of every Asset Folder whose name, or path in the library, holds every word
 //! of a text, ranked by whether the words begin words of the name.
 
+use crate::fold::fold;
 use drs_model::{CanonicalName, IndexedAsset};
 use memchr::memmem::Finder;
 use std::cmp::Ordering;
 use std::path::Path;
 use std::sync::atomic::{AtomicU64, Ordering as AtomicOrdering};
-use unicode_normalization::UnicodeNormalization;
 
 /// The identity of the next search built; an empty search made by `Default` has the identity
 /// zero, which no built one has.
@@ -14,15 +14,6 @@ static BUILT: AtomicU64 = AtomicU64::new(1);
 
 /// The byte that ends every row of a [`Rows`] text: no name, path, or word holds it.
 const END: u8 = 0;
-
-/// Text as searched: Unicode-normalised (NFC) and then fully case-folded, so that `Straße` and
-/// `STRASSE` compare equal where lower-casing would not.
-fn fold(text: &str) -> String {
-    if text.is_ascii() {
-        return text.to_ascii_lowercase();
-    }
-    caseless::default_case_fold_str(&text.nfc().collect::<String>())
-}
 
 /// One text per row, laid out back to back in one contiguous buffer, each followed by [`END`],
 /// so that a substring scan runs over the whole buffer at once.

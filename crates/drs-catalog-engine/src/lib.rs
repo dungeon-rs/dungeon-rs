@@ -1,5 +1,6 @@
 #![doc = include_str!("../README.md")]
 
+mod fold;
 mod resolve;
 mod search;
 

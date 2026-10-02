@@ -1,5 +1,6 @@
 //! Resolve: which Asset on this device an Asset Reference means.
 
+use crate::fold::fold;
 use drs_model::{AssetFolder, AssetReference, CanonicalName, MissingReason, Resolution};
 use unicode_normalization::UnicodeNormalization;
 
@@ -18,12 +19,6 @@ pub fn same_name(a: &CanonicalName, b: &CanonicalName) -> bool {
 /// A place in its stored form: Unicode-normalised.
 fn normalised(place: &str) -> String {
     place.nfc().collect()
-}
-
-/// A place as compared ignoring letter case and Unicode normalisation: normalised, then fully
-/// case-folded, so that `Straße` and `STRASSE` compare equal where lower-casing would not.
-fn folded_place(place: &str) -> String {
-    caseless::default_case_fold_str(&normalised(place))
 }
 
 /// Resolve: the Asset on this device that `reference` means, among `folders`, the Asset Folders
@@ -55,7 +50,7 @@ pub fn resolve<'a>(
         place: place.to_owned(),
     };
 
-    let steps: [fn(&str) -> String; 2] = [normalised, folded_place];
+    let steps: [fn(&str) -> String; 2] = [normalised, fold];
     for compared in steps {
         for known in &reference.places {
             let wanted = compared(known);
