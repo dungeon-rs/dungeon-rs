@@ -5,6 +5,7 @@
 - [Derived model component](./derived-model-component.md): use when a Client or an Engine needs a value computed from the model by an Engine it may not depend on.
 - [Development switch](./development-switch.md): use when adding a switch the editor needs only for development or autonomous verification.
 - [Editor modal dialog](./editor-modal-dialog.md): use when the Editor asks or tells the Author something that must be answered before the window is used again.
+- [Edit that carries anchored Elements](./edit-carrying-anchored-elements.md): use when an authoring Command renumbers or removes what other Elements are anchored to.
 - [Element kind](./element-kind.md): use when the editor gains a new kind of Element.
 - [Failure shown in the status line](./status-line-failure.md): use when the Editor learns of a failure the Author must see without a modal.
 - [Headless seam test](./headless-seam-test.md): use when writing a test at a Manager seam.
