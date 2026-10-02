@@ -47,7 +47,7 @@ pub enum ExportError {
     NotALevel,
     /// The Level belongs to no Project, so there are no Bounds to export.
     #[error("the Level belongs to no Project")]
-    NoProject,
+    LevelWithoutProject,
     /// The Bounds at the resolution make an image whose pixel size cannot be counted.
     #[error(
         "the Bounds of {width} by {height} cells at {pixels_per_cell} pixels per cell are too large to export"
@@ -187,7 +187,7 @@ fn begin(world: &mut World, request: &ExportLevel) -> Result<Export, ProjectMana
         .map(ChildOf::parent)
         .and_then(|project| world.get::<Bounds>(project))
         .copied()
-        .ok_or(ExportError::NoProject)?;
+        .ok_or(ExportError::LevelWithoutProject)?;
     let too_large = || ExportError::TooLarge {
         width: bounds.size.x,
         height: bounds.size.y,
