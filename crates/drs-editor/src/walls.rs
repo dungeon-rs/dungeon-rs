@@ -1,13 +1,14 @@
-//! The Wall tool and the handles of a selected Wall: the tool strip over the viewport with its
-//! options, the Wall being drawn, picking a Wall by its line outside the stretches its Portals
-//! cover, and its points, control points, and segment middles as handles.
+//! The Wall tool and the handles of a selected Wall or Room: the tool strip over the viewport
+//! with its options, the Wall being drawn, picking a Wall or a Room's Walls by its line outside
+//! the stretches its Portals cover, and the points, control points, and segment or edge middles
+//! of either as handles.
 //!
 //! The Wall being drawn is the Editor's own state until it is finished, when it becomes one
 //! Place Element; every change to a placed Wall is an Edit Element.
 
-use crate::portals;
 use crate::state::{EditorState, Tool};
 use crate::viewport::LevelView;
+use crate::{portals, rooms};
 use bevy::color::{Alpha, Color};
 use bevy::ecs::entity::Entity;
 use bevy::ecs::message::MessageWriter;
@@ -19,28 +20,28 @@ use bevy::window::{PrimaryWindow, Window};
 use bevy_egui::EguiContexts;
 use drs_model::{
     Apply, Colour, EditElement, ElementChange, ElementId, Gesture, LinePlace, PlaceElement,
-    Placement, Viewport, Wall, WallShape,
+    Placement, Room, Viewport, Wall, WallShape,
 };
 
 /// The thickness the first Wall is drawn with: an eighth of a cell.
-const DEFAULT_THICKNESS: f32 = 0.125;
+pub(crate) const DEFAULT_THICKNESS: f32 = 0.125;
 /// The colour the first Wall is drawn with: a dark grey.
-const DEFAULT_COLOUR: Colour = Colour::rgb(64, 64, 64);
+pub(crate) const DEFAULT_COLOUR: Colour = Colour::rgb(64, 64, 64);
 /// How close to the last point, in screen pixels, a click adds no point.
-const NEAR_THE_LAST: f32 = 4.0;
+pub(crate) const NEAR_THE_LAST: f32 = 4.0;
 /// How soon after a click, in seconds, a second click is a double-click.
 const DOUBLE_CLICK_SECONDS: f64 = 0.5;
 /// How close to a click, in screen pixels, a second click is a double-click.
 const DOUBLE_CLICK_PIXELS: f32 = 5.0;
 /// How close to a handle, in screen pixels, the pointer is on it; the size handles are drawn at.
-const HANDLE_PIXELS: f32 = 6.0;
+pub(crate) const HANDLE_PIXELS: f32 = 6.0;
 /// How close to a Wall's line, in screen pixels, the pointer is on it however thin the Wall.
 const LINE_PIXELS: f32 = 4.0;
 /// The thinnest Wall a drag of the thickness reaches, in cells; a typed thickness is sent as
 /// typed, so one not above zero is refused with the reason.
-const THINNEST_DRAGGED: f32 = 0.01;
+pub(crate) const THINNEST_DRAGGED: f32 = 0.01;
 /// The thickest Wall the options offer, dragged or typed, in cells.
-const THICKEST: f32 = 16.0;
+pub(crate) const THICKEST: f32 = 16.0;
 /// How wide a control point's square is drawn, against a point's radius.
 const CONTROL_SIDE: f32 = 1.6;
 /// How opaque the guide lines from a control point to its segment's points are drawn.
@@ -49,19 +50,72 @@ const GUIDE_ALPHA: f32 = 0.5;
 /// parameter along it: a segment is split strictly between its points, never at one.
 const NEAREST_TO_AN_END: f32 = 0.001;
 /// The colour of the handles and the guide lines.
-const HANDLES: Color = Color::srgb(0.35, 0.75, 1.0);
+pub(crate) const HANDLES: Color = Color::srgb(0.35, 0.75, 1.0);
 /// The colour of the selected handle.
 const PICKED: Color = Color::srgb(1.0, 0.85, 0.2);
 
-/// A handle of the selected Wall.
+/// A handle of the selected Wall or Room.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum WallHandle {
     /// The point of that number.
     Point(usize),
-    /// The control point of the curved segment of that number.
+    /// The control point of the curved segment or edge of that number.
     Control(usize),
-    /// The middle of the straight segment of that number, which a drag bends.
+    /// The middle of the straight segment or edge of that number, which a drag bends.
     Middle(usize),
+}
+
+/// A Wall or a Room as its handles and its line are seen: its points, one control point or none
+/// per segment or edge, whether its line closes from the last point back to the first, and how
+/// thick it is drawn.
+#[derive(Debug, Clone, PartialEq)]
+pub(crate) struct Outline<'a> {
+    /// The points, in order.
+    pub points: &'a [Vec2],
+    /// The control point of each segment or edge, or `None` for a straight one.
+    pub controls: Vec<Option<Vec2>>,
+    /// Whether the last edge runs from the last point back to the first, as a Room's does.
+    pub closed: bool,
+    /// How thick it is drawn, in cells.
+    pub thickness: f32,
+}
+
+impl<'a> Outline<'a> {
+    /// A Wall's outline: open, a segment between each point and the next.
+    pub(crate) fn of_wall(wall: &'a Wall) -> Self {
+        Self {
+            points: &wall.points,
+            controls: wall
+                .segments
+                .iter()
+                .map(|segment| segment.control)
+                .collect(),
+            closed: false,
+            thickness: wall.thickness,
+        }
+    }
+
+    /// A Room's outline: closed, an edge from each point to the next and from the last back to
+    /// the first.
+    pub(crate) fn of_room(room: &'a Room) -> Self {
+        Self {
+            points: &room.points,
+            controls: room.edges.iter().map(|edge| edge.control).collect(),
+            closed: true,
+            thickness: room.thickness,
+        }
+    }
+
+    /// The two points the segment or edge `part` runs between, if it has one.
+    pub(crate) fn ends(&self, part: usize) -> Option<(Vec2, Vec2)> {
+        let start = *self.points.get(part)?;
+        let next = if self.closed && part + 1 == self.points.len() {
+            0
+        } else {
+            part + 1
+        };
+        Some((start, *self.points.get(next)?))
+    }
 }
 
 /// An option of the tool strip being changed as one gesture on the Element it shows.
@@ -133,20 +187,24 @@ impl WallTool {
     }
 }
 
-/// Chooses the Wall tool: the Paint tool is left, discarding a stroke being drawn, and the
-/// chosen Asset and the selection are dropped.
+/// Chooses the Wall tool: the Paint tool is left, discarding a stroke being drawn, the Room tool
+/// is left, discarding an outline being drawn, and the chosen Asset and the selection are
+/// dropped.
 pub(crate) fn choose_wall_tool(state: &mut EditorState) {
     crate::paint::discard_stroke(state);
     state.chosen = None;
     state.selected = None;
     state.walls.handle = None;
+    state.rooms.drawing.clear();
     state.tool = Tool::Wall;
 }
 
-/// Goes back to the Select tool from the Wall or the Portal tool, discarding a Wall being drawn.
+/// Goes back to the Select tool from the Wall, the Portal, or the Room tool, discarding a Wall or
+/// an outline being drawn.
 pub(crate) fn leave_tool(state: &mut EditorState) {
     state.tool = Tool::Select;
     state.walls.drawing.clear();
+    state.rooms.drawing.clear();
 }
 
 /// Finishes the Wall being drawn: two or more points are sent as one Place Element on `layer`;
@@ -243,11 +301,11 @@ pub(crate) fn nearest_on_line(shape: &WallShape, cells: Vec2) -> Option<NearestP
         .min_by(|a, b| a.distance.total_cmp(&b.distance))
 }
 
-/// Whether a point in cells is on a Wall: no farther from its line than half its thickness or
-/// four screen pixels, whichever is more, where the nearest point of the line lies in no stretch
-/// a Portal covers.
-pub(crate) fn on_wall(wall: &Wall, shape: &WallShape, cells: Vec2, zoom: f32) -> bool {
-    let reach = (wall.thickness / 2.0).max(LINE_PIXELS / zoom);
+/// Whether a point in cells is on a Wall, or on a Room's Walls, `thickness` thick: no farther
+/// from its line than half the thickness or four screen pixels, whichever is more, where the
+/// nearest point of the line lies in no stretch a Portal covers.
+pub(crate) fn on_wall(thickness: f32, shape: &WallShape, cells: Vec2, zoom: f32) -> bool {
+    let reach = (thickness / 2.0).max(LINE_PIXELS / zoom);
     nearest_on_line(shape, cells).is_some_and(|nearest| {
         nearest.distance <= reach
             && !shape
@@ -257,60 +315,62 @@ pub(crate) fn on_wall(wall: &Wall, shape: &WallShape, cells: Vec2, zoom: f32) ->
     })
 }
 
-/// The handles of a Wall in the order they are hit: its points, then its control points, then
-/// the middles of its straight segments.
-fn handles(wall: &Wall) -> Vec<(WallHandle, Vec2)> {
-    let points = wall
+/// The handles of a Wall or a Room in the order they are hit: its points, then its control
+/// points, then the middles of its straight segments or edges, the closing edge's included.
+pub(crate) fn handles(outline: &Outline) -> Vec<(WallHandle, Vec2)> {
+    let points = outline
         .points
         .iter()
         .enumerate()
         .map(|(index, point)| (WallHandle::Point(index), *point));
-    let controls = wall
-        .segments
+    let controls = outline
+        .controls
         .iter()
         .enumerate()
-        .filter_map(|(index, segment)| Some((WallHandle::Control(index), segment.control?)));
-    let middles = wall
-        .segments
+        .filter_map(|(index, control)| Some((WallHandle::Control(index), (*control)?)));
+    let middles = outline
+        .controls
         .iter()
-        .zip(wall.points.windows(2))
         .enumerate()
-        .filter(|(_, (segment, _))| segment.control.is_none())
-        .map(|(index, (_, ends))| (WallHandle::Middle(index), ends[0].midpoint(ends[1])));
+        .filter(|(_, control)| control.is_none())
+        .filter_map(|(index, _)| {
+            let (start, end) = outline.ends(index)?;
+            Some((WallHandle::Middle(index), start.midpoint(end)))
+        });
     points.chain(controls).chain(middles).collect()
 }
 
-/// The first handle of a Wall within a handle's reach of a point in cells.
-fn handle_at(wall: &Wall, cells: Vec2, zoom: f32) -> Option<(WallHandle, Vec2)> {
-    handles(wall)
+/// The first handle of a Wall or a Room within a handle's reach of a point in cells.
+fn handle_at(outline: &Outline, cells: Vec2, zoom: f32) -> Option<(WallHandle, Vec2)> {
+    handles(outline)
         .into_iter()
         .find(|(_, at)| at.distance(cells) * zoom <= HANDLE_PIXELS)
 }
 
-/// A left press with the Select tool on the selected Wall, which is hit before any Element: a
-/// double-click on its line adds a point at the nearest place on it, and a press on a handle
-/// arms a drag of it and selects it, unless it is a straight segment's middle, which selects
-/// nothing more than the Wall. Returns whether the press was the Wall's.
+/// A left press with the Select tool on the selected Wall or Room, which is hit before any
+/// Element: a double-click on its line adds a point at the nearest place on it, and a press on a
+/// handle arms a drag of it and selects it, unless it is a straight segment's or edge's middle,
+/// which selects nothing more than the Element. Returns whether the press was the selection's.
 pub(crate) fn press_selected(
     state: &mut EditorState,
     apply: &mut MessageWriter<Apply>,
-    selected: Option<(ElementId, &Wall, Option<&WallShape>)>,
+    selected: Option<(ElementId, Outline, Option<&WallShape>)>,
     viewport: &Viewport,
     cursor: Vec2,
     double: bool,
 ) -> bool {
-    let Some((element, wall, shape)) = selected else {
+    let Some((element, outline, shape)) = selected else {
         return false;
     };
     let cells = viewport.cells_at(cursor);
-    let handle = handle_at(wall, cells, viewport.zoom);
+    let handle = handle_at(&outline, cells, viewport.zoom);
     if double
         && !matches!(
             handle,
             Some((WallHandle::Point(_) | WallHandle::Control(_), _))
         )
         && let Some(shape) = shape
-        && on_wall(wall, shape, cells, viewport.zoom)
+        && on_wall(outline.thickness, shape, cells, viewport.zoom)
         && let Some(nearest) = nearest_on_line(shape, cells)
     {
         apply.write(Apply::EditElement(EditElement {
@@ -358,43 +418,41 @@ pub(crate) fn handle_change(handle: WallHandle, position: Vec2) -> ElementChange
     }
 }
 
-/// The Edit Element Delete sends for the selected handle of a Wall: the point is removed, or the
-/// curved segment of the control point is made straight; `None` when there is nothing to do.
-pub(crate) fn delete_handle(wall: &Wall, handle: WallHandle) -> Option<ElementChange> {
+/// The Edit Element Delete sends for the selected handle of a Wall or a Room: the point is
+/// removed, or the curved segment or edge of the control point is made straight; `None` when
+/// there is nothing to do.
+pub(crate) fn delete_handle(outline: &Outline, handle: WallHandle) -> Option<ElementChange> {
     match handle {
         WallHandle::Point(index) => {
-            (index < wall.points.len()).then_some(ElementChange::RemovePoint { index })
+            (index < outline.points.len()).then_some(ElementChange::RemovePoint { index })
         }
-        WallHandle::Control(segment) => wall
-            .segments
-            .get(segment)
-            .and_then(|segment| segment.control)
-            .map(|_| ElementChange::Control {
-                segment,
-                position: None,
-            }),
+        WallHandle::Control(segment) => {
+            outline
+                .controls
+                .get(segment)
+                .copied()
+                .flatten()
+                .map(|_| ElementChange::Control {
+                    segment,
+                    position: None,
+                })
+        }
         WallHandle::Middle(_) => None,
     }
 }
 
-/// Whether a handle still names a part of the Wall: a point it has, or a segment that is curved
-/// for a control point and straight for a middle.
-pub(crate) fn handle_exists(wall: &Wall, handle: WallHandle) -> bool {
+/// Whether a handle still names a part of the Wall or the Room: a point it has, or a segment or
+/// edge that is curved for a control point and straight for a middle.
+pub(crate) fn handle_exists(outline: &Outline, handle: WallHandle) -> bool {
     match handle {
-        WallHandle::Point(index) => index < wall.points.len(),
-        WallHandle::Control(segment) => wall
-            .segments
-            .get(segment)
-            .is_some_and(|segment| segment.control.is_some()),
-        WallHandle::Middle(segment) => wall
-            .segments
-            .get(segment)
-            .is_some_and(|segment| segment.control.is_none()),
+        WallHandle::Point(index) => index < outline.points.len(),
+        WallHandle::Control(segment) => outline.controls.get(segment).is_some_and(Option::is_some),
+        WallHandle::Middle(segment) => outline.controls.get(segment).is_some_and(Option::is_none),
     }
 }
 
 /// The colour of the model as egui spells it.
-fn rgb(colour: Colour) -> [u8; 3] {
+pub(crate) fn rgb(colour: Colour) -> [u8; 3] {
     [colour.red, colour.green, colour.blue]
 }
 
@@ -433,14 +491,17 @@ pub(crate) fn end_option(option: &mut Option<OptionGesture>, apply: &mut Message
     }
 }
 
-/// The tool strip over the top-left corner of the viewport: Select, Wall, Portal, and Paint, then
-/// the options. With the Paint tool they are the Brush's; with a Portal selected they are the
-/// Portal's own; otherwise they are the thickness and the colour, of the selected Wall, a change
-/// sent to it as one Edit Element, or with none of the next Wall.
+/// The tool strip over the top-left corner of the viewport: Select, Wall, Portal, Room, and Paint,
+/// then the options. With the Paint tool they are the Brush's; with a Portal selected they are
+/// the Portal's own; with a Room selected, or the Room tool chosen and none selected, they are the
+/// wall thickness, the wall colour, and the floor colour, of the Room or of the next one;
+/// otherwise they are the thickness and the colour, of the selected Wall, a change sent to it as
+/// one Edit Element, or with none of the next Wall.
 ///
-/// Choosing the Wall tool drops the chosen Asset and the selection and leaves the Portal tool;
-/// choosing the Portal tool leaves the Wall tool, discarding a Wall being drawn, and drops the
-/// selection; choosing Select leaves any tool, discarding a Wall or a stroke being drawn.
+/// Choosing the Wall or the Room tool drops the chosen Asset and the selection and leaves the
+/// other tools, discarding a Wall, an outline, or a stroke being drawn; choosing the Portal tool
+/// leaves the Wall, the Room, and the Paint tool, discarding what is being drawn, and drops the
+/// selection; choosing Select leaves any.
 pub(crate) fn tool_strip(
     mut contexts: EguiContexts,
     mut state: ResMut<EditorState>,
@@ -455,6 +516,9 @@ pub(crate) fn tool_strip(
     let selected = level
         .selected_wall(state.selected)
         .map(|(id, wall, _)| (id, wall.clone()));
+    let room = level
+        .selected_room(state.selected)
+        .map(|(id, room)| (id, room.clone()));
     let portal = level
         .selected_portal(state.selected)
         .map(|(id, element, portal)| (id, element.clone(), portal.clone()));
@@ -500,6 +564,16 @@ pub(crate) fn tool_strip(
                     if ui
                         .add_enabled(
                             enabled,
+                            egui::Button::selectable(tool == Tool::Room, "Room"),
+                        )
+                        .on_hover_text("R")
+                        .clicked()
+                    {
+                        rooms::choose_room_tool(&mut state);
+                    }
+                    if ui
+                        .add_enabled(
+                            enabled,
                             egui::Button::selectable(tool == Tool::Paint, "Paint"),
                         )
                         .on_hover_text("B")
@@ -510,18 +584,25 @@ pub(crate) fn tool_strip(
                     ui.separator();
                     if state.tool == Tool::Paint {
                         portals::end_options(&mut state, &mut apply);
+                        rooms::end_options(&mut state, &mut apply);
                         let terrain = level.current_terrain();
                         crate::paint::options(ui, &mut state, terrain, &level.terrains, &mut apply);
                     } else if let Some((id, element, portal)) = &portal {
+                        rooms::end_options(&mut state, &mut apply);
                         portals::options(
                             ui,
                             &mut state,
                             (*id, element, portal, level.follows_host(*id)),
-                            level.walls_in_order(),
+                            level.lines_in_order(),
                             &mut apply,
                         );
+                    } else if room.is_some() || state.tool == Tool::Room {
+                        portals::end_options(&mut state, &mut apply);
+                        end_option(&mut state.walls.option, &mut apply);
+                        rooms::options(ui, &mut state, room.as_ref(), &mut apply);
                     } else {
                         portals::end_options(&mut state, &mut apply);
+                        rooms::end_options(&mut state, &mut apply);
                         options(ui, &mut state, selected.as_ref(), &mut apply);
                     }
                 });
@@ -595,14 +676,15 @@ fn options(
 }
 
 /// Draws what the Wall tool shows over the Level: the Wall being drawn as a thin line through its
-/// points with a rubber band to the pointer, and the handles of the selected Wall, its control
-/// points with guide lines to their segment's points. Nothing is drawn while an Export runs.
+/// points with a rubber band to the pointer, and the handles of the selected Wall or Room, its
+/// control points with guide lines to their segment's or edge's points. Nothing is drawn while
+/// an Export runs.
 pub(crate) fn draw_overlays(
     mut gizmos: Gizmos,
     state: Res<EditorState>,
     viewport: Res<Viewport>,
     window: Single<&Window, With<PrimaryWindow>>,
-    walls: Query<(&ElementId, &Wall)>,
+    outlines: Query<(&ElementId, Option<&Wall>, Option<&Room>)>,
 ) {
     if state.exporting {
         return;
@@ -623,14 +705,18 @@ pub(crate) fn draw_overlays(
             gizmos.circle_2d(Isometry2d::from_translation(*point), radius / 2.0, colour);
         }
     }
-    let Some((id, wall)) = state
-        .selected
-        .and_then(|selected| walls.iter().find(|(id, _)| **id == selected))
-    else {
+    let Some((id, outline)) = state.selected.and_then(|selected| {
+        outlines.iter().find_map(|(id, wall, room)| {
+            let outline = wall
+                .map(Outline::of_wall)
+                .or_else(|| room.map(Outline::of_room))?;
+            (*id == selected).then_some((*id, outline))
+        })
+    }) else {
         return;
     };
-    let picked = state.walls.handle_of(*id);
-    for (handle, at) in handles(wall) {
+    let picked = state.walls.handle_of(id);
+    for (handle, at) in handles(&outline) {
         let colour = if picked == Some(handle) {
             PICKED
         } else {
@@ -641,8 +727,10 @@ pub(crate) fn draw_overlays(
                 gizmos.circle_2d(Isometry2d::from_translation(at), radius, colour);
             }
             WallHandle::Control(segment) => {
-                for end in wall.points.iter().skip(segment).take(2) {
-                    gizmos.line_2d(*end, at, HANDLES.with_alpha(GUIDE_ALPHA));
+                if let Some((start, end)) = outline.ends(segment) {
+                    for end in [start, end] {
+                        gizmos.line_2d(end, at, HANDLES.with_alpha(GUIDE_ALPHA));
+                    }
                 }
                 gizmos.rect_2d(
                     Isometry2d::from_translation(at),

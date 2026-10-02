@@ -64,8 +64,9 @@ impl PaintTool {
     }
 }
 
-/// Chooses the Paint tool: the Wall or the Portal tool is left, discarding a Wall being drawn,
-/// and the selection is dropped; a chosen Asset stays, as the image the Brush paints with.
+/// Chooses the Paint tool: the Wall, the Portal, or the Room tool is left, discarding a Wall or an
+/// outline being drawn, and the selection is dropped; a chosen Asset stays, as the image the Brush
+/// paints with.
 pub(crate) fn choose_paint_tool(state: &mut EditorState) {
     walls::leave_tool(state);
     state.selected = None;

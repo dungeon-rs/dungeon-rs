@@ -11,6 +11,7 @@ mod outcomes;
 mod paint;
 mod panels;
 mod portals;
+mod rooms;
 #[cfg(feature = "dev")]
 mod screenshot;
 #[cfg(feature = "dev")]
@@ -88,6 +89,7 @@ impl Plugin for EditorPlugin {
                     (
                         viewport::outline_selection,
                         walls::draw_overlays,
+                        rooms::draw_overlays,
                         portals::draw_marker,
                     )
                         .chain()

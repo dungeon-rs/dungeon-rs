@@ -1,5 +1,6 @@
-//! Interaction in the viewport: placing Props and Portals, drawing Walls, painting, selecting,
-//! dragging Elements and the handles of a Wall, sliding Portals, removing, panning, and zooming.
+//! Interaction in the viewport: placing Props and Portals, drawing Walls and Rooms, painting,
+//! selecting, dragging Elements and the handles of a Wall or a Room, sliding Portals, removing,
+//! panning, and zooming.
 //!
 //! Pointer positions come from the window in logical pixels and go through the model's
 //! `Viewport` to Level cells, the same conversion the render Engine draws by. Panning and zooming
@@ -9,8 +10,9 @@
 use crate::bindings;
 use crate::paint;
 use crate::portals;
+use crate::rooms;
 use crate::state::{EditorState, Interaction, Tool};
-use crate::walls;
+use crate::walls::{self, Outline};
 use bevy::color::Color;
 use bevy::ecs::entity::Entity;
 use bevy::ecs::hierarchy::Children;
@@ -28,8 +30,8 @@ use bevy::window::{PrimaryWindow, Window};
 use bevy_egui::input::EguiWantsInput;
 use drs_model::{
     Apply, DrawnAs, EditElement, Element, ElementChange, ElementId, ElementKindRegistry, Gesture,
-    Layer, Level, PlaceElement, Placement, Portal, Redo, RemoveElement, Terrain, Undo, Viewport,
-    Wall, WallShape,
+    Layer, Level, PlaceElement, Placement, Portal, Redo, RemoveElement, Room, RoomShape, Terrain,
+    Undo, Viewport, Wall, WallShape,
 };
 
 /// How far the pointer travels, in pixels, before a press on an Element or a handle becomes a
@@ -68,8 +70,8 @@ pub(crate) struct LevelView<'w, 's> {
     layers: Query<'w, 's, (Entity, &'static Children), With<Layer>>,
     /// Every Layer, for the one to place on.
     any_layer: Query<'w, 's, Entity, With<Layer>>,
-    /// Every Element's identity and box, its Wall and derived shape when it is a Wall, and its
-    /// Portal when it is one.
+    /// Every Element's identity and box, its Wall or Room and derived shape when it is one, and
+    /// its Portal when it is one.
     elements: Query<'w, 's, Picked>,
     /// The Terrains and the images they show, for the one a Paint adds to.
     pub(crate) terrains: paint::Terrains<'w, 's>,
@@ -78,13 +80,15 @@ pub(crate) struct LevelView<'w, 's> {
 }
 
 /// What picking reads of an Element: its identity and box, its Wall and derived shape when it is
-/// a Wall, and its Portal when it is one.
+/// a Wall, its Portal when it is one, and its Room and derived shape when it is a Room.
 type Picked = (
     &'static ElementId,
     &'static Element,
     Option<&'static Wall>,
     Option<&'static WallShape>,
     Option<&'static Portal>,
+    Option<&'static Room>,
+    Option<&'static RoomShape>,
 );
 
 impl LevelView<'_, '_> {
@@ -100,25 +104,34 @@ impl LevelView<'_, '_> {
     }
 
     /// The topmost Element under a point in cells at `zoom`, with its centre and whether it is a
-    /// Portal set into a Wall: Layers from the top down, and each Layer's Elements from the last
-    /// drawn back. A Wall is under the point when its line is near enough outside the stretches
-    /// its Portals cover, a Portal when its turned rectangle holds the point, and any other
-    /// Element when its box does; an Element drawn as a painted surface, a Terrain, never is, so
-    /// the ground never gets in the way of what stands on it.
+    /// Portal that follows its Wall or Room: Layers from the top down, and each Layer's Elements
+    /// from the last drawn back. A Wall is under the point when its line is near enough outside
+    /// the stretches its Portals cover, a Room when the point is inside its floor or so near its
+    /// Walls, a Portal when its turned rectangle holds the point, and any other Element when its
+    /// box does; an Element drawn as a painted surface, a Terrain, never is, so the ground never
+    /// gets in the way of what stands on it.
     fn topmost_at(&self, cells: Vec2, zoom: f32) -> Option<(ElementId, Vec2, bool)> {
         self.levels.iter().find_map(|layers| {
             layers.iter().rev().find_map(|&layer| {
                 let (_, elements) = self.layers.get(layer).ok()?;
                 elements.iter().rev().find_map(|&element| {
-                    let (id, element, wall, shape, portal) = self.elements.get(element).ok()?;
+                    let (id, element, wall, shape, portal, room, room_shape) =
+                        self.elements.get(element).ok()?;
                     if self.painted(element) {
                         return None;
                     }
-                    let hit = match (wall, shape, portal) {
-                        (Some(wall), Some(shape), _) => walls::on_wall(wall, shape, cells, zoom),
-                        (Some(_), None, _) => false,
-                        (None, _, Some(portal)) => portals::on_portal(element, portal, cells),
-                        (None, _, None) => {
+                    let hit = match (wall, shape, portal, room, room_shape) {
+                        (Some(wall), Some(shape), ..) => {
+                            walls::on_wall(wall.thickness, shape, cells, zoom)
+                        }
+                        (Some(_), None, ..) | (None, _, _, Some(_), None) => false,
+                        (None, _, _, Some(room), Some(room_shape)) => {
+                            rooms::on_room(room, room_shape, cells, zoom)
+                        }
+                        (None, _, Some(portal), None, _) => {
+                            portals::on_portal(element, portal, cells)
+                        }
+                        (None, _, None, None, _) => {
                             Rect::from_center_size(element.position, element.size).contains(cells)
                         }
                     };
@@ -148,7 +161,36 @@ impl LevelView<'_, '_> {
         self.elements
             .iter()
             .find(|(id, ..)| **id == selected)
-            .and_then(|(id, _, wall, shape, _)| Some((*id, wall?, shape)))
+            .and_then(|(id, _, wall, shape, ..)| Some((*id, wall?, shape)))
+    }
+
+    /// The selected Element when it is a Room.
+    pub(crate) fn selected_room(&self, selected: Option<ElementId>) -> Option<(ElementId, &Room)> {
+        let selected = selected?;
+        self.elements
+            .iter()
+            .find(|(id, ..)| **id == selected)
+            .and_then(|(id, .., room, _)| Some((*id, room?)))
+    }
+
+    /// The selected Element when it is a Wall or a Room, as its handles see it, with the derived
+    /// shape of its line once it has one.
+    pub(crate) fn selected_outline(
+        &self,
+        selected: Option<ElementId>,
+    ) -> Option<(ElementId, Outline<'_>, Option<&WallShape>)> {
+        let selected = selected?;
+        let (id, _, wall, shape, _, room, room_shape) =
+            self.elements.iter().find(|(id, ..)| **id == selected)?;
+        match (wall, room) {
+            (Some(wall), _) => Some((*id, Outline::of_wall(wall), shape)),
+            (None, Some(room)) => Some((
+                *id,
+                Outline::of_room(room),
+                room_shape.map(|shape| &shape.walls),
+            )),
+            (None, None) => None,
+        }
     }
 
     /// The selected Element when it is a Portal, with its box.
@@ -160,11 +202,11 @@ impl LevelView<'_, '_> {
         self.elements
             .iter()
             .find(|(id, ..)| **id == selected)
-            .and_then(|(id, element, _, _, portal)| Some((*id, element, portal?)))
+            .and_then(|(id, element, _, _, portal, ..)| Some((*id, element, portal?)))
     }
 
-    /// Whether the Portal `portal` follows a host: its anchor names a Wall on the Portal's own
-    /// Level and a segment that Wall has. A Portal anchored to none, as an editor that does not
+    /// Whether the Portal `portal` follows a host: its anchor names a Wall or a Room on the
+    /// Portal's own Level and a segment or edge it has. A Portal anchored to none, as an editor that does not
     /// know Portals may leave it, is lost: it is dragged, flipped, and turned as a freestanding
     /// one, and never set again by a drag.
     pub(crate) fn follows_host(&self, portal: ElementId) -> bool {
@@ -172,7 +214,7 @@ impl LevelView<'_, '_> {
             .elements
             .iter()
             .find(|(id, ..)| **id == portal)
-            .and_then(|(.., portal)| portal?.anchor)
+            .and_then(|(.., portal, _, _)| portal?.anchor)
         else {
             return false;
         };
@@ -192,33 +234,64 @@ impl LevelView<'_, '_> {
                 .elements
                 .iter()
                 .find(|(id, ..)| **id == anchor.host)
-                .and_then(|(_, _, wall, ..)| wall)
-                .is_some_and(|wall| anchor.index < wall.segments.len());
+                .and_then(|(_, _, wall, _, _, room, _)| {
+                    wall.map(|wall| wall.segments.len())
+                        .or_else(|| room.map(|room| room.edges.len()))
+                })
+                .is_some_and(|parts| anchor.index < parts);
             has_part && on_level(portal) && on_level(anchor.host)
         })
     }
 
-    /// The derived shape of the Wall with an identity, once it has one.
-    fn shape_of(&self, wall: ElementId) -> Option<&WallShape> {
-        self.elements
-            .iter()
-            .find(|(id, ..)| **id == wall)
-            .and_then(|(.., shape, _)| shape)
+    /// The derived shape of the line of the Wall or the Room with an identity, once it has one.
+    fn shape_of(&self, host: ElementId) -> Option<&WallShape> {
+        self.elements.iter().find(|(id, ..)| **id == host).and_then(
+            |(_, _, _, shape, _, _, room_shape)| {
+                shape.or_else(|| room_shape.map(|shape| &shape.walls))
+            },
+        )
     }
 
-    /// Every Wall that has its derived shape, bottom first in the stacking order, as picking
-    /// sees them, so whatever looks for the nearest Wall breaks a tie as a click would.
-    pub(crate) fn walls_in_order(&self) -> Vec<(ElementId, &Wall, &WallShape)> {
+    /// Every Wall and every Room that has its derived shape, with its thickness and the shape of
+    /// its line, bottom first in the stacking order, as picking sees them, so whatever looks for
+    /// the nearest line breaks a tie as a click would.
+    pub(crate) fn lines_in_order(&self) -> Vec<(ElementId, f32, &WallShape)> {
         self.levels
             .iter()
             .flat_map(|layers| layers.iter())
             .filter_map(|&layer| self.layers.get(layer).ok())
             .flat_map(|(_, elements)| elements.iter())
             .filter_map(|&element| {
-                let (id, _, wall, shape, _) = self.elements.get(element).ok()?;
-                Some((*id, wall?, shape?))
+                let (id, _, wall, shape, _, room, room_shape) = self.elements.get(element).ok()?;
+                match (wall, shape, room, room_shape) {
+                    (Some(wall), Some(shape), ..) => Some((*id, wall.thickness, shape)),
+                    (_, _, Some(room), Some(room_shape)) => {
+                        Some((*id, room.thickness, &room_shape.walls))
+                    }
+                    _ => None,
+                }
             })
             .collect()
+    }
+}
+
+/// Ends what is under way once the pointer has left the window: a stroke or a rectangle whose
+/// button is released, a drag of an Element or a handle, or a slide.
+fn pointer_gone(
+    state: &mut EditorState,
+    apply: &mut MessageWriter<Apply>,
+    viewport: &Viewport,
+    level: &LevelView,
+    input: &Input,
+) {
+    let released = !input.buttons.pressed(MouseButton::Left);
+    if state.interaction == Interaction::Painting && released {
+        paint::release(state, apply, level.current_layer(), None);
+    }
+    finish_gesture(state, apply, viewport, input);
+    finish_slide(state, apply, viewport, level);
+    if released {
+        rooms::release(state, apply, level.current_layer(), viewport);
     }
 }
 
@@ -242,15 +315,11 @@ pub(crate) fn pointer(
     if state.exporting {
         return;
     }
-    if state.tool == Tool::Wall && state.chosen.is_some() {
+    if matches!(state.tool, Tool::Wall | Tool::Room) && state.chosen.is_some() {
         walls::leave_tool(&mut state);
     }
     let Some(cursor) = input.window.cursor_position() else {
-        if state.interaction == Interaction::Painting && !input.buttons.pressed(MouseButton::Left) {
-            paint::release(&mut state, &mut apply, level.current_layer(), None);
-        }
-        finish_gesture(&mut state, &mut apply, &viewport, &input);
-        finish_slide(&mut state, &mut apply, &viewport, &level);
+        pointer_gone(&mut state, &mut apply, &viewport, &level, &input);
         return;
     };
     let over = viewport.contains(cursor) && !input.egui.wants_any_pointer_input();
@@ -302,6 +371,13 @@ pub(crate) fn pointer(
                 drag_slide(&mut state, &mut apply, &viewport, &level, cursor);
             } else {
                 finish_slide(&mut state, &mut apply, &viewport, &level);
+            }
+        }
+        Interaction::Outlining { .. } => {
+            if input.buttons.pressed(MouseButton::Left) {
+                rooms::track(&mut state, cursor, DRAG_THRESHOLD);
+            } else {
+                rooms::release(&mut state, &mut apply, level.current_layer(), &viewport);
             }
         }
         Interaction::Pressed {
@@ -452,11 +528,12 @@ fn drag_handle(
 }
 
 /// A left press over the viewport: with the Paint tool, starts a stroke; with the Wall tool, adds
-/// a point of the Wall being drawn or finishes it; with the Portal tool, places a Portal of the
+/// a point of the Wall being drawn or finishes it; with the Room tool, adds a point of the outline
+/// being drawn, closes it, or may begin a rectangle; with the Portal tool, places a Portal of the
 /// chosen Asset into the nearest Wall within reach or freestanding; with an Asset chosen, places
-/// a Prop of it centred on the pointer; otherwise picks a handle of the selected Wall or adds a
-/// point on its line, or selects the topmost Element under the pointer and arms a drag, or a
-/// slide for a Portal set into a Wall, letting any handle go; empty space clears the selection.
+/// a Prop of it centred on the pointer; otherwise picks a handle of the selected Wall or Room or
+/// adds a point on its line, or selects the topmost Element under the pointer and arms a drag, or
+/// a slide for a Portal set into a Wall, letting any handle go; empty space clears the selection.
 fn press(
     state: &mut EditorState,
     apply: &mut MessageWriter<Apply>,
@@ -481,9 +558,13 @@ fn press(
         );
         return;
     }
+    if state.tool == Tool::Room {
+        rooms::press(state, apply, level.current_layer(), viewport, cursor);
+        return;
+    }
     let cells = viewport.cells_at(cursor);
     if state.tool == Tool::Portal {
-        let under = portals::line_under(level.walls_in_order(), cells, None);
+        let under = portals::line_under(level.lines_in_order(), cells, None);
         portals::place_click(state, apply, level.current_layer(), under, cells);
         return;
     }
@@ -499,7 +580,7 @@ fn press(
         }
         return;
     }
-    let selected = level.selected_wall(state.selected);
+    let selected = level.selected_outline(state.selected);
     if walls::press_selected(state, apply, selected, viewport, cursor, double) {
         return;
     }
@@ -530,8 +611,12 @@ fn finish_gesture(
     input: &Input,
 ) {
     match state.interaction {
-        // A slide ends through `finish_slide`, which knows the Portal's Wall.
-        Interaction::Idle | Interaction::Painting | Interaction::Sliding { .. } => {}
+        // A slide ends through `finish_slide`, which knows the Portal's Wall, and a rectangle
+        // through `rooms::release`, which knows the Layer.
+        Interaction::Idle
+        | Interaction::Painting
+        | Interaction::Sliding { .. }
+        | Interaction::Outlining { .. } => {}
         Interaction::Panning { .. } => {
             if !input.buttons.pressed(MouseButton::Middle)
                 && !input.buttons.pressed(MouseButton::Left)
@@ -615,15 +700,16 @@ fn zoom_and_scroll(input: &mut Input, viewport: &mut Viewport, cursor: Vec2) {
     }
 }
 
-/// The keys: `W` chooses the Wall tool, `P` the Portal tool, and `B` the Paint tool, Enter finishes
-/// the Wall being drawn, Escape stops placing or leaves the Wall, the Portal, or the Paint tool,
-/// discarding what is being drawn, `X` flips and `F` frees or sets the selected Portal, Delete (and
-/// Backspace on macOS) removes the selected point, straightens the selected control point's
-/// segment, or removes the selected Element, and the platform's usual shortcuts undo and redo.
-/// Nothing happens while egui has the keyboard, so a text field keeps its own editing keys, nor
-/// while an Export runs, and undo, redo, flipping, and freeing or setting wait while an Element or
-/// a handle is being dragged, a Wall or a stroke is being drawn, or an option is held while it
-/// changes, since each is one step that is still being made.
+/// The keys: `W` chooses the Wall tool, `P` the Portal tool, `R` the Room tool, and `B` the Paint
+/// tool, Enter finishes the Wall or closes the Room being drawn, Escape stops placing or leaves the
+/// Wall, the Portal, the Room, or the Paint tool, discarding what is being drawn, `X` flips and
+/// `F` frees or sets the selected Portal, Delete (and Backspace on macOS) removes the selected
+/// point, straightens the selected control point's segment or edge, or removes the selected
+/// Element, and the platform's usual shortcuts undo and redo. Nothing happens while egui has the
+/// keyboard, so a text field keeps its own editing keys, nor while an Export runs, and undo, redo,
+/// flipping, and freeing or setting wait while an Element or a handle is being dragged, a Wall, a
+/// Room, or a stroke is being drawn, or an option is held while it changes, since each is one step
+/// that is still being made.
 pub(crate) fn keys(
     keys: Res<ButtonInput<KeyCode>>,
     egui: Res<EguiWantsInput>,
@@ -642,6 +728,9 @@ pub(crate) fn keys(
     if bindings::any_pressed(bindings::PORTAL_TOOL, &keys) {
         portals::choose_portal_tool(&mut state);
     }
+    if bindings::any_pressed(bindings::ROOM_TOOL, &keys) {
+        rooms::choose_room_tool(&mut state);
+    }
     // A flip or a freeing in the middle of a slide or an option's drag would land inside the
     // gesture's step, so both wait for it as undo does.
     if !state.step_under_way()
@@ -657,21 +746,25 @@ pub(crate) fn keys(
                 id,
                 element.position,
                 portal,
-                level.walls_in_order(),
+                level.lines_in_order(),
             );
         }
     }
     if bindings::any_pressed(bindings::PAINT_TOOL, &keys) {
         paint::choose_paint_tool(&mut state);
     }
-    if bindings::any_pressed(bindings::FINISH, &keys) && state.tool == Tool::Wall {
-        walls::finish(&mut state, &mut apply, level.current_layer());
+    if bindings::any_pressed(bindings::FINISH, &keys) {
+        match state.tool {
+            Tool::Wall => walls::finish(&mut state, &mut apply, level.current_layer()),
+            Tool::Room => rooms::close(&mut state, &mut apply, level.current_layer()),
+            Tool::Select | Tool::Portal | Tool::Paint => {}
+        }
     }
     if keys.just_pressed(KeyCode::Escape) {
         if state.chosen.is_some() {
             state.chosen = None;
         }
-        if matches!(state.tool, Tool::Wall | Tool::Portal) {
+        if matches!(state.tool, Tool::Wall | Tool::Portal | Tool::Room) {
             walls::leave_tool(&mut state);
         }
         paint::leave_paint_tool(&mut state);
@@ -680,8 +773,10 @@ pub(crate) fn keys(
         && let Some(element) = state.selected
     {
         let picked = state.walls.handle_of(element);
-        if let (Some((_, wall, _)), Some(handle)) = (level.selected_wall(Some(element)), picked) {
-            if let Some(change) = walls::delete_handle(wall, handle) {
+        if let (Some((_, outline, _)), Some(handle)) =
+            (level.selected_outline(Some(element)), picked)
+        {
+            if let Some(change) = walls::delete_handle(&outline, handle) {
                 apply.write(Apply::EditElement(EditElement {
                     element,
                     change,
@@ -705,13 +800,23 @@ pub(crate) fn keys(
     }
 }
 
+/// What outlining the selection reads of an Element: its identity and box, and its Wall, Portal,
+/// or Room when it is one.
+type Outlined = (
+    &'static ElementId,
+    &'static Element,
+    Option<&'static Wall>,
+    Option<&'static Portal>,
+    Option<&'static Room>,
+);
+
 /// Outlines the selected Element, a Portal turned as it is drawn, drops a selection whose
-/// Element is gone, and lets go of a handle the selected Wall no longer has. Nothing is drawn or
+/// Element is gone, and lets go of a handle the selected Wall or Room no longer has. Nothing is drawn or
 /// dropped while an Export runs, so the outline never appears in the image.
 pub(crate) fn outline_selection(
     mut gizmos: Gizmos,
     mut state: ResMut<EditorState>,
-    elements: Query<(&ElementId, &Element, Option<&Wall>, Option<&Portal>)>,
+    elements: Query<Outlined>,
 ) {
     if state.exporting {
         return;
@@ -723,7 +828,8 @@ pub(crate) fn outline_selection(
         }
         return;
     };
-    let Some((_, element, wall, portal)) = elements.iter().find(|(id, ..)| **id == selected) else {
+    let Some((_, element, wall, portal, room)) = elements.iter().find(|(id, ..)| **id == selected)
+    else {
         state.selected = None;
         state.walls.handle = None;
         return;
@@ -733,8 +839,11 @@ pub(crate) fn outline_selection(
         |portal| portals::outline(element, portal),
     );
     gizmos.rect_2d(isometry, element.size, SELECTION);
-    let gone = match (wall, state.walls.handle_of(selected)) {
-        (Some(wall), Some(handle)) => !walls::handle_exists(wall, handle),
+    let outline = wall
+        .map(Outline::of_wall)
+        .or_else(|| room.map(Outline::of_room));
+    let gone = match (outline, state.walls.handle_of(selected)) {
+        (Some(outline), Some(handle)) => !walls::handle_exists(&outline, handle),
         (None, Some(_)) => true,
         (_, None) => false,
     };

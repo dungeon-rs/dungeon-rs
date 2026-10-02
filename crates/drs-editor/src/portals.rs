@@ -1,5 +1,5 @@
-//! The Portal tool and the selected Portal: finding the Wall under the pointer, the nearest
-//! within reach, and the point of its line nearest the pointer, which is hit-testing as picking
+//! The Portal tool and the selected Portal: finding the Wall or the Room's Walls under the
+//! pointer, the nearest within reach, and the point of its line nearest the pointer, which is hit-testing as picking
 //! is, showing them with its marker, placing a Portal set into a Wall or freestanding, picking a Portal by its turned
 //! rectangle, sliding a set Portal along its Wall, flipping, freeing, and setting it, and its
 //! options in the tool strip.
@@ -20,7 +20,7 @@ use bevy::math::{Isometry2d, Rot2, Vec2, ops};
 use bevy::window::{PrimaryWindow, Window};
 use drs_model::{
     Apply, EditElement, Element, ElementChange, ElementId, FreePortal, Gesture, PlaceElement,
-    Placement, Portal, PortalAnchor, SetPortalIntoWall, Side, Viewport, Wall, WallShape,
+    Placement, Portal, PortalAnchor, SetPortalIntoWall, Side, Viewport, WallShape,
 };
 
 /// How far from a Wall's line, in cells, the Portal tool reaches it however thin the Wall: half a
@@ -78,16 +78,17 @@ fn side_of(along: Vec2, at: Vec2, cells: Vec2) -> Side {
     }
 }
 
-/// The nearest Wall within reach of `cells` of those given bottom first, the topmost winning a
-/// tie: no farther from its line than half a cell or half its thickness, whichever is more. The
-/// side is the side of the line `cells` lies on, or `side` when given.
+/// The nearest Wall or Room within reach of `cells` of those given bottom first, each with its
+/// thickness and the shape of its line, the topmost winning a tie: no farther from its line than
+/// half a cell or half its thickness, whichever is more. The side is the side of the line `cells`
+/// lies on, or `side` when given.
 pub(crate) fn line_under<'a>(
-    walls: impl IntoIterator<Item = (ElementId, &'a Wall, &'a WallShape)>,
+    lines: impl IntoIterator<Item = (ElementId, f32, &'a WallShape)>,
     cells: Vec2,
     side: Option<Side>,
 ) -> Option<LineUnderPointer> {
     let mut best: Option<LineUnderPointer> = None;
-    for (host, wall, shape) in walls {
+    for (host, thickness, shape) in lines {
         let Some(NearestPoint {
             distance,
             place,
@@ -97,7 +98,7 @@ pub(crate) fn line_under<'a>(
         else {
             continue;
         };
-        if distance > HALF_A_CELL.max(wall.thickness / 2.0) {
+        if distance > HALF_A_CELL.max(thickness / 2.0) {
             continue;
         }
         if best.is_some_and(|best| distance > best.distance) {
@@ -113,17 +114,19 @@ pub(crate) fn line_under<'a>(
             at,
             along,
             distance,
-            thickness: wall.thickness,
+            thickness,
         });
     }
     best
 }
 
-/// Chooses the Portal tool: the Wall or the Paint tool is left, discarding a Wall or a stroke
-/// being drawn, the selection is dropped, and a chosen Asset is kept as the Portal's image.
+/// Chooses the Portal tool: the Wall, the Room, or the Paint tool is left, discarding a Wall, an
+/// outline, or a stroke being drawn, the selection is dropped, and a chosen Asset is kept as the
+/// Portal's image.
 pub(crate) fn choose_portal_tool(state: &mut EditorState) {
     state.walls.drawing.clear();
     crate::paint::discard_stroke(state);
+    state.rooms.drawing.clear();
     state.selected = None;
     state.walls.handle = None;
     state.tool = Tool::Portal;
@@ -201,8 +204,8 @@ pub(crate) fn flip(element: ElementId, portal: &Portal, follows: bool) -> Apply 
     })
 }
 
-/// `F`: frees a set Portal, or sets a freestanding one into the nearest Wall within reach of its
-/// centre, at the nearest point on that Wall's line and facing the right when it is mirrored or
+/// `F`: frees a set Portal, or sets a freestanding one into the nearest Wall or Room within reach
+/// of its centre, at the nearest point on that line and facing the right when it is mirrored or
 /// the left when it is not. With no Wall within reach the status line says so and nothing is
 /// sent.
 pub(crate) fn free_or_set<'a>(
@@ -211,13 +214,13 @@ pub(crate) fn free_or_set<'a>(
     element: ElementId,
     centre: Vec2,
     portal: &Portal,
-    walls: impl IntoIterator<Item = (ElementId, &'a Wall, &'a WallShape)>,
+    lines: impl IntoIterator<Item = (ElementId, f32, &'a WallShape)>,
 ) {
     if portal.anchor.is_some() {
         apply.write(Apply::FreePortal(FreePortal { portal: element }));
         return;
     }
-    match line_under(walls, centre, Some(Side::of_mirroring(portal.mirrored))) {
+    match line_under(lines, centre, Some(Side::of_mirroring(portal.mirrored))) {
         Some(under) => {
             apply.write(Apply::SetPortalIntoWall(SetPortalIntoWall {
                 portal: element,
@@ -225,7 +228,8 @@ pub(crate) fn free_or_set<'a>(
             }));
         }
         None => {
-            "No Wall is within reach of the Portal to set it into".clone_into(&mut state.status);
+            "No Wall or Room is within reach of the Portal to set it into"
+                .clone_into(&mut state.status);
         }
     }
 }
@@ -246,7 +250,7 @@ pub(crate) fn options<'a>(
     ui: &mut egui::Ui,
     state: &mut EditorState,
     selected: (ElementId, &Element, &Portal, bool),
-    walls: impl IntoIterator<Item = (ElementId, &'a Wall, &'a WallShape)>,
+    lines: impl IntoIterator<Item = (ElementId, f32, &'a WallShape)>,
     apply: &mut MessageWriter<Apply>,
 ) {
     let (id, element, portal, follows) = selected;
@@ -295,7 +299,7 @@ pub(crate) fn options<'a>(
         "Set into Wall"
     };
     if ui.button(label).on_hover_text("F").clicked() {
-        free_or_set(state, apply, id, element.position, portal, walls);
+        free_or_set(state, apply, id, element.position, portal, lines);
     }
 }
 
@@ -304,8 +308,8 @@ pub(crate) fn end_options(state: &mut EditorState, apply: &mut MessageWriter<App
     crate::walls::end_option(&mut state.portals.option, apply);
 }
 
-/// Draws the Portal tool's marker over the Level: a short line across the nearest Wall within
-/// reach of the pointer at the nearest point on its line, with an arrowhead to the side the
+/// Draws the Portal tool's marker over the Level: a short line across the nearest Wall or Room
+/// within reach of the pointer at the nearest point on its line, with an arrowhead to the side the
 /// Portal will face. Nothing is drawn while an Export runs or the pointer is off the viewport.
 pub(crate) fn draw_marker(
     mut gizmos: Gizmos,
@@ -324,7 +328,7 @@ pub(crate) fn draw_marker(
         return;
     };
     let cells = viewport.cells_at(cursor);
-    let Some(under) = line_under(level.walls_in_order(), cells, None) else {
+    let Some(under) = line_under(level.lines_in_order(), cells, None) else {
         return;
     };
     let across = match under.anchor.side {

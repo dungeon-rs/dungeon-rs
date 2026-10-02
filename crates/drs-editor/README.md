@@ -37,9 +37,9 @@ that results and how many placeholders would be exported as shown, then the
 platform's save dialog proposing `<Project> - <Level>.png`; while the Export is
 written the viewport, Undo, Redo, and another Export wait for it. Library → Add
 Asset Folder… opens the platform's folder dialog and then asks for the Canonical
-Name. Edit → Undo and Redo are offered while no drag, Wall or stroke being
-drawn, option held while it changes, or Export is under way. Help → Show Logs
-opens the log directory in the platform's file manager.
+Name. Edit → Undo and Redo are offered while no drag, Wall, Room, or stroke
+being drawn, option held while it changes, or Export is under way. Help → Show
+Logs opens the log directory in the platform's file manager.
 
 The grid lays out only the rows in view, as many 128-point cells as the panel's
 width holds. Each cell shows a neutral square until its thumbnail is generated,
@@ -59,17 +59,18 @@ The panels read the World and send Commands and requests as messages; they
 never own domain state. The Editor writes only the model's `Viewport` (panning
 and zooming) and its own state: the chosen Asset, the thumbnails it holds, the
 selection, the search text, the prompt, question, report, or dialog in progress,
-whether an Export is being written, the tool, the Wall or the stroke being
-drawn, the option being changed, and the Brush.
+whether an Export is being written, the tool, the Wall, the Room outline, or the
+stroke being drawn, the option being changed, and the Brush.
 Clicking in the viewport places the chosen Asset or selects the topmost Element
 under the pointer, a Prop by its rectangle, a Portal by its turned rectangle,
-and a Wall by its line outside the stretches its Portals cover, never a Terrain,
-dragging a selected Element moves it as one gesture, Delete removes it, Escape
-stops placing, and the platform's usual shortcuts undo and redo. Scrolling pans,
-a wheel or a pinch zooms, and the middle button or Space with the left button
+a Wall by its line outside the stretches its Portals cover, and a Room by its
+floor or by its Walls outside those stretches, never a Terrain, dragging a
+selected Element moves it as one gesture, Delete removes it, Escape stops
+placing, and the platform's usual shortcuts undo and redo. Scrolling pans, a
+wheel or a pinch zooms, and the middle button or Space with the left button
 drags the view.
 
-A tool strip over the viewport offers Select, Wall, and Portal, and the
+A tool strip over the viewport offers Select, Wall, Portal, and Room, and the
 thickness and colour of the selected Wall, or of the next Wall while none is
 selected. With the Wall tool, chosen there or with `W`, each click adds a point
 of a Wall previewed with a rubber band to the pointer, and Enter or a
@@ -81,24 +82,39 @@ or bends the segment as one gesture, a double-click on the line adds a point
 there, and Delete removes the selected point or straightens the selected control
 point's segment.
 
+With the Room tool, chosen in the strip or with `R`, each click adds a point of
+an outline previewed with rubber bands from the last point to the pointer and
+from the pointer back to the first; a click on the first point or Enter closes
+it as one Place Element once it has three points, and with no point placed a
+drag draws a rectangle, placed on release unless it is only a few pixels wide or
+high. The strip then shows the wall thickness, the wall colour, and the floor
+colour of the next Room, or of the selected Room, a change to it sent as one
+Edit Element. Choosing the tool drops the chosen Asset and the selection and
+leaves the Wall, the Portal, or the Paint tool, discarding a stroke being drawn;
+choosing an Asset or another tool leaves it, discarding the outline. A selected Room has a Wall's handles round its closed
+outline, the edge from the last point to the first included, and moves whole
+when dragged by its floor or its Walls.
+
 With the Portal tool, chosen in the strip or with `P`, the chosen Asset is the
 Portal's image, kept when the tool is chosen; a marker across the nearest Wall
-within half a cell or half its thickness of the pointer shows where the Portal
-will sit and which side it will face, and a click places it set into that Wall,
-or freestanding where no Wall is in reach. Choosing the tool leaves the Wall
-tool and drops the selection; Escape goes back to Select. A selected Portal set
-into a Wall slides along it when dragged, as one gesture; `X` flips its side,
-or a freestanding one's mirroring; `F` frees it where it stands, or sets a
-freestanding one into the nearest Wall within reach of its centre; both wait,
+or Room's Walls within half a cell or half its thickness of the pointer shows
+where the Portal will sit and which side it will face, and a click places it set
+into that line, or freestanding where none is in reach. Choosing the tool leaves
+the Wall and the Room tool and drops the selection; Escape goes back to Select. A
+selected Portal set into a Wall or a Room slides along its line when dragged, as
+one gesture, round a Room past its first point; `X` flips its side, or the
+mirroring of a freestanding Portal or of one whose Wall is gone, which is also
+dragged and turned as a freestanding one; `F` frees it where it stands, or sets
+a freestanding one into the nearest Wall or Room within reach of its centre; both wait,
 as undo does, while a step is being made. Where two Walls are equally near, the
 marker, a click, and `F` all take the topmost. The strip shows a selected
 Portal's width, its rotation in degrees while freestanding, a Flip button, and a
 Free Portal or Set into Wall button. When a Wall edit removes Portals, the
-status line says how many.
+status line says how many, and so does a Room edit.
 
 The tool strip also offers Paint, chosen there or with `B`, which leaves the
-Wall tool and drops the selection but keeps a chosen Asset as the image the
-Brush paints with. A circle as large as the Brush follows the pointer; a press
+Wall or the Room tool, discarding what is being drawn, and drops the selection
+but keeps a chosen Asset as the image the Brush paints with. A circle as large as the Brush follows the pointer; a press
 starts a stroke, moving adds the pointer to its path whenever it is more than an
 eighth of the Brush's size from the last point, the stroke is shown as a
 translucent band as wide as the Brush, and the release sends one Paint onto the
@@ -109,8 +125,8 @@ the Brush's size in cells, its hardness and strength as percentages, starting at
 two cells, 50 %, and 100 %, and the image it paints with; when an Asset is chosen
 and the Layer's Terrain shows another image, a button sends the Edit Element that
 makes the Terrain show it. The Brush is the Editor's own, never a history step
-and never saved. Escape and choosing the Wall tool discard a stroke being
-drawn.
+and never saved. Escape and choosing the Wall or the Room tool discard a stroke
+being drawn.
 
 ## Features
 
@@ -119,8 +135,8 @@ drawn.
   screenshot of the window is saved there a moment after start. With `DRS_SCRIPT` set
   to a file, the editor is driven by its steps, one per frame (`wait`, `move`, `down`,
   `up`, `click`, `drag`, `key`, `hold`, `release`, `text`, `scroll`, `pinch`,
-  `screenshot`, `describe`, which also logs the Wall tool, every Wall and the
-  stretches it gives way along, and every Portal, `close`,
+  `screenshot`, `describe`, which also logs the Wall and Room tools, every Wall
+  and Room and the stretches it gives way along, and every Portal, `close`,
   `quit`), fed in as the messages the window would send so egui and the viewport see
   them alike; `describe` logs every clickable widget and every cell of the grid with
   its rectangle.

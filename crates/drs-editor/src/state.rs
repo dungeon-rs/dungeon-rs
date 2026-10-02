@@ -1,10 +1,11 @@
 //! What the Editor itself keeps: the chosen Asset, the selection, the search, the status line,
 //! the prompts and dialogs in progress, the Export under way, the gesture under way, and the
-//! tool with the Wall or the stroke being drawn and the Portal options being changed. None of it
-//! is domain state.
+//! tool with the Wall, the Room, or the stroke being drawn and the options being changed. None of
+//! it is domain state.
 
 use crate::paint::PaintTool;
 use crate::portals::PortalTool;
+use crate::rooms::RoomTool;
 use crate::walls::{WallHandle, WallTool};
 use bevy::ecs::resource::Resource;
 use bevy::math::Vec2;
@@ -43,6 +44,8 @@ pub(crate) struct EditorState {
     pub portals: PortalTool,
     /// The Paint tool's own state.
     pub paint: PaintTool,
+    /// The Room tool's own state.
+    pub rooms: RoomTool,
 }
 
 impl EditorState {
@@ -54,8 +57,8 @@ impl EditorState {
             || self.export.is_some()
     }
 
-    /// Whether an Element or a handle of a Wall is being dragged, or a Portal slid along its
-    /// Wall: the pointer went down on it and has moved since.
+    /// Whether an Element or a handle of a Wall or a Room is being dragged, a Portal slid along
+    /// its line, or a Room's rectangle dragged out: the pointer went down and has moved since.
     pub fn dragging(&self) -> bool {
         matches!(
             self.interaction,
@@ -68,17 +71,24 @@ impl EditorState {
             } | Interaction::Sliding {
                 moved_at: Some(_),
                 ..
+            } | Interaction::Outlining {
+                moved_at: Some(_),
+                ..
             }
         )
     }
 
-    /// Whether a step is still being made, by a drag, by a Wall or a stroke being drawn, or by an
-    /// option held while it changes, so undo and redo wait.
+    /// Whether a step is still being made, by a drag, by a Wall, a Room, or a stroke being drawn,
+    /// by a press that may begin a Room's rectangle, or by an option held while it changes, so
+    /// undo and redo wait.
     pub fn step_under_way(&self) -> bool {
         self.dragging()
+            || matches!(self.interaction, Interaction::Outlining { .. })
             || self.walls.drawing_in_progress()
             || self.paint.drawing_in_progress()
+            || self.rooms.drawing_in_progress()
             || self.walls.option_in_progress()
+            || self.rooms.option_in_progress()
             || self.portals.option_in_progress()
     }
 }
@@ -95,6 +105,8 @@ pub(crate) enum Tool {
     Portal,
     /// Drags lay strokes of Terrain.
     Paint,
+    /// Clicks add the points of a Room, and a drag draws a rectangular one.
+    Room,
 }
 
 /// The Asset chosen for placing, with its name for the status line.
@@ -188,9 +200,10 @@ pub(crate) enum Interaction {
         /// Where the pointer was when the view last followed it.
         last: Vec2,
     },
-    /// The left button went down on a handle of the selected Wall; a drag moves the handle.
+    /// The left button went down on a handle of the selected Wall or Room; a drag moves the
+    /// handle.
     Handle {
-        /// The Wall.
+        /// The Wall or the Room.
         element: ElementId,
         /// The handle under the pointer.
         handle: WallHandle,
@@ -201,13 +214,23 @@ pub(crate) enum Interaction {
         /// The pointer, on screen, when the handle was last moved; `None` until the drag begins.
         moved_at: Option<Vec2>,
     },
-    /// The left button went down on a Portal set into a Wall; a drag slides it along its Wall.
+    /// The left button went down on a Portal set into a Wall or a Room; a drag slides it along
+    /// its line.
     Sliding {
         /// The Portal.
         element: ElementId,
         /// The pointer, on screen, when the button went down.
         pointer: Vec2,
         /// The pointer, on screen, when the Portal was last slid; `None` until the drag begins.
+        moved_at: Option<Vec2>,
+    },
+    /// The left button went down with the Room tool and no point placed; a drag draws a
+    /// rectangle, and a release without one is a click.
+    Outlining {
+        /// The pointer, on screen, when the button went down.
+        pointer: Vec2,
+        /// The pointer, on screen, when the rectangle was last dragged; `None` until the drag
+        /// begins.
         moved_at: Option<Vec2>,
     },
     /// The left button went down on an Element; a drag moves it.

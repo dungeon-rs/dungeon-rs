@@ -344,6 +344,15 @@ fn status_line(root: &mut egui::Ui, state: &EditorState, set_portal: bool) {
                     "drawing a Wall of {} points",
                     state.walls.drawing.len()
                 ));
+            } else if state.tool == Tool::Room {
+                ui.weak(
+                    "Click adds a point, the first point or Enter closes, a drag draws a \
+                     rectangle, Escape stops",
+                );
+                ui.label(format!(
+                    "drawing a Room of {} points",
+                    state.rooms.drawing.len()
+                ));
             } else if state.walls.handle.is_some() {
                 ui.weak("Drag moves it, Delete removes or straightens it");
                 ui.label("1 handle selected");
@@ -356,8 +365,8 @@ fn status_line(root: &mut egui::Ui, state: &EditorState, set_portal: bool) {
                 ui.label("1 Element selected");
             } else {
                 ui.weak(
-                    "Choose an Asset to place it, press W to draw a Wall or P to place Portals, \
-                     or click to select",
+                    "Choose an Asset to place it, press W to draw a Wall, R a Room, or P to place \
+                     Portals, or click to select",
                 );
             }
             ui.separator();
