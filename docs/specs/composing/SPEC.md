@@ -102,10 +102,10 @@ The automated seam is a headless Bevy App of the real plugins of `model`, `histo
 - **Identity survives undo**: `crates/drs-app/tests/composing.rs::identity_survives_undo`
 - **Redo repeats exactly**: `crates/drs-app/tests/composing.rs::redo_repeats_exactly`
 - **A new step clears redo**: `crates/drs-app/tests/composing.rs::a_new_step_clears_redo`
-- **One history**: `crates/drs-app/tests/composing.rs::one_history` (Add Asset Folder and Place Element; Edit Element and Remove Element are covered as steps by `a_drag_is_one_step` and `removal_is_reversible_in_place`)
+- **One history**: `crates/drs-app/tests/composing.rs::one_history`
 - **View is not a step**: `crates/drs-app/tests/composing.rs::view_is_not_a_step` (a changed Viewport records nothing; the mapping from the pointer and the wheel to the Viewport is checked by hand)
 - **A failed load is a placeholder**: `crates/drs-app/tests/projects.rs::missing_assets_stay`, `crates/drs-app/tests/projects.rs::unknown_kinds_are_kept` (the Element staying on its Layer; the drawing is by hand: no headless seam renders the viewport; verified by driving the editor with the dev-only input script)
-- **A failed Command is reported**: `crates/drs-app/tests/composing.rs::a_failed_command_is_reported` (Place Element; Edit Element and Remove Element on an unknown Element are checked by hand)
+- **A failed Command is reported**: `crates/drs-app/tests/composing.rs::a_failed_command_is_reported`
 
 ## Not supported
 
