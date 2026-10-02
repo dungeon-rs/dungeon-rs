@@ -214,7 +214,7 @@ pub enum ThumbnailCompletion {
         key: ThumbnailKey,
         /// What came of it: ready, kept and served; broken, recorded as not decodable as an
         /// image; or still pending, since the file could not be read and nothing is recorded,
-        /// so it is tried again at the next start.
+        /// so it is tried again at the next start and not before.
         state: ThumbnailState,
     },
     /// The cache could not be written, for this reason; the generator has stopped, the
@@ -235,6 +235,10 @@ struct Queue {
     /// enqueued again meanwhile, as when a redo comes while it is in flight, is skipped rather
     /// than generated twice; once the record is served, the record itself is what skips it.
     taken: HashSet<Digest>,
+    /// The digests of the Assets whose file could not be read in this session: nothing is
+    /// recorded for them, so they are passed over until the next start rather than read again
+    /// whenever they are wanted.
+    unreadable: HashSet<Digest>,
 }
 
 impl Queue {
@@ -261,6 +265,13 @@ impl Queue {
         }
     }
 
+    /// Forgets that the Asset under `digest` was handed out, and passes it over from now on: its
+    /// file could not be read.
+    fn unreadable(&mut self, digest: Digest) {
+        self.taken.remove(&digest);
+        self.unreadable.insert(digest);
+    }
+
     /// The next Asset to generate, front first, passing over those `served` says have a record.
     fn next(&mut self, served: &dyn Fn(&Digest) -> bool) -> Option<ThumbnailJob> {
         self.settle(served);
@@ -275,12 +286,15 @@ impl Queue {
         self.front.is_empty() && self.rest.is_empty()
     }
 
-    /// Drops Assets already handed out or `served` from the head of the front and of the rest.
+    /// Drops Assets already handed out, unreadable, or `served` from the head of the front and of
+    /// the rest.
     fn settle(&mut self, served: &dyn Fn(&Digest) -> bool) {
         for jobs in [&mut self.front, &mut self.rest] {
             while jobs.front().is_some_and(|job| {
                 let digest = job.key.digest();
-                self.taken.contains(&digest) || served(&digest)
+                self.taken.contains(&digest)
+                    || self.unreadable.contains(&digest)
+                    || served(&digest)
             }) {
                 jobs.pop_front();
             }
@@ -505,7 +519,7 @@ impl Worker {
                         "{} could not be read for its thumbnail: {error}",
                         job.file.display()
                     );
-                    self.work().queue.release([digest]);
+                    self.work().queue.unreadable(digest);
                     let _ = self.completions.send(ThumbnailCompletion::Finished {
                         key: job.key,
                         state: ThumbnailState::Pending,
@@ -608,7 +622,7 @@ mod tests {
     use drs_model::{CaughtPanics, FolderKey, ThumbnailState};
     use std::cell::Cell;
     use std::path::{Path, PathBuf};
-    use std::sync::atomic::{AtomicBool, Ordering};
+    use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
     use std::time::{Duration, Instant};
 
     /// An Asset of the folder `maps` at `place`.
@@ -646,6 +660,74 @@ mod tests {
 
         assert_eq!(drain(&mut queue), vec!["d", "f", "b", "c", "e"]);
         assert!(queue.is_empty(&|_| false));
+    }
+
+    /// How many times the file that cannot be read was tried.
+    static UNREADABLE_TRIED: AtomicUsize = AtomicUsize::new(0);
+
+    /// Makes a one-pixel thumbnail, except for `unreadable.png`, which cannot be read.
+    #[expect(
+        clippy::missing_errors_doc,
+        reason = "it stands in for the maker, which reads a file"
+    )]
+    fn make_or_fail(path: &Path) -> std::io::Result<Made> {
+        if path.ends_with("unreadable.png") {
+            UNREADABLE_TRIED.fetch_add(1, Ordering::SeqCst);
+            return Err(std::io::Error::from(std::io::ErrorKind::PermissionDenied));
+        }
+        Ok(Made::Thumbnail {
+            bytes: vec![1, 2, 3],
+            width: 1,
+            height: 1,
+        })
+    }
+
+    /// Waits for the completion of the Asset at `place`, handing back every other on the way.
+    fn finished(generator: &ThumbnailGenerator, place: &str) -> Vec<(String, ThumbnailState)> {
+        let start = Instant::now();
+        let mut finished = Vec::new();
+        while !finished.iter().any(|(at, _)| at == place) {
+            assert!(start.elapsed() < Duration::from_secs(30), "{finished:?}");
+            for completion in generator.completions() {
+                if let ThumbnailCompletion::Finished { key, state } = completion {
+                    finished.push((key.place, state));
+                }
+            }
+            std::thread::sleep(Duration::from_millis(2));
+        }
+        finished
+    }
+
+    /// A file that cannot be read stays pending and is read once a session, however often it is
+    /// wanted or enqueued again.
+    #[test]
+    fn an_unreadable_file_is_read_once_a_session() {
+        let root = tempfile::TempDir::new().expect("temporary root");
+        let directories = LibraryDirectories {
+            configuration: root.path().join("configuration"),
+            cache: root.path().join("cache"),
+        };
+        let cache =
+            ThumbnailCache::open(&directories, &ThumbnailTable::default()).expect("the cache");
+        let generator =
+            ThumbnailGenerator::start_with(&cache, 1, make_or_fail, CaughtPanics::default())
+                .expect("the thread");
+
+        generator.enqueue([job("unreadable.png")]);
+        let first = finished(&generator, "unreadable.png");
+        generator.want(vec![job("unreadable.png")]);
+        generator.enqueue([job("unreadable.png"), job("a.png")]);
+        let then = finished(&generator, "a.png");
+
+        assert_eq!(
+            first,
+            vec![("unreadable.png".to_owned(), ThumbnailState::Pending)]
+        );
+        assert_eq!(
+            then,
+            vec![("a.png".to_owned(), ThumbnailState::Ready(UVec2::ONE))]
+        );
+        assert_eq!(UNREADABLE_TRIED.load(Ordering::SeqCst), 1);
     }
 
     thread_local! {

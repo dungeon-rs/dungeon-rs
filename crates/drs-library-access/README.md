@@ -37,7 +37,8 @@ first frame, fits it with a box filter into 128 pixels on its longer side
 without ever enlarging it, and encodes it as PNG when any pixel is not fully
 opaque and as JPEG otherwise, on threads of its own (half the cores, at least
 one), serving the Assets last named as wanted before the rest; a file that
-cannot be read is not recorded, so it is tried again at the next start, and a
+cannot be read is not recorded, so it is tried again at the next start and not
+before, and a
 panic while decoding a file is caught on the thread, which marks itself as
 catching it through [`CaughtPanics`](drs_model::CaughtPanics), and the file is
 recorded as broken. Writes are buffered and flushed when the queue drains, every
