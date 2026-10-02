@@ -33,7 +33,7 @@ use drs_model::{
     PlaceElement, Placement, PortalAnchor, ProjectOpened, ProjectRefused, ProjectSaved, Prop,
     SaveProject, SavedMark, Side, Viewport,
 };
-use drs_model::{Bounds, BrushSettings, Paint, Stroke};
+use drs_model::{Bounds, BrushSettings, Paint, Resolution, ResolutionTable, Stroke};
 use drs_project_manager::ProjectManagerPlugin;
 use drs_render_engine::RenderEnginePlugin;
 use std::fs;
@@ -71,6 +71,8 @@ const PURPLE_PIXEL: [u8; 4] = [128, 0, 255, 255];
 const QUARTERS: &str = "quarters.png";
 /// A solid red image of one cell by one cell, half transparent.
 const GLASS: &str = "glass.png";
+/// A file named as an image that holds no image, which no decoder reads.
+const BROKEN: &str = "broken.png";
 /// The colour of the grey image, which a Missing Asset never shows.
 const GREY_PIXEL: [u8; 4] = [128, 128, 128, 255];
 /// The placeholder of a Missing Asset over the Export's black background.
@@ -289,6 +291,7 @@ impl Fixture {
         .save(folder.join(QUARTERS))
         .expect("the quartered image");
         png(&folder, GLASS, UVec2::splat(256), [255, 0, 0, 128]);
+        fs::write(folder.join(BROKEN), b"no image here").expect("the broken image");
         let mut app = editor(root.path());
         let added = add_folder(&mut app, &folder, "Fixtures");
         Self {
@@ -1726,8 +1729,8 @@ fn painted_levels_export_the_same() {
     assert!(first == second, "the two Exports differ");
 }
 
-/// A Terrain whose image is Missing is drawn as its coverage in the placeholder's colour, not as
-/// a box.
+/// A Terrain whose image is Missing, or cannot be decoded, is drawn as its coverage in the
+/// placeholder's colour, not as a box.
 #[test]
 fn a_missing_terrain_image_keeps_its_shape() {
     let mut fixture = Fixture::new();
@@ -1758,6 +1761,42 @@ fn a_missing_terrain_image_keeps_its_shape() {
         "in the box, beyond the round end"
     );
     assert_eq!(picture.count(GREY_PIXEL), 0, "never its image");
+
+    // The same file made to record a file at a place the folder holds that is no image.
+    fs::write(&saved, text.replace("\"gone.png\"", "\"broken.png\""))
+        .expect("the Project rewritten");
+    fixture.open(&saved);
+    let world = fixture.app.world_mut();
+    let rows = world
+        .query::<&ResolutionTable>()
+        .single(world)
+        .expect("the Project's resolutions")
+        .rows
+        .clone();
+    assert!(
+        rows.iter()
+            .all(|row| matches!(row, Resolution::Resolved { .. })),
+        "the file is found, so only decoding it fails: {rows:?}"
+    );
+
+    let picture = fixture.picture("broken-terrain.png");
+    let at = |x: f32, y: f32| picture.at_point(Vec2::new(x, y), PIXELS_PER_CELL);
+
+    assert_eq!(
+        at(15.0, 15.0),
+        PLACEHOLDER_PIXEL,
+        "on the path, undecodable"
+    );
+    assert_eq!(
+        at(15.0, 17.6),
+        BLACK_PIXEL,
+        "beyond the radius, undecodable"
+    );
+    assert_eq!(
+        at(3.6, 13.6),
+        BLACK_PIXEL,
+        "in the box, beyond the round end, undecodable"
+    );
 }
 
 /// An Edit Element setting a Terrain's Material to another image Asset makes every stroke show
