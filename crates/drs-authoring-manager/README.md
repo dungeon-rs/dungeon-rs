@@ -10,7 +10,8 @@ is one step. Moving a point, bending, and the properties go through the history'
 command; adding and removing a point, the only edits that renumber a Wall's segments, are a step
 of their own, and removing a point from a Wall of two points removes the Wall. Once every Manager
 has handled the frame's Commands, Undo, and Redo, the Manager derives the shape of every Wall
-that changed through the shape Engine and sets the Element's box around its points.
+whose points, segments, or thickness changed through the shape Engine and sets the Element's box
+around its points; a new colour keeps the shape.
 
 The Editor sends it `Apply`, `Undo`, and `Redo` messages; a Command that cannot be carried out is
 answered with a `CommandFailed` message that says why, and an undo or redo that cannot be with a

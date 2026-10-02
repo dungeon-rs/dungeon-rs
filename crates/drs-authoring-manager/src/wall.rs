@@ -3,6 +3,7 @@
 use crate::AuthoringError;
 use crate::place::{spawn_on_top, take_off};
 use crate::remove::Remove;
+use bevy_ecs::component::Component;
 use bevy_ecs::entity::Entity;
 use bevy_ecs::error::BevyError;
 use bevy_ecs::query::Changed;
@@ -10,7 +11,7 @@ use bevy_ecs::system::{Commands, Query};
 use bevy_ecs::world::World;
 use bevy_math::Vec2;
 use drs_history::{ReversibleCommand, Target};
-use drs_model::{Element, ElementId, WALL, Wall, WallShape};
+use drs_model::{Element, ElementId, Segment, WALL, Wall, WallShape};
 use drs_shape_engine::{generate_walls, split_wall};
 
 /// The recorded step of placing a Wall: the Element spawned on top of its Layer, keeping its
@@ -220,18 +221,60 @@ pub(crate) fn remove_point(
     )
 }
 
-/// Derives the shape of every Wall that changed since the last frame through the shape Engine,
-/// and sets its Element's box around its points.
+/// What a Wall's shape was last derived from: its points, segments, and thickness. A change that
+/// leaves them as they were, a new colour, keeps the shape.
+#[derive(Component, Debug, Clone, PartialEq)]
+pub(crate) struct DerivedFrom {
+    /// The points the shape was derived from.
+    points: Vec<Vec2>,
+    /// The segments it was derived from.
+    segments: Vec<Segment>,
+    /// The thickness it was derived at.
+    thickness: f32,
+}
+
+impl DerivedFrom {
+    /// What `wall`'s shape is derived from.
+    fn of(wall: &Wall) -> Self {
+        Self {
+            points: wall.points.clone(),
+            segments: wall.segments.clone(),
+            thickness: wall.thickness,
+        }
+    }
+}
+
+/// Derives the shape of every Wall whose points, segments, or thickness changed since the last
+/// frame through the shape Engine, and sets its Element's box around its points.
+#[expect(
+    clippy::type_complexity,
+    reason = "a Bevy query is spelled out by the components it reads and writes"
+)]
 pub(crate) fn derive_shapes(
     mut commands: Commands,
-    mut walls: Query<(Entity, &Wall, &mut Element, Option<&mut WallShape>), Changed<Wall>>,
+    mut walls: Query<
+        (
+            Entity,
+            &Wall,
+            &mut Element,
+            Option<&mut WallShape>,
+            Option<&DerivedFrom>,
+        ),
+        Changed<Wall>,
+    >,
 ) {
-    for (entity, wall, mut element, shape) in &mut walls {
-        let derived = generate_walls(wall);
+    for (entity, wall, mut element, shape, derived_from) in &mut walls {
+        let geometry = DerivedFrom::of(wall);
         match shape {
-            Some(mut shape) => *shape = derived,
+            Some(_) if derived_from == Some(&geometry) => continue,
+            Some(mut shape) => {
+                *shape = generate_walls(wall);
+                commands.entity(entity).insert(geometry);
+            }
             None => {
-                commands.entity(entity).insert(derived);
+                commands
+                    .entity(entity)
+                    .insert((generate_walls(wall), geometry));
             }
         }
         let footprint = wall.element_box();
