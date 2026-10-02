@@ -1,7 +1,6 @@
 //! Where the editor keeps its own files, resolved from the overrides the model holds.
 #![expect(
     clippy::missing_panics_doc,
-    clippy::expect_used,
     reason = "a test stops at the first thing that is not as expected"
 )]
 

@@ -145,6 +145,10 @@ pub fn log_directory(resolved: Option<PathBuf>) -> PathBuf {
 /// so the editor starts regardless. A malformed `RUST_LOG` is said on the terminal after that,
 /// so the first line on the terminal is about where the log went.
 #[must_use]
+#[expect(
+    clippy::print_stderr,
+    reason = "before the subscriber exists, the terminal is the only place a reason can go"
+)]
 pub fn start_logging(directory: &Path, directives: LogDirectives) -> Logging {
     let LogDirectives { filter, fallback } = directives;
     let logging = match appender(directory) {

@@ -105,6 +105,10 @@ fn a_marker_naming_another_version_is_still_used() {
 /// The working directory is process-wide; the test runner gives each test its own process, so
 /// the change reaches no other test.
 #[test]
+#[expect(
+    clippy::disallowed_methods,
+    reason = "the one place the working directory is changed on purpose, to show it does not matter"
+)]
 fn the_working_directory_never_matters() {
     let root = TempDir::new().expect("temporary root");
     let editor = executable(&root.path().join("editor").join("dungeon-rs"));
