@@ -162,4 +162,4 @@ Three seams. CatalogEngine's Search is tested directly over searches built from 
 ## Further Notes
 
 - "Search", "match", and "search field" are plain English for presentation, not domain concepts, as "browser" already is; they carry no invariant.
-- LibraryManager answering the browser's search message is a request operation its contract in the architecture does not yet list (AddFolder, RemoveFolder, RenameFolder, InstallPack, Refresh), as is the wanted set Thumbnails adds; and no call chain shows CatalogEngine's Search. The Editor reaches no Engine directly, so this is the only path to Search; the contract list and a call chain should name it before this change is built.
+- LibraryManager answers the browser's search and the wanted set Thumbnails adds through its Browse operation, shown in the architecture's Browse the library call chain.
