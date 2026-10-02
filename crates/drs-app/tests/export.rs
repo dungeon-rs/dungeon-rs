@@ -66,8 +66,11 @@ const CYAN_PIXEL: [u8; 4] = [0, 255, 255, 255];
 const ORANGE_PIXEL: [u8; 4] = [255, 128, 0, 255];
 /// The colour of the two-tone door's bottom half.
 const PURPLE_PIXEL: [u8; 4] = [128, 0, 255, 255];
-/// An image two cells wide and one high whose left half is red and right half blue.
-const HALVES: &str = "halves.png";
+/// An image two cells a side in four quarters: red at the top left, blue at the top right, green
+/// at the bottom left, and yellow at the bottom right.
+const QUARTERS: &str = "quarters.png";
+/// A solid red image of one cell by one cell, half transparent.
+const GLASS: &str = "glass.png";
 /// The colour of the grey image, which a Missing Asset never shows.
 const GREY_PIXEL: [u8; 4] = [128, 128, 128, 255];
 /// The placeholder of a Missing Asset over the Export's black background.
@@ -275,13 +278,17 @@ impl Fixture {
         })
         .save(folder.join(TWO_TONE))
         .expect("the two-tone image");
-        let mut halves = image::RgbaImage::from_pixel(512, 256, image::Rgba(RED_PIXEL));
-        for x in 256..512 {
-            for y in 0..256 {
-                halves.put_pixel(x, y, image::Rgba(BLUE_PIXEL));
-            }
-        }
-        halves.save(folder.join(HALVES)).expect("fixture image");
+        image::RgbaImage::from_fn(512, 512, |x, y| {
+            image::Rgba(match (x < 256, y < 256) {
+                (true, true) => RED_PIXEL,
+                (false, true) => BLUE_PIXEL,
+                (true, false) => GREEN_PIXEL,
+                (false, false) => YELLOW_PIXEL,
+            })
+        })
+        .save(folder.join(QUARTERS))
+        .expect("the quartered image");
+        png(&folder, GLASS, UVec2::splat(256), [255, 0, 0, 128]);
         let mut app = editor(root.path());
         let added = add_folder(&mut app, &folder, "Fixtures");
         Self {
@@ -1484,8 +1491,9 @@ fn partly_red(pixel: [u8; 4]) -> bool {
     pixel[0] > 0 && pixel[0] < 255 && pixel[1] == 0 && pixel[2] == 0 && pixel[3] == 255
 }
 
-/// A Terrain is drawn as its Material over what lies below it, as opaque as its coverage: the
-/// image where the coverage is full, nothing where there is none, and partly in a soft edge.
+/// A Terrain is drawn as its Material over what lies below it, as opaque as its coverage times
+/// the image's own opacity: the image where the coverage is full, nothing where there is none,
+/// partly in a soft edge, and partly where the image itself is half transparent.
 #[test]
 fn a_stroke_shows_its_material() {
     let mut fixture = Fixture::new();
@@ -1506,6 +1514,25 @@ fn a_stroke_shows_its_material() {
         partly_red(at(15.0, 16.5)),
         "the soft edge: {:?}",
         at(15.0, 16.5)
+    );
+
+    let mut glass = Fixture::new();
+    glass.paint(
+        GLASS,
+        &[Vec2::new(5.0, 15.0), Vec2::new(25.0, 15.0)],
+        brush(4.0, 1.0, 1.0),
+    );
+    glass.place(GLASS, Vec2::new(15.5, 5.5));
+    let picture = glass.picture("glass.png");
+    let middle = picture.at_point(Vec2::new(15.0, 15.0), PIXELS_PER_CELL);
+    assert!(
+        partly_red(middle),
+        "a half-transparent image under full coverage: {middle:?}"
+    );
+    assert_eq!(
+        middle,
+        picture.at_point(Vec2::new(15.5, 5.5), PIXELS_PER_CELL),
+        "as the image shows as a Prop"
     );
 }
 
@@ -1533,25 +1560,42 @@ fn a_weaker_stroke_shows_partly() {
 }
 
 /// A Terrain's Material shows its image repeated edge to edge from the Level's origin at its
-/// natural size, the same across two strokes that meet.
+/// natural size, upright, the same across two strokes that meet: one repetition of an image two
+/// cells a side covers the cells from an even column and an even row, its top half in the odd
+/// row.
 #[test]
 fn terrain_is_tiled_at_natural_size() {
     let mut fixture = Fixture::new();
-    let hard = brush(3.0, 1.0, 1.0);
-    fixture.paint(HALVES, &[Vec2::new(2.0, 10.5), Vec2::new(6.0, 10.5)], hard);
-    fixture.paint(HALVES, &[Vec2::new(6.5, 10.5), Vec2::new(11.0, 10.5)], hard);
+    let hard = brush(6.0, 1.0, 1.0);
+    fixture.paint(
+        QUARTERS,
+        &[Vec2::new(2.0, 10.5), Vec2::new(6.0, 10.5)],
+        hard,
+    );
+    fixture.paint(
+        QUARTERS,
+        &[Vec2::new(6.5, 10.5), Vec2::new(11.0, 10.5)],
+        hard,
+    );
 
     let picture = fixture.picture("tiled.png");
 
-    for column in 1..=11 {
-        let expected = if column % 2 == 0 {
-            RED_PIXEL
-        } else {
-            BLUE_PIXEL
-        };
-        assert_eq!(picture.at_cell(column, 10), expected, "cell ({column}, 10)");
+    for row in 9..=12 {
+        for column in 1..=11 {
+            let expected = match (column % 2 == 0, row % 2 == 1) {
+                (true, true) => RED_PIXEL,
+                (false, true) => BLUE_PIXEL,
+                (true, false) => GREEN_PIXEL,
+                (false, false) => YELLOW_PIXEL,
+            };
+            assert_eq!(
+                picture.at_cell(column, row),
+                expected,
+                "cell ({column}, {row})"
+            );
+        }
     }
-    assert_eq!(picture.at_cell(5, 13), BLACK_PIXEL, "beyond the strokes");
+    assert_eq!(picture.at_cell(5, 15), BLACK_PIXEL, "beyond the strokes");
 }
 
 /// A Terrain lies under the Props and Walls placed before it was painted, and a Prop placed after
@@ -1664,7 +1708,7 @@ fn painted_tiles_leave_no_seams() {
 fn painted_levels_export_the_same() {
     let mut fixture = Fixture::new();
     fixture.paint(
-        HALVES,
+        QUARTERS,
         &[Vec2::new(3.0, 3.0), Vec2::new(16.0, 14.0)],
         brush(5.0, 0.5, 0.8),
     );
@@ -1714,4 +1758,31 @@ fn a_missing_terrain_image_keeps_its_shape() {
         "in the box, beyond the round end"
     );
     assert_eq!(picture.count(GREY_PIXEL), 0, "never its image");
+}
+
+/// An Edit Element setting a Terrain's Material to another image Asset makes every stroke show
+/// that image in the Export.
+#[test]
+fn the_material_stays_editable() {
+    let mut fixture = Fixture::new();
+    fixture.paint(
+        RED,
+        &[Vec2::new(5.0, 15.0), Vec2::new(25.0, 15.0)],
+        brush(4.0, 1.0, 1.0),
+    );
+    let terrain = fixture.last();
+    let green = AssetAddress {
+        folder: fixture.key.clone(),
+        place: GREEN.to_owned(),
+    };
+    fixture.edit(terrain, ElementChange::Material(green));
+
+    let picture = fixture.picture("new-image.png");
+
+    assert_eq!(
+        picture.at_point(Vec2::new(15.0, 15.0), PIXELS_PER_CELL),
+        GREEN_PIXEL,
+        "the new image along the stroke"
+    );
+    assert_eq!(picture.count(RED_PIXEL), 0, "never the image it had");
 }
