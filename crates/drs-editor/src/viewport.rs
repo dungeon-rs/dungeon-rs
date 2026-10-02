@@ -479,8 +479,11 @@ pub(crate) fn outline_selection(
     mut state: ResMut<EditorState>,
     elements: Query<(&ElementId, &Element, Option<&Wall>)>,
 ) {
+    // The state is written only when something changes, so it is not marked changed every frame.
     let Some(selected) = state.selected else {
-        state.walls.handle = None;
+        if state.walls.handle.is_some() {
+            state.walls.handle = None;
+        }
         return;
     };
     let Some((_, element, wall)) = elements.iter().find(|(id, ..)| **id == selected) else {
