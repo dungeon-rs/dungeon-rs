@@ -31,10 +31,10 @@ pub use matches::{AssetMatch, SearchMatches};
 pub use messages::{
     AddFolder, Apply, AssetAddress, AssetFolderChanged, Browse, CommandFailed, EditElement,
     ElementChange, ExportLevel, ExportRefused, FolderAdded, FolderRefusal, FolderRefused,
-    FolderUnavailable, Gesture, HistoryFailed, LevelExported, ManagerSystems, MissingAsset,
-    OpenProject, OpenReport, PlaceElement, Placement, ProjectOpened, ProjectRefused,
-    ProjectRequest, ProjectSaved, Redo, RemoveElement, SaveProject, ThumbnailsUnavailable, Undo,
-    UnknownKind,
+    FolderUnavailable, FreePortal, Gesture, HistoryFailed, LevelExported, ManagerSystems,
+    MissingAsset, OpenProject, OpenReport, PlaceElement, Placement, PortalsRemoved, ProjectOpened,
+    ProjectRefused, ProjectRequest, ProjectSaved, Redo, RemoveElement, SaveProject,
+    SetPortalIntoWall, ThumbnailsUnavailable, Undo, UnknownKind,
 };
 pub use panics::CaughtPanics;
 pub use portal::{PORTAL, Portal, PortalAnchor, Side};
@@ -91,6 +91,7 @@ impl Plugin for ModelPlugin {
             .add_message::<ThumbnailsUnavailable>()
             .add_message::<Apply>()
             .add_message::<CommandFailed>()
+            .add_message::<PortalsRemoved>()
             .add_message::<HistoryFailed>()
             .add_message::<Undo>()
             .add_message::<Redo>()

@@ -2,6 +2,7 @@
 
 mod edit;
 mod place;
+mod portal;
 mod remove;
 mod wall;
 
@@ -67,6 +68,25 @@ pub enum AuthoringError {
     /// that is not finite.
     #[error("{0}")]
     MalformedWall(String),
+    /// The change or Command is one only a Portal has, and the Element is no Portal.
+    #[error("the Element {0:?} is not a Portal")]
+    NotAPortal(ElementId),
+    /// The Portal would not be one: a width not above zero, or a rotation that is not finite.
+    #[error("{0}")]
+    MalformedPortal(String),
+    /// A Portal is to be set into a Wall on another Level than its own.
+    #[error("the Wall {0:?} is on another Level than the Portal")]
+    OnAnotherLevel(ElementId),
+    /// A Portal is to be set at a parameter outside its segment.
+    #[error("a Portal is set at a parameter from 0 to 1 along its segment, not {0}")]
+    OutsideSegment(f32),
+    /// The position, rotation, or mirroring of a Portal set into a Wall is to change, which
+    /// follow its Wall.
+    #[error("the Portal is set into a Wall, which it follows; free it first")]
+    FollowsItsWall,
+    /// The side or the place along a Wall of a freestanding Portal is to change.
+    #[error("the Portal is freestanding; set it into a Wall first")]
+    Freestanding,
     /// The shape Engine could not reshape the Wall.
     #[error(transparent)]
     Shape(#[from] ShapeError),
@@ -90,9 +110,9 @@ impl Plugin for AuthoringManagerPlugin {
                 handle_apply.in_set(ManagerSystems::Commands),
                 handle_undo.in_set(ManagerSystems::Undo),
                 handle_redo.in_set(ManagerSystems::Redo),
-                // Every Manager has handled its Commands, Undo, and Redo by then, so a Wall
-                // placed, edited, undone, redone, or opened has its shape before anything draws
-                // or picks it.
+                // Every Manager has handled its Commands, Undo, and Redo by then, so a Wall or a
+                // Portal placed, edited, undone, redone, or opened has its shape and its place
+                // before anything draws or picks it.
                 wall::derive_shapes.after(ManagerSystems::Redo),
             ),
         );
@@ -109,6 +129,8 @@ pub(crate) fn apply(world: &mut World, command: &Apply) -> Result<(), AuthoringE
         Apply::PlaceElement(place) => place::place_element(world, place),
         Apply::EditElement(edit) => edit::edit_element(world, edit),
         Apply::RemoveElement(remove) => remove::remove_element(world, remove),
+        Apply::SetPortalIntoWall(set) => portal::set_portal_into_wall(world, set),
+        Apply::FreePortal(free) => portal::free_portal(world, free),
     }
 }
 

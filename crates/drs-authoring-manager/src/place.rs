@@ -1,4 +1,4 @@
-//! Place Element: a Prop of a chosen Asset on a Layer, and its undo.
+//! Place Element: a Prop or a Portal of a chosen Asset on a Layer, and its undo.
 
 use crate::AuthoringError;
 use bevy_ecs::bundle::Bundle;
@@ -11,7 +11,8 @@ use drs_history::{ReversibleCommand, Target};
 use drs_library_access::load_asset;
 use drs_model::{
     AssetAddress, AssetFolder, AssetFolderReference, AssetReference, AssetReferences, Element,
-    ElementId, Grid, Layer, PROP, PlaceElement, Placement, Project, Prop, Wall,
+    ElementId, Grid, Layer, PORTAL, PROP, PlaceElement, Placement, Portal, PortalAnchor, Project,
+    Prop, Wall,
 };
 use unicode_normalization::UnicodeNormalization;
 
@@ -31,6 +32,21 @@ fn project_of(world: &World, layer: Entity) -> Result<Entity, AuthoringError> {
     Err(AuthoringError::NoProject)
 }
 
+/// What an Element placed from an Asset shows its image as.
+pub(crate) enum Shown {
+    /// A Prop.
+    Prop,
+    /// A Portal, turned and mirrored, and set into a Wall when anchored.
+    Portal {
+        /// How far it is turned, in radians counter-clockwise.
+        rotation: f32,
+        /// Whether its image is mirrored.
+        mirrored: bool,
+        /// Where it is set, if anywhere.
+        anchor: Option<PortalAnchor>,
+    },
+}
+
 /// The recorded step: the Element spawned on top of its Layer, keeping its identity so that
 /// redo puts it back exactly.
 ///
@@ -38,21 +54,17 @@ fn project_of(world: &World, layer: Entity) -> Result<Entity, AuthoringError> {
 /// recorded on the first application and never removed: undoing the placement leaves them in the
 /// table, and placing the Asset again reuses them. Pruning rows no Element uses is a later
 /// concern.
-struct Place {
-    /// The Project whose Asset Reference table records the Asset.
-    project: Entity,
+pub(crate) struct Place {
     /// The Layer to place on.
-    layer: Entity,
+    pub(crate) layer: Entity,
     /// The centre of the Element in Grid cells.
-    position: Vec2,
-    /// The Element's natural size in Grid cells.
-    size: Vec2,
-    /// What the Project records about the Asset.
-    reference: AssetReference,
-    /// What the Project records about the Asset's folder.
-    folder: AssetFolderReference,
+    pub(crate) position: Vec2,
+    /// The Asset as resolved, with the Element's natural size.
+    pub(crate) resolved: Resolved,
+    /// What the Element shows its image as.
+    pub(crate) shown: Shown,
     /// The identity the Element keeps through undo and redo.
-    element: ElementId,
+    pub(crate) element: ElementId,
 }
 
 impl ReversibleCommand for Place {
@@ -60,23 +72,49 @@ impl ReversibleCommand for Place {
         if world.get_entity(self.layer).is_err() {
             return Err(AuthoringError::NotALayer.into());
         }
+        let resolved = &self.resolved;
         let row = world
-            .get_mut::<AssetReferences>(self.project)
+            .get_mut::<AssetReferences>(resolved.project)
             .ok_or(AuthoringError::NoProject)?
-            .record(self.reference.clone(), self.folder.clone())?;
-        spawn_on_top(
-            world,
-            self.layer,
-            (
-                Element {
-                    kind: PROP,
-                    position: self.position,
-                    size: self.size,
-                },
-                Prop { asset: row },
-                self.element,
+            .record(resolved.reference.clone(), resolved.folder.clone())?;
+        match &self.shown {
+            Shown::Prop => spawn_on_top(
+                world,
+                self.layer,
+                (
+                    Element {
+                        kind: PROP,
+                        position: self.position,
+                        size: resolved.size,
+                    },
+                    Prop { asset: row },
+                    self.element,
+                ),
             ),
-        )
+            Shown::Portal {
+                rotation,
+                mirrored,
+                anchor,
+            } => spawn_on_top(
+                world,
+                self.layer,
+                (
+                    Element {
+                        kind: PORTAL,
+                        position: self.position,
+                        size: resolved.size,
+                    },
+                    Portal {
+                        asset: row,
+                        width: resolved.size.x,
+                        rotation: *rotation,
+                        mirrored: *mirrored,
+                        anchor: *anchor,
+                    },
+                    self.element,
+                ),
+            ),
+        }
     }
 
     fn revert(&mut self, world: &mut World) -> Result<(), BevyError> {
@@ -120,13 +158,13 @@ pub(crate) fn take_off(world: &mut World, element: ElementId) -> Result<(), Bevy
     Ok(())
 }
 
-/// Place Element: places a Prop of the chosen Asset or a Wall through the given points on top
-/// of the Layer, as one history step.
+/// Place Element: places a Prop or a Portal of the chosen Asset or a Wall through the given
+/// points on top of the Layer, as one history step.
 ///
 /// # Errors
 ///
-/// [`AuthoringError::NotALayer`] when the Layer is not one, and whatever placing the Prop or the
-/// Wall reports.
+/// [`AuthoringError::NotALayer`] when the Layer is not one, and whatever placing the Prop, the
+/// Portal, or the Wall reports.
 pub(crate) fn place_element(
     world: &mut World,
     command: &PlaceElement,
@@ -136,6 +174,11 @@ pub(crate) fn place_element(
     }
     match &command.placement {
         Placement::Prop { position, asset } => place_prop(world, command.layer, *position, asset),
+        Placement::Portal {
+            position,
+            asset,
+            anchor,
+        } => crate::portal::place_portal(world, command.layer, *position, asset, *anchor),
         Placement::Wall {
             points,
             thickness,
@@ -148,21 +191,33 @@ pub(crate) fn place_element(
     }
 }
 
-/// Places a Prop: resolves the chosen Asset, reads what the Project must record about it, and
-/// places a Prop of it on top of the Layer, centred on the given position, as one history step.
+/// An Asset as a placement resolves it: the Project that records it, what the Project records
+/// about it and its folder, and the natural size of an Element showing it.
+pub(crate) struct Resolved {
+    /// The Project whose Asset Reference table records the Asset.
+    project: Entity,
+    /// The Element's natural size in Grid cells: the image's pixel size over the Grid's pixels
+    /// per cell.
+    pub(crate) size: Vec2,
+    /// What the Project records about the Asset.
+    reference: AssetReference,
+    /// What the Project records about the Asset's folder.
+    folder: AssetFolderReference,
+}
+
+/// Resolves the chosen Asset for an Element placed on `layer`: finds it in its Asset Folder,
+/// reads its file, and works out what the Project must record about it and its natural size.
 ///
 /// # Errors
 ///
 /// [`AuthoringError::NoProject`] when the Layer belongs to no Project,
 /// [`AuthoringError::UnknownFolder`] or [`AuthoringError::UnknownAsset`] when the chosen Asset is
-/// not indexed, [`AuthoringError::Library`] when its file cannot be read, or
-/// [`AuthoringError::History`] when the step could not be recorded.
-fn place_prop(
+/// not indexed, or [`AuthoringError::Library`] when its file cannot be read.
+pub(crate) fn resolve(
     world: &mut World,
     layer: Entity,
-    position: Vec2,
     asset: &AssetAddress,
-) -> Result<(), AuthoringError> {
+) -> Result<Resolved, AuthoringError> {
     let project = project_of(world, layer)?;
     let pixels_per_cell = world.get::<Grid>(project).map_or_else(
         || Grid::default().pixels_per_cell,
@@ -199,18 +254,38 @@ fn place_prop(
         byte_size: loaded.byte_size,
         pixel_size: Some(loaded.pixel_size),
     };
+    Ok(Resolved {
+        project,
+        size,
+        reference,
+        folder: AssetFolderReference {
+            name: folder.name,
+            version: folder.version,
+        },
+    })
+}
+
+/// Places a Prop: resolves the chosen Asset and places a Prop of it on top of the Layer,
+/// centred on the given position, as one history step.
+///
+/// # Errors
+///
+/// Whatever resolving the Asset reports, or [`AuthoringError::History`] when the step could not
+/// be recorded.
+fn place_prop(
+    world: &mut World,
+    layer: Entity,
+    position: Vec2,
+    asset: &AssetAddress,
+) -> Result<(), AuthoringError> {
+    let resolved = resolve(world, layer, asset)?;
     crate::record_step(
         world,
         Place {
-            project,
             layer,
             position,
-            size,
-            reference,
-            folder: AssetFolderReference {
-                name: folder.name,
-                version: folder.version,
-            },
+            resolved,
+            shown: Shown::Prop,
             element: ElementId::new(),
         },
     )

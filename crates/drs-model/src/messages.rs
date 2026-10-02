@@ -1,7 +1,8 @@
 //! The messages the Editor sends to the Managers, and the reports that come back.
 
 use crate::{
-    CanonicalName, Colour, ElementId, ElementKindName, FolderKey, MissingReason, ScanSkips,
+    CanonicalName, Colour, ElementId, ElementKindName, FolderKey, MissingReason, PortalAnchor,
+    ScanSkips, Side,
 };
 use bevy_ecs::entity::Entity;
 use bevy_ecs::message::Message;
@@ -145,6 +146,10 @@ pub enum Apply {
     EditElement(EditElement),
     /// Remove Element: take an Element off its Layer.
     RemoveElement(RemoveElement),
+    /// Set Portal into Wall: anchor a Portal to a place along a Wall.
+    SetPortalIntoWall(SetPortalIntoWall),
+    /// Free Portal: make a Portal set into a Wall freestanding where it stands.
+    FreePortal(FreePortal),
 }
 
 /// An Asset as this device finds it: the key of its Asset Folder and its place in that folder.
@@ -175,6 +180,17 @@ pub enum Placement {
         position: Vec2,
         /// The Asset to place.
         asset: AssetAddress,
+    },
+    /// A Portal of an Asset at its image's natural size, set into a Wall when anchored, and
+    /// otherwise freestanding, unturned, and centred on a point.
+    Portal {
+        /// The centre of a freestanding Portal in Grid cells; a set Portal stands where its
+        /// anchor says.
+        position: Vec2,
+        /// The Asset whose image the Portal shows.
+        asset: AssetAddress,
+        /// Where the Portal is set, or `None` for a freestanding one.
+        anchor: Option<PortalAnchor>,
     },
     /// A Wall through points, every segment straight.
     Wall {
@@ -224,6 +240,22 @@ pub enum ElementChange {
     Thickness(f32),
     /// Set a Wall's colour.
     Colour(Colour),
+    /// Set a Portal's width in Grid cells, its height following its image's proportions; above
+    /// zero.
+    Width(f32),
+    /// Turn a freestanding Portal to a rotation, in radians counter-clockwise.
+    Rotation(f32),
+    /// Mirror a freestanding Portal across its length, or not.
+    Mirrored(bool),
+    /// Turn a Portal set into a Wall to face a side.
+    Side(Side),
+    /// Slide a Portal set into a Wall to another place along it.
+    Along {
+        /// Which segment, counted from zero.
+        segment: usize,
+        /// Where along it, from zero at its first point to one at its second.
+        t: f32,
+    },
 }
 
 /// How an [`EditElement`] relates to the gesture it belongs to, so a drag is one history step.
@@ -255,6 +287,34 @@ pub struct EditElement {
 pub struct RemoveElement {
     /// Which Element.
     pub element: ElementId,
+}
+
+/// Anchor a Portal, freestanding or set into any Wall, to a place along a Wall.
+#[derive(Debug, Clone, PartialEq)]
+pub struct SetPortalIntoWall {
+    /// Which Portal.
+    pub portal: ElementId,
+    /// Where it is set: the Wall, the segment, the parameter, and the side.
+    pub anchor: PortalAnchor,
+}
+
+/// Make a Portal set into a Wall freestanding with the position, rotation, and mirroring it has.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct FreePortal {
+    /// Which Portal.
+    pub portal: ElementId,
+}
+
+/// A Command removed the Portals set into a part of a Wall that it removed, in the same step.
+///
+/// Sent by the authoring Manager after the Command, for the Editor to tell the Author how many
+/// went.
+#[derive(Message, Debug, Clone, PartialEq, Eq)]
+pub struct PortalsRemoved {
+    /// The Wall the Portals were set into.
+    pub host: ElementId,
+    /// The Portals removed.
+    pub portals: Vec<ElementId>,
 }
 
 /// An [`Apply`] could not be carried out and nothing was recorded.

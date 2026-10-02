@@ -1,13 +1,14 @@
 //! Edit Element: a property change, grouped so that a gesture is one step.
 
 use crate::AuthoringError;
+use crate::portal::portal_change;
 use crate::wall::{add_point, remove_point, translated, wall_of, well_formed};
 use bevy_ecs::world::World;
 use drs_history::{SetField, Target};
-use drs_model::{EditElement, Element, ElementChange, ElementId, Gesture, Wall};
+use drs_model::{EditElement, Element, ElementChange, ElementId, Gesture, Portal, Wall};
 
 /// Edit Element: sets the changed property through the generic field command, or adds or
-/// removes a point of a Wall as a step of its own.
+/// removes a point of a Wall as a step of its own, carrying the Portals set into it.
 ///
 /// A gesture ([`Gesture::Begin`] through [`Gesture::End`]) is recorded as one history group, so
 /// undoing it returns the Element to where the gesture began; a [`Gesture::Single`] change is a
@@ -21,7 +22,9 @@ use drs_model::{EditElement, Element, ElementChange, ElementId, Gesture, Wall};
 /// [`AuthoringError::NoSegment`] for a point or segment the Wall does not have,
 /// [`AuthoringError::Shape`] for a point added where the Wall cannot be split,
 /// [`AuthoringError::MalformedWall`] for a thickness not above zero or a point that is not
-/// finite, or [`AuthoringError::History`] when the change could not be recorded.
+/// finite, [`AuthoringError::FollowsItsWall`] for the position of a Portal set into a Wall, what
+/// a Portal's own changes report, or [`AuthoringError::History`] when the change could not be
+/// recorded.
 pub(crate) fn edit_element(world: &mut World, command: &EditElement) -> Result<(), AuthoringError> {
     let id = command.element;
     let entity = id
@@ -29,14 +32,20 @@ pub(crate) fn edit_element(world: &mut World, command: &EditElement) -> Result<(
         .map_err(|_| AuthoringError::UnknownElement(id))?;
     let history = |error: drs_history::HistoryError| AuthoringError::History(error.to_string());
     let change = match &command.change {
-        ElementChange::Position(position) => match world.get::<Wall>(entity) {
-            Some(wall) => {
+        ElementChange::Position(position) => {
+            if let Some(wall) = world.get::<Wall>(entity) {
                 let moved = translated(wall, *position);
                 well_formed(&moved)?;
                 SetField::<ElementId>::new::<Wall>(id, "", moved)
+            } else if world
+                .get::<Portal>(entity)
+                .is_some_and(|portal| portal.anchor.is_some())
+            {
+                return Err(AuthoringError::FollowsItsWall);
+            } else {
+                SetField::<ElementId>::new::<Element>(id, "position", *position)
             }
-            None => SetField::<ElementId>::new::<Element>(id, "position", *position),
-        },
+        }
         ElementChange::Point { index, position } => {
             let mut wall = wall_of(world, id)?;
             let points = wall.points.len();
@@ -76,6 +85,14 @@ pub(crate) fn edit_element(world: &mut World, command: &EditElement) -> Result<(
         }
         ElementChange::AddPoint { segment, t } => return add_point(world, id, *segment, *t),
         ElementChange::RemovePoint { index } => return remove_point(world, id, *index),
+        ElementChange::Width(_)
+        | ElementChange::Rotation(_)
+        | ElementChange::Mirrored(_)
+        | ElementChange::Side(_)
+        | ElementChange::Along { .. } => match portal_change(world, id, &command.change)? {
+            Some(field) => Ok(field),
+            None => return Err(AuthoringError::NotAPortal(id)),
+        },
     }
     .map_err(history)?;
 

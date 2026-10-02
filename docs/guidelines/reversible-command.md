@@ -72,7 +72,8 @@ impl ReversibleCommand for Remove {
     }
 }
 
-/// Remove Element: takes the Element off its Layer as one history step.
+/// Remove Element: takes the Element off its Layer as one history step; a Wall takes the
+/// Portals set into it with it, in the same step.
 ///
 /// # Errors
 ///
@@ -82,10 +83,13 @@ pub(crate) fn remove_element(
     world: &mut World,
     command: &RemoveElement,
 ) -> Result<(), AuthoringError> {
-    command
+    let entity = command
         .element
         .entity(world)
         .map_err(|_| AuthoringError::UnknownElement(command.element))?;
+    if world.get::<Wall>(entity).is_some() {
+        return crate::wall::remove_with_portals(world, command.element);
+    }
     crate::record_step(world, Remove::of(command.element))
 }
 

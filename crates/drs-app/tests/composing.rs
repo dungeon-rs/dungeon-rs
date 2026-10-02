@@ -568,7 +568,10 @@ fn a_failed_command_is_reported() {
         assert_eq!(failed[0].command, command);
         let named = match &command {
             Apply::PlaceElement(_) => "nowhere.png".to_owned(),
-            Apply::EditElement(_) | Apply::RemoveElement(_) => format!("{unknown:?}"),
+            Apply::EditElement(_)
+            | Apply::RemoveElement(_)
+            | Apply::SetPortalIntoWall(_)
+            | Apply::FreePortal(_) => format!("{unknown:?}"),
         };
         assert!(
             failed[0].reason.contains(&named),
