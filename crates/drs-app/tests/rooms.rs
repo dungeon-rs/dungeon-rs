@@ -940,7 +940,7 @@ fn the_floor_fills_the_outline() {
 
 /// A Portal can be set into a Room's Walls, anchored by the Room's `ElementId`, an edge, a
 /// parameter along it, and a side: it stands on the outline facing its side, and is placed,
-/// set, freed, and slid as a Portal set into a Wall, with the Room's edges in place of the
+/// set, freed, slid, flipped, and removed as a Portal set into a Wall, with the Room's edges in place of the
 /// Wall's segments.
 #[test]
 fn portals_set_into_rooms() {
@@ -1011,6 +1011,28 @@ fn portals_set_into_rooms() {
     assert_close(ops::sin(placed.portal.rotation), 0.0, "along the top edge");
     assert_close(ops::cos(placed.portal.rotation), -1.0, "leftwards");
     assert_close(placed.portal.rotation.abs(), PI, "half a turn");
+
+    let slid = fixture.portal(free);
+    fixture.edit(free, ElementChange::Side(Side::Right));
+    let flipped = fixture.portal(free);
+    assert_eq!(
+        flipped.portal.anchor.map(|anchor| anchor.side),
+        Some(Side::Right)
+    );
+    assert!(flipped.portal.mirrored, "flipped to face the right");
+    assert_eq!(flipped.element, slid.element, "flipped where it stands");
+    assert_eq!(
+        flipped.portal.rotation, slid.portal.rotation,
+        "still along the top edge"
+    );
+
+    let before = fixture.portal(bottom);
+    fixture.apply(Apply::RemoveElement(RemoveElement { element: bottom }));
+    assert!(!fixture.exists(bottom), "removed");
+    fixture.undo();
+    assert_eq!(fixture.portal(bottom), before, "back where it was set");
+    fixture.redo();
+    assert!(!fixture.exists(bottom), "removed again");
 
     let standing = fixture.portal(free).element;
     fixture.apply(Apply::FreePortal(FreePortal { portal: free }));
@@ -1208,6 +1230,39 @@ fn removing_a_point_carries_a_rooms_portals() {
         fixture.portal(doors[1]).element.position,
         Vec2::new(6.0, 0.0),
         "kept",
+    );
+    assert!(fixture.removed().is_empty());
+
+    // Two edges of unequal lengths, two cells and six, share the joined edge by length.
+    let unequal = fixture.room(&[
+        Vec2::new(40.0, 0.0),
+        Vec2::new(42.0, 0.0),
+        Vec2::new(48.0, 0.0),
+        Vec2::new(48.0, 6.0),
+        Vec2::new(40.0, 6.0),
+    ]);
+    let doors = [
+        fixture.set_door(unequal, 0, 0.25, Side::Left),
+        fixture.set_door(unequal, 1, 0.75, Side::Left),
+    ];
+    fixture.edit(unequal, ElementChange::RemovePoint { index: 1 });
+    let places: Vec<(usize, f32)> = doors
+        .iter()
+        .map(|door| {
+            let anchor = fixture.anchor(*door);
+            (anchor.index, anchor.t)
+        })
+        .collect();
+    assert_eq!(places, vec![(0, 0.0625), (0, 0.8125)]);
+    assert_near(
+        fixture.portal(doors[0]).element.position,
+        Vec2::new(40.5, 0.0),
+        "kept on the short edge's share",
+    );
+    assert_near(
+        fixture.portal(doors[1]).element.position,
+        Vec2::new(46.5, 0.0),
+        "kept on the long edge's share",
     );
     assert!(fixture.removed().is_empty());
 
