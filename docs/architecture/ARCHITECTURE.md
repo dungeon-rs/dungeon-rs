@@ -76,7 +76,7 @@ Volatility: extension mechanism.
 Contract: InstallPlugin, LoadContributions, RunScript.
 
 ### Editor (Client)
-Volatility: presentation. The only crate that faces the Author: panels read the World and emit Commands; they never own domain state. It owns the presentation state in `model` (the Viewport): panning and zooming write it, nothing else does. Hit-testing is its own: the Element under the pointer and the nearest point of a Wall's line to it, for picking and for the Portal tool, while snapping a placed point to the Grid or into alignment is ShapeEngine's Snap.
+Volatility: presentation. The only crate that faces the Author: panels read the World and emit Commands; they never own domain state. It owns the presentation state in `model` (the Viewport and the Pointer): panning and zooming write the Viewport, the pointer's place and the snap switch write the Pointer, and nothing else writes either. Hit-testing is its own: the Element under the pointer and the nearest point of a Wall's line to it, for picking and for the Portal tool, while snapping a placed point to the Grid or into alignment is ShapeEngine's Snap.
 
 ### history (Utility)
 A domain-agnostic stack of reversible commands over a World: Record, Group, Undo, Redo. Every Manager records into it.
@@ -85,7 +85,7 @@ A domain-agnostic stack of reversible commands over a World: Record, Group, Undo
 How a fault reaches the Author and the contributor: logging to daily files in the editor's own directories, a crash handler that leaves a report and announces it in a dialog, and the location of the editor's Bundled Files by platform layout. StartLogging, InstallCrashHandler, LocateBundledFiles, RevealLogs. It uses no Bevy: the Host wires it before the App exists, and the Editor calls it to reveal the logs and to announce a pending crash report. _Why_ it may show a dialog: a crash dialog may be needed before the Editor exists, so this is the one place a dialog is shown outside the Client.
 
 ### model (shared contracts)
-Domain components (Project, Level, Layer, Element kinds, `ElementId`, Asset Reference), the Element kind registry, Commands, the messages Managers exchange, and the presentation state the Editor owns (the Viewport: the cell at the centre of the view, the zoom, and the area it is shown in). _Why_ the Viewport lives here: RenderEngine's projection follows it and the Editor steers it, and the Editor may not depend on RenderEngine, so the shared type sits in `model` like every other shared contract.
+Domain components (Project, Level, Layer, Element kinds, `ElementId`, Asset Reference), the Element kind registry, Commands, the messages Managers exchange, and the presentation state the Editor owns (the Viewport: the cell at the centre of the view, the zoom, and the area it is shown in; the Pointer: where the pointer is on the Level and whether it should snap). _Why_ they live here: RenderEngine's projection follows the Viewport and AuthoringManager snaps the Pointer through ShapeEngine, while the Editor steers both and may depend on neither, so the shared types sit in `model` like every other shared contract.
 
 ### app (Host)
 Registers every plugin. Holds no logic.
