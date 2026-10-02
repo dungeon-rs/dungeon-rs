@@ -197,11 +197,8 @@ pub(crate) fn add_point(
     // like a Portal on a later segment, and the new segment never becomes its own: it keeps
     // standing where it was saved.
     let lost = lost_in(world, element);
-    let renumbered = anchor_portals_through(
-        &before,
-        PointEdit::Added { segment, t },
-        &settings(&lost),
-    );
+    let renumbered =
+        anchor_portals_through(&before, PointEdit::Added { segment, t }, &settings(&lost));
     for ((portal, anchor, _), place) in lost.iter().zip(renumbered) {
         if let Some(place) = place {
             moves.push(moved(*portal, *anchor, place.segment, place.t)?);

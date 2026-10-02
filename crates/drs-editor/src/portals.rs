@@ -390,12 +390,9 @@ pub(crate) fn describe(
             element.size,
             portal.rotation,
             portal.mirrored,
-            portal.anchor.map(|anchor| (
-                anchor.host.as_raw(),
-                anchor.index,
-                anchor.t,
-                anchor.side
-            ))
+            portal
+                .anchor
+                .map(|anchor| (anchor.host.as_raw(), anchor.index, anchor.t, anchor.side))
         );
     }
     for (id, shape) in shapes {

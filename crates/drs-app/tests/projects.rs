@@ -27,7 +27,7 @@ use drs_model::{
     ElementKindRegistry, FolderAdded, FolderKey, FolderRefused, FreePortal, Gesture, Grid, Layer,
     Level, MissingAsset, MissingReason, ModelPlugin, OpenProject, PORTAL, PlaceElement, Placement,
     Portal, PortalAnchor, Project, ProjectOpened, ProjectRefused, ProjectRequest, ProjectSaved,
-    Prop, Redo, Resolution, ResolutionTable, SaveProject, SavedMark, Serialisable,
+    Prop, Redo, RemoveElement, Resolution, ResolutionTable, SaveProject, SavedMark, Serialisable,
     SerialisationRegistry, Side, Undo, UnknownComponents, UnknownKind, Viewport, WALL, Wall,
     WallShape,
 };
@@ -2061,10 +2061,7 @@ fn a_wall_edit_leaves_a_lost_portal_standing() {
 
     saved.device.apply(Apply::EditElement(EditElement {
         element: saved.wall,
-        change: ElementChange::AddPoint {
-            segment: 0,
-            t: 0.5,
-        },
+        change: ElementChange::AddPoint { segment: 0, t: 0.5 },
         gesture: Gesture::Single,
     }));
     let (_, element, portal) = saved.set_portal();
@@ -2087,4 +2084,37 @@ fn a_wall_edit_leaves_a_lost_portal_standing() {
     assert_eq!(element, standing, "still where it was saved");
     assert_eq!(portal, before, "anchored as it was saved");
     assert!(!gives_way(&mut saved.device), "no Wall gives way");
+}
+/// A Portal whose anchor names no Wall on its Level, its Wall removed by an editor that does not
+/// know Portals, is drawn at its saved position, rotation, and mirroring, is saved back
+/// unchanged, and can be freed.
+#[test]
+fn a_portal_whose_wall_is_gone_stands() {
+    let mut saved = SavedPortals::new();
+    let portals = saved.device.portals();
+    let copy = saved.lost_by(Apply::RemoveElement(RemoveElement {
+        element: saved.wall,
+    }));
+
+    assert!(saved.device.walls().is_empty(), "the Wall is gone");
+    assert_eq!(
+        saved.device.portals(),
+        portals,
+        "standing where it was saved"
+    );
+    let again = saved
+        .device
+        .save_as(&saved.device.root().join("again.dungeon"));
+    assert_eq!(
+        fs::read(&again).expect("the file saved again"),
+        fs::read(&copy).expect("the copy"),
+        "saved back unchanged"
+    );
+
+    saved.device.apply(Apply::FreePortal(FreePortal {
+        portal: saved.portals[0],
+    }));
+    let (_, element, portal) = saved.set_portal();
+    assert_eq!(portal.anchor, None, "freed");
+    assert_eq!(element, portals[0].1, "where it stood");
 }

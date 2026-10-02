@@ -391,8 +391,12 @@ pub(crate) fn lost_in(world: &mut World, host: ElementId) -> Vec<(ElementId, Por
         .iter(world)
         .filter_map(|(entity, id, portal)| {
             let anchor = portal.anchor?;
-            (anchor.host == host && anchor.index >= segments)
-                .then_some((entity, *id, anchor, portal.width))
+            (anchor.host == host && anchor.index >= segments).then_some((
+                entity,
+                *id,
+                anchor,
+                portal.width,
+            ))
         })
         .collect();
     portals.retain(|(entity, ..)| level_of(world, *entity) == level);
