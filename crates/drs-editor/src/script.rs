@@ -12,7 +12,8 @@
 //! - `drag <x1> <y1> <x2> <y2> <steps>`: press at the first point, move in that many steps, release.
 //! - `key <KeyCode> [cmd] [shift] [ctrl] [alt]`: press a key with the modifiers, release it next frame.
 //! - `hold <KeyCode>`, `release <KeyCode>`: press a key and keep it down, or let it go.
-//! - `text <string>`: type the characters, one per frame.
+//! - `text <string>`: type the characters after the space that follows `text`, spaces included,
+//!   one per frame.
 //! - `scroll <dx> <dy> [line|pixel]`: scroll the wheel; lines unless told otherwise.
 //! - `pinch <delta>`: a trackpad pinch.
 //! - `screenshot <path>`: save a screenshot of the window there.
@@ -427,8 +428,8 @@ fn describe_grid(browser: &Browser) {
 /// Names the first line that is not a step.
 fn parse(text: &str) -> Result<VecDeque<Step>, String> {
     let mut steps = VecDeque::new();
-    for (index, line) in text.lines().enumerate() {
-        let line = line.trim();
+    for (index, raw) in text.lines().enumerate() {
+        let line = raw.trim();
         if line.is_empty() || line.starts_with('#') {
             continue;
         }
@@ -447,7 +448,11 @@ fn parse(text: &str) -> Result<VecDeque<Step>, String> {
             "key" => key(&rest),
             "hold" => held(&rest, ButtonState::Pressed),
             "release" => held(&rest, ButtonState::Released),
-            "text" => Ok(typed(line.strip_prefix("text").unwrap_or_default().trim())),
+            // Everything after the one space that ends the verb is typed as it is, so a text can
+            // start or end with spaces of its own.
+            "text" => Ok(typed(
+                raw.trim_start().strip_prefix("text ").unwrap_or_default(),
+            )),
             "scroll" => scroll(&rest),
             "pinch" => decimal(&rest, 0).map(|delta| vec![act(Action::Pinch(delta))]),
             "screenshot" => rest
