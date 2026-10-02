@@ -31,7 +31,9 @@ pub(crate) fn title(
 }
 
 /// Answers the window's close button: quits at once without unsaved changes, and asks whether
-/// to save them otherwise. The Host leaves the window open on the request so this can run.
+/// to save them otherwise; a question already open, asked before opening another Project, now
+/// stands in front of quitting instead. The Host leaves the window open on the request so this
+/// can run.
 pub(crate) fn close_requested(
     mut requests: MessageReader<WindowCloseRequested>,
     history: Res<History>,
@@ -44,7 +46,9 @@ pub(crate) fn close_requested(
     }
     if !mark.unsaved(&history) {
         exit.write(AppExit::Success);
-    } else if state.question.is_none() {
+    } else if let Some(question) = &mut state.question {
+        question.pending = Pending::Quit;
+    } else {
         state.question = Some(Question::asking(Pending::Quit));
     }
 }
