@@ -33,8 +33,8 @@ pub use messages::{
     AddFolder, Apply, AssetAddress, AssetFolderChanged, Browse, CommandFailed, EditElement,
     ElementChange, ExportLevel, ExportRefused, FolderAdded, FolderRefusal, FolderRefused,
     FolderUnavailable, FreePortal, Gesture, HistoryFailed, LevelExported, ManagerSystems,
-    MissingAsset, OpenProject, OpenReport, PlaceElement, Placement, PortalsRemoved, ProjectOpened,
-    ProjectRefused, ProjectRequest, ProjectSaved, Redo, RemoveElement, SaveProject,
+    MissingAsset, OpenProject, OpenReport, Paint, PlaceElement, Placement, PortalsRemoved,
+    ProjectOpened, ProjectRefused, ProjectRequest, ProjectSaved, Redo, RemoveElement, SaveProject,
     SetPortalIntoWall, ThumbnailsUnavailable, Undo, UnknownKind,
 };
 pub use panics::CaughtPanics;

@@ -377,7 +377,8 @@ pub(crate) fn portal_change(
         | ElementChange::AddPoint { .. }
         | ElementChange::RemovePoint { .. }
         | ElementChange::Thickness(_)
-        | ElementChange::Colour(_) => return Ok(None),
+        | ElementChange::Colour(_)
+        | ElementChange::Material(_) => return Ok(None),
     };
     field.map(Some).map_err(history)
 }

@@ -2,7 +2,7 @@
 
 use crate::{
     CanonicalName, Colour, ElementId, ElementKindName, FolderKey, MissingReason, PortalAnchor,
-    ScanSkips, Side,
+    ScanSkips, Side, Stroke,
 };
 use bevy_ecs::entity::Entity;
 use bevy_ecs::message::Message;
@@ -150,6 +150,8 @@ pub enum Apply {
     SetPortalIntoWall(SetPortalIntoWall),
     /// Free Portal: make a Portal set into a Wall freestanding where it stands.
     FreePortal(FreePortal),
+    /// Paint: lay a stroke on a Layer's Terrain.
+    Paint(Paint),
 }
 
 /// An Asset as this device finds it: the key of its Asset Folder and its place in that folder.
@@ -256,6 +258,8 @@ pub enum ElementChange {
         /// Where along it, from zero at its first point to one at its second.
         t: f32,
     },
+    /// Make a Terrain's Material show the image of an Asset, every stroke kept as it is.
+    Material(AssetAddress),
 }
 
 /// How an [`EditElement`] relates to the gesture it belongs to, so a drag is one history step.
@@ -315,6 +319,18 @@ pub struct PortalsRemoved {
     pub host: ElementId,
     /// The Portals removed.
     pub portals: Vec<ElementId>,
+}
+
+/// Add a stroke to the topmost Terrain on a Layer, making the Terrain when the Layer has none.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Paint {
+    /// The Layer to paint on.
+    pub layer: Entity,
+    /// The stroke: its path in Grid cells and the Brush settings it is laid with.
+    pub stroke: Stroke,
+    /// The Asset whose image the stroke paints with, or `None` to paint with the Terrain's own
+    /// Material.
+    pub asset: Option<AssetAddress>,
 }
 
 /// An [`Apply`] could not be carried out and nothing was recorded.

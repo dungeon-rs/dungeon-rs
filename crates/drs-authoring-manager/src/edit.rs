@@ -6,7 +6,7 @@ use crate::wall::{add_point, remove_point, translated, wall_of, well_formed};
 use bevy_ecs::world::World;
 use drs_history::{SetField, Target};
 use drs_model::{
-    EditElement, Element, ElementChange, ElementId, Gesture, Portal, PortalsRemoved, Wall,
+    EditElement, Element, ElementChange, ElementId, Gesture, Portal, PortalsRemoved, Terrain, Wall,
 };
 
 /// Edit Element: sets the changed property through the generic field command, or adds or
@@ -35,6 +35,12 @@ pub(crate) fn edit_element(
     let entity = id
         .entity(world)
         .map_err(|_| AuthoringError::UnknownElement(id))?;
+    // A Terrain is its strokes, which no Edit Element moves or reshapes: only its image changes.
+    if world.get::<Terrain>(entity).is_some()
+        && !matches!(command.change, ElementChange::Material(_))
+    {
+        return Err(AuthoringError::TerrainChangesOnlyItsMaterial(id));
+    }
     let history = |error: drs_history::HistoryError| AuthoringError::History(error.to_string());
     let change = match &command.change {
         ElementChange::Position(position) => {
@@ -100,6 +106,9 @@ pub(crate) fn edit_element(
             Some(field) => Ok(field),
             None => return Err(AuthoringError::NotAPortal(id)),
         },
+        ElementChange::Material(asset) => {
+            return crate::terrain::set_material(world, id, asset).map(|()| None);
+        }
     }
     .map_err(history)?;
 

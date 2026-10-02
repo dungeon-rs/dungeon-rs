@@ -4,6 +4,7 @@ mod edit;
 mod place;
 mod portal;
 mod remove;
+mod terrain;
 mod wall;
 
 use bevy_app::{App, Plugin, Update};
@@ -87,6 +88,30 @@ pub enum AuthoringError {
     /// The side or the place along a Wall of a freestanding Portal is to change.
     #[error("the Portal is freestanding; set it into a Wall first")]
     Freestanding,
+    /// The stroke would not be one: no point, a point that is not finite, or Brush settings
+    /// that are not a Brush's.
+    #[error("{0}")]
+    MalformedStroke(String),
+    /// A Paint named no Asset on a Layer that has no Terrain to paint more onto.
+    #[error("choose an Asset to paint with: the Layer has no Terrain yet")]
+    NothingToPaintWith,
+    /// A Paint named an Asset other than the one the Layer's Terrain shows.
+    #[error(
+        "the Layer's Terrain shows {shown}, not {painted}; change the Terrain's image to paint \
+         with {painted}"
+    )]
+    AnotherImage {
+        /// The name of the Asset painted with.
+        painted: String,
+        /// The name of the image the Terrain shows.
+        shown: String,
+    },
+    /// The change is one only a Terrain has, and the Element is no Terrain.
+    #[error("the Element {0:?} is not a Terrain")]
+    NotATerrain(ElementId),
+    /// The change is not one a Terrain has: only its image can be changed.
+    #[error("only the image a Terrain shows can be changed, not its strokes or its place")]
+    TerrainChangesOnlyItsMaterial(ElementId),
     /// The shape Engine could not reshape the Wall.
     #[error(transparent)]
     Shape(#[from] ShapeError),
@@ -114,6 +139,9 @@ impl Plugin for AuthoringManagerPlugin {
                 // Portal placed, edited, undone, redone, or opened has its shape and its place
                 // before anything draws or picks it.
                 wall::derive_shapes.after(ManagerSystems::Redo),
+                // Likewise a Terrain painted, undone, redone, or opened has its coverage before
+                // anything draws it.
+                terrain::derive_coverage.after(ManagerSystems::Redo),
             ),
         );
     }
@@ -136,6 +164,7 @@ pub(crate) fn apply(
         Apply::RemoveElement(remove) => remove::remove_element(world, remove),
         Apply::SetPortalIntoWall(set) => portal::set_portal_into_wall(world, set).map(|()| None),
         Apply::FreePortal(free) => portal::free_portal(world, free).map(|()| None),
+        Apply::Paint(paint) => terrain::paint(world, paint).map(|()| None),
     }
 }
 

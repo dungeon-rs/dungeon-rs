@@ -20,10 +20,10 @@ use drs_library_access::{LIBRARY_SOURCE, LibraryAccessPlugin, asset_path};
 use drs_library_manager::LibraryManagerPlugin;
 use drs_model::{
     AddFolder, Apply, AssetAddress, AssetFolder, AssetFolderReference, AssetKind, AssetReferences,
-    CanonicalName, CommandFailed, EditElement, EditorDirectories, Element, ElementChange,
+    Brush, CanonicalName, CommandFailed, EditElement, EditorDirectories, Element, ElementChange,
     ElementId, Fingerprint, FolderAdded, FolderKey, FolderRefused, Gesture, Layer, ModelPlugin,
-    PROP, PlaceElement, Placement, Prop, Redo, RemoveElement, Resolution, ResolutionTable, Undo,
-    Viewport,
+    PROP, Paint, PlaceElement, Placement, Prop, Redo, RemoveElement, Resolution, ResolutionTable,
+    Stroke, Undo, Viewport,
 };
 use drs_project_manager::ProjectManagerPlugin;
 use std::fs;
@@ -553,6 +553,21 @@ fn a_failed_command_is_reported() {
             gesture: Gesture::Single,
         }),
         Apply::RemoveElement(RemoveElement { element: unknown }),
+        Apply::Paint(Paint {
+            layer,
+            stroke: Stroke {
+                points: vec![Vec2::ZERO],
+                brush: Brush {
+                    size: 2.0,
+                    hardness: 0.5,
+                    strength: 1.0,
+                },
+            },
+            asset: Some(AssetAddress {
+                folder: fixture.key.clone(),
+                place: "nowhere.png".to_owned(),
+            }),
+        }),
     ];
     for command in commands {
         fixture.app.world_mut().write_message(command.clone());
@@ -567,7 +582,7 @@ fn a_failed_command_is_reported() {
         assert_eq!(failed.len(), 1, "{command:?}");
         assert_eq!(failed[0].command, command);
         let named = match &command {
-            Apply::PlaceElement(_) => "nowhere.png".to_owned(),
+            Apply::PlaceElement(_) | Apply::Paint(_) => "nowhere.png".to_owned(),
             Apply::EditElement(_)
             | Apply::RemoveElement(_)
             | Apply::SetPortalIntoWall(_)

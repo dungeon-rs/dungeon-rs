@@ -20,7 +20,7 @@ use unicode_normalization::UnicodeNormalization;
 /// # Errors
 ///
 /// [`AuthoringError::NoProject`] when no ancestor is a Project.
-fn project_of(world: &World, layer: Entity) -> Result<Entity, AuthoringError> {
+pub(crate) fn project_of(world: &World, layer: Entity) -> Result<Entity, AuthoringError> {
     crate::ancestor(
         layer,
         |child| world.get::<ChildOf>(child).map(ChildOf::parent),
@@ -179,14 +179,14 @@ pub(crate) fn place_element(
 /// about it and its folder, and the natural size of an Element showing it.
 pub(crate) struct Resolved {
     /// The Project whose Asset Reference table records the Asset.
-    project: Entity,
+    pub(crate) project: Entity,
     /// The Element's natural size in Grid cells: the image's pixel size over the Grid's pixels
     /// per cell.
     pub(crate) size: Vec2,
     /// What the Project records about the Asset.
-    reference: AssetReference,
+    pub(crate) reference: AssetReference,
     /// What the Project records about the Asset's folder.
-    folder: AssetFolderReference,
+    pub(crate) folder: AssetFolderReference,
 }
 
 /// Resolves the chosen Asset for an Element placed on `layer`: finds it in its Asset Folder,
