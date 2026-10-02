@@ -989,6 +989,32 @@ fn malformed_walls_are_refused() {
     }
 }
 
+/// An Edit Element adding a point at a parameter not strictly between 0 and 1 is refused with
+/// the reason, changes nothing, and records no history step: such a point would make a segment
+/// of no length and leave no parameter to carry a Portal to.
+#[test]
+fn a_point_at_a_segment_end_is_refused() {
+    let mut fixture = Fixture::new();
+    let id = fixture.wall(&[Vec2::ZERO, Vec2::new(4.0, 0.0), Vec2::new(4.0, 4.0)]);
+    let before = fixture.elements();
+    let depth = fixture.history().undo_depth();
+
+    for t in [0.0, 1.0, -0.25, 1.5, f32::NAN] {
+        for segment in [0, 1] {
+            let failed = fixture.try_apply(Apply::EditElement(EditElement {
+                element: id,
+                change: ElementChange::AddPoint { segment, t },
+                gesture: Gesture::Single,
+            }));
+
+            assert_eq!(failed.len(), 1, "a point at {t} on segment {segment}");
+            assert!(failed[0].contains("strictly between"), "{}", failed[0]);
+            assert_eq!(fixture.elements(), before);
+            assert_eq!(fixture.history().undo_depth(), depth);
+        }
+    }
+}
+
 /// A new Element is placed above every Element already on its Layer, a Wall as a Prop.
 #[test]
 fn walls_are_placed_on_top() {
