@@ -28,15 +28,15 @@ Portal's size from its width and its image's proportions. A Portal whose anchor 
 its Level, or a segment its Wall lacks, stands where it was saved, and a point added to its Wall
 moves its anchor past the new segment, so it goes on standing there.
 
-A Paint lays one stroke on the topmost Terrain of its Layer as one step that undo takes
-off the end again; on a Layer with no Terrain it places one of the chosen Asset's image under
-every Element on the Layer, holding the stroke, in the same step. A Paint naming no Asset paints
-with the Terrain's own image, and one naming another image than the Terrain's is refused. The
-only Edit Element a Terrain takes changes its image, every stroke kept; naming the image it
-already shows records nothing. After every Manager has
-handled the frame's Commands, Undo, and Redo, the Manager brings each changed Terrain's tiled
-coverage up to its strokes through the paint Engine, which keeps the cache in a component of the
-Manager's own, publishes the tiles that changed, and sets the Element's box around the strokes.
+A Paint lays one stroke on the topmost Terrain of its Layer as one step that undo takes off the
+end again; on a Layer with no Terrain it places one of the chosen Asset's image under every
+Element on the Layer, holding the stroke, in the same step. A Paint naming no Asset paints with
+the Terrain's own image, and one naming another image than the Terrain's is refused. The only
+Edit Element a Terrain takes changes its image, every stroke kept; naming the image it already
+shows records nothing. After every Manager has handled the frame's Commands, Undo, and Redo, the
+Manager brings each changed Terrain's tiled coverage up to its strokes through the paint Engine,
+keeping the Engine's cache, which only the Engine looks inside, in a component of its own; it
+publishes the coverage again when a tile changed, and sets the Element's box around the strokes.
 
 The Editor sends it `Apply`, `Undo`, and `Redo` messages; a Command that cannot be carried out is
 answered with a `CommandFailed` message that says why, and an undo or redo that cannot be with a

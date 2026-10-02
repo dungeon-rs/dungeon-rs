@@ -1,16 +1,16 @@
 //! Export Level: the Bounds of a Level rendered tile by tile and streamed into a PNG.
 //!
-//! An Export takes frames: the render Engine draws a tile offscreen and hands its pixels back a
-//! few frames later. So an Export is a job that [`handle_export_level`] starts on request and
+//! An Export takes frames: the render Engine draws a tile offscreen and hands its pixels back a few
+//! frames later. So an Export is a job that [`handle_export_level`] starts on request and
 //! [`advance_exports`] advances every frame: it asks the Engine for the next tile as soon as the
 //! Engine takes a request, writes each tile as its pixels arrive, in row-major order from the
-//! top-left corner of the image, and finishes the image once the last tile is written. Each
-//! tile's Terrains are rasterized afresh over the tile at the Export's resolution through the
-//! paint Engine and handed to the render Engine with the tile's request, so painted ground is as
-//! sharp as the resolution allows and the same in every tile. A failure
-//! anywhere drops the image writer, which removes the partial file, and is answered with its
-//! reason; so is an Export abandoned because the Project it was of has been replaced. Nothing is
-//! recorded in the history: an Export changes nothing in the Project.
+//! top-left corner of the image, and finishes the image once the last tile is written. Each tile's
+//! Terrains are rasterized afresh over the tile at the Export's resolution through the paint Engine
+//! and handed to the render Engine with the tile's request, so painted ground is as sharp as the
+//! resolution allows and the same in every tile. A failure anywhere drops the image writer, which
+//! removes the partial file, and is answered with its reason; so is an Export abandoned because the
+//! Project it was of has been replaced. Nothing is recorded in the history: an Export changes
+//! nothing in the Project.
 
 use crate::ProjectManagerError;
 use bevy_ecs::entity::Entity;

@@ -51,16 +51,15 @@ over an opaque black background. The request carries each Terrain's coverage
 computed over the region at its resolution, which the Engine draws for that
 capture alone, one quad of the region's size per Terrain with the same Material,
 in place of the viewport's coverage tiles, which the offscreen camera does not
-see; the coverage's texels fall on the region's pixels one to one. The
-coverages move into the request once it is accepted, uncopied, and stay with
-the caller while it is refused. `take_region`
-yields the pixels once the GPU
-has handed them back, a few frames later. A region is captured only once every
-image a sprite or a Terrain is loading has loaded or failed and its Terrains'
-coverages are in place, and never in the frame the
-camera was spawned in; a mesh has nothing to load. `release_regions` removes the
-camera when the Export is done. Without a renderer, as in a headless editor
-without Bevy's render plugins, the requests say so instead of drawing.
+see; the coverage's texels fall on the region's pixels one to one. The coverages
+move into the request once it is accepted, uncopied, and stay with the caller
+while it is refused. `take_region` yields the pixels once the GPU has handed
+them back, a few frames later. A region is captured only once every image a
+sprite or a Terrain is loading has loaded or failed and its Terrains' coverages
+are in place, and never in the frame the camera was spawned in; a mesh has
+nothing to load. `release_regions` removes the camera when the Export is done.
+Without a renderer, as in a headless editor without Bevy's render plugins, the
+requests say so instead of drawing.
 
 ## Features
 

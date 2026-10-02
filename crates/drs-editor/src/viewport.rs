@@ -578,16 +578,15 @@ fn zoom_and_scroll(input: &mut Input, viewport: &mut Viewport, cursor: Vec2) {
     }
 }
 
-/// The keys: `W` chooses the Wall tool, `P` the Portal tool, and `B` the Paint tool, Enter
-/// finishes the Wall being drawn, Escape stops placing or leaves the Wall, the Portal, or the
-/// Paint tool, discarding what is being drawn, `X` flips and `F` frees or sets the selected
-/// Portal, Delete (and Backspace on macOS) removes the selected point,
-/// straightens the selected control point's segment, or removes the selected Element, and the
-/// platform's usual shortcuts undo and redo. Nothing happens while egui has the keyboard, so a
-/// text field keeps its own editing keys, nor while an Export runs, and undo, redo, flipping, and
-/// freeing or setting wait while an Element or a handle is being dragged, a Wall or a stroke is
-/// being drawn, or an option is held while it changes, since each is one step that is still
-/// being made.
+/// The keys: `W` chooses the Wall tool, `P` the Portal tool, and `B` the Paint tool, Enter finishes
+/// the Wall being drawn, Escape stops placing or leaves the Wall, the Portal, or the Paint tool,
+/// discarding what is being drawn, `X` flips and `F` frees or sets the selected Portal, Delete (and
+/// Backspace on macOS) removes the selected point, straightens the selected control point's
+/// segment, or removes the selected Element, and the platform's usual shortcuts undo and redo.
+/// Nothing happens while egui has the keyboard, so a text field keeps its own editing keys, nor
+/// while an Export runs, and undo, redo, flipping, and freeing or setting wait while an Element or
+/// a handle is being dragged, a Wall or a stroke is being drawn, or an option is held while it
+/// changes, since each is one step that is still being made.
 pub(crate) fn keys(
     keys: Res<ButtonInput<KeyCode>>,
     egui: Res<EguiWantsInput>,

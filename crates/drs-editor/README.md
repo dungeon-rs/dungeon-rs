@@ -63,25 +63,23 @@ whether an Export is being written, the tool, the Wall or the stroke being
 drawn, the option being changed, and the Brush.
 Clicking in the viewport places the chosen Asset or selects the topmost Element
 under the pointer, a Prop by its rectangle, a Portal by its turned rectangle,
-and a Wall by its line outside the stretches its Portals cover, never a
-Terrain, dragging a
-selected Element moves it as one gesture, Delete removes it, Escape stops
-placing, and the platform's usual shortcuts undo and redo. Scrolling pans, a
-wheel or a pinch zooms, and the middle button or Space with the left button
+and a Wall by its line outside the stretches its Portals cover, never a Terrain,
+dragging a selected Element moves it as one gesture, Delete removes it, Escape
+stops placing, and the platform's usual shortcuts undo and redo. Scrolling pans,
+a wheel or a pinch zooms, and the middle button or Space with the left button
 drags the view.
 
 A tool strip over the viewport offers Select, Wall, and Portal, and the
 thickness and colour of the selected Wall, or of the next Wall while none is
-selected. With
-the Wall tool, chosen there or with `W`, each click adds a point of a Wall
-previewed with a rubber band to the pointer, and Enter or a double-click
-finishes it as one Place Element; choosing an Asset leaves the tool, and
-choosing the tool drops the chosen Asset and the selection. The selected Wall
-shows a handle at each point, at each control point with guide lines, and at the
-middle of each straight segment: dragging one moves the point or bends the
-segment as one gesture, a double-click on the line adds a point there, and
-Delete removes the selected point or straightens the selected control point's
-segment.
+selected. With the Wall tool, chosen there or with `W`, each click adds a point
+of a Wall previewed with a rubber band to the pointer, and Enter or a
+double-click finishes it as one Place Element; choosing an Asset leaves the
+tool, and choosing the tool drops the chosen Asset and the selection. The
+selected Wall shows a handle at each point, at each control point with guide
+lines, and at the middle of each straight segment: dragging one moves the point
+or bends the segment as one gesture, a double-click on the line adds a point
+there, and Delete removes the selected point or straightens the selected control
+point's segment.
 
 With the Portal tool, chosen in the strip or with `P`, the chosen Asset is the
 Portal's image, kept when the tool is chosen; a marker across the nearest Wall
