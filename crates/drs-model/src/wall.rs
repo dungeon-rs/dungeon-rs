@@ -102,7 +102,7 @@ impl Wall {
         }
         if self.segments.len() + 1 != self.points.len() {
             return Some(format!(
-                "a Wall of {} points has {} segments, not {}",
+                "a Wall of {} points needs {} segments, not {}",
                 self.points.len(),
                 self.points.len() - 1,
                 self.segments.len()
