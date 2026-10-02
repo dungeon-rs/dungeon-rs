@@ -511,7 +511,13 @@ fn removed(host: ElementId, portals: Vec<ElementId>) -> Option<PortalsRemoved> {
     (!portals.is_empty()).then_some(PortalsRemoved { host, portals })
 }
 
-/// The outline of the Wall or the Room of kind `H` an entity carries, if it carries one.
-pub(crate) fn path_of<H: OutlineHost>(world: &World, entity: Entity) -> Option<Path> {
-    world.get::<H>(entity).map(H::path)
+/// The outline of the Wall or the Room of kind `H` an entity carries, if it carries one, with
+/// what errors call it.
+pub(crate) fn path_of<H: OutlineHost>(
+    world: &World,
+    entity: Entity,
+) -> Option<(Path, OutlineKind)> {
+    world
+        .get::<H>(entity)
+        .map(|outline| (outline.path(), H::OUTLINE))
 }

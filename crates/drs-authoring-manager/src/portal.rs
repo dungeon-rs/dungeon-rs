@@ -16,10 +16,10 @@ use drs_model::{
 };
 use drs_shape_engine::{Path, PortalSetting, Standing, anchor_portals};
 
-/// The outline of the Wall or the Room an entity carries, if it carries either: what a Portal is
-/// set into, its parts being the Wall's segments or the Room's edges. The kind of the Element an
-/// anchor names says how its `index` is read.
-pub(crate) fn host_path(world: &World, entity: Entity) -> Option<Path> {
+/// The outline of the Wall or the Room an entity carries, and what errors call it, if it carries
+/// either: what a Portal is set into, its parts being the Wall's segments or the Room's edges. The
+/// kind of the Element an anchor names says how its `index` is read.
+pub(crate) fn host_path(world: &World, entity: Entity) -> Option<(Path, OutlineKind)> {
     path_of::<Wall>(world, entity).or_else(|| path_of::<Room>(world, entity))
 }
 
@@ -61,18 +61,14 @@ pub(crate) fn host_of(
         .host
         .entity(world)
         .map_err(|_| AuthoringError::UnknownElement(anchor.host))?;
-    let host = host_path(world, entity).ok_or(AuthoringError::NotAHost(anchor.host))?;
+    let (host, outline) = host_path(world, entity).ok_or(AuthoringError::NotAHost(anchor.host))?;
     if level_of(world, entity) != level {
         return Err(AuthoringError::OnAnotherLevel(anchor.host));
     }
     let parts = host.parts();
     if anchor.index >= parts {
         return Err(AuthoringError::NoPart {
-            outline: if host.closed {
-                OutlineKind::Room
-            } else {
-                OutlineKind::Wall
-            },
+            outline,
             part: anchor.index,
             parts,
         });
@@ -422,7 +418,7 @@ pub(crate) fn anchored_to(world: &mut World, host: ElementId) -> (Vec<Anchored>,
     let Ok(host_entity) = host.entity(world) else {
         return (Vec::new(), Vec::new());
     };
-    let parts = host_path(world, host_entity).map_or(0, |host| host.parts());
+    let parts = host_path(world, host_entity).map_or(0, |(host, _)| host.parts());
     let level = level_of(world, host_entity);
     let mut portals: Vec<(Entity, ElementId, PortalAnchor, f32)> = world
         .query::<(Entity, &ElementId, &Portal)>()
