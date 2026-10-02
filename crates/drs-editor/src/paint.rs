@@ -15,12 +15,12 @@ use bevy::math::Vec2;
 use bevy::window::{PrimaryWindow, Window};
 use bevy_egui::EguiContexts;
 use drs_model::{
-    Apply, AssetAddress, AssetReferences, Brush, EditElement, ElementChange, ElementId, Gesture,
-    Layer, Paint, Project, Resolution, ResolutionTable, Stroke, Terrain, Viewport,
+    Apply, AssetAddress, AssetReferences, BrushSettings, EditElement, ElementChange, ElementId,
+    Gesture, Layer, Paint, Project, Resolution, ResolutionTable, Stroke, Terrain, Viewport,
 };
 
 /// The Brush a new editor starts with: two cells across, half hard, at full strength.
-const FIRST_BRUSH: Brush = Brush {
+const FIRST_BRUSH: BrushSettings = BrushSettings {
     size: 2.0,
     hardness: 0.5,
     strength: 1.0,
@@ -42,7 +42,7 @@ const BAND: egui::Color32 = egui::Color32::from_rgba_unmultiplied_const(90, 190,
 #[derive(Debug)]
 pub(crate) struct PaintTool {
     /// The settings the next stroke is laid with.
-    pub brush: Brush,
+    pub brush: BrushSettings,
     /// The path of the stroke being drawn, in cells; empty when none is.
     pub stroke: Vec<Vec2>,
 }
@@ -114,7 +114,7 @@ impl Terrains<'_, '_> {
     fn image_name(&self, terrain: &Terrain) -> Option<String> {
         self.projects.iter().find_map(|(references, _)| {
             references
-                .get(terrain.material)
+                .get(terrain.image)
                 .map(|reference| reference.name.clone())
         })
     }
@@ -123,7 +123,7 @@ impl Terrains<'_, '_> {
     fn shows(&self, terrain: &Terrain, asset: &AssetAddress) -> bool {
         self.projects.iter().any(|(_, resolutions)| {
             matches!(
-                resolutions.get(terrain.material),
+                resolutions.get(terrain.image),
                 Some(Resolution::Resolved { folder, place })
                     if *folder == asset.folder && *place == asset.place
             )
@@ -345,7 +345,7 @@ pub(crate) fn describe(
             id.as_raw(),
             element.position,
             element.size,
-            terrain.material.0,
+            terrain.image.0,
             terrain.strokes.len()
         );
     }

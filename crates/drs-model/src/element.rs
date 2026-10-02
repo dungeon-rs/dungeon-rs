@@ -117,7 +117,7 @@ impl ShownAssetItem<'_, '_> {
         self.prop
             .map(|prop| prop.asset)
             .or_else(|| self.portal.map(|portal| portal.asset))
-            .or_else(|| self.terrain.map(|terrain| terrain.material))
+            .or_else(|| self.terrain.map(|terrain| terrain.image))
     }
 }
 

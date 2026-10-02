@@ -21,7 +21,7 @@ use drs_history::{History, HistoryPlugin};
 use drs_library_access::LibraryAccessPlugin;
 use drs_library_manager::LibraryManagerPlugin;
 use drs_model::{
-    AddFolder, Apply, AssetAddress, AssetReferenceRow, AssetReferences, Brush,
+    AddFolder, Apply, AssetAddress, AssetReferenceRow, AssetReferences, BrushSettings,
     COVERAGE_PIXELS_PER_CELL, COVERAGE_TILE_PIXELS, CanonicalName, Colour, CommandFailed,
     EditElement, EditorDirectories, Element, ElementChange, ElementId, FolderAdded, FolderKey,
     Gesture, Layer, ModelPlugin, OpenProject, Paint, PlaceElement, Placement, ProjectOpened,
@@ -40,7 +40,7 @@ const GRASS: &str = "textures/grass.png";
 /// A table image one cell a side, for Props.
 const TABLE: &str = "table.png";
 /// The soft Brush most strokes are laid with: two cells across, half hard, at full strength.
-const SOFT: Brush = Brush {
+const SOFT: BrushSettings = BrushSettings {
     size: 2.0,
     hardness: 0.5,
     strength: 1.0,
@@ -62,7 +62,7 @@ struct Fixture {
 }
 
 /// A stroke through `points` with `brush`.
-fn stroke(points: &[Vec2], brush: Brush) -> Stroke {
+fn stroke(points: &[Vec2], brush: BrushSettings) -> Stroke {
     Stroke {
         points: points.to_vec(),
         brush,
@@ -70,8 +70,8 @@ fn stroke(points: &[Vec2], brush: Brush) -> Stroke {
 }
 
 /// A Brush of `size`, `hardness`, and `strength`.
-fn brush(size: f32, hardness: f32, strength: f32) -> Brush {
-    Brush {
+fn brush(size: f32, hardness: f32, strength: f32) -> BrushSettings {
+    BrushSettings {
         size,
         hardness,
         strength,
@@ -431,7 +431,7 @@ fn terrain_is_its_strokes() {
     assert_eq!(
         terrain,
         Terrain {
-            material: row,
+            image: row,
             strokes: vec![first, dab],
         }
     );
@@ -748,7 +748,7 @@ fn painted_with_its_material() {
     );
     let (_, _, terrain) = fixture.terrain();
     assert_eq!(terrain.strokes.len(), 3);
-    assert_eq!(terrain.material, fixture.row(FLAGSTONES));
+    assert_eq!(terrain.image, fixture.row(FLAGSTONES));
     assert_eq!(fixture.steps(), 3);
 }
 
@@ -869,7 +869,7 @@ fn the_material_stays_editable() {
     let refused = fixture.try_edit(id, ElementChange::Material(grass));
     assert!(refused.is_empty(), "{refused:?}");
     let (_, changed_element, changed) = fixture.terrain();
-    assert_eq!(changed.material, fixture.row(GRASS));
+    assert_eq!(changed.image, fixture.row(GRASS));
     assert_eq!(changed.strokes, before.strokes);
     assert_eq!(changed_element, element);
     assert_eq!(fixture.tiles(), tiles);
@@ -981,7 +981,7 @@ fn painting_records_a_reference() {
         2,
         "the flagstones and the grass, each once"
     );
-    assert_eq!(fixture.terrain().2.material, fixture.row(FLAGSTONES));
+    assert_eq!(fixture.terrain().2.image, fixture.row(FLAGSTONES));
 }
 
 /// The first Terrain image taken from an Asset Folder records the folder, once.

@@ -33,7 +33,7 @@ use drs_model::{
     PlaceElement, Placement, PortalAnchor, ProjectOpened, ProjectRefused, ProjectSaved, Prop,
     SaveProject, SavedMark, Side, Viewport,
 };
-use drs_model::{Bounds, Brush, Paint, Stroke};
+use drs_model::{Bounds, BrushSettings, Paint, Stroke};
 use drs_project_manager::ProjectManagerPlugin;
 use drs_render_engine::RenderEnginePlugin;
 use std::fs;
@@ -541,7 +541,7 @@ impl Fixture {
 
     /// Paints a stroke through `points` with `brush` and the Asset at `place`, failing the test
     /// if the Paint was refused.
-    fn paint(&mut self, place: &str, points: &[Vec2], brush: Brush) {
+    fn paint(&mut self, place: &str, points: &[Vec2], brush: BrushSettings) {
         let layer = self.layer();
         self.run(Apply::Paint(Paint {
             layer,
@@ -1470,8 +1470,8 @@ fn no_cap_where_a_portal_reaches_the_end() {
 }
 
 /// A Brush of `size` cells, `hardness`, and `strength`.
-fn brush(size: f32, hardness: f32, strength: f32) -> Brush {
-    Brush {
+fn brush(size: f32, hardness: f32, strength: f32) -> BrushSettings {
+    BrushSettings {
         size,
         hardness,
         strength,

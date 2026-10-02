@@ -186,11 +186,11 @@ mod tests {
     use super::*;
     use crate::rasterize;
     use bevy_math::Vec2;
-    use drs_model::Brush;
+    use drs_model::BrushSettings;
 
     /// Four strokes over and across tile edges, negative cells included.
     fn strokes() -> Vec<Stroke> {
-        let brush = |size, hardness, strength| Brush {
+        let brush = |size, hardness, strength| BrushSettings {
             size,
             hardness,
             strength,

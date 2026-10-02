@@ -44,12 +44,12 @@ impl ReversibleCommand for PaintTerrain {
         if world.get_entity(self.layer).is_err() {
             return Err(AuthoringError::NotALayer.into());
         }
-        let material = world
+        let image = world
             .get_mut::<AssetReferences>(self.project)
             .ok_or(AuthoringError::NoProject)?
             .record(self.reference.clone(), self.folder.clone())?;
         let terrain = Terrain {
-            material,
+            image,
             strokes: vec![self.stroke.clone()],
         };
         let footprint = terrain.element_box();
@@ -137,7 +137,7 @@ impl ReversibleCommand for SetMaterial {
         let mut terrain = world
             .get_mut::<Terrain>(entity)
             .ok_or(AuthoringError::NotATerrain(self.element))?;
-        let previous = std::mem::replace(&mut terrain.material, row);
+        let previous = std::mem::replace(&mut terrain.image, row);
         if self.previous.is_none() {
             self.previous = Some(previous);
         }
@@ -152,7 +152,7 @@ impl ReversibleCommand for SetMaterial {
         world
             .get_mut::<Terrain>(entity)
             .ok_or(AuthoringError::NotATerrain(self.element))?
-            .material = previous;
+            .image = previous;
         Ok(())
     }
 }
@@ -165,7 +165,7 @@ fn topmost_terrain(world: &World, layer: Entity) -> Option<(ElementId, AssetRefe
         .rev()
         .find_map(|child| {
             let terrain = world.get::<Terrain>(*child)?;
-            Some((*world.get::<ElementId>(*child)?, terrain.material))
+            Some((*world.get::<ElementId>(*child)?, terrain.image))
         })
 }
 
@@ -247,13 +247,13 @@ pub(crate) fn paint(world: &mut World, command: &Paint) -> Result<(), AuthoringE
                 },
             )
         }
-        (Some((element, material)), asset) => {
+        (Some((element, image)), asset) => {
             if let Some(asset) = asset {
                 let (painted, row) = recorded_row(world, project, asset)?;
-                if row != Some(material) {
+                if row != Some(image) {
                     return Err(AuthoringError::AnotherImage {
                         painted,
-                        shown: name_of(world, project, material),
+                        shown: name_of(world, project, image),
                     });
                 }
             }

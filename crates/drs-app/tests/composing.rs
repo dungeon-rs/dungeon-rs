@@ -20,10 +20,10 @@ use drs_library_access::{LIBRARY_SOURCE, LibraryAccessPlugin, asset_path};
 use drs_library_manager::LibraryManagerPlugin;
 use drs_model::{
     AddFolder, Apply, AssetAddress, AssetFolder, AssetFolderReference, AssetKind, AssetReferences,
-    Brush, CanonicalName, CommandFailed, EditElement, EditorDirectories, Element, ElementChange,
-    ElementId, Fingerprint, FolderAdded, FolderKey, FolderRefused, Gesture, Layer, ModelPlugin,
-    PROP, Paint, PlaceElement, Placement, Prop, Redo, RemoveElement, Resolution, ResolutionTable,
-    Stroke, Undo, Viewport,
+    BrushSettings, CanonicalName, CommandFailed, EditElement, EditorDirectories, Element,
+    ElementChange, ElementId, Fingerprint, FolderAdded, FolderKey, FolderRefused, Gesture, Layer,
+    ModelPlugin, PROP, Paint, PlaceElement, Placement, Prop, Redo, RemoveElement, Resolution,
+    ResolutionTable, Stroke, Undo, Viewport,
 };
 use drs_project_manager::ProjectManagerPlugin;
 use std::fs;
@@ -557,7 +557,7 @@ fn a_failed_command_is_reported() {
             layer,
             stroke: Stroke {
                 points: vec![Vec2::ZERO],
-                brush: Brush {
+                brush: BrushSettings {
                     size: 2.0,
                     hardness: 0.5,
                     strength: 1.0,

@@ -20,7 +20,7 @@ pub const TERRAIN: ElementKindName = ElementKindName::new("terrain");
 /// the Editor's current Brush is one of these too, so what the Editor sets is what a stroke
 /// records.
 #[derive(Reflect, Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
-pub struct Brush {
+pub struct BrushSettings {
     /// The diameter the Brush covers, in Grid cells; above zero.
     pub size: f32,
     /// How much of the radius shows the full strength, from 0, a fully soft edge, to 1, a hard
@@ -30,7 +30,7 @@ pub struct Brush {
     pub strength: f32,
 }
 
-impl Brush {
+impl BrushSettings {
     /// Half the size, in Grid cells.
     #[must_use]
     pub fn radius(&self) -> f32 {
@@ -70,7 +70,7 @@ pub struct Stroke {
     /// single point is a round dab.
     pub points: Vec<Vec2>,
     /// The settings it was laid with.
-    pub brush: Brush,
+    pub brush: BrushSettings,
 }
 
 impl Stroke {
@@ -114,9 +114,9 @@ impl Stroke {
 #[derive(Component, Reflect, Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[reflect(Component)]
 pub struct Terrain {
-    /// The Material: the row of the Project's Asset Reference table that names the image the
-    /// built-in tiled-image Shader shows.
-    pub material: AssetReferenceRow,
+    /// The image the Terrain's built-in Material tiles: the row of the Project's Asset Reference
+    /// table that names it.
+    pub image: AssetReferenceRow,
     /// The strokes, the first laid first.
     pub strokes: Vec<Stroke>,
 }

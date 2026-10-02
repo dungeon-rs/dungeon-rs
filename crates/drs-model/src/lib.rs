@@ -47,8 +47,8 @@ pub use serialisation::{
 };
 pub use snapshot::{LayerSnapshot, LevelSnapshot, ProjectSnapshot};
 pub use terrain::{
-    Brush, COVERAGE_PIXELS_PER_CELL, COVERAGE_TILE_CELLS, COVERAGE_TILE_PIXELS, CoverageTile,
-    Stroke, TERRAIN, Terrain, TerrainCoverage, TileKey,
+    BrushSettings, COVERAGE_PIXELS_PER_CELL, COVERAGE_TILE_CELLS, COVERAGE_TILE_PIXELS,
+    CoverageTile, Stroke, TERRAIN, Terrain, TerrainCoverage, TileKey,
 };
 pub use thumbnails::{THUMBNAIL_SOURCE, ThumbnailState, Thumbnails};
 pub use viewport::Viewport;

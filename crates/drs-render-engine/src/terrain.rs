@@ -394,7 +394,7 @@ pub(crate) fn sync_terrains(
         if drawn_as(model.kinds.as_deref(), element) != Some(DrawnAs::PaintedSurface) {
             continue;
         }
-        let path = match resolutions.get(terrain.material) {
+        let path = match resolutions.get(terrain.image) {
             Some(Resolution::Resolved { folder, place }) => Some(asset_path(folder, place)),
             Some(Resolution::Missing(_)) | None => None,
         };
@@ -404,7 +404,7 @@ pub(crate) fn sync_terrains(
                       numbers"
         )]
         let image_cells = references
-            .get(terrain.material)
+            .get(terrain.image)
             .and_then(|reference| reference.pixel_size)
             .map_or(Vec2::ONE, |pixels| {
                 pixels.as_vec2() / grid.copied().unwrap_or_default().pixels_per_cell as f32

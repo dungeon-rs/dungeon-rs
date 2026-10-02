@@ -31,7 +31,7 @@ use drs_model::{
     SerialisationRegistry, Side, Undo, UnknownComponents, UnknownKind, Viewport, WALL, Wall,
     WallShape,
 };
-use drs_model::{Brush, Paint, Stroke, TERRAIN, Terrain, TerrainCoverage, TileKey};
+use drs_model::{BrushSettings, Paint, Stroke, TERRAIN, Terrain, TerrainCoverage, TileKey};
 use drs_project_manager::ProjectManagerPlugin;
 use serde_json::{Value, json};
 use std::collections::BTreeMap;
@@ -2239,7 +2239,7 @@ impl SavedTerrain {
         for stroke in [
             Stroke {
                 points: vec![Vec2::new(-1.0, 0.5), Vec2::new(4.0, 2.0)],
-                brush: Brush {
+                brush: BrushSettings {
                     size: 2.0,
                     hardness: 0.5,
                     strength: 1.0,
@@ -2247,7 +2247,7 @@ impl SavedTerrain {
             },
             Stroke {
                 points: vec![Vec2::new(3.25, -1.5)],
-                brush: Brush {
+                brush: BrushSettings {
                     size: 3.0,
                     hardness: 1.0,
                     strength: 0.75,
@@ -2259,7 +2259,7 @@ impl SavedTerrain {
                     Vec2::new(18.5, -3.0),
                     Vec2::new(18.5, 1.0),
                 ],
-                brush: Brush {
+                brush: BrushSettings {
                     size: 1.5,
                     hardness: 0.0,
                     strength: 0.5,
@@ -2304,7 +2304,7 @@ fn terrain_is_saved_as_its_strokes() {
         json!({
             "version": 1,
             "data": {
-                "material": table,
+                "image": table,
                 "strokes": [
                     {
                         "points": [[-1.0, 0.5], [4.0, 2.0]],

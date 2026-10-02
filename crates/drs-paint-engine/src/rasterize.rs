@@ -227,13 +227,13 @@ mod tests {
     )]
 
     use super::*;
-    use drs_model::Brush;
+    use drs_model::BrushSettings;
 
     /// A stroke through `points` with a Brush of `size`, `hardness`, and `strength`.
     fn stroke(points: &[Vec2], size: f32, hardness: f32, strength: f32) -> Stroke {
         Stroke {
             points: points.to_vec(),
-            brush: Brush {
+            brush: BrushSettings {
                 size,
                 hardness,
                 strength,
