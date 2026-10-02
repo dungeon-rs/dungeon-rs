@@ -5,7 +5,7 @@ use bevy_ecs::resource::Resource;
 use bevy_reflect::Reflect;
 use std::path::PathBuf;
 
-/// Where the editor's own diagnostic files are and what was found about its bundled resources.
+/// Where the editor's own diagnostic files are and what was found about its Bundled Files.
 ///
 /// The Host fills it in before the App runs; the Editor reads it for Show Logs and the status
 /// line. Nothing writes it afterwards.
@@ -16,13 +16,13 @@ pub struct Diagnostics {
     pub logs: PathBuf,
     /// The current log file; `None` when logging goes to the terminal only.
     pub log_file: Option<PathBuf>,
-    /// The resource directory, or the locations tried when none is marked as the editor's.
-    pub resources: ResourceDirectory,
+    /// The bundle directory, or the locations tried when none is marked as the editor's.
+    pub bundle: BundleDirectory,
 }
 
-/// Where the editor's bundled resources are, or why they are nowhere.
+/// Where the editor's Bundled Files are, or why they are nowhere.
 #[derive(Reflect, Debug, Clone, PartialEq, Eq)]
-pub enum ResourceDirectory {
+pub enum BundleDirectory {
     /// The directory marked as the editor's.
     Found(PathBuf),
     /// No location is marked.

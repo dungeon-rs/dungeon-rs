@@ -27,7 +27,7 @@ impl Plugin for EditorPlugin {
             .init_resource::<state::EditorState>()
             .init_resource::<panels::Layout>()
             .add_systems(EguiPrimaryContextPass, panels::draw)
-            .add_systems(Startup, diagnostics::report_resources)
+            .add_systems(Startup, diagnostics::report_bundled_files)
             .add_systems(
                 Update,
                 (

@@ -1,9 +1,9 @@
-//! What the diagnostics Utility found and left: Show Logs, the resource directory that was not
+//! What the diagnostics Utility found and left: Show Logs, the bundle directory that was not
 //! found, and a crash report another thread left for the main thread to announce.
 
 use crate::state::EditorState;
 use bevy::ecs::system::{NonSendMarker, Res, ResMut};
-use drs_model::{Diagnostics, ResourceDirectory};
+use drs_model::{BundleDirectory, Diagnostics};
 
 /// Opens the log directory in the platform's file manager; a failure is shown in the status
 /// line.
@@ -17,22 +17,22 @@ pub(crate) fn show_logs(state: &mut EditorState, diagnostics: Option<&Diagnostic
     }
 }
 
-/// Reports in the status line, at start, that no resource directory is marked as the editor's,
+/// Reports in the status line, at start, that no bundle directory is marked as the editor's,
 /// naming every location tried.
-pub(crate) fn report_resources(
+pub(crate) fn report_bundled_files(
     mut state: ResMut<EditorState>,
     diagnostics: Option<Res<Diagnostics>>,
 ) {
     let Some(diagnostics) = diagnostics else {
         return;
     };
-    if let ResourceDirectory::Missing { tried } = &diagnostics.resources {
+    if let BundleDirectory::Missing { tried } = &diagnostics.bundle {
         let tried = tried
             .iter()
             .map(|location| location.display().to_string())
             .collect::<Vec<_>>()
             .join(", ");
-        state.status = format!("The bundled resources were not found; tried {tried}");
+        state.status = format!("The editor's Bundled Files were not found; tried {tried}");
     }
 }
 

@@ -3,7 +3,7 @@
 The Utility that keeps the editor's own files for diagnosis and brings a
 fault to the Author: logging to daily files in the editor's directories, a
 crash handler that leaves a report and announces it, and the location of
-the editor's bundled resources on each platform. It uses no Bevy: the Host
+the editor's Bundled Files on each platform. It uses no Bevy: the Host
 wires it before the App exists, and the Editor calls it to reveal the logs
 and to announce a pending crash report.
 
@@ -38,21 +38,21 @@ and to announce a pending crash report.
   and [`run_guarded`](crate::run_guarded) announces what is still pending
   when the editor ends. With `dialogs` off nothing is shown, for tests and
   headless runs.
-- **`LocateResources`**: [`locate_resources`](crate::locate_resources) finds the
-  resource directory from the executable's location: `resources` beside it,
-  `Resources` beside its directory (the macOS application), or `resources`
+- **`LocateBundledFiles`**: [`locate_bundled_files`](crate::locate_bundled_files)
+  finds the bundle directory from the executable's location: `bundle` beside
+  it, `Resources` beside its directory (the macOS application), or `bundle`
   in each ancestor of its directory, nearest first (the workspace). Only a
-  directory holding the marker [`RESOURCES_MARKER`](crate::RESOURCES_MARKER),
+  directory holding the marker [`BUNDLE_MARKER`](crate::BUNDLE_MARKER),
   which names the editor's version, counts. None found is a
-  [`ResourcesNotFound`](crate::ResourcesNotFound) naming every location
-  tried. [`Resources::resource`](crate::Resources::resource) gives one
-  resource by a plain relative name and refuses a name that is absolute,
-  holds `..`, or carries a source prefix.
+  [`BundledFilesNotFound`](crate::BundledFilesNotFound) naming every location
+  tried. [`BundledFiles::file`](crate::BundledFiles::file) gives one Bundled
+  File by a plain relative name and refuses a name that is absolute, holds
+  `..`, or carries a source prefix.
 - **`RevealLogs`**: [`reveal_logs`](crate::reveal_logs) opens the log
   directory in the platform's file manager, creating it first.
 
 [`announce_start`](crate::announce_start) logs, once the subscriber is
-installed, the log file's path and what was found about the resources.
+installed, the log file's path and what was found about the Bundled Files.
 
 ## Features
 

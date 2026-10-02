@@ -1,15 +1,15 @@
-//! The location of the editor's bundled resources by platform layout.
+//! The location of the editor's Bundled Files by platform layout.
 
 use std::path::{Component, Path, PathBuf};
 use thiserror::Error;
 
-/// The file that marks a directory as the editor's resource directory; it holds the editor's
+/// The file that marks a directory as the editor's bundle directory; it holds the editor's
 /// version.
-pub const RESOURCES_MARKER: &str = "dungeon-rs.resources";
+pub const BUNDLE_MARKER: &str = "dungeon-rs.bundle";
 
-/// The resource directory that was found.
+/// The bundle directory that was found: where the editor's Bundled Files are.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Resources {
+pub struct BundledFiles {
     /// The directory.
     root: PathBuf,
     /// The version the marker names, trimmed; `None` when it names none.
@@ -18,8 +18,8 @@ pub struct Resources {
     editor_version: String,
 }
 
-impl Resources {
-    /// The resource directory, absolute.
+impl BundledFiles {
+    /// The bundle directory, absolute.
     #[must_use]
     pub fn root(&self) -> &Path {
         &self.root
@@ -39,16 +39,16 @@ impl Resources {
             .is_some_and(|version| version != self.editor_version)
     }
 
-    /// The bundled resource called `name`, checked to exist under the directory.
+    /// The Bundled File called `name`, checked to exist under the directory.
     ///
     /// # Errors
     ///
-    /// [`ResourceError::NotPlainRelative`] when the name is absolute, holds `..`, carries a
+    /// [`BundledFileError::NotPlainRelative`] when the name is absolute, holds `..`, carries a
     /// source prefix such as `lib://`, or uses `\` or `:`, which are not the same path on every
     /// platform, so no lookup leaves the directory;
-    /// [`ResourceError::Missing`] when nothing is there; [`ResourceError::Unreadable`] when what
+    /// [`BundledFileError::Missing`] when nothing is there; [`BundledFileError::Unreadable`] when what
     /// is there cannot be read.
-    pub fn resource(&self, name: &str) -> Result<PathBuf, ResourceError> {
+    pub fn file(&self, name: &str) -> Result<PathBuf, BundledFileError> {
         let relative = Path::new(name);
         let plain = !name.is_empty()
             && !name.contains(['\\', ':'])
@@ -56,23 +56,23 @@ impl Resources {
                 .components()
                 .all(|component| matches!(component, Component::Normal(_)));
         if !plain {
-            return Err(ResourceError::NotPlainRelative {
+            return Err(BundledFileError::NotPlainRelative {
                 name: name.to_owned(),
             });
         }
         let path = self.root.join(relative);
         match std::fs::metadata(&path) {
             Ok(metadata) if metadata.is_file() => Ok(path),
-            Ok(_) => Err(ResourceError::Unreadable {
+            Ok(_) => Err(BundledFileError::Unreadable {
                 name: name.to_owned(),
                 reason: "it is not a file".to_owned(),
             }),
             Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
-                Err(ResourceError::Missing {
+                Err(BundledFileError::Missing {
                     name: name.to_owned(),
                 })
             }
-            Err(error) => Err(ResourceError::Unreadable {
+            Err(error) => Err(BundledFileError::Unreadable {
                 name: name.to_owned(),
                 reason: error.to_string(),
             }),
@@ -80,10 +80,10 @@ impl Resources {
     }
 }
 
-/// No location is marked as the editor's resource directory.
+/// No location is marked as the editor's bundle directory.
 #[derive(Debug, Clone, PartialEq, Eq, Error)]
-#[error("no resource directory is marked as the editor's; tried {}", tried_list(.tried))]
-pub struct ResourcesNotFound {
+#[error("no bundle directory is marked as the editor's; tried {}", tried_list(.tried))]
+pub struct BundledFilesNotFound {
     /// Every location tried, in the order tried.
     pub tried: Vec<PathBuf>,
 }
@@ -100,23 +100,23 @@ fn tried_list(tried: &[PathBuf]) -> String {
         .join(", ")
 }
 
-/// Why a bundled resource could not be given.
+/// Why a Bundled File could not be given.
 #[derive(Debug, Clone, PartialEq, Eq, Error)]
-pub enum ResourceError {
+pub enum BundledFileError {
     /// The name is not a plain relative path.
-    #[error("the resource name {name:?} is not a plain relative path")]
+    #[error("the Bundled File name {name:?} is not a plain relative path")]
     NotPlainRelative {
         /// The name as asked.
         name: String,
     },
     /// Nothing is there.
-    #[error("the bundled resource {name} is missing")]
+    #[error("the Bundled File {name} is missing")]
     Missing {
         /// The name as asked.
         name: String,
     },
     /// What is there cannot be read.
-    #[error("the bundled resource {name} cannot be read: {reason}")]
+    #[error("the Bundled File {name} cannot be read: {reason}")]
     Unreadable {
         /// The name as asked.
         name: String,
@@ -125,31 +125,34 @@ pub enum ResourceError {
     },
 }
 
-/// Finds the resource directory from the executable's location, never from the working
+/// Finds the bundle directory from the executable's location, never from the working
 /// directory: the first of these that holds the marker file.
 ///
-/// 1. `resources` beside the executable.
+/// 1. `bundle` beside the executable.
 /// 2. `Resources` beside the executable's directory: the macOS application layout.
-/// 3. `resources` in each ancestor of the executable's directory, nearest first: the workspace
+/// 3. `bundle` in each ancestor of the executable's directory, nearest first: the workspace
 ///    layout during development.
 ///
 /// # Errors
 ///
-/// [`ResourcesNotFound`] naming every location tried when none is marked.
-pub fn locate_resources(executable: &Path, version: &str) -> Result<Resources, ResourcesNotFound> {
+/// [`BundledFilesNotFound`] naming every location tried when none is marked.
+pub fn locate_bundled_files(
+    executable: &Path,
+    version: &str,
+) -> Result<BundledFiles, BundledFilesNotFound> {
     let mut tried = Vec::new();
     for candidate in candidates(executable) {
         tried.push(candidate.clone());
-        if let Ok(marker) = std::fs::read_to_string(candidate.join(RESOURCES_MARKER)) {
+        if let Ok(marker) = std::fs::read_to_string(candidate.join(BUNDLE_MARKER)) {
             let marker = marker.trim();
-            return Ok(Resources {
+            return Ok(BundledFiles {
                 root: candidate,
                 version: (!marker.is_empty()).then(|| marker.to_owned()),
                 editor_version: version.to_owned(),
             });
         }
     }
-    Err(ResourcesNotFound { tried })
+    Err(BundledFilesNotFound { tried })
 }
 
 /// The locations to try, in order.
@@ -160,7 +163,7 @@ fn candidates(executable: &Path) -> Vec<PathBuf> {
     else {
         return Vec::new();
     };
-    let mut candidates = vec![directory.join("resources")];
+    let mut candidates = vec![directory.join("bundle")];
     if let Some(parent) = directory.parent() {
         candidates.push(parent.join("Resources"));
     }
@@ -168,7 +171,7 @@ fn candidates(executable: &Path) -> Vec<PathBuf> {
         directory
             .ancestors()
             .skip(1)
-            .map(|ancestor| ancestor.join("resources")),
+            .map(|ancestor| ancestor.join("bundle")),
     );
     candidates
 }

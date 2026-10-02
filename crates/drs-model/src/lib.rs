@@ -13,7 +13,7 @@ pub use assets::{
     AssetReferences, AssetReferencesFull, CanonicalName, Fingerprint, FolderKey, IndexedAsset,
     ScanSkips,
 };
-pub use diagnostics::{Diagnostics, ResourceDirectory};
+pub use diagnostics::{BundleDirectory, Diagnostics};
 pub use directories::EditorDirectories;
 pub use element::{
     Element, ElementId, ElementKindDescriptor, ElementKindName, ElementKindRegistry, PROP, Prop,

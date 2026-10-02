@@ -3,7 +3,7 @@
 The Host: registers the plugins of every other crate and starts the editor.
 It holds no logic: `main` installs the crash handler before anything else,
 starts logging to the daily file and hands its layer to Bevy's log plugin,
-locates the bundled resources and roots the default asset source there,
+locates the Bundled Files and roots the default asset source there,
 registers the `lib://` asset source before Bevy's asset plugin builds, sets
 the window title, adds the model, the history, the library access, the
 library Manager, the project Manager, the authoring Manager, the render

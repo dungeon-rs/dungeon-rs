@@ -11,11 +11,11 @@ use drs_editor::EditorPlugin;
 use drs_history::HistoryPlugin;
 use drs_library_access::{LibraryAccessPlugin, register_library_source};
 use drs_library_manager::LibraryManagerPlugin;
-use drs_model::{Diagnostics, EditorDirectories, ModelPlugin, ResourceDirectory};
+use drs_model::{BundleDirectory, Diagnostics, EditorDirectories, ModelPlugin};
 use drs_project_manager::ProjectManagerPlugin;
 use drs_render_engine::RenderEnginePlugin;
 
-/// The editor's version, as the crash report and the resources marker name it.
+/// The editor's version, as the crash report and the bundle marker name it.
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 
 /// Builds the editor out of every crate's plugin and runs it.
@@ -23,7 +23,7 @@ const VERSION: &str = env!("CARGO_PKG_VERSION");
 /// The crash handler goes first, so that the hook Bevy's plugins build chains it and a crash
 /// before any window still leaves a report; logging next, with its layer handed to Bevy's log
 /// plugin, which is added on its own so that the first entry names the log file before any
-/// other plugin logs; then the bundled resources, which the default asset source is rooted at. The
+/// other plugin logs; then the Bundled Files, which the default asset source is rooted at. The
 /// `lib://` asset source is registered before Bevy's `AssetPlugin` builds, since sources freeze
 /// then, and `.meta` lookups are off because Asset Folders never hold them.
 fn main() -> AppExit {
@@ -36,13 +36,13 @@ fn main() -> AppExit {
     });
     let logging = drs_diagnostics::start_logging(&logs, LevelFilter::from_environment());
     let executable = std::env::current_exe().unwrap_or_default();
-    let resources = drs_diagnostics::locate_resources(&executable, VERSION);
+    let bundle = drs_diagnostics::locate_bundled_files(&executable, VERSION);
 
     let mut asset_plugin = AssetPlugin {
         meta_check: AssetMetaCheck::Never,
         ..AssetPlugin::default()
     };
-    if let Ok(found) = &resources {
+    if let Ok(found) = &bundle {
         asset_plugin.file_path = found.root().to_string_lossy().into_owned();
     }
     let mut app = App::new();
@@ -51,7 +51,7 @@ fn main() -> AppExit {
         custom_layer: |_| drs_diagnostics::take_layer(),
         ..LogPlugin::default()
     });
-    drs_diagnostics::announce_start(&logging, &resources);
+    drs_diagnostics::announce_start(&logging, &bundle);
     app.add_plugins(
         DefaultPlugins
             .build()
@@ -79,9 +79,9 @@ fn main() -> AppExit {
     app.insert_resource(Diagnostics {
         logs: logging.directory,
         log_file: logging.file,
-        resources: match resources {
-            Ok(found) => ResourceDirectory::Found(found.root().to_path_buf()),
-            Err(missing) => ResourceDirectory::Missing {
+        bundle: match bundle {
+            Ok(found) => BundleDirectory::Found(found.root().to_path_buf()),
+            Err(missing) => BundleDirectory::Missing {
                 tried: missing.tried,
             },
         },

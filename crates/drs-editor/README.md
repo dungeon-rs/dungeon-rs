@@ -10,7 +10,7 @@ through. A menu bar offers Library → Add Asset Folder…, which opens the
 platform's folder dialog and then asks for the Canonical Name, Edit → Undo
 and Redo, and Help → Show Logs, which opens the log directory in the
 platform's file manager; a status line at the bottom reports what happened
-last and what the Author is doing, including a resource directory that was
+last and what the Author is doing, including a bundle directory that was
 not found and a crash report another thread left, which is also announced
 in the crash dialog on the main thread.
 
