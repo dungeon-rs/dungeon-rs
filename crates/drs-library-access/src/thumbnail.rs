@@ -148,7 +148,8 @@ impl ThumbnailCache {
     ///
     /// The index is read whole. A record that is incomplete or points beyond the end of the pack
     /// is skipped and logged; a pack or index that is not one this editor can read is replaced by
-    /// an empty one without a word, since nothing is lost but time.
+    /// an empty one with a warning in the log and no word to the Author, since nothing is lost
+    /// but time.
     ///
     /// # Errors
     ///
