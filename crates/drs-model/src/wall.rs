@@ -146,7 +146,7 @@ impl Serialisable for Wall {
 }
 
 /// A point of a Wall's flattened line, with the segment it lies on and the parameter along that
-/// segment.
+/// segment; on a Room's closed line, the segment is the edge.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct LinePoint {
     /// Where the point is, in Grid cells.
@@ -157,7 +157,8 @@ pub struct LinePoint {
     pub t: f32,
 }
 
-/// A place along a Wall's line: a segment and the parameter along it.
+/// A place along a Wall's line: a segment and the parameter along it; along a Room's closed line,
+/// the segment is the edge.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct LinePlace {
     /// The number of the segment, counted from zero.
@@ -178,8 +179,10 @@ impl LinePlace {
     }
 }
 
-/// A stretch of a Wall's line that a Portal set into it covers, from the place nearer the Wall's
-/// start to the place nearer its end.
+/// A stretch of a line that a Portal set into it covers, from the place nearer the line's start to
+/// the place nearer its end. On a Room's closed line a stretch may run on past the first point:
+/// its start then lies after its end, and it covers the places from its start to the line's end
+/// and from the line's start to its end.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Stretch {
     /// Where the stretch starts.
@@ -193,12 +196,14 @@ impl Stretch {
     #[must_use]
     pub fn covers(&self, place: LinePlace) -> bool {
         let (start, end, place) = (self.start.key(), self.end.key(), place.key());
-        start
-            .0
-            .cmp(&place.0)
-            .then(start.1.total_cmp(&place.1))
-            .is_le()
-            && place.0.cmp(&end.0).then(place.1.total_cmp(&end.1)).is_le()
+        let order = |a: (usize, f32), b: (usize, f32)| a.0.cmp(&b.0).then(a.1.total_cmp(&b.1));
+        let after_start = order(start, place).is_le();
+        let before_end = order(place, end).is_le();
+        if order(start, end).is_le() {
+            after_start && before_end
+        } else {
+            after_start || before_end
+        }
     }
 }
 

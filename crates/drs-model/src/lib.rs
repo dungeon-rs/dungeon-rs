@@ -10,6 +10,7 @@ mod panics;
 mod portal;
 mod project;
 mod resolution;
+mod room;
 mod serialisation;
 mod snapshot;
 mod terrain;
@@ -41,6 +42,7 @@ pub use panics::CaughtPanics;
 pub use portal::{PORTAL, Portal, PortalAnchor, Side};
 pub use project::{Bounds, Grid, Layer, Level, Project};
 pub use resolution::{MissingReason, Resolution, ResolutionTable};
+pub use room::{Edge, FillMesh, ROOM, Room, RoomShape};
 pub use serialisation::{
     Envelope, Envelopes, Serialisable, SerialisableComponent, SerialisationError,
     SerialisationRegistry, Tier, UnknownComponents, read_only_version,
@@ -76,6 +78,7 @@ impl Plugin for ModelPlugin {
             .register_type::<Wall>()
             .register_type::<Portal>()
             .register_type::<Terrain>()
+            .register_type::<Room>()
             .register_type::<AssetReferences>()
             .register_type::<ResolutionTable>()
             .register_type::<UnknownComponents>()

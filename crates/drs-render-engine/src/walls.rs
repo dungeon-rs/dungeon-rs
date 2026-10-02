@@ -155,7 +155,9 @@ pub(crate) fn sync_walls(
         };
         match drawn_as(kinds.as_deref(), element) {
             Some(DrawnAs::StrokedPath) => {}
-            Some(DrawnAs::Image | DrawnAs::PaintedSurface) | None => continue,
+            Some(DrawnAs::Image | DrawnAs::PaintedSurface | DrawnAs::FilledOutline) | None => {
+                continue;
+            }
         }
         in_use.insert(key(wall.colour));
         let translation = Vec3::new(0.0, 0.0, stacked.depth);

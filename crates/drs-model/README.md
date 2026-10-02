@@ -25,11 +25,22 @@ Portal set into it covers, and the stroke it is drawn with, left out along those
 stretches. The authoring Manager writes it; whoever draws or picks a Wall reads
 it.
 
+A Room carries [`Room`](crate::Room): its points in Grid cells, one
+[`Edge`](crate::Edge) from each point to the next and from the last back to the
+first, straight or curved by a control point, its wall thickness, its wall
+colour, and its floor colour. The edges are numbered from the first point on,
+the closing edge last, and only adding or removing a point renumbers them. A
+Room's [`RoomShape`](crate::RoomShape) is derived from it and never saved: its
+Walls as a [`WallShape`](crate::WallShape) of the outline flattened into a
+closed line, whose stretches may run on past the first point, and its floor as
+a [`FillMesh`](crate::FillMesh) of what that line winds around.
+
 A Portal carries [`Portal`](crate::Portal): the Asset Reference row of its image,
 its width in Grid cells, its rotation, whether it is mirrored, and, when it is
-set into a Wall, its [`PortalAnchor`](crate::PortalAnchor): the identity of the
-Element it is set into, the `index` of a part of it (a Wall's segment, a Room's
-edge), a parameter along that part, and the [`Side`](crate::Side) it faces. The
+set into a Wall or a Room, its [`PortalAnchor`](crate::PortalAnchor): the
+identity of the Element it is set into, the `index` of a part of it (a Wall's
+segment, a Room's edge), a parameter along that part, and the
+[`Side`](crate::Side) it faces. The
 anchor names what the Portal is set into as `host` and its part as `index`,
 never by kind. A set Portal's position, rotation, and mirroring are kept
 equal to what its anchor gives, so freeing it is clearing the anchor. Whoever
@@ -86,8 +97,9 @@ its own panics tells the crash handler so, which the Host puts in.
 Every component type here is written only by the systems of the crate that owns
 it; everyone else reads. The [`ModelPlugin`](crate::ModelPlugin) registers the
 types for reflection, the messages, and the Element kind registry with Prop,
-Wall, Portal, and Terrain as its kinds, and orders the Managers' handling through
-[`ManagerSystems`](crate::ManagerSystems): Commands before Undo before Redo.
+Wall, Portal, Terrain, and Room as its kinds, and orders the Managers' handling
+through [`ManagerSystems`](crate::ManagerSystems): Commands before Undo before
+Redo.
 
 ## Features
 

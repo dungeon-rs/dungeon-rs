@@ -107,7 +107,9 @@ pub(crate) fn sync_props(
             continue;
         };
         match drawn_as(model.kinds.as_deref(), shape) {
-            Some(DrawnAs::StrokedPath | DrawnAs::PaintedSurface) => continue,
+            Some(DrawnAs::StrokedPath | DrawnAs::PaintedSurface | DrawnAs::FilledOutline) => {
+                continue;
+            }
             Some(DrawnAs::Image) | None => {}
         }
         let translation = Vec3::new(shape.position.x, shape.position.y, stacked.depth);

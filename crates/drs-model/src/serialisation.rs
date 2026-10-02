@@ -2,7 +2,8 @@
 //! from every version it has had, and the component that keeps what no entry knows.
 
 use crate::{
-    AssetReferences, Bounds, Element, Grid, Layer, Level, Portal, Project, Prop, Terrain, Wall,
+    AssetReferences, Bounds, Element, Grid, Layer, Level, Portal, Project, Prop, Room, Terrain,
+    Wall,
 };
 use bevy_ecs::component::Component;
 use bevy_ecs::reflect::ReflectComponent;
@@ -407,5 +408,5 @@ serialisable_at_version_one! {
     Layer => "layer" on Tier::Layer,
     Element => "element" on Tier::Element,
     Prop => "prop" on Tier::Element;
-    checked: Wall, Portal, Terrain,
+    checked: Wall, Portal, Terrain, Room,
 }
