@@ -23,7 +23,7 @@ use bevy::window::{PrimaryWindow, Window};
 use bevy_egui::input::EguiWantsInput;
 use drs_model::{
     Apply, EditElement, Element, ElementChange, ElementId, Gesture, Layer, Level, PlaceElement,
-    Redo, RemoveElement, Undo, Viewport,
+    Placement, Redo, RemoveElement, Undo, Viewport,
 };
 
 /// How far the pointer travels, in pixels, before a press on a Prop becomes a drag.
@@ -185,8 +185,10 @@ fn press(
         if let Some(layer) = level.current_layer() {
             apply.write(Apply::PlaceElement(PlaceElement {
                 layer,
-                position: cells,
-                asset: chosen.asset.clone(),
+                placement: Placement::Prop {
+                    position: cells,
+                    asset: chosen.asset.clone(),
+                },
             }));
         }
         return;

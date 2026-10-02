@@ -10,7 +10,7 @@ use drs_model::{ElementId, RemoveElement};
 
 /// The recorded step: the Element's reflected components, its Layer, and its index among the
 /// Layer's children, so that undo puts it back exactly where it was.
-struct Remove {
+pub(crate) struct Remove {
     /// The identity of the Element.
     element: ElementId,
     /// The Element's components while it is removed.
@@ -78,13 +78,17 @@ pub(crate) fn remove_element(
         .element
         .entity(world)
         .map_err(|_| AuthoringError::UnknownElement(command.element))?;
-    crate::record_step(
-        world,
-        Remove {
-            element: command.element,
-            snapshot: Snapshot::new(command.element),
+    crate::record_step(world, Remove::of(command.element))
+}
+
+impl Remove {
+    /// The step that removes `element`.
+    pub(crate) fn of(element: ElementId) -> Self {
+        Self {
+            element,
+            snapshot: Snapshot::new(element),
             layer: None,
             index: None,
-        },
-    )
+        }
+    }
 }

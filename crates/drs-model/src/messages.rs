@@ -1,6 +1,8 @@
 //! The messages the Editor sends to the Managers, and the reports that come back.
 
-use crate::{CanonicalName, ElementId, ElementKindName, FolderKey, MissingReason, ScanSkips};
+use crate::{
+    CanonicalName, Colour, ElementId, ElementKindName, FolderKey, MissingReason, ScanSkips,
+};
 use bevy_ecs::entity::Entity;
 use bevy_ecs::message::Message;
 use bevy_ecs::schedule::SystemSet;
@@ -155,22 +157,73 @@ pub struct AssetAddress {
     pub place: String,
 }
 
-/// Place a Prop of an Asset on a Layer, centred on a point.
+/// Place an Element on top of a Layer.
 #[derive(Debug, Clone, PartialEq)]
 pub struct PlaceElement {
     /// The Layer to place on.
     pub layer: Entity,
-    /// The centre of the new Element in Grid cells.
-    pub position: Vec2,
-    /// The Asset to place.
-    pub asset: AssetAddress,
+    /// What to place.
+    pub placement: Placement,
+}
+
+/// The Element a [`PlaceElement`] places.
+#[derive(Debug, Clone, PartialEq)]
+pub enum Placement {
+    /// A Prop of an Asset, centred on a point.
+    Prop {
+        /// The centre of the new Element in Grid cells.
+        position: Vec2,
+        /// The Asset to place.
+        asset: AssetAddress,
+    },
+    /// A Wall through points, every segment straight.
+    Wall {
+        /// The points in Grid cells, in order; two or more.
+        points: Vec<Vec2>,
+        /// How wide the Wall is drawn, in Grid cells; above zero.
+        thickness: f32,
+        /// The colour it is drawn in.
+        colour: Colour,
+    },
 }
 
 /// A property change of an Element.
 #[derive(Debug, Clone, PartialEq)]
 pub enum ElementChange {
-    /// Move the Element's centre to a position in Grid cells.
+    /// Move the Element's centre to a position in Grid cells; a Wall moves every point and
+    /// control point by the same amount.
     Position(Vec2),
+    /// Move one point of a Wall, leaving every other point and every control point where it is.
+    Point {
+        /// Which point, counted from zero.
+        index: usize,
+        /// Where it goes, in Grid cells.
+        position: Vec2,
+    },
+    /// Bend a segment of a Wall through a control point, or make it straight.
+    Control {
+        /// Which segment, counted from zero.
+        segment: usize,
+        /// The control point in Grid cells, or `None` to make the segment straight.
+        position: Option<Vec2>,
+    },
+    /// Add a point on a segment of a Wall, splitting it into two segments of the same shape.
+    AddPoint {
+        /// Which segment, counted from zero.
+        segment: usize,
+        /// Where along it, between zero at its first point and one at its second.
+        t: f32,
+    },
+    /// Remove a point of a Wall, joining the segments at it into one straight segment; a Wall of
+    /// two points is removed whole.
+    RemovePoint {
+        /// Which point, counted from zero.
+        index: usize,
+    },
+    /// Set a Wall's thickness in Grid cells; above zero.
+    Thickness(f32),
+    /// Set a Wall's colour.
+    Colour(Colour),
 }
 
 /// How an [`EditElement`] relates to the gesture it belongs to, so a drag is one history step.

@@ -25,8 +25,9 @@ use drs_model::{
     AddFolder, Apply, AssetAddress, AssetReferences, Bounds, CanonicalName, CommandFailed,
     EditorDirectories, Element, ElementId, ElementKindName, FolderAdded, FolderKey, FolderRefused,
     Grid, Layer, Level, MissingAsset, MissingReason, ModelPlugin, OpenProject, PlaceElement,
-    Project, ProjectOpened, ProjectRefused, ProjectRequest, ProjectSaved, Prop, Redo, Resolution,
-    ResolutionTable, SaveProject, SavedMark, Undo, UnknownComponents, UnknownKind, Viewport,
+    Placement, Project, ProjectOpened, ProjectRefused, ProjectRequest, ProjectSaved, Prop, Redo,
+    Resolution, ResolutionTable, SaveProject, SavedMark, Undo, UnknownComponents, UnknownKind,
+    Viewport,
 };
 use drs_project_manager::ProjectManagerPlugin;
 use serde_json::{Value, json};
@@ -178,10 +179,12 @@ impl Device {
             .world_mut()
             .write_message(Apply::PlaceElement(PlaceElement {
                 layer,
-                position,
-                asset: AssetAddress {
-                    folder: key.clone(),
-                    place: place.to_owned(),
+                placement: Placement::Prop {
+                    position,
+                    asset: AssetAddress {
+                        folder: key.clone(),
+                        place: place.to_owned(),
+                    },
                 },
             }));
         self.app.update();

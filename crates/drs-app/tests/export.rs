@@ -29,8 +29,8 @@ use drs_library_manager::LibraryManagerPlugin;
 use drs_model::{
     AddFolder, Apply, AssetAddress, CanonicalName, CommandFailed, EditorDirectories, Element,
     ElementId, ExportLevel, ExportRefused, FolderAdded, FolderKey, FolderRefused, Layer, Level,
-    LevelExported, ModelPlugin, OpenProject, PlaceElement, ProjectOpened, ProjectRefused,
-    ProjectSaved, Prop, SaveProject, SavedMark, Viewport,
+    LevelExported, ModelPlugin, OpenProject, PlaceElement, Placement, ProjectOpened,
+    ProjectRefused, ProjectSaved, Prop, SaveProject, SavedMark, Viewport,
 };
 use drs_project_manager::ProjectManagerPlugin;
 use drs_render_engine::RenderEnginePlugin;
@@ -264,10 +264,12 @@ impl Fixture {
     fn placement(&mut self, place: &str, position: Vec2) -> Apply {
         Apply::PlaceElement(PlaceElement {
             layer: self.layer(),
-            position,
-            asset: AssetAddress {
-                folder: self.key.clone(),
-                place: place.to_owned(),
+            placement: Placement::Prop {
+                position,
+                asset: AssetAddress {
+                    folder: self.key.clone(),
+                    place: place.to_owned(),
+                },
             },
         })
     }

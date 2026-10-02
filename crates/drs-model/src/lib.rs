@@ -29,8 +29,9 @@ pub use messages::{
     AddFolder, Apply, AssetAddress, AssetFolderChanged, Browse, CommandFailed, EditElement,
     ElementChange, ExportLevel, ExportRefused, FolderAdded, FolderRefusal, FolderRefused,
     FolderUnavailable, Gesture, HistoryFailed, LevelExported, ManagerSystems, MissingAsset,
-    OpenProject, OpenReport, PlaceElement, ProjectOpened, ProjectRefused, ProjectRequest,
-    ProjectSaved, Redo, RemoveElement, SaveProject, ThumbnailsUnavailable, Undo, UnknownKind,
+    OpenProject, OpenReport, PlaceElement, Placement, ProjectOpened, ProjectRefused,
+    ProjectRequest, ProjectSaved, Redo, RemoveElement, SaveProject, ThumbnailsUnavailable, Undo,
+    UnknownKind,
 };
 pub use panics::CaughtPanics;
 pub use project::{Bounds, Grid, Layer, Level, Project};

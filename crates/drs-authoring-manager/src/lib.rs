@@ -3,6 +3,7 @@
 mod edit;
 mod place;
 mod remove;
+mod wall;
 
 use bevy_app::{App, Plugin, Update};
 use bevy_ecs::message::MessageReader;
@@ -15,6 +16,7 @@ use drs_model::{
     Apply, CanonicalName, CommandFailed, ElementId, FolderKey, HistoryFailed, ManagerSystems, Redo,
     Undo,
 };
+use drs_shape_engine::ShapeError;
 
 /// Why an authoring Command could not be carried out.
 #[derive(Debug, thiserror::Error)]
@@ -42,6 +44,24 @@ pub enum AuthoringError {
     /// The Element sits on no Layer.
     #[error("the Element {0:?} sits on no Layer")]
     NotOnALayer(ElementId),
+    /// The change is one only a Wall has, and the Element is no Wall.
+    #[error("the Element {0:?} is not a Wall")]
+    NotAWall(ElementId),
+    /// The Wall has no point of that number.
+    #[error("the Wall has no point {index}; it has {points}")]
+    NoPoint {
+        /// The point named.
+        index: usize,
+        /// How many points the Wall has.
+        points: usize,
+    },
+    /// The Wall would not be one: too few points, a thickness not above zero, or a coordinate
+    /// that is not finite.
+    #[error("{0}")]
+    MalformedWall(String),
+    /// The shape Engine could not reshape the Wall.
+    #[error(transparent)]
+    Shape(#[from] ShapeError),
     /// The Asset's file could not be read or is not an image.
     #[error(transparent)]
     Library(#[from] LibraryError),
@@ -62,6 +82,10 @@ impl Plugin for AuthoringManagerPlugin {
                 handle_apply.in_set(ManagerSystems::Commands),
                 handle_undo.in_set(ManagerSystems::Undo),
                 handle_redo.in_set(ManagerSystems::Redo),
+                // Every Manager has handled its Commands, Undo, and Redo by then, so a Wall
+                // placed, edited, undone, redone, or opened has its shape before anything draws
+                // or picks it.
+                wall::derive_shapes.after(ManagerSystems::Redo),
             ),
         );
     }

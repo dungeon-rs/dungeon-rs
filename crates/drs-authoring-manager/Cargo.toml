@@ -16,12 +16,18 @@ bevy_math = { workspace = true }
 drs-history = { path = "../drs-history" }
 drs-library-access = { path = "../drs-library-access" }
 drs-model = { path = "../drs-model" }
+drs-shape-engine = { path = "../drs-shape-engine" }
 thiserror = { workspace = true }
 unicode-normalization = { workspace = true }
 
 [features]
 default = []
-dev = ["drs-history/dev", "drs-library-access/dev", "drs-model/dev"]
+dev = [
+  "drs-history/dev",
+  "drs-library-access/dev",
+  "drs-model/dev",
+  "drs-shape-engine/dev",
+]
 
 [lints]
 workspace = true

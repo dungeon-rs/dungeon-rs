@@ -9,8 +9,8 @@ use bevy_math::Vec2;
 use drs_history::{ReversibleCommand, Target};
 use drs_library_access::load_asset;
 use drs_model::{
-    AssetFolder, AssetFolderReference, AssetReference, AssetReferences, Element, ElementId, Grid,
-    Layer, PROP, PlaceElement, Project, Prop,
+    AssetAddress, AssetFolder, AssetFolderReference, AssetReference, AssetReferences, Element,
+    ElementId, Grid, Layer, PROP, PlaceElement, Placement, Project, Prop, Wall,
 };
 use unicode_normalization::UnicodeNormalization;
 
@@ -90,15 +90,13 @@ impl ReversibleCommand for Place {
     }
 }
 
-/// Place Element: resolves the chosen Asset, reads what the Project must record about it, and
-/// places a Prop of it on top of the Layer, centred on the given position, as one history step.
+/// Place Element: places a Prop of the chosen Asset or a Wall through the given points on top
+/// of the Layer, as one history step.
 ///
 /// # Errors
 ///
-/// [`AuthoringError::NotALayer`] or [`AuthoringError::NoProject`] when the Layer is not one or
-/// belongs to no Project, [`AuthoringError::UnknownFolder`] or [`AuthoringError::UnknownAsset`]
-/// when the chosen Asset is not indexed, [`AuthoringError::Library`] when its file cannot be
-/// read, or [`AuthoringError::History`] when the step could not be recorded.
+/// [`AuthoringError::NotALayer`] when the Layer is not one, and whatever placing the Prop or the
+/// Wall reports.
 pub(crate) fn place_element(
     world: &mut World,
     command: &PlaceElement,
@@ -106,7 +104,36 @@ pub(crate) fn place_element(
     if world.get::<Layer>(command.layer).is_none() {
         return Err(AuthoringError::NotALayer);
     }
-    let project = project_of(world, command.layer)?;
+    match &command.placement {
+        Placement::Prop { position, asset } => place_prop(world, command.layer, *position, asset),
+        Placement::Wall {
+            points,
+            thickness,
+            colour,
+        } => crate::wall::place_wall(
+            world,
+            command.layer,
+            Wall::straight(points.clone(), *thickness, *colour),
+        ),
+    }
+}
+
+/// Places a Prop: resolves the chosen Asset, reads what the Project must record about it, and
+/// places a Prop of it on top of the Layer, centred on the given position, as one history step.
+///
+/// # Errors
+///
+/// [`AuthoringError::NoProject`] when the Layer belongs to no Project,
+/// [`AuthoringError::UnknownFolder`] or [`AuthoringError::UnknownAsset`] when the chosen Asset is
+/// not indexed, [`AuthoringError::Library`] when its file cannot be read, or
+/// [`AuthoringError::History`] when the step could not be recorded.
+fn place_prop(
+    world: &mut World,
+    layer: Entity,
+    position: Vec2,
+    asset: &AssetAddress,
+) -> Result<(), AuthoringError> {
+    let project = project_of(world, layer)?;
     let pixels_per_cell = world.get::<Grid>(project).map_or_else(
         || Grid::default().pixels_per_cell,
         |grid| grid.pixels_per_cell,
@@ -115,16 +142,16 @@ pub(crate) fn place_element(
     let folder = world
         .query::<&AssetFolder>()
         .iter(world)
-        .find(|folder| folder.key == command.asset.folder)
+        .find(|folder| folder.key == asset.folder)
         .cloned()
-        .ok_or_else(|| AuthoringError::UnknownFolder(command.asset.folder.clone()))?;
+        .ok_or_else(|| AuthoringError::UnknownFolder(asset.folder.clone()))?;
     let indexed = folder
         .assets
         .iter()
-        .find(|asset| asset.place == command.asset.place)
+        .find(|indexed| indexed.place == asset.place)
         .ok_or_else(|| AuthoringError::UnknownAsset {
             folder: folder.name.clone(),
-            place: command.asset.place.clone(),
+            place: asset.place.clone(),
         })?;
     let loaded = load_asset(&folder.path, &indexed.place)?;
 
@@ -146,8 +173,8 @@ pub(crate) fn place_element(
         world,
         Place {
             project,
-            layer: command.layer,
-            position: command.position,
+            layer,
+            position,
             size,
             reference,
             folder: AssetFolderReference {

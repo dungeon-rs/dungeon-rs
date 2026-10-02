@@ -22,7 +22,8 @@ use drs_model::{
     AddFolder, Apply, AssetAddress, AssetFolder, AssetFolderReference, AssetKind, AssetReferences,
     CanonicalName, CommandFailed, EditElement, EditorDirectories, Element, ElementChange,
     ElementId, Fingerprint, FolderAdded, FolderKey, FolderRefused, Gesture, Layer, ModelPlugin,
-    PROP, PlaceElement, Prop, Redo, RemoveElement, Resolution, ResolutionTable, Undo, Viewport,
+    PROP, PlaceElement, Placement, Prop, Redo, RemoveElement, Resolution, ResolutionTable, Undo,
+    Viewport,
 };
 use drs_project_manager::ProjectManagerPlugin;
 use std::fs;
@@ -156,10 +157,12 @@ impl Fixture {
         let layer = self.layer();
         self.apply(Apply::PlaceElement(PlaceElement {
             layer,
-            position,
-            asset: AssetAddress {
-                folder: self.key.clone(),
-                place: place.to_owned(),
+            placement: Placement::Prop {
+                position,
+                asset: AssetAddress {
+                    folder: self.key.clone(),
+                    place: place.to_owned(),
+                },
             },
         }));
         self.props()
@@ -536,10 +539,12 @@ fn a_failed_command_is_reported() {
     let commands = [
         Apply::PlaceElement(PlaceElement {
             layer,
-            position: Vec2::ZERO,
-            asset: AssetAddress {
-                folder: fixture.key.clone(),
-                place: "nowhere.png".to_owned(),
+            placement: Placement::Prop {
+                position: Vec2::ZERO,
+                asset: AssetAddress {
+                    folder: fixture.key.clone(),
+                    place: "nowhere.png".to_owned(),
+                },
             },
         }),
         Apply::EditElement(EditElement {
