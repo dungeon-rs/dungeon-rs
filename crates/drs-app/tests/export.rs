@@ -1403,3 +1403,31 @@ fn a_mirrored_portal_is_flipped() {
     assert_eq!(at(15.9, 14.7), ORANGE_PIXEL, "the same width");
     assert_eq!(at(16.1, 14.7), BLACK_PIXEL, "past its width");
 }
+
+/// A stretch that reaches an end of the Wall leaves no cap there: the Wall is not drawn around
+/// its end point, and it resumes squarely past the stretch.
+#[test]
+fn no_cap_where_a_portal_reaches_the_end() {
+    let mut fixture = Fixture::new();
+    fixture.wall(
+        &[Vec2::new(5.0, 15.0), Vec2::new(25.0, 15.0)],
+        &[None],
+        2.0,
+        YELLOW,
+    );
+    let wall = fixture.last();
+    fixture.portal(DOOR, Vec2::ZERO, Some(anchored(wall, 0, 0.0, Side::Left)));
+
+    let exported = fixture
+        .export(WALL_PIXELS_PER_CELL, "end.png", TILE)
+        .expect("the Export is written");
+    let picture = Picture::decode(&exported.path);
+    let at = |x: f32, y: f32| picture.at_point(Vec2::new(x, y), WALL_PIXELS_PER_CELL);
+
+    assert_eq!(at(5.0, 15.0), CYAN_PIXEL, "the Portal on the end point");
+    assert_eq!(at(4.5, 15.5), BLACK_PIXEL, "no cap beyond the end");
+    assert_eq!(at(4.5, 14.5), BLACK_PIXEL, "no cap on the other side");
+    assert_eq!(at(5.5, 15.6), BLACK_PIXEL, "the gap along the stretch");
+    assert_eq!(at(6.1, 15.9), YELLOW_PIXEL, "a square end past it");
+    assert_eq!(at(25.8, 15.0), YELLOW_PIXEL, "the cap at the far end");
+}
