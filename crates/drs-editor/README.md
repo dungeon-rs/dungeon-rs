@@ -37,19 +37,19 @@ for the Canonical Name. Edit → Undo and Redo are offered while no drag or
 Export is under way. Help → Show Logs opens the log directory in the
 platform's file manager.
 
-The grid lays out only the rows in view, as many 128-point cells as the
-panel's width holds. Each cell shows a neutral square until its thumbnail is
-generated, a placeholder of the thumbnail's proportions until it is decoded,
-then the thumbnail at one physical pixel of the display per pixel, never
-enlarged, or a crossed-out square for a file that is not an image; hovering shows the Asset's name, its folder's Canonical Name, and its
-place, and a click chooses it for placing. The Assets of the rows laid out and
-two rows either side are named to the library Manager with Browse whenever
-they change, so they are generated first; thumbnails are loaded through the
-`thumb://` asset source, so the asset system decodes them off the main thread,
-the rows either side are loaded ahead, a thumbnail is registered with egui only
-while its row is laid out, so none while the panel is behind another tab, and
-at most 512 decoded thumbnails are kept, the least recently shown dropped
-first.
+The grid lays out only the rows in view, as many 128-point cells as the panel's
+width holds. Each cell shows a neutral square until its thumbnail is generated,
+a placeholder of the thumbnail's proportions until it is decoded, then the
+thumbnail at one physical pixel of the display per pixel, never enlarged, or a
+crossed-out square for a file that is not an image; hovering shows the Asset's
+name, its folder's Canonical Name, and its place, and a click chooses it for
+placing. The Assets of the rows laid out and two rows either side are named to
+the library Manager with Browse whenever they change, so they are generated
+first; thumbnails are loaded through the `thumb://` asset source, so the asset
+system decodes them off the main thread, the rows either side are loaded ahead,
+a thumbnail is registered with egui only while its row is laid out, so none
+while the panel is behind another tab, and at most 512 decoded thumbnails are
+kept, the least recently shown dropped first.
 
 The panels read the World and send Commands and requests as messages; they
 never own domain state. The Editor writes only the model's `Viewport` (panning

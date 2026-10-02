@@ -25,12 +25,12 @@ undo and redo, the Manager announces Asset Folder Changed
 Canonical Name, so that the project Manager resolves again whatever a Project
 records against that name.
 
-Every folder indexed (on Add Asset Folder, its redo, and the refresh at
-startup) has the thumbnail of each Asset looked up in the thumbnail cache, which
-is opened at startup before the remembered folders are restored. The outcome is
+Every folder indexed (on Add Asset Folder, its redo, and the refresh at startup)
+has the thumbnail of each Asset looked up in the thumbnail cache, which is
+opened at startup before the remembered folders are restored. The outcome is
 written as [`Thumbnails`](drs_model::Thumbnails) on the folder's entity in the
-index's order (pending, ready with its size, or broken), and the pending ones are
-enqueued in place order for the background generator. Each frame, before any
+index's order (pending, ready with its size, or broken), and the pending ones
+are enqueued in place order for the background generator. Each frame, before any
 Command is handled, what the generator finished is written into those states,
 and the Assets the browser last named with [`Browse`](drs_model::Browse) that
 are still pending go to the front of the queue. A folder that is undone has its

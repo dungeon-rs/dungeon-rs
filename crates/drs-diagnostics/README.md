@@ -26,29 +26,28 @@ and to announce a pending crash report.
   printed and the editor logs to the terminal only; what came out is a
   [`Logging`](crate::Logging).
 - **`InstallCrashHandler`**:
-  [`install_crash_handler`](crate::install_crash_handler), installed on the
-  main thread before Bevy's plugins, with the editor's name and version as a
+  [`install_crash_handler`](crate::install_crash_handler), installed on the main
+  thread before Bevy's plugins, with the editor's name and version as a
   [`Product`](crate::Product). A panic on any thread writes
   `crash-<UTC timestamp>.txt` in the log directory, or in the platform's
-  temporary directory when the log directory cannot be written, holding
-  under its own heading the UTC time, the editor's version, the operating
-  system and architecture, the message, the source location, the thread, a
-  backtrace, and the current log file, and nothing else about the Author.
-  The path is printed to the terminal and logged at `error` before any
-  dialog. On the main thread the dialog is shown at once; on another thread
-  the report waits for [`announce_pending`](crate::announce_pending), which
-  the Editor calls each frame to show the dialog and get the report for the
-  status line, and [`run_guarded`](crate::run_guarded) announces what is
-  still pending when the editor ends. A thread that catches its own panics,
-  as a background worker does around each job, marks itself with
+  temporary directory when the log directory cannot be written, holding under
+  its own heading the UTC time, the editor's version, the operating system and
+  architecture, the message, the source location, the thread, a backtrace, and
+  the current log file, and nothing else about the Author. The path is printed
+  to the terminal and logged at `error` before any dialog. On the main thread
+  the dialog is shown at once; on another thread the report waits for
+  [`announce_pending`](crate::announce_pending), which the Editor calls each
+  frame to show the dialog and get the report for the status line, and
+  [`run_guarded`](crate::run_guarded) announces what is still pending when the
+  editor ends. A thread that catches its own panics, as a background worker does
+  around each job, marks itself with
   [`mark_panics_caught`](crate::mark_panics_caught): a panic on it is then
   logged at `warn` and leaves no report and no dialog. With `dialogs` off
-  nothing is shown, for tests and
-  headless runs; [`dialogs_possible`](crate::dialogs_possible) tells the Host
-  when that is: never on a continuous-integration run (`CI` set), when
-  `DRS_NO_DIALOGS` is set, on Linux without a display, or, in development,
-  while `DRS_SCRIPT` drives the editor, since nobody is there to click and a
-  dialog would hold the run.
+  nothing is shown, for tests and headless runs;
+  [`dialogs_possible`](crate::dialogs_possible) tells the Host when that is:
+  never on a continuous-integration run (`CI` set), when `DRS_NO_DIALOGS` is
+  set, on Linux without a display, or, in development, while `DRS_SCRIPT` drives
+  the editor, since nobody is there to click and a dialog would hold the run.
 - **`LocateBundledFiles`**:
   [`locate_bundled_files_of_this_executable`](crate::locate_bundled_files_of_this_executable)
   finds the bundle directory of the running editor, through
