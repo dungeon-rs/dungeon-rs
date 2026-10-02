@@ -17,10 +17,10 @@ and to announce a pending crash report.
   each entry as it happens. The Host hands the layer to Bevy's log plugin
   through [`take_layer`](crate::take_layer), and the entries carry their UTC
   timestamp, level, and module. The level comes from `RUST_LOG` through
-  [`log_directives`](crate::log_directives): the default,
-  [`DEFAULT_LEVEL`](crate::DEFAULT_LEVEL), with the variable's directives on
-  top, and the default alone, said on the terminal, when the variable is
-  malformed. When the directory or the file cannot be created, the reason is
+  [`log_directives`](crate::log_directives): the variable's directives
+  alone when it is well-formed, as Bevy's log plugin reads it for the
+  terminal, and the default, [`DEFAULT_LEVEL`](crate::DEFAULT_LEVEL), when
+  it is unset, or when it is malformed, which is said on the terminal. When the directory or the file cannot be created, the reason is
   printed and the editor logs to the terminal only; what came out is a
   [`Logging`](crate::Logging).
 - **`InstallCrashHandler`**:
@@ -54,8 +54,8 @@ and to announce a pending crash report.
   which names the editor's version, counts. None found is a
   [`BundledFilesNotFound`](crate::BundledFilesNotFound) naming every location
   tried. [`BundledFiles::file`](crate::BundledFiles::file) gives one Bundled
-  File by a plain relative name and refuses a name that is absolute, holds
-  `..`, or carries a source prefix.
+  File by a plain relative name and refuses a name that is empty, absolute, holds
+  `..`, carries a source prefix, or uses `\` or `:`.
 - **`RevealLogs`**: [`reveal_logs`](crate::reveal_logs) opens the log
   directory in the platform's file manager, creating it first.
 
