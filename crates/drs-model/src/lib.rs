@@ -47,14 +47,7 @@ pub struct ModelPlugin;
 impl Plugin for ModelPlugin {
     fn build(&self, app: &mut App) {
         let mut serialisation = SerialisationRegistry::default();
-        serialisation.register::<Project>();
-        serialisation.register::<Grid>();
-        serialisation.register::<Bounds>();
-        serialisation.register::<AssetReferences>();
-        serialisation.register::<Level>();
-        serialisation.register::<Layer>();
-        serialisation.register::<Element>();
-        serialisation.register::<Prop>();
+        serialisation::register_all(&mut serialisation);
         app.register_type::<Project>()
             .register_type::<Grid>()
             .register_type::<Bounds>()

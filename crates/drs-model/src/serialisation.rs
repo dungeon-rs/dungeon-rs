@@ -359,20 +359,28 @@ impl SerialisationRegistry {
     }
 }
 
-/// Implements [`Serialisable`] for components that have had one version only, each under its
-/// stable name and on its tier.
+/// Implements [`Serialisable`] for the model's components, which have had one version only,
+/// each under its stable name and on its tier, and emits [`register_all`], which registers
+/// exactly that list, so a component is never implemented but forgotten or the other way round.
 macro_rules! serialisable_at_version_one {
-    ($($component:ty => $name:literal on $tier:expr),* $(,)?) => {$(
-        impl Serialisable for $component {
-            const NAME: &'static str = $name;
-            const VERSION: u32 = 1;
-            const TIER: Tier = $tier;
+    ($($component:ty => $name:literal on $tier:expr),* $(,)?) => {
+        $(
+            impl Serialisable for $component {
+                const NAME: &'static str = $name;
+                const VERSION: u32 = 1;
+                const TIER: Tier = $tier;
 
-            fn read(version: u32, data: &RawValue) -> Result<Self, SerialisationError> {
-                read_only_version(version, data)
+                fn read(version: u32, data: &RawValue) -> Result<Self, SerialisationError> {
+                    read_only_version(version, data)
+                }
             }
+        )*
+
+        /// Registers every component the model owns.
+        pub(crate) fn register_all(registry: &mut SerialisationRegistry) {
+            $(registry.register::<$component>();)*
         }
-    )*};
+    };
 }
 
 serialisable_at_version_one! {
