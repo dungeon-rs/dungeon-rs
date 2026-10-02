@@ -1558,8 +1558,8 @@ fn versions_do_not_block() {
 }
 
 /// An Asset Reference that does not resolve is a Missing Asset; every Element that uses it, a
-/// Prop or a Portal, stays on its Layer at its position in the stacking order and is counted
-/// among the Elements using it.
+/// Prop, a Portal, or a Terrain, stays on its Layer at its position in the stacking order and is
+/// counted among the Elements using it.
 #[test]
 fn missing_assets_stay() {
     let saved = Saved::new();
@@ -1606,6 +1606,29 @@ fn missing_assets_stay() {
         third.portals(),
         portals.device.portals(),
         "the Portals stay where they were"
+    );
+
+    let mut terrain = SavedTerrain::new();
+    let mut fourth = Device::new();
+    let without_table = library(fourth.root(), "library", &[(BARREL, BARREL_PIXELS)]);
+    fourth.add_folder(&without_table, FIXTURES);
+    let opened = fourth.opens(&terrain.file);
+    let missing = opened
+        .report
+        .missing_assets
+        .iter()
+        .find(|missing| missing.name == "table")
+        .expect("the table is missing");
+    assert_eq!(missing.elements, 3, "the two table Props and the Terrain");
+    assert_eq!(
+        fourth
+            .terrain()
+            .map(|(id, element, terrain, _)| (id, element, terrain)),
+        terrain
+            .device
+            .terrain()
+            .map(|(id, element, terrain, _)| (id, element, terrain)),
+        "the Terrain stays as it was"
     );
 }
 

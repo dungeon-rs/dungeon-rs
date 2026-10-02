@@ -1,6 +1,6 @@
 //! Elements, their stable identity, and the registry of Element kinds.
 
-use crate::{AssetReferenceRow, PORTAL, Portal, TERRAIN, WALL};
+use crate::{AssetReferenceRow, PORTAL, Portal, TERRAIN, Terrain, WALL};
 use bevy_ecs::component::Component;
 use bevy_ecs::entity::Entity;
 use bevy_ecs::error::BevyError;
@@ -96,15 +96,17 @@ pub struct Prop {
     pub asset: AssetReferenceRow,
 }
 
-/// What an Element shows an Asset through, for a query: its Prop or its Portal. Whoever needs
-/// the Asset an Element shows reads it through [`ShownAssetItem::row`], so a kind that shows an
-/// Asset is added here once rather than to every reader.
+/// What an Element shows an Asset through, for a query: its Prop, its Portal, or its Terrain.
+/// Whoever needs the Asset an Element shows reads it through [`ShownAssetItem::row`], so a kind
+/// that shows an Asset is added here once rather than to every reader.
 #[derive(QueryData)]
 pub struct ShownAsset {
     /// The Prop, when the Element is one.
     prop: Option<&'static Prop>,
     /// The Portal, when the Element is one.
     portal: Option<&'static Portal>,
+    /// The Terrain, when the Element is one.
+    terrain: Option<&'static Terrain>,
 }
 
 impl ShownAssetItem<'_, '_> {
@@ -115,6 +117,7 @@ impl ShownAssetItem<'_, '_> {
         self.prop
             .map(|prop| prop.asset)
             .or_else(|| self.portal.map(|portal| portal.asset))
+            .or_else(|| self.terrain.map(|terrain| terrain.material))
     }
 }
 

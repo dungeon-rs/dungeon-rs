@@ -33,7 +33,7 @@ edge), a parameter along that part, and the [`Side`](crate::Side) it faces. The
 anchor names what the Portal is set into as `host` and its part as `index`,
 never by kind. A set Portal's position, rotation, and mirroring are kept
 equal to what its anchor gives, so freeing it is clearing the anchor. Whoever
-needs the Asset an Element shows, a Prop's or a Portal's, queries
+needs the Asset an Element shows, a Prop's, a Portal's, or a Terrain's, queries
 [`ShownAsset`](crate::ShownAsset) and reads its row.
 
 A Terrain carries [`Terrain`](crate::Terrain): its Material, the Asset Reference
