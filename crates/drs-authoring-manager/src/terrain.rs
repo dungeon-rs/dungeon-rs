@@ -269,7 +269,8 @@ pub(crate) fn paint(world: &mut World, command: &Paint) -> Result<(), AuthoringE
 }
 
 /// Edit Element of a Terrain's Material: makes the Terrain show the chosen Asset's image, every
-/// stroke kept, as one history step.
+/// stroke kept, as one history step; naming the image it already shows changes nothing and
+/// records no step.
 ///
 /// # Errors
 ///
@@ -285,14 +286,18 @@ pub(crate) fn set_material(
     let entity = element
         .entity(world)
         .map_err(|_| AuthoringError::UnknownElement(element))?;
-    if world.get::<Terrain>(entity).is_none() {
-        return Err(AuthoringError::NotATerrain(element));
-    }
+    let shown = world
+        .get::<Terrain>(entity)
+        .ok_or(AuthoringError::NotATerrain(element))?
+        .image;
     let layer = world
         .get::<bevy_ecs::hierarchy::ChildOf>(entity)
         .map(bevy_ecs::hierarchy::ChildOf::parent)
         .ok_or(AuthoringError::NotOnALayer(element))?;
     let project = project_of(world, layer)?;
+    if recorded_row(world, project, asset)?.1 == Some(shown) {
+        return Ok(());
+    }
     let Resolved {
         reference, folder, ..
     } = resolve(world, layer, asset)?;

@@ -856,7 +856,7 @@ fn malformed_strokes_are_refused() {
 
 /// An Edit Element setting a Terrain's Material to another image Asset makes every stroke show
 /// that image, keeping every stroke's path and Brush settings, as one history step that undo
-/// returns to the image it had.
+/// returns to the image it had; one naming the image it already shows records no step.
 #[test]
 fn the_material_stays_editable() {
     let mut fixture = Fixture::new();
@@ -865,6 +865,11 @@ fn the_material_stays_editable() {
     let (id, element, before) = fixture.terrain();
     let tiles = fixture.tiles();
     let grass = fixture.asset(GRASS);
+
+    let same = fixture.try_edit(id, ElementChange::Material(fixture.asset(FLAGSTONES)));
+    assert!(same.is_empty(), "{same:?}");
+    assert_eq!(fixture.terrain().2, before, "the image it already shows");
+    assert_eq!(fixture.steps(), 2, "no step for the image it already shows");
 
     let refused = fixture.try_edit(id, ElementChange::Material(grass));
     assert!(refused.is_empty(), "{refused:?}");
