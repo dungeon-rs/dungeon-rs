@@ -31,8 +31,10 @@ use drs_model::{
     SerialisationRegistry, Side, Undo, UnknownComponents, UnknownKind, Viewport, WALL, Wall,
     WallShape,
 };
+use drs_model::{Brush, Paint, Stroke, TERRAIN, Terrain, TerrainCoverage, TileKey};
 use drs_project_manager::ProjectManagerPlugin;
 use serde_json::{Value, json};
+use std::collections::BTreeMap;
 use std::fs;
 use std::path::{Path, PathBuf};
 use tempfile::TempDir;
@@ -2137,4 +2139,296 @@ fn a_portal_whose_wall_is_gone_stands() {
     let (_, element, portal) = saved.set_portal();
     assert_eq!(portal.anchor, None, "freed");
     assert_eq!(element, portals[0].1, "where it stood");
+}
+
+/// The pixels of every tile of a coverage, by place.
+type Tiles = BTreeMap<TileKey, Vec<u8>>;
+
+impl Device {
+    /// Paints `stroke` on the Layer with the Asset at `place` in the folder with `key`.
+    fn paint(&mut self, key: &FolderKey, place: &str, stroke: Stroke) {
+        let layer = self.layer();
+        self.apply(Apply::Paint(Paint {
+            layer,
+            stroke,
+            asset: Some(AssetAddress {
+                folder: key.clone(),
+                place: place.to_owned(),
+            }),
+        }));
+    }
+
+    /// The Terrain on the Layer, if there is one, with its identity, its Element, and the pixels
+    /// of its derived coverage.
+    fn terrain(&mut self) -> Option<(ElementId, Element, Terrain, Tiles)> {
+        let layer = self.layer();
+        let world = self.app.world_mut();
+        let children: Vec<Entity> = world
+            .get::<Children>(layer)
+            .map(|children| children.iter().copied().collect())
+            .unwrap_or_default();
+        children.into_iter().find_map(|entity| {
+            let terrain = world.get::<Terrain>(entity)?.clone();
+            let tiles = world
+                .get::<TerrainCoverage>(entity)
+                .expect("an opened Terrain has its coverage")
+                .tiles
+                .iter()
+                .map(|(key, tile)| (*key, tile.pixels.to_vec()))
+                .collect();
+            Some((
+                *world.get::<ElementId>(entity)?,
+                world.get::<Element>(entity)?.clone(),
+                terrain,
+                tiles,
+            ))
+        })
+    }
+
+    /// Makes the device an editor that does not know the Terrain kind, as an older one would be.
+    fn forget_terrain(&mut self) {
+        let world = self.app.world_mut();
+        world.resource_mut::<ElementKindRegistry>().remove(&TERRAIN);
+        assert!(
+            world
+                .resource_mut::<SerialisationRegistry>()
+                .remove(<Terrain as Serialisable>::NAME),
+            "the Terrain was known"
+        );
+    }
+}
+
+/// A device that saved a Terrain of three strokes under the fixture's Props.
+struct SavedTerrain {
+    /// The device.
+    device: Device,
+    /// The Terrain.
+    terrain: ElementId,
+    /// The file saved.
+    file: PathBuf,
+}
+
+impl SavedTerrain {
+    /// Places the Props of [`Saved`], paints three strokes of the table image under them, and
+    /// saves.
+    fn new() -> Self {
+        let mut saved = Saved::new();
+        for stroke in [
+            Stroke {
+                points: vec![Vec2::new(-1.0, 0.5), Vec2::new(4.0, 2.0)],
+                brush: Brush {
+                    size: 2.0,
+                    hardness: 0.5,
+                    strength: 1.0,
+                },
+            },
+            Stroke {
+                points: vec![Vec2::new(3.25, -1.5)],
+                brush: Brush {
+                    size: 3.0,
+                    hardness: 1.0,
+                    strength: 0.75,
+                },
+            },
+            Stroke {
+                points: vec![
+                    Vec2::new(0.0, -3.0),
+                    Vec2::new(18.5, -3.0),
+                    Vec2::new(18.5, 1.0),
+                ],
+                brush: Brush {
+                    size: 1.5,
+                    hardness: 0.0,
+                    strength: 0.5,
+                },
+            },
+        ] {
+            saved.device.paint(&saved.key, TABLE, stroke);
+        }
+        let terrain = saved.device.terrain().expect("the Terrain is painted").0;
+        let file = saved
+            .device
+            .save_as(&saved.device.root().join("terrain.dungeon"));
+        Self {
+            device: saved.device,
+            terrain,
+            file,
+        }
+    }
+}
+
+/// A saved Terrain holds its image's Asset Reference and every stroke in order with its points,
+/// size, hardness, and strength, and reopens the same, with the same coverage.
+#[test]
+fn terrain_is_saved_as_its_strokes() {
+    let mut saved = SavedTerrain::new();
+    let terrain = saved.device.terrain().expect("the Terrain");
+    let order = saved.device.order();
+    assert_eq!(order[0], saved.terrain, "under the Props");
+
+    let written = json(&saved.file);
+    let saved_terrain = &written["elements"][saved.terrain.as_raw().to_string()];
+    assert_eq!(saved_terrain["element"]["data"]["kind"], json!("terrain"));
+    let table = saved
+        .device
+        .references()
+        .assets
+        .iter()
+        .position(|reference| reference.places == vec![TABLE.to_owned()])
+        .expect("the table is recorded");
+    assert_eq!(
+        saved_terrain["terrain"],
+        json!({
+            "version": 1,
+            "data": {
+                "material": table,
+                "strokes": [
+                    {
+                        "points": [[-1.0, 0.5], [4.0, 2.0]],
+                        "brush": { "size": 2.0, "hardness": 0.5, "strength": 1.0 }
+                    },
+                    {
+                        "points": [[3.25, -1.5]],
+                        "brush": { "size": 3.0, "hardness": 1.0, "strength": 0.75 }
+                    },
+                    {
+                        "points": [[0.0, -3.0], [18.5, -3.0], [18.5, 1.0]],
+                        "brush": { "size": 1.5, "hardness": 0.0, "strength": 0.5 }
+                    }
+                ]
+            }
+        })
+    );
+
+    let mut other = Device::new();
+    other.opens(&saved.file);
+    assert_eq!(other.order(), order);
+    let reopened = other.terrain().expect("the Terrain reopens");
+    assert_eq!(reopened, terrain);
+    assert!(!reopened.3.is_empty(), "the reopened Terrain covers ground");
+
+    let again = other.save_as(&other.root().join("again.dungeon"));
+    assert_eq!(
+        fs::read(&again).expect("the file saved again"),
+        fs::read(&saved.file).expect("the file")
+    );
+}
+
+/// An editor that does not know the Terrain kind keeps a saved Terrain as a placeholder of its
+/// box and writes it back unchanged.
+#[test]
+fn unknown_terrain_round_trips() {
+    let mut saved = SavedTerrain::new();
+    let terrain = saved.device.terrain().expect("the Terrain");
+    let order = saved.device.order();
+    let mut unaware = Device::new();
+    unaware.forget_terrain();
+
+    let opened = unaware.opens(&saved.file);
+
+    assert_eq!(unaware.order(), order);
+    assert!(unaware.terrain().is_none(), "no Terrain is known");
+    let placed = unaware
+        .elements()
+        .into_iter()
+        .find(|placed| placed.id == saved.terrain)
+        .expect("the Terrain stays on its Layer");
+    assert_eq!(
+        placed.element, terrain.1,
+        "a placeholder of the Terrain's box"
+    );
+    assert_eq!(
+        placed
+            .unknown
+            .expect("the Terrain is kept")
+            .envelopes
+            .keys()
+            .collect::<Vec<_>>(),
+        vec!["terrain"]
+    );
+    assert_eq!(
+        opened.report.unknown_kinds,
+        vec![UnknownKind {
+            kind: TERRAIN,
+            elements: 1
+        }]
+    );
+
+    let copy = unaware.save_as(&unaware.root().join("copy.dungeon"));
+    assert_eq!(
+        fs::read(&copy).expect("the copy"),
+        fs::read(&saved.file).expect("the file")
+    );
+    saved.device.opens(&copy);
+    assert_eq!(saved.device.terrain(), Some(terrain));
+}
+
+/// A file holding a Terrain with a stroke of no point, a point that is not finite, a size not
+/// above zero or not finite, a hardness outside 0 to 1, or a strength not above 0 or above 1 is
+/// refused with the reason, and the current Project is untouched.
+#[test]
+fn a_malformed_terrain_is_refused() {
+    let mut saved = SavedTerrain::new();
+    let elements = saved.device.elements();
+    let terrain = saved.device.terrain();
+    let depth = saved.device.history().undo_depth();
+    let id = saved.terrain.as_raw().to_string();
+    let brush = json!({ "size": 2.0, "hardness": 0.5, "strength": 1.0 });
+    let cases = [
+        ("no point", json!([]), brush.clone(), "one or more points"),
+        (
+            "a point beyond what a number holds",
+            json!([[1.0e39, 0.0]]),
+            brush.clone(),
+            "finite",
+        ),
+        (
+            "a size of zero",
+            json!([[1.0, 1.0]]),
+            json!({ "size": 0.0, "hardness": 0.5, "strength": 1.0 }),
+            "size",
+        ),
+        (
+            "a size beyond what a number holds",
+            json!([[1.0, 1.0]]),
+            json!({ "size": 1.0e39, "hardness": 0.5, "strength": 1.0 }),
+            "size",
+        ),
+        (
+            "a hardness above one",
+            json!([[1.0, 1.0]]),
+            json!({ "size": 2.0, "hardness": 1.5, "strength": 1.0 }),
+            "hardness",
+        ),
+        (
+            "a strength of zero",
+            json!([[1.0, 1.0]]),
+            json!({ "size": 2.0, "hardness": 0.5, "strength": 0.0 }),
+            "strength",
+        ),
+        (
+            "a strength above one",
+            json!([[1.0, 1.0]]),
+            json!({ "size": 2.0, "hardness": 0.5, "strength": 1.5 }),
+            "strength",
+        ),
+    ];
+    for (case, points, brush, named) in cases {
+        let mut malformed = json(&saved.file);
+        malformed["elements"][&id]["terrain"]["data"]["strokes"][1] =
+            json!({ "points": points, "brush": brush });
+        let path = saved.device.root().join("malformed.dungeon");
+        write_json(&path, &malformed);
+        let refused = saved.device.open(&path).expect_err(case);
+        assert!(
+            refused.reason.contains("terrain") && refused.reason.contains(named),
+            "{case}: {}",
+            refused.reason
+        );
+    }
+
+    assert_eq!(saved.device.elements(), elements);
+    assert_eq!(saved.device.terrain(), terrain);
+    assert_eq!(saved.device.history().undo_depth(), depth);
+    assert_eq!(saved.device.mark().file, Some(saved.file.clone()));
 }
