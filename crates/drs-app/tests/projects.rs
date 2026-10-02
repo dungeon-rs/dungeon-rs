@@ -1377,6 +1377,63 @@ fn spelling_differences_resolve() {
     }
 }
 
+/// Where the file system keeps two files whose places differ only in Unicode normalisation, the
+/// one spelled byte for byte as recorded resolves, and two that each differ from the recorded
+/// spelling only in their normalisation are never chosen between.
+#[test]
+fn two_normalisations_are_never_chosen_between() {
+    let composed = "caf\u{e9}.png";
+    // `ẹ́`: the dot below and the acute in canonical order and in the other; neither is NFC.
+    let canonical = "e\u{323}\u{301}.png";
+    let reordered = "e\u{301}\u{323}.png";
+    let mut other = Device::new();
+    let respelled = library(
+        other.root(),
+        "library",
+        &[
+            ("cafe\u{301}.png", BARREL_PIXELS),
+            (composed, BARREL_PIXELS),
+            (canonical, BARREL_PIXELS),
+            (reordered, BARREL_PIXELS),
+        ],
+    );
+    // A file system that ignores normalisation, as macOS's does, keeps one file for each pair,
+    // so there is nothing to choose between.
+    if fs::read_dir(&respelled).expect("the folder").count() < 4 {
+        return;
+    }
+    let mut device = Device::new();
+    let folder = library(
+        device.root(),
+        "library",
+        &[(composed, BARREL_PIXELS), ("\u{1eb9}\u{301}.png", BARREL_PIXELS)],
+    );
+    let key = device.add_folder(&folder, FIXTURES);
+    device.place(&key, composed, Vec2::ZERO);
+    device.place(&key, "\u{1eb9}\u{301}.png", Vec2::ONE);
+    let file = device.save_as(&device.root().join("map.dungeon"));
+
+    let other_key = other.add_folder(&respelled, FIXTURES);
+    let opened = other.opens(&file);
+
+    let rows = other.resolutions();
+    assert_eq!(
+        rows[0],
+        Resolution::Resolved {
+            folder: other_key,
+            place: composed.to_owned(),
+        }
+    );
+    let Resolution::Missing(MissingReason::Ambiguous { candidates, .. }) = &rows[1] else {
+        panic!(
+            "two files differing only in normalisation are never chosen between: {:?}",
+            rows[1]
+        );
+    };
+    assert_eq!(candidates.len(), 2);
+    assert_eq!(opened.report.missing_assets.len(), 1);
+}
+
 /// A file at the recorded place resolves even when its byte size or content fingerprint differs
 /// from the recorded one.
 #[test]

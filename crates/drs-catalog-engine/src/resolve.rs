@@ -31,9 +31,11 @@ fn folded_place(place: &str) -> String {
 ///
 /// The folder is the one whose Canonical Name is the reference's, compared as [`same_name`]
 /// compares; without it the Asset is Missing because the folder is absent. In that folder, the
-/// first recorded place at which an Asset sits resolves exactly; failing that, the first recorded
-/// place that exactly one Asset's place matches ignoring letter case and Unicode normalisation
-/// resolves to that Asset, while two or more such Assets make the reference Missing as ambiguous.
+/// first recorded place at which an Asset sits, spelled byte for byte as recorded, resolves
+/// exactly; failing that, the first recorded place that exactly one Asset's place matches
+/// ignoring letter case and Unicode normalisation resolves to that Asset, while two or more such
+/// Assets make the reference Missing as ambiguous, as two files that differ only in their Unicode
+/// normalisation do on a file system that keeps both.
 /// A folder holding neither makes it Missing with the folder's version on this device. Nothing
 /// is read from disk: the folder's version and the recorded one are never compared, and neither
 /// are the Asset's size or content.
@@ -53,12 +55,7 @@ pub fn resolve<'a>(
     };
 
     for known in &reference.places {
-        let wanted = normalised(known);
-        if let Some(asset) = folder
-            .assets
-            .iter()
-            .find(|asset| normalised(&asset.place) == wanted)
-        {
+        if let Some(asset) = folder.assets.iter().find(|asset| asset.place == *known) {
             return resolved(&asset.place);
         }
     }
@@ -128,6 +125,38 @@ mod tests {
             byte_size: 1,
             pixel_size: None,
         }
+    }
+
+    /// The file spelled byte for byte as recorded resolves, even beside one that differs from it
+    /// only in Unicode normalisation; two files that each differ from the recorded spelling only
+    /// in their normalisation are never chosen between.
+    #[test]
+    fn two_normalisations_are_ambiguous() {
+        let composed = "props/caf\u{e9}.png";
+        let decomposed = "props/cafe\u{301}.png";
+        assert_eq!(
+            resolve(&reference(composed), [&folder(&[decomposed, composed])]),
+            Resolution::Resolved {
+                folder: FolderKey("fixtures".to_owned()),
+                place: composed.to_owned(),
+            }
+        );
+
+        // The two marks below and above the `e`, in canonical order and in the other.
+        let canonical = "props/e\u{323}\u{301}.png";
+        let reordered = "props/e\u{301}\u{323}.png";
+        let resolution = resolve(
+            &reference("props/\u{1eb9}\u{301}.png"),
+            [&folder(&[canonical, reordered])],
+        );
+
+        assert_eq!(
+            resolution,
+            Resolution::Missing(MissingReason::Ambiguous {
+                version: "2026-10-02".to_owned(),
+                candidates: vec![canonical.to_owned(), reordered.to_owned()],
+            })
+        );
     }
 
     /// Two Assets that each differ from the recorded place only in letter case or Unicode
