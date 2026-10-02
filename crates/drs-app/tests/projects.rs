@@ -685,20 +685,6 @@ fn a_failed_save_leaves_the_old_file() {
     saved.device.place(&saved.key, BARREL, Vec2::new(2.0, 2.0));
     assert!(saved.device.has_unsaved_changes());
     let root = saved.device.root().to_path_buf();
-    fs::set_permissions(&root, fs::Permissions::from_mode(0o555)).expect("read-only root");
-
-    let refused = saved
-        .device
-        .save(None)
-        .expect_err("a read-only location refuses the save");
-
-    fs::set_permissions(&root, fs::Permissions::from_mode(0o755)).expect("writable root");
-    assert_eq!(refused.request, ProjectRequest::Save { path: None });
-    assert!(!refused.reason.is_empty());
-    assert_eq!(fs::read(&saved.file).expect("the file"), before);
-    assert_eq!(saved.device.mark().file, Some(saved.file.clone()));
-    assert!(saved.device.has_unsaved_changes());
-    assert_eq!(saved.device.elements().len(), 4);
 
     let vanished = root.join("nowhere").join("map.dungeon");
     let refused = saved
@@ -711,9 +697,34 @@ fn a_failed_save_leaves_the_old_file() {
             path: Some(vanished.clone())
         }
     );
+    assert!(!refused.reason.is_empty());
     assert!(!vanished.exists());
     assert_eq!(saved.device.mark().file, Some(saved.file.clone()));
     assert_eq!(fs::read(&saved.file).expect("the file"), before);
+    assert!(saved.device.has_unsaved_changes());
+    assert_eq!(saved.device.elements().len(), 4);
+
+    fs::set_permissions(&root, fs::Permissions::from_mode(0o555)).expect("read-only root");
+    if fs::write(root.join("probe"), b"").is_ok() {
+        fs::set_permissions(&root, fs::Permissions::from_mode(0o755)).expect("writable root");
+        eprintln!(
+            "skipped: this process may write into a read-only folder, so the check would prove \
+             nothing"
+        );
+        return;
+    }
+    let refused = saved
+        .device
+        .save(None)
+        .expect_err("a read-only location refuses the save");
+    fs::set_permissions(&root, fs::Permissions::from_mode(0o755)).expect("writable root");
+
+    assert_eq!(refused.request, ProjectRequest::Save { path: None });
+    assert!(!refused.reason.is_empty());
+    assert_eq!(fs::read(&saved.file).expect("the file"), before);
+    assert_eq!(saved.device.mark().file, Some(saved.file.clone()));
+    assert!(saved.device.has_unsaved_changes());
+    assert_eq!(saved.device.elements().len(), 4);
 }
 
 /// A Project file whose path holds spaces, quotes, non-ASCII letters, or symbols is saved and
