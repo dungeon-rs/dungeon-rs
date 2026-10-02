@@ -12,8 +12,8 @@ use drs_library_access::{
     ThumbnailKey, ThumbnailTable,
 };
 use drs_model::{
-    AssetFolder, Browse, CaughtPanics, EditorDirectories, FolderKey, IndexedAsset, ThumbnailState,
-    Thumbnails, ThumbnailsUnavailable,
+    AssetAddress, AssetFolder, Browse, CaughtPanics, EditorDirectories, FolderKey, IndexedAsset,
+    ThumbnailState, Thumbnails, ThumbnailsUnavailable,
 };
 use std::collections::BTreeMap;
 
@@ -185,7 +185,7 @@ pub(crate) fn handle_browse(world: &mut World, requests: &mut SystemState<Messag
     };
     let folders = folders_by_key(world);
     let mut jobs = Vec::new();
-    for (key, place) in wanted {
+    for AssetAddress { folder: key, place } in wanted {
         let Some(&folder) = folders.get(&key) else {
             continue;
         };

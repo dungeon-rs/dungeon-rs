@@ -145,9 +145,10 @@ pub enum Apply {
     RemoveElement(RemoveElement),
 }
 
-/// The Asset the Author chose to place.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct ChosenAsset {
+/// An Asset as this device finds it: the key of its Asset Folder and its place in that folder.
+/// It names the Asset the Author chose to place and the Assets the browser shows.
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct AssetAddress {
     /// The key of the Asset Folder it sits in.
     pub folder: FolderKey,
     /// Its place in that folder.
@@ -162,7 +163,7 @@ pub struct PlaceElement {
     /// The centre of the new Element in Grid cells.
     pub position: Vec2,
     /// The Asset to place.
-    pub asset: ChosenAsset,
+    pub asset: AssetAddress,
 }
 
 /// A property change of an Element.
@@ -394,8 +395,8 @@ pub struct ExportRefused {
 #[derive(Message, Debug, Clone, Default, PartialEq, Eq)]
 pub struct Browse {
     /// The Assets whose thumbnails the browser wants first: those in its laid-out rows and the
-    /// rows either side, each by its folder's key and its place in that folder.
-    pub wanted: Vec<(FolderKey, String)>,
+    /// rows either side.
+    pub wanted: Vec<AssetAddress>,
 }
 
 /// Thumbnails cannot be kept on this device for the rest of the session: the thumbnail cache

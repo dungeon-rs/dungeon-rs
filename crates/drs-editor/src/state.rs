@@ -4,7 +4,7 @@
 
 use bevy::ecs::resource::Resource;
 use bevy::math::Vec2;
-use drs_model::{ChosenAsset, ElementId, ExportLevel, OpenReport};
+use drs_model::{AssetAddress, ElementId, ExportLevel, OpenReport};
 use std::path::PathBuf;
 
 /// The Editor's own state.
@@ -57,7 +57,7 @@ impl EditorState {
 /// The Asset chosen for placing, with its name for the status line.
 pub(crate) struct Chosen {
     /// The Asset as a Place Element names it.
-    pub asset: ChosenAsset,
+    pub asset: AssetAddress,
     /// The Asset's name.
     pub name: String,
 }

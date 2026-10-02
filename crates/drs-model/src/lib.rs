@@ -24,7 +24,7 @@ pub use element::{
 };
 pub use file::{PROJECT_EXTENSION, SavedMark, project_name_of, with_extension_if_missing};
 pub use messages::{
-    AddFolder, Apply, AssetFolderChanged, Browse, ChosenAsset, CommandFailed, EditElement,
+    AddFolder, Apply, AssetAddress, AssetFolderChanged, Browse, CommandFailed, EditElement,
     ElementChange, ExportLevel, ExportRefused, FolderAdded, FolderRefusal, FolderRefused,
     FolderUnavailable, Gesture, HistoryFailed, LevelExported, ManagerSystems, MissingAsset,
     OpenProject, OpenReport, PlaceElement, ProjectOpened, ProjectRefused, ProjectRequest,

@@ -22,7 +22,7 @@ use drs_library_access::{
 };
 use drs_library_manager::LibraryManagerPlugin;
 use drs_model::{
-    AddFolder, Apply, AssetReferences, Bounds, CanonicalName, ChosenAsset, CommandFailed,
+    AddFolder, Apply, AssetAddress, AssetReferences, Bounds, CanonicalName, CommandFailed,
     EditorDirectories, Element, ElementId, ElementKindName, FolderAdded, FolderKey, FolderRefused,
     Grid, Layer, Level, MissingAsset, MissingReason, ModelPlugin, OpenProject, PlaceElement,
     Project, ProjectOpened, ProjectRefused, ProjectRequest, ProjectSaved, Prop, Redo, Resolution,
@@ -179,7 +179,7 @@ impl Device {
             .write_message(Apply::PlaceElement(PlaceElement {
                 layer,
                 position,
-                asset: ChosenAsset {
+                asset: AssetAddress {
                     folder: key.clone(),
                     place: place.to_owned(),
                 },

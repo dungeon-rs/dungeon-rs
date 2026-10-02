@@ -19,10 +19,10 @@ use drs_history::{History, HistoryPlugin};
 use drs_library_access::{LIBRARY_SOURCE, LibraryAccessPlugin, asset_path};
 use drs_library_manager::LibraryManagerPlugin;
 use drs_model::{
-    AddFolder, Apply, AssetFolder, AssetFolderReference, AssetKind, AssetReferences, CanonicalName,
-    ChosenAsset, CommandFailed, EditElement, EditorDirectories, Element, ElementChange, ElementId,
-    Fingerprint, FolderAdded, FolderKey, FolderRefused, Gesture, Layer, ModelPlugin, PROP,
-    PlaceElement, Prop, Redo, RemoveElement, Resolution, ResolutionTable, Undo, Viewport,
+    AddFolder, Apply, AssetAddress, AssetFolder, AssetFolderReference, AssetKind, AssetReferences,
+    CanonicalName, CommandFailed, EditElement, EditorDirectories, Element, ElementChange,
+    ElementId, Fingerprint, FolderAdded, FolderKey, FolderRefused, Gesture, Layer, ModelPlugin,
+    PROP, PlaceElement, Prop, Redo, RemoveElement, Resolution, ResolutionTable, Undo, Viewport,
 };
 use drs_project_manager::ProjectManagerPlugin;
 use std::fs;
@@ -157,7 +157,7 @@ impl Fixture {
         self.apply(Apply::PlaceElement(PlaceElement {
             layer,
             position,
-            asset: ChosenAsset {
+            asset: AssetAddress {
                 folder: self.key.clone(),
                 place: place.to_owned(),
             },
@@ -537,7 +537,7 @@ fn a_failed_command_is_reported() {
         Apply::PlaceElement(PlaceElement {
             layer,
             position: Vec2::ZERO,
-            asset: ChosenAsset {
+            asset: AssetAddress {
                 folder: fixture.key.clone(),
                 place: "nowhere.png".to_owned(),
             },

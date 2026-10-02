@@ -15,7 +15,7 @@ use bevy::ecs::system::{Query, Res, ResMut, SystemParam};
 use bevy::image::{Image, ImageFormatSetting, ImageLoaderSettings};
 use bevy_egui::{EguiContexts, EguiTextureHandle};
 use drs_model::{
-    AssetFolder, Browse, ChosenAsset, FolderKey, IndexedAsset, THUMBNAIL_SOURCE, ThumbnailState,
+    AssetAddress, AssetFolder, Browse, FolderKey, IndexedAsset, THUMBNAIL_SOURCE, ThumbnailState,
     Thumbnails,
 };
 use std::collections::{BTreeMap, BTreeSet};
@@ -29,20 +29,17 @@ const PREFETCH_ROWS: usize = 2;
 /// How many decoded thumbnails are kept at most.
 const KEPT: usize = 512;
 
-/// An Asset as the browser names it: its folder's key and its place in that folder.
-type Address = (FolderKey, String);
-
 /// What the browser keeps between frames: no domain state, only what it has drawn and loaded.
 #[derive(Resource, Default)]
 pub(crate) struct Browser {
     /// The Assets the filter matches, worked out again only when the filter or a folder changes.
     matching: Matching,
     /// The thumbnails loaded, by Asset.
-    loaded: BTreeMap<Address, Loaded>,
+    loaded: BTreeMap<AssetAddress, Loaded>,
     /// The frames drawn, for the order thumbnails were last shown in.
     frame: u64,
     /// The Assets last named to the library Manager as wanted.
-    wanted: Vec<Address>,
+    wanted: Vec<AssetAddress>,
     /// The cells laid out in the last frame, for the development script to describe.
     pub cells: Vec<Cell>,
 }
@@ -306,7 +303,7 @@ struct GridAsset<'a> {
     /// Where its thumbnail stands.
     state: ThumbnailState,
     /// How the browser names it.
-    address: Address,
+    address: AssetAddress,
 }
 
 /// The Asset in a slot of the matching Assets.
@@ -327,12 +324,19 @@ fn asset_at<'a>(
         folder,
         asset,
         state,
-        address: (folder.key.clone(), asset.place.clone()),
+        address: AssetAddress {
+            folder: folder.key.clone(),
+            place: asset.place.clone(),
+        },
     })
 }
 
 /// The thumbnail of an Asset loaded through the asset server, loading it if it is not yet.
-fn load<'a>(browser: &'a mut Browser, assets: &AssetServer, address: &Address) -> &'a mut Loaded {
+fn load<'a>(
+    browser: &'a mut Browser,
+    assets: &AssetServer,
+    address: &AssetAddress,
+) -> &'a mut Loaded {
     let frame = browser.frame;
     let loaded = browser.loaded.entry(address.clone()).or_insert_with(|| {
         let handle = assets
@@ -341,7 +345,7 @@ fn load<'a>(browser: &'a mut Browser, assets: &AssetServer, address: &Address) -
                 settings.format = ImageFormatSetting::Guess;
                 settings.asset_usage = RenderAssetUsages::RENDER_WORLD;
             })
-            .load(thumbnail_path(&address.0, &address.1));
+            .load(thumbnail_path(&address.folder, &address.place));
         Loaded {
             handle,
             texture: None,
@@ -368,9 +372,10 @@ fn cell(
     let square = egui::Rect::from_min_size(rect.min, egui::vec2(CELL, CELL));
     let visuals = ui.visuals().clone();
     let painter = ui.painter_at(rect);
-    let chosen = state.chosen.as_ref().is_some_and(|chosen| {
-        chosen.asset.folder == asset.folder.key && chosen.asset.place == asset.asset.place
-    });
+    let chosen = state
+        .chosen
+        .as_ref()
+        .is_some_and(|chosen| chosen.asset == asset.address);
     if chosen {
         painter.rect_filled(rect, 4.0, visuals.selection.bg_fill);
     } else if response.hovered() {
@@ -437,10 +442,7 @@ fn cell(
     ));
     if response.clicked() {
         state.chosen = Some(Chosen {
-            asset: ChosenAsset {
-                folder: asset.folder.key.clone(),
-                place: asset.asset.place.clone(),
-            },
+            asset: asset.address.clone(),
             name: asset.asset.name.clone(),
         });
         state.selected = None;
@@ -516,7 +518,7 @@ fn want(
 
 /// Unregisters the thumbnails whose rows are no longer laid out, and drops the least recently
 /// shown beyond those kept, never one that is laid out.
-fn release(browser: &mut Browser, contexts: &mut EguiContexts, laid_out: &BTreeSet<Address>) {
+fn release(browser: &mut Browser, contexts: &mut EguiContexts, laid_out: &BTreeSet<AssetAddress>) {
     for (address, loaded) in &mut browser.loaded {
         if loaded.texture.is_some() && !laid_out.contains(address) {
             contexts.remove_image(loaded.handle.id());
@@ -527,7 +529,7 @@ fn release(browser: &mut Browser, contexts: &mut EguiContexts, laid_out: &BTreeS
     if excess == 0 {
         return;
     }
-    let mut oldest: Vec<(u64, Address)> = browser
+    let mut oldest: Vec<(u64, AssetAddress)> = browser
         .loaded
         .iter()
         .filter(|(address, _)| !laid_out.contains(*address))

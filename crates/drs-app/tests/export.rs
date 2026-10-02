@@ -27,7 +27,7 @@ use drs_history::{History, HistoryPlugin};
 use drs_library_access::{LibraryAccessPlugin, register_library_source};
 use drs_library_manager::LibraryManagerPlugin;
 use drs_model::{
-    AddFolder, Apply, CanonicalName, ChosenAsset, CommandFailed, EditorDirectories, Element,
+    AddFolder, Apply, AssetAddress, CanonicalName, CommandFailed, EditorDirectories, Element,
     ElementId, ExportLevel, ExportRefused, FolderAdded, FolderKey, FolderRefused, Layer, Level,
     LevelExported, ModelPlugin, OpenProject, PlaceElement, ProjectOpened, ProjectRefused,
     ProjectSaved, Prop, SaveProject, SavedMark, Viewport,
@@ -265,7 +265,7 @@ impl Fixture {
         Apply::PlaceElement(PlaceElement {
             layer: self.layer(),
             position,
-            asset: ChosenAsset {
+            asset: AssetAddress {
                 folder: self.key.clone(),
                 place: place.to_owned(),
             },
