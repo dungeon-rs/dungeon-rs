@@ -195,6 +195,7 @@ pub(crate) fn open(directory: &Path) -> Result<Opened, LibraryError> {
             index_pending: Vec::new(),
             appended: Vec::new(),
             since: None,
+            failed: false,
         },
         reader,
     })
@@ -251,7 +252,7 @@ fn complete_records(index: &[u8], pack_len: u64, path: &Path) -> Vec<(Digest, Re
 }
 
 /// Appends thumbnails to the pack and their records to the index, keeping them in memory until
-/// they are flushed.
+/// they are flushed. Once a flush fails it writes nothing more.
 pub(crate) struct Writer {
     /// The pack, open for appending.
     pack: File,
@@ -271,16 +272,22 @@ pub(crate) struct Writer {
     appended: Vec<(Digest, Record)>,
     /// When the oldest thumbnail not yet written was appended.
     since: Option<Instant>,
+    /// Whether a flush failed, after which the pack's length on disk is not known.
+    failed: bool,
 }
 
 impl Writer {
     /// Appends a thumbnail's encoded bytes and its size, or with `None` records the Asset as
-    /// broken; the record is returned. Nothing reaches the files until [`Self::flush`].
+    /// broken; the record is returned, or `None` once a flush has failed. Nothing reaches the
+    /// files until [`Self::flush`].
     pub(crate) fn append(
         &mut self,
         digest: Digest,
         thumbnail: Option<(&[u8], u16, u16)>,
-    ) -> Record {
+    ) -> Option<Record> {
+        if self.failed {
+            return None;
+        }
         let offset = self.pack_end + self.pack_pending.len() as u64;
         let record = match thumbnail {
             Some((bytes, width, height)) => {
@@ -303,7 +310,7 @@ impl Writer {
             .extend_from_slice(&record.encode(&digest));
         self.appended.push((digest, record));
         self.since.get_or_insert_with(Instant::now);
-        record
+        Some(record)
     }
 
     /// Whether enough is kept in memory, or for long enough, that it should be flushed.
@@ -314,23 +321,40 @@ impl Writer {
                 .is_some_and(|since| since.elapsed() >= FLUSH_AFTER)
     }
 
-    /// Writes what was appended to the pack and then to the index, and returns it.
+    /// Writes what was appended to the pack, makes it durable, then writes the records to the
+    /// index, and returns them; once a flush has failed, writes and returns nothing.
+    ///
+    /// The pack reaches the disk before the index, so a record never survives a crash that its
+    /// thumbnail did not.
     ///
     /// # Errors
     ///
-    /// [`LibraryError::Io`] when either file cannot be written; what was appended is then
-    /// dropped.
+    /// [`LibraryError::Io`] when either file cannot be written, the first time only; what was
+    /// appended is then dropped, and so is everything appended later, since the pack's length
+    /// on disk is no longer known and a later record could point at the wrong bytes.
     pub(crate) fn flush(&mut self) -> Result<Vec<(Digest, Record)>, LibraryError> {
         self.since = None;
         let pack = std::mem::take(&mut self.pack_pending);
         let index = std::mem::take(&mut self.index_pending);
         let appended = std::mem::take(&mut self.appended);
-        if appended.is_empty() {
-            return Ok(appended);
+        if self.failed || appended.is_empty() {
+            return Ok(Vec::new());
         }
+        let written = self.write(&pack, &index);
+        self.failed = written.is_err();
+        written.map(|()| appended)
+    }
+
+    /// Writes entries to the pack and syncs it, then writes their records to the index.
+    ///
+    /// # Errors
+    ///
+    /// [`LibraryError::Io`] when either file cannot be written or the pack cannot be synced.
+    fn write(&mut self, pack: &[u8], index: &[u8]) -> Result<(), LibraryError> {
         self.pack
-            .write_all(&pack)
+            .write_all(pack)
             .and_then(|()| self.pack.flush())
+            .and_then(|()| self.pack.sync_data())
             .map_err(|source| LibraryError::Io {
                 action: "write",
                 path: self.pack_path.clone(),
@@ -338,14 +362,13 @@ impl Writer {
             })?;
         self.pack_end += pack.len() as u64;
         self.index
-            .write_all(&index)
+            .write_all(index)
             .and_then(|()| self.index.flush())
             .map_err(|source| LibraryError::Io {
                 action: "write",
                 path: self.index_path.clone(),
                 source,
-            })?;
-        Ok(appended)
+            })
     }
 }
 

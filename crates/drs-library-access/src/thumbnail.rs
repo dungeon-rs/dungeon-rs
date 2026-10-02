@@ -245,8 +245,8 @@ pub enum ThumbnailCompletion {
         /// What came of it.
         outcome: ThumbnailOutcome,
     },
-    /// The cache could not be written, for this reason; the generator has stopped, and the
-    /// thumbnails it had not written out are lost.
+    /// The cache could not be written, for this reason; the generator has stopped, the
+    /// thumbnails it had not written out are lost, and nothing more is written. Handed back once.
     CacheFailed(String),
 }
 
@@ -502,21 +502,26 @@ impl Worker {
                     width,
                     height,
                 }) => {
-                    let record = writer.append(digest, Some((&bytes, width, height)));
-                    pending.push(Completed {
-                        key: job.key,
-                        record,
-                        outcome: ThumbnailOutcome::Ready(UVec2::new(width.into(), height.into())),
-                    });
+                    if let Some(record) = writer.append(digest, Some((&bytes, width, height))) {
+                        pending.push(Completed {
+                            key: job.key,
+                            record,
+                            outcome: ThumbnailOutcome::Ready(UVec2::new(
+                                width.into(),
+                                height.into(),
+                            )),
+                        });
+                    }
                 }
                 Ok(Made::Broken(reason)) => {
                     log::info!("{} has no thumbnail: {reason}", job.file.display());
-                    let record = writer.append(digest, None);
-                    pending.push(Completed {
-                        key: job.key,
-                        record,
-                        outcome: ThumbnailOutcome::Broken,
-                    });
+                    if let Some(record) = writer.append(digest, None) {
+                        pending.push(Completed {
+                            key: job.key,
+                            record,
+                            outcome: ThumbnailOutcome::Broken,
+                        });
+                    }
                 }
                 Err(error) => {
                     log::warn!(

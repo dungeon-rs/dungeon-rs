@@ -40,8 +40,9 @@ start, and a file whose decoder panics is caught on its thread, marked as
 catching it through [`CaughtPanics`](drs_model::CaughtPanics), and recorded
 as broken. Writes are buffered and flushed when the queue drains, every few hundred
 thumbnails or a tenth of a second after the oldest unwritten one, and when the
-generator is dropped, which stops it after the
-thumbnails in flight.
+generator is dropped, which stops it after the thumbnails in flight. Each flush
+syncs the pack before it writes the index, so no record outlives its thumbnail,
+and the first write that fails is handed back once and stops all writing.
 
 Thumbnails are read through a second dynamic asset source,
 `thumb://<folder-key>/<place>`, whose reader serves the thumbnail last looked up

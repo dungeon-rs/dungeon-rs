@@ -788,3 +788,98 @@ fn an_unwritable_cache_is_reported() {
     );
     fs::set_permissions(&sealed, fs::Permissions::from_mode(0o755)).expect("permissions");
 }
+
+/// What tells the test that it runs as the child of [`a_failed_write_is_reported_once`], and
+/// where the fixture root is.
+#[cfg(unix)]
+const LIMITED_CHILD: &str = "DRS_TEST_LIMITED_ROOT";
+
+/// When the pack cannot be written after it was opened, as on a full disk, the Author is told
+/// once, the browser shows placeholders, and the editor runs on.
+#[cfg(unix)]
+#[test]
+fn a_failed_write_is_reported_once() {
+    if let Some(root) = std::env::var_os(LIMITED_CHILD) {
+        failed_write_in_this_process(Path::new(&root));
+        return;
+    }
+    let root = TempDir::new().expect("temporary root");
+    let maps = folder(root.path(), "maps");
+    for (index, place) in ["barrel.png", "crate.png"].into_iter().enumerate() {
+        let mut noise = RgbaImage::new(128, 128);
+        for (x, y, pixel) in noise.enumerate_pixels_mut() {
+            let [red, green, blue, _] = (x.wrapping_mul(2_654_435_761)
+                ^ y.wrapping_mul(40_503)
+                ^ u32::try_from(index).expect("a small index"))
+            .rotate_right(7)
+            .to_le_bytes();
+            *pixel = Rgba([red, green, blue, 255]);
+        }
+        DynamicImage::ImageRgba8(noise)
+            .to_rgb8()
+            .save(maps.join(place))
+            .expect("fixture image");
+    }
+    let test = std::env::current_exe().expect("the test executable");
+
+    // The editor runs in a child whose files may not grow past a few kilobytes: opening the
+    // cache and adding the folder fit, the first thumbnail written to the pack does not. With
+    // the signal ignored, the write fails as it does on a full disk instead of ending the child.
+    let status = std::process::Command::new("sh")
+        .arg("-c")
+        .arg(r#"trap '' XFSZ; ulimit -f 8; exec "$0" "$@""#)
+        .arg(test)
+        .args(["a_failed_write_is_reported_once", "--exact", "--nocapture"])
+        .env(LIMITED_CHILD, root.path())
+        .status()
+        .expect("the child runs");
+
+    assert!(status.success(), "the child failed: {status}");
+}
+
+/// The child's half of [`a_failed_write_is_reported_once`].
+#[cfg(unix)]
+fn failed_write_in_this_process(root: &Path) {
+    let mut app = editor(root);
+    let mut reported: Vec<ThumbnailsUnavailable> = app
+        .world_mut()
+        .resource_mut::<Messages<ThumbnailsUnavailable>>()
+        .drain()
+        .collect();
+    assert!(reported.is_empty(), "the cache opens: {reported:?}");
+    add(&mut app, &root.join("maps"), "Maps");
+
+    let start = Instant::now();
+    while reported.is_empty() {
+        assert!(
+            start.elapsed() < PATIENCE,
+            "the failed write was not reported"
+        );
+        app.update();
+        reported.extend(
+            app.world_mut()
+                .resource_mut::<Messages<ThumbnailsUnavailable>>()
+                .drain(),
+        );
+        std::thread::sleep(Duration::from_millis(2));
+    }
+    for _ in 0..20 {
+        app.update();
+        reported.extend(
+            app.world_mut()
+                .resource_mut::<Messages<ThumbnailsUnavailable>>()
+                .drain(),
+        );
+    }
+
+    assert_eq!(reported.len(), 1, "told once: {reported:?}");
+    assert!(
+        reported[0].reason.contains("thumbnails.pack"),
+        "{reported:?}"
+    );
+    assert!(
+        states(&mut app)
+            .iter()
+            .all(|(_, state)| *state == ThumbnailState::Pending)
+    );
+}
