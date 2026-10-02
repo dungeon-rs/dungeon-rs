@@ -1,6 +1,26 @@
 # drs-paint-engine
 
-The Engine that rasterizes Terrain strokes.
+The Engine that turns painted strokes into coverage: how much of a painted
+Element's Material shows where.
+
+[`rasterize`](crate::rasterize) computes the coverage of strokes over any region
+of the Level at any number of pixels per cell, one byte a pixel, rows from the
+top, on the CPU. A pixel's coverage is taken at its centre, found from its
+whole-pixel index in the Level's pixel plane, so it is the same in every region
+that holds it, and only square roots and arithmetic go into it, so it is the same
+on every machine. A stroke's coverage is its strength within the hardness of its
+radius of its path and falls off smoothly to nothing at the radius, the same
+however many of its segments pass near a point; strokes composite by the
+strongest.
+
+A [`PaintCache`](crate::PaintCache) holds one Terrain's coverage at 32 pixels per
+cell in tiles of 512 pixels a side, keyed by their place in the Level's pixel
+plane, negative places included, an absent tile being empty.
+[`apply_stroke`](crate::apply_stroke) brings it up to the Terrain's strokes:
+appended strokes are composited onto the tiles they touch, and when earlier
+strokes changed or went, only the tiles the differing strokes touch are
+rasterized again from every stroke. Both are plain functions over the model's
+types; the Manager that owns the cache keeps it.
 
 ## Features
 

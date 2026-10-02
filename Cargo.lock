@@ -2556,6 +2556,10 @@ dependencies = [
 [[package]]
 name = "drs-paint-engine"
 version = "0.0.1"
+dependencies = [
+ "bevy_math",
+ "drs-model",
+]
 
 [[package]]
 name = "drs-project-access"

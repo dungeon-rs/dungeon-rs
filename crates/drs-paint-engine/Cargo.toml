@@ -10,10 +10,12 @@ repository.workspace = true
 authors.workspace = true
 
 [dependencies]
+bevy_math = { workspace = true }
+drs-model = { path = "../drs-model" }
 
 [features]
 default = []
-dev = []
+dev = ["drs-model/dev"]
 
 [lints]
 workspace = true
