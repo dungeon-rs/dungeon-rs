@@ -172,11 +172,12 @@ impl Fixture {
         assert!(failed.is_empty(), "the Command failed: {failed:?}");
     }
 
-    /// Sends a Command, failing the test unless it is refused with nothing recorded and nothing
-    /// changed on the Layer.
+    /// Sends a Command, failing the test unless it is refused with nothing recorded, nothing
+    /// changed on the Layer, and no Asset Reference added to the Project.
     fn refused(&mut self, command: Apply) {
         let depth = self.history().undo_depth();
         let before = self.state();
+        let references = self.references();
         let failed = self.try_apply(command.clone());
         assert_eq!(failed.len(), 1, "{command:?} is refused with a reason");
         assert_eq!(
@@ -185,6 +186,11 @@ impl Fixture {
             "{command:?} records nothing"
         );
         assert_eq!(self.state(), before, "{command:?} changes nothing");
+        assert_eq!(
+            self.references(),
+            references,
+            "{command:?} records no Asset Reference"
+        );
     }
 
     /// Places a grey Wall an eighth of a cell thick through `points` on `layer`.
@@ -701,7 +707,7 @@ fn freed_where_it_stands() {
 /// Element that is not a Wall, a Wall on another Level, a segment the Wall does not have, or a
 /// parameter outside 0 to 1, a Free Portal of a freestanding Portal, and a Set Portal into Wall
 /// or Free Portal of an Element that is not a Portal are answered with the reason, change
-/// nothing, and record no history step.
+/// nothing, record no history step, and add no Asset Reference to the Project.
 #[test]
 fn refused_anchors() {
     let mut fixture = Fixture::new();
@@ -709,7 +715,6 @@ fn refused_anchors() {
     let table = fixture.prop(Vec2::new(8.0, 8.0));
     let upstairs = fixture.second_level();
     let elsewhere = fixture.wall_on(upstairs, &CORNER);
-    let door = fixture.free_door(Vec2::new(2.0, 2.0));
     let anchor = |host, segment, t| PortalAnchor {
         host,
         index: segment,
@@ -723,9 +728,14 @@ fn refused_anchors() {
         anchor(wall, 0, 1.5),
         anchor(wall, 0, -0.25),
     ];
+    // Placements are tried before any door stands, so a refused one would be the first to
+    // record the door's Asset Reference.
     for anchor in bad {
         let placement = fixture.door_placement(Vec2::ZERO, Some(anchor));
         fixture.refused(placement);
+    }
+    let door = fixture.free_door(Vec2::new(2.0, 2.0));
+    for anchor in bad {
         fixture.refused(Apply::SetPortalIntoWall(SetPortalIntoWall {
             portal: door,
             anchor,
