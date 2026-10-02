@@ -4,6 +4,7 @@
 use crate::diagnostics::Diagnostics;
 use crate::files::ProjectView;
 use crate::state::{EditorState, NamePrompt};
+use crate::walls::Tool;
 use crate::{bindings, browser, diagnostics, export, files};
 use bevy::app::AppExit;
 use bevy::ecs::message::MessageWriter;
@@ -243,9 +244,10 @@ fn menu_bar(ctx: &egui::Context, root: &mut egui::Ui, editor: &mut Editor) {
                     pick_folder(&mut editor.state);
                 }
             });
-            // Neither is offered while a Prop is being dragged, as the drag is one step that is
-            // still being recorded, nor while an Export runs, so the image is of one Level.
-            let settled = !editor.state.dragging() && !editor.state.exporting;
+            // Neither is offered while an Element or a handle is being dragged or a Wall drawn,
+            // as each is one step still being made, nor while an Export runs, so the image is of
+            // one Level.
+            let settled = !editor.state.step_under_way() && !editor.state.exporting;
             ui.menu_button("Edit", |ui| {
                 let undo = egui::Button::new("Undo")
                     .shortcut_text(bindings::shortcut_text(ctx, bindings::UNDO));
@@ -314,11 +316,20 @@ fn status_line(root: &mut egui::Ui, state: &EditorState) {
             } else if let Some(chosen) = &state.chosen {
                 ui.weak("Escape stops placing");
                 ui.label(format!("placing {}", chosen.name));
+            } else if state.walls.tool == Tool::Wall {
+                ui.weak("Click adds a point, Enter or a double-click finishes, Escape stops");
+                ui.label(format!(
+                    "drawing a Wall of {} points",
+                    state.walls.drawing.len()
+                ));
+            } else if state.walls.handle.is_some() {
+                ui.weak("Drag moves it, Delete removes or straightens it");
+                ui.label("1 handle selected");
             } else if state.selected.is_some() {
                 ui.weak("Drag moves it, Delete removes it");
-                ui.label("1 Prop selected");
+                ui.label("1 Element selected");
             } else {
-                ui.weak("Choose an Asset to place it, or click a Prop to select it");
+                ui.weak("Choose an Asset to place it, press W to draw a Wall, or click to select");
             }
             ui.separator();
             ui.with_layout(egui::Layout::left_to_right(egui::Align::Center), |ui| {

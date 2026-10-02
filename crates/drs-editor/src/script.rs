@@ -17,8 +17,8 @@
 //! - `pinch <delta>`: a trackpad pinch.
 //! - `screenshot <path>`: save a screenshot of the window there.
 //! - `describe`: log the title, the status line, the dialog open, every clickable widget with its
-//!   rectangle, and every cell of the Assets panel's grid with what it shows, so a script can be
-//!   checked and aimed without seeing the screen.
+//!   rectangle, every cell of the Assets panel's grid with what it shows, the Wall tool, and every
+//!   Wall, so a script can be checked and aimed without seeing the screen.
 //! - `close`: ask to close the window, as its close button does.
 //! - `quit`: exit the editor.
 //!
@@ -32,7 +32,7 @@ use bevy::ecs::entity::Entity;
 use bevy::ecs::message::MessageWriter;
 use bevy::ecs::query::With;
 use bevy::ecs::resource::Resource;
-use bevy::ecs::system::{Commands, Res, ResMut, Single, SystemParam};
+use bevy::ecs::system::{Commands, Query, Res, ResMut, Single, SystemParam};
 use bevy::input::ButtonState;
 use bevy::input::gestures::PinchGesture;
 use bevy::input::keyboard::{Key, KeyCode, KeyboardInput, NativeKey, NativeKeyCode};
@@ -44,6 +44,7 @@ use bevy::reflect::enums::{DynamicEnum, DynamicVariant};
 use bevy::render::view::screenshot::{Screenshot, save_to_disk};
 use bevy::window::{CursorMoved, PrimaryWindow, Window, WindowCloseRequested, WindowEvent};
 use bevy_egui::EguiContexts;
+use drs_model::{Element, ElementId, Wall};
 use std::collections::VecDeque;
 use std::path::PathBuf;
 
@@ -153,14 +154,24 @@ pub(crate) struct Injected<'w> {
     exit: MessageWriter<'w, AppExit>,
 }
 
+/// What a `describe` step logs besides the window.
+#[derive(SystemParam)]
+pub(crate) struct Described<'w, 's> {
+    /// The Editor's state.
+    state: Res<'w, EditorState>,
+    /// The Assets panel's grid.
+    browser: Res<'w, Browser>,
+    /// Every Wall.
+    walls: Query<'w, 's, (&'static ElementId, &'static Element, &'static Wall)>,
+}
+
 /// Runs the next step of the script, before input is processed so this frame sees it.
 pub(crate) fn drive(
     mut script: ResMut<Script>,
     mut window: Single<(Entity, &mut Window), With<PrimaryWindow>>,
     mut commands: Commands,
     mut injected: Injected,
-    state: Res<EditorState>,
-    browser: Res<Browser>,
+    described: Described,
     mut contexts: EguiContexts,
 ) {
     let (entity, window) = &mut *window;
@@ -186,8 +197,9 @@ pub(crate) fn drive(
             for action in actions {
                 bevy::log::debug!("script: {action:?}");
                 if let Action::Describe = action {
-                    describe(&state, window, contexts.ctx_mut().ok());
-                    describe_grid(&browser);
+                    describe(&described.state, window, contexts.ctx_mut().ok());
+                    describe_grid(&described.browser);
+                    crate::walls::describe(&described.state, &described.walls);
                 } else {
                     perform(action, *entity, window, &mut commands, &mut injected);
                 }

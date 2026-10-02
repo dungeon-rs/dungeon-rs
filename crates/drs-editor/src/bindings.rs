@@ -85,17 +85,26 @@ pub(crate) const REDO: &[Binding] = &[
     Binding::new(Modifiers::COMMAND, Key::Y, KeyCode::KeyY),
 ];
 
-/// Remove the selected Prop: Delete, and on macOS Backspace too, as its keyboards have no Delete.
+/// Remove the selected Element or handle: Delete, and on macOS Backspace too, as its keyboards have no Delete.
 #[cfg(target_os = "macos")]
 pub(crate) const REMOVE: &[Binding] = &[
     Binding::new(Modifiers::NONE, Key::Delete, KeyCode::Delete),
     Binding::new(Modifiers::NONE, Key::Backspace, KeyCode::Backspace),
 ];
 
-/// Remove the selected Prop: Delete.
+/// Remove the selected Element or handle: Delete.
 #[cfg(not(target_os = "macos"))]
 pub(crate) const REMOVE: &[Binding] =
     &[Binding::new(Modifiers::NONE, Key::Delete, KeyCode::Delete)];
+
+/// Choose the Wall tool.
+pub(crate) const WALL_TOOL: &[Binding] = &[Binding::new(Modifiers::NONE, Key::W, KeyCode::KeyW)];
+
+/// Finish the Wall being drawn.
+pub(crate) const FINISH: &[Binding] = &[
+    Binding::new(Modifiers::NONE, Key::Enter, KeyCode::Enter),
+    Binding::new(Modifiers::NONE, Key::Enter, KeyCode::NumpadEnter),
+];
 
 /// Whether any of the bindings was pressed this frame.
 pub(crate) fn any_pressed(bindings: &[Binding], keys: &ButtonInput<KeyCode>) -> bool {

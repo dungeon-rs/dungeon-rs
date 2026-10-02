@@ -33,8 +33,8 @@ image size that results and how many placeholders would be exported as shown,
 then the platform's save dialog proposing `<Project> - <Level>.png`; while the
 Export is written the viewport, Undo, Redo, and another Export wait for it.
 Library → Add Asset Folder… opens the platform's folder dialog and then asks
-for the Canonical Name. Edit → Undo and Redo are offered while no drag or
-Export is under way. Help → Show Logs opens the log directory in the
+for the Canonical Name. Edit → Undo and Redo are offered while no drag, Wall
+being drawn, or Export is under way. Help → Show Logs opens the log directory in the
 platform's file manager.
 
 The grid lays out only the rows in view, as many 128-point cells as the panel's
@@ -54,12 +54,26 @@ kept, the least recently shown dropped first.
 The panels read the World and send Commands and requests as messages; they
 never own domain state. The Editor writes only the model's `Viewport` (panning
 and zooming) and its own state: the chosen Asset, the thumbnails it holds, the
-selection, the filter, the prompt, question, report, or dialog in progress, and
-whether an Export is being written. Clicking in the viewport places the chosen Asset or selects the
-topmost Prop under the pointer, dragging a selected Prop moves it as one
-gesture, Delete removes it, Escape stops placing, and the platform's usual
-shortcuts undo and redo. Scrolling pans, a wheel or a pinch zooms, and the
-middle button or Space with the left button drags the view.
+selection, the filter, the prompt, question, report, or dialog in progress,
+whether an Export is being written, the tool, and the Wall being drawn.
+Clicking in the viewport places the chosen Asset or selects the topmost Element
+under the pointer, a Prop by its rectangle and a Wall by its line, dragging a
+selected Element moves it as one gesture, Delete removes it, Escape stops
+placing, and the platform's usual shortcuts undo and redo. Scrolling pans, a
+wheel or a pinch zooms, and the middle button or Space with the left button
+drags the view.
+
+A tool strip over the viewport offers Select and Wall, and the thickness and
+colour of the selected Wall, or of the next Wall while none is selected. With
+the Wall tool, chosen there or with `W`, each click adds a point of a Wall
+previewed with a rubber band to the pointer, and Enter or a double-click
+finishes it as one Place Element; choosing an Asset leaves the tool, and
+choosing the tool drops the chosen Asset and the selection. The selected Wall
+shows a handle at each point, at each control point with guide lines, and at the
+middle of each straight segment: dragging one moves the point or bends the
+segment as one gesture, a double-click on the line adds a point there, and
+Delete removes the selected point or straightens the selected control point's
+segment.
 
 ## Features
 
@@ -68,7 +82,8 @@ middle button or Space with the left button drags the view.
   screenshot of the window is saved there a moment after start. With `DRS_SCRIPT` set
   to a file, the editor is driven by its steps, one per frame (`wait`, `move`, `down`,
   `up`, `click`, `drag`, `key`, `hold`, `release`, `text`, `scroll`, `pinch`,
-  `screenshot`, `describe`, `close`, `quit`), fed
+  `screenshot`, `describe`, which also logs the Wall tool and every Wall, `close`,
+  `quit`), fed
   in as the messages the window would send so egui and the viewport see them alike;
   `describe` logs every clickable widget and every cell of the grid with its rectangle.
   With `DRS_PICK_FOLDER` set, Add Asset Folder… takes that folder instead of opening

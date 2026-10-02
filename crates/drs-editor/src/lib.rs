@@ -15,6 +15,7 @@ mod screenshot;
 mod script;
 mod state;
 mod viewport;
+mod walls;
 mod window;
 
 use bevy::app::{App, Plugin, Startup, Update};
@@ -62,7 +63,10 @@ impl Plugin for EditorPlugin {
             .init_resource::<state::EditorState>()
             .init_resource::<browser::Browser>()
             .init_resource::<panels::Layout>()
-            .add_systems(EguiPrimaryContextPass, panels::draw)
+            .add_systems(
+                EguiPrimaryContextPass,
+                (panels::draw, walls::tool_strip).chain(),
+            )
             .add_systems(Startup, diagnostics::report_bundled_files)
             .add_systems(
                 Update,
@@ -74,6 +78,7 @@ impl Plugin for EditorPlugin {
                     viewport::pointer,
                     viewport::keys,
                     viewport::outline_selection,
+                    walls::draw_overlays,
                 )
                     .chain(),
             );

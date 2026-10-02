@@ -1,7 +1,8 @@
 //! What the Editor itself keeps: the chosen Asset, the selection, the filter, the status line,
-//! the prompts and dialogs in progress, the Export under way, and the gesture under way. None of
-//! it is domain state.
+//! the prompts and dialogs in progress, the Export under way, the gesture under way, and the
+//! tool with the Wall being drawn. None of it is domain state.
 
+use crate::walls::{Handle, WallTool};
 use bevy::ecs::resource::Resource;
 use bevy::math::Vec2;
 use drs_model::{AssetAddress, ElementId, ExportLevel, OpenReport};
@@ -12,7 +13,7 @@ use std::path::PathBuf;
 pub(crate) struct EditorState {
     /// The Asset the next click places, if one is chosen.
     pub chosen: Option<Chosen>,
-    /// The selected Prop, if any. Selection is never a history step.
+    /// The selected Element, if any. Selection is never a history step.
     pub selected: Option<ElementId>,
     /// The text the Assets panel filters by.
     pub filter: String,
@@ -31,6 +32,8 @@ pub(crate) struct EditorState {
     pub exporting: bool,
     /// The pointer gesture under way in the viewport.
     pub interaction: Interaction,
+    /// The tool the viewport's clicks serve, and the Wall tool's own state.
+    pub walls: WallTool,
 }
 
 impl EditorState {
@@ -42,15 +45,25 @@ impl EditorState {
             || self.export.is_some()
     }
 
-    /// Whether a Prop is being dragged: the pointer went down on it and has moved since.
+    /// Whether an Element or a handle of a Wall is being dragged: the pointer went down on it and
+    /// has moved since.
     pub fn dragging(&self) -> bool {
         matches!(
             self.interaction,
             Interaction::Pressed {
                 moved_at: Some(_),
                 ..
+            } | Interaction::Handle {
+                moved_at: Some(_),
+                ..
             }
         )
+    }
+
+    /// Whether a step is still being made, by a drag or by a Wall being drawn, so undo and redo
+    /// wait.
+    pub fn step_under_way(&self) -> bool {
+        self.dragging() || self.walls.drawing_in_progress()
     }
 }
 
@@ -143,15 +156,28 @@ pub(crate) enum Interaction {
         /// Where the pointer was when the view last followed it.
         last: Vec2,
     },
-    /// The left button went down on a Prop; a drag moves it.
-    Pressed {
-        /// The Prop under the pointer.
+    /// The left button went down on a handle of the selected Wall; a drag moves the handle.
+    Handle {
+        /// The Wall.
         element: ElementId,
-        /// The Prop's centre, in cells, when the button went down.
+        /// The handle under the pointer.
+        handle: Handle,
+        /// Where the handle was, in cells, when the button went down.
         origin: Vec2,
         /// The pointer, on screen, when the button went down.
         pointer: Vec2,
-        /// The pointer, on screen, when the Prop was last moved; `None` until the drag begins.
+        /// The pointer, on screen, when the handle was last moved; `None` until the drag begins.
+        moved_at: Option<Vec2>,
+    },
+    /// The left button went down on an Element; a drag moves it.
+    Pressed {
+        /// The Element under the pointer.
+        element: ElementId,
+        /// The Element's centre, in cells, when the button went down.
+        origin: Vec2,
+        /// The pointer, on screen, when the button went down.
+        pointer: Vec2,
+        /// The pointer, on screen, when the Element was last moved; `None` until the drag begins.
         moved_at: Option<Vec2>,
     },
 }
