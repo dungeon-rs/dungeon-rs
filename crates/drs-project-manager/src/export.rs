@@ -4,25 +4,30 @@
 //! few frames later. So an Export is a job that [`handle_export_level`] starts on request and
 //! [`advance_exports`] advances every frame: it asks the Engine for the next tile as soon as the
 //! Engine takes a request, writes each tile as its pixels arrive, in row-major order from the
-//! top-left corner of the image, and finishes the image once the last tile is written. A failure
+//! top-left corner of the image, and finishes the image once the last tile is written. Each
+//! tile's Terrains are rasterized afresh over the tile at the Export's resolution through the
+//! paint Engine and handed to the render Engine with the tile's request, so painted ground is as
+//! sharp as the resolution allows and the same in every tile. A failure
 //! anywhere drops the image writer, which removes the partial file, and is answered with its
 //! reason; so is an Export abandoned because the Project it was of has been replaced. Nothing is
 //! recorded in the history: an Export changes nothing in the Project.
 
 use crate::ProjectManagerError;
 use bevy_ecs::entity::Entity;
-use bevy_ecs::hierarchy::ChildOf;
+use bevy_ecs::hierarchy::{ChildOf, Children};
 use bevy_ecs::message::MessageReader;
 use bevy_ecs::resource::Resource;
 use bevy_ecs::system::SystemState;
 use bevy_ecs::world::World;
-use bevy_math::Vec2;
+use bevy_math::{UVec2, Vec2};
 use drs_model::{
-    Bounds, ExportLevel, ExportRefused, Level, LevelExported, with_extension_if_missing,
+    Bounds, ExportLevel, ExportRefused, Level, LevelExported, Terrain, with_extension_if_missing,
 };
 use drs_output_access::{ImageWriter, OutputError, Tile, begin_image, finish_image, write_tile};
+use drs_paint_engine::rasterize;
 use drs_render_engine::{
-    MOST_TILE_PIXELS, RegionRequest, RenderError, release_regions, request_region, take_region,
+    MOST_TILE_PIXELS, RegionCoverage, RegionRequest, RenderError, release_regions, request_region,
+    take_region,
 };
 use std::collections::VecDeque;
 use std::path::PathBuf;
@@ -107,6 +112,9 @@ struct Export {
     written: u32,
     /// The requests whose pixels have not arrived yet, oldest first.
     pending: VecDeque<RegionRequest>,
+    /// The Terrains' coverages of the next tile to request, once rasterized, kept until the
+    /// Engine takes the request.
+    next: Option<Vec<RegionCoverage>>,
     /// The image being written.
     writer: ImageWriter,
 }
@@ -226,6 +234,7 @@ fn begin(world: &mut World, request: &ExportLevel) -> Result<Export, ProjectMana
         requested: 0,
         written: 0,
         pending: VecDeque::new(),
+        next: None,
         writer,
     })
 }
@@ -353,16 +362,58 @@ impl Export {
         }
         if self.requested < self.tiles {
             let bottom_left = self.bottom_left(self.requested);
-            match request_region(world, bottom_left, self.pixels_per_cell, self.tile_size) {
+            let coverages = match self.next.take() {
+                Some(coverages) => coverages,
+                None => self.coverages(world, bottom_left),
+            };
+            match request_region(
+                world,
+                bottom_left,
+                self.pixels_per_cell,
+                self.tile_size,
+                &coverages,
+            ) {
                 Ok(request) => {
                     self.pending.push_back(request);
                     self.requested += 1;
                 }
-                Err(RenderError::RegionPending) => {}
+                Err(RenderError::RegionPending) => self.next = Some(coverages),
                 Err(error) => return Err(error.into()),
             }
         }
         Ok(false)
+    }
+
+    /// The coverage of every Terrain of the Level that covers something in the tile whose
+    /// lower-left corner is `bottom_left`, rasterized over the tile at the Export's resolution.
+    ///
+    /// The rasterizer visits only the pixels a stroke may cover, so a tile without Terrain costs
+    /// next to nothing.
+    fn coverages(&self, world: &World, bottom_left: Vec2) -> Vec<RegionCoverage> {
+        let layers = world.get::<Children>(self.level);
+        let terrains = layers
+            .into_iter()
+            .flat_map(|layers| layers.iter())
+            .filter_map(|layer| world.get::<Children>(*layer))
+            .flat_map(|elements| elements.iter())
+            .filter_map(|element| Some((*element, world.get::<Terrain>(*element)?)));
+        terrains
+            .filter_map(|(element, terrain)| {
+                let pixels = rasterize(
+                    &terrain.strokes,
+                    bottom_left,
+                    UVec2::splat(self.tile_size),
+                    self.pixels_per_cell,
+                );
+                pixels
+                    .iter()
+                    .any(|pixel| *pixel > 0)
+                    .then_some(RegionCoverage {
+                        terrain: element,
+                        pixels,
+                    })
+            })
+            .collect()
     }
 
     /// The top-left pixel of a tile, counted row-major from the top-left corner of the image.

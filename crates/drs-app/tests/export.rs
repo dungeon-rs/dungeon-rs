@@ -33,6 +33,7 @@ use drs_model::{
     PlaceElement, Placement, PortalAnchor, ProjectOpened, ProjectRefused, ProjectSaved, Prop,
     SaveProject, SavedMark, Side, Viewport,
 };
+use drs_model::{Bounds, Brush, Paint, Stroke};
 use drs_project_manager::ProjectManagerPlugin;
 use drs_render_engine::RenderEnginePlugin;
 use std::fs;
@@ -65,6 +66,8 @@ const CYAN_PIXEL: [u8; 4] = [0, 255, 255, 255];
 const ORANGE_PIXEL: [u8; 4] = [255, 128, 0, 255];
 /// The colour of the two-tone door's bottom half.
 const PURPLE_PIXEL: [u8; 4] = [128, 0, 255, 255];
+/// An image two cells wide and one high whose left half is red and right half blue.
+const HALVES: &str = "halves.png";
 /// The colour of the grey image, which a Missing Asset never shows.
 const GREY_PIXEL: [u8; 4] = [128, 128, 128, 255];
 /// The placeholder of a Missing Asset over the Export's black background.
@@ -272,6 +275,13 @@ impl Fixture {
         })
         .save(folder.join(TWO_TONE))
         .expect("the two-tone image");
+        let mut halves = image::RgbaImage::from_pixel(512, 256, image::Rgba(RED_PIXEL));
+        for x in 256..512 {
+            for y in 0..256 {
+                halves.put_pixel(x, y, image::Rgba(BLUE_PIXEL));
+            }
+        }
+        halves.save(folder.join(HALVES)).expect("fixture image");
         let mut app = editor(root.path());
         let added = add_folder(&mut app, &folder, "Fixtures");
         Self {
@@ -527,6 +537,34 @@ impl Fixture {
             .drain()
             .next()
             .expect("the file is opened");
+    }
+
+    /// Paints a stroke through `points` with `brush` and the Asset at `place`, failing the test
+    /// if the Paint was refused.
+    fn paint(&mut self, place: &str, points: &[Vec2], brush: Brush) {
+        let layer = self.layer();
+        self.run(Apply::Paint(Paint {
+            layer,
+            stroke: Stroke {
+                points: points.to_vec(),
+                brush,
+            },
+            asset: Some(AssetAddress {
+                folder: self.key.clone(),
+                place: place.to_owned(),
+            }),
+        }));
+    }
+
+    /// Makes the Bounds `size` cells with their lower-left corner at `origin`, so an Export at a
+    /// high resolution stays small.
+    fn bounds(&mut self, origin: bevy::math::IVec2, size: UVec2) {
+        let world = self.app.world_mut();
+        let mut bounds = world
+            .query::<&mut Bounds>()
+            .single_mut(world)
+            .expect("the Project's Bounds");
+        *bounds = Bounds { origin, size };
     }
 
     /// Exports at [`PIXELS_PER_CELL`] with tiles of [`TILE`] and decodes the image.
@@ -1429,4 +1467,251 @@ fn no_cap_where_a_portal_reaches_the_end() {
     assert_eq!(at(5.5, 15.6), BLACK_PIXEL, "the gap along the stretch");
     assert_eq!(at(6.1, 15.9), YELLOW_PIXEL, "a square end past it");
     assert_eq!(at(25.8, 15.0), YELLOW_PIXEL, "the cap at the far end");
+}
+
+/// A Brush of `size` cells, `hardness`, and `strength`.
+fn brush(size: f32, hardness: f32, strength: f32) -> Brush {
+    Brush {
+        size,
+        hardness,
+        strength,
+    }
+}
+
+/// Whether a pixel lies strictly between the red of the image and the black background: some
+/// red, but not all of it, and nothing else.
+fn partly_red(pixel: [u8; 4]) -> bool {
+    pixel[0] > 0 && pixel[0] < 255 && pixel[1] == 0 && pixel[2] == 0 && pixel[3] == 255
+}
+
+/// A Terrain is drawn as its Material over what lies below it, as opaque as its coverage: the
+/// image where the coverage is full, nothing where there is none, and partly in a soft edge.
+#[test]
+fn a_stroke_shows_its_material() {
+    let mut fixture = Fixture::new();
+    fixture.paint(
+        RED,
+        &[Vec2::new(5.0, 15.0), Vec2::new(25.0, 15.0)],
+        brush(4.0, 0.5, 1.0),
+    );
+
+    let picture = fixture.picture("stroke.png");
+    let at = |x: f32, y: f32| picture.at_point(Vec2::new(x, y), PIXELS_PER_CELL);
+
+    assert_eq!(at(15.0, 15.0), RED_PIXEL, "on the path");
+    assert_eq!(at(15.0, 15.9), RED_PIXEL, "within the hardness");
+    assert_eq!(at(15.0, 17.6), BLACK_PIXEL, "beyond the radius");
+    assert_eq!(at(2.4, 15.0), BLACK_PIXEL, "beyond the round end");
+    assert!(
+        partly_red(at(15.0, 16.5)),
+        "the soft edge: {:?}",
+        at(15.0, 16.5)
+    );
+}
+
+/// A stroke of less than full strength shows its image partly over what is below it.
+#[test]
+fn a_weaker_stroke_shows_partly() {
+    let mut fixture = Fixture::new();
+    fixture.paint(
+        RED,
+        &[Vec2::new(5.0, 15.0), Vec2::new(25.0, 15.0)],
+        brush(4.0, 1.0, 0.5),
+    );
+
+    let picture = fixture.picture("weak.png");
+    let middle = picture.at_point(Vec2::new(15.0, 15.0), PIXELS_PER_CELL);
+
+    assert!(
+        partly_red(middle),
+        "the middle of a half-strength stroke: {middle:?}"
+    );
+    assert_eq!(
+        picture.at_point(Vec2::new(15.0, 17.6), PIXELS_PER_CELL),
+        BLACK_PIXEL
+    );
+}
+
+/// A Terrain's Material shows its image repeated edge to edge from the Level's origin at its
+/// natural size, the same across two strokes that meet.
+#[test]
+fn terrain_is_tiled_at_natural_size() {
+    let mut fixture = Fixture::new();
+    let hard = brush(3.0, 1.0, 1.0);
+    fixture.paint(HALVES, &[Vec2::new(2.0, 10.5), Vec2::new(6.0, 10.5)], hard);
+    fixture.paint(HALVES, &[Vec2::new(6.5, 10.5), Vec2::new(11.0, 10.5)], hard);
+
+    let picture = fixture.picture("tiled.png");
+
+    for column in 1..=11 {
+        let expected = if column % 2 == 0 {
+            RED_PIXEL
+        } else {
+            BLUE_PIXEL
+        };
+        assert_eq!(picture.at_cell(column, 10), expected, "cell ({column}, 10)");
+    }
+    assert_eq!(picture.at_cell(5, 13), BLACK_PIXEL, "beyond the strokes");
+}
+
+/// A Terrain lies under the Props and Walls placed before it was painted, and a Prop placed after
+/// lies over it.
+#[test]
+fn terrain_lies_under_props_and_walls() {
+    let mut fixture = Fixture::new();
+    fixture.place(GREEN, Vec2::new(12.5, 11.5));
+    fixture.wall(
+        &[Vec2::new(8.0, 12.5), Vec2::new(16.0, 12.5)],
+        &[None],
+        0.5,
+        YELLOW,
+    );
+    fixture.paint(
+        RED,
+        &[Vec2::new(6.0, 12.0), Vec2::new(20.0, 12.0)],
+        brush(4.0, 1.0, 1.0),
+    );
+    fixture.place(BLUE, Vec2::new(18.0, 11.5));
+
+    let exported = fixture
+        .export(WALL_PIXELS_PER_CELL, "under.png", TILE)
+        .expect("the Export is written");
+    let picture = Picture::decode(&exported.path);
+    let at = |x: f32, y: f32| picture.at_point(Vec2::new(x, y), WALL_PIXELS_PER_CELL);
+
+    assert_eq!(at(12.5, 11.5), GREEN_PIXEL, "the Prop placed before");
+    assert_eq!(at(10.0, 12.5), YELLOW_PIXEL, "the Wall drawn before");
+    assert_eq!(at(10.0, 11.0), RED_PIXEL, "the Terrain on its own");
+    assert_eq!(at(18.0, 11.5), BLUE_PIXEL, "the Prop placed after");
+}
+
+/// Each pixel of the Export shows the coverage at its centre as the strokes give it at the
+/// Export's resolution: a hard dab exported at 200 pixels per cell shows its image at the pixel
+/// whose centre lies just inside its radius and the background at the one just outside, which
+/// the editor's 32 pixels per cell could not tell apart.
+#[test]
+fn terrain_at_the_exports_resolution() {
+    const FINE: u32 = 200;
+    let mut fixture = Fixture::new();
+    fixture.bounds(bevy::math::IVec2::new(8, 8), UVec2::new(4, 4));
+    // The centre of the pixel 2000 from the origin, a pixel whose centre lies on the dab's.
+    let centre = Vec2::splat(2000.5 / 200.0);
+    fixture.paint(RED, &[centre], brush(2.0, 1.0, 1.0));
+
+    let exported = fixture
+        .export(FINE, "fine.png", 512)
+        .expect("the Export is written");
+    let picture = Picture::decode(&exported.path);
+    // The dab's centre is pixel (400, 400) from the Bounds' lower-left corner; a radius of one
+    // cell is 200 pixels.
+    let row = picture.height - 400 - 1;
+
+    assert_eq!(picture.pixel(400, row), RED_PIXEL, "the centre");
+    assert_eq!(picture.pixel(599, row), RED_PIXEL, "just inside the radius");
+    assert_eq!(picture.pixel(601, row), BLACK_PIXEL, "just outside");
+    assert_eq!(
+        picture.pixel(201, row),
+        RED_PIXEL,
+        "just inside, the other side"
+    );
+    assert_eq!(
+        picture.pixel(199, row),
+        BLACK_PIXEL,
+        "just outside, the other side"
+    );
+}
+
+/// A painted Export is the same image whatever the size of the tiles it is assembled from.
+#[test]
+fn painted_tiles_leave_no_seams() {
+    let mut fixture = Fixture::new();
+    fixture.paint(
+        RED,
+        &[
+            Vec2::new(3.0, 3.0),
+            Vec2::new(16.0, 14.0),
+            Vec2::new(27.0, 6.0),
+        ],
+        brush(5.0, 0.3, 1.0),
+    );
+    fixture.paint(RED, &[Vec2::new(12.4, 12.6)], brush(7.0, 0.0, 0.7));
+
+    let mut exports = Vec::new();
+    for tile_size in [64, 100] {
+        let exported = fixture
+            .export(
+                PIXELS_PER_CELL,
+                &format!("painted-tiles-{tile_size}.png"),
+                tile_size,
+            )
+            .expect("the Export is written");
+        exports.push(fs::read(exported.path).expect("the Export"));
+    }
+
+    assert!(
+        exports[0] == exports[1],
+        "the Export with tiles of 100 differs from the one with tiles of 64"
+    );
+    let picture = Picture::decode(&fixture.output("painted-tiles-100.png"));
+    assert_eq!(
+        picture.at_point(Vec2::new(16.0, 14.0), PIXELS_PER_CELL),
+        RED_PIXEL
+    );
+}
+
+/// Two Exports of the same painted Level at the same resolution are byte-identical.
+#[test]
+fn painted_levels_export_the_same() {
+    let mut fixture = Fixture::new();
+    fixture.paint(
+        HALVES,
+        &[Vec2::new(3.0, 3.0), Vec2::new(16.0, 14.0)],
+        brush(5.0, 0.5, 0.8),
+    );
+    fixture.place(GREEN, Vec2::new(8.5, 8.5));
+
+    let first = fixture
+        .export(PIXELS_PER_CELL, "painted-first.png", TILE)
+        .expect("the Export is written");
+    let second = fixture
+        .export(PIXELS_PER_CELL, "painted-second.png", TILE)
+        .expect("the Export is written");
+
+    let first = fs::read(first.path).expect("the first Export");
+    let second = fs::read(second.path).expect("the second Export");
+    assert!(first == second, "the two Exports differ");
+}
+
+/// A Terrain whose image is Missing is drawn as its coverage in the placeholder's colour, not as
+/// a box.
+#[test]
+fn a_missing_terrain_image_keeps_its_shape() {
+    let mut fixture = Fixture::new();
+    fixture.paint(
+        GONE,
+        &[Vec2::new(5.0, 15.0), Vec2::new(25.0, 15.0)],
+        brush(4.0, 1.0, 1.0),
+    );
+    // The saved file is made to record the grey Asset at a place its folder does not hold, so it
+    // opens with that Asset Missing.
+    let saved = fixture.save("missing-terrain.dungeon");
+    let text = fs::read_to_string(&saved).expect("the saved Project");
+    fs::write(
+        &saved,
+        text.replace("\"gone.png\"", "\"elsewhere/gone.png\""),
+    )
+    .expect("the Project rewritten");
+    fixture.open(&saved);
+
+    let picture = fixture.picture("missing-terrain.png");
+    let at = |x: f32, y: f32| picture.at_point(Vec2::new(x, y), PIXELS_PER_CELL);
+
+    assert_eq!(at(15.0, 15.0), PLACEHOLDER_PIXEL, "on the path");
+    assert_eq!(at(15.0, 17.6), BLACK_PIXEL, "beyond the radius");
+    assert_eq!(
+        at(3.6, 13.6),
+        BLACK_PIXEL,
+        "in the box, beyond the round end"
+    );
+    assert_eq!(picture.count(GREY_PIXEL), 0, "never its image");
 }

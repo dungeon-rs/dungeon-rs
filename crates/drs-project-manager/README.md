@@ -38,7 +38,9 @@ It also exports a Level: on an Export Level request it checks the resolution
 against the limits the request names and the tile size against what the Engine
 renders, opens a PNG through `OutputAccess` as many pixels as the Bounds are
 cells times the resolution, has the render Engine draw the Bounds tile by tile
-offscreen, writes each tile as its pixels come back, and closes the image,
+offscreen, each tile's Terrains rasterized afresh over it at the Export's
+resolution through the paint Engine and handed to the render Engine with the
+tile's request, writes each tile as its pixels come back, and closes the image,
 answering with the image written or the reason it was refused. An Export takes
 a few frames per tile and is advanced every frame; a failure removes the
 partial file, and nothing is recorded in the history. The Level named in the

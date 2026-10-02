@@ -17,10 +17,19 @@
 //! The sprites keep the sampler they are drawn with in the viewport, the editor's default of
 //! linear filtering, so an image scales between the Grid's pixels per cell and the region's by
 //! linear interpolation, in the Export as on screen.
+//!
+//! A Terrain is drawn from the coverage the request hands in, computed for the region at its
+//! resolution, one quad of the region's size per Terrain that only the export camera sees, in
+//! place of the viewport's coverage tiles, which it does not see. The coverage's texels fall on
+//! the region's pixels one to one.
 
 use crate::projection::DEPTH;
 use crate::props::Loading;
+use crate::terrain::{
+    EXPORT_LAYER, TerrainAssets, TerrainDrawings, coverage_image, quad_transform,
+};
 use bevy_asset::{Assets, Handle};
+use bevy_camera::visibility::RenderLayers;
 use bevy_camera::{
     Camera, Camera2d, ClearColorConfig, OrthographicProjection, Projection, RenderTarget,
     ScalingMode,
@@ -30,10 +39,11 @@ use bevy_ecs::component::Component;
 use bevy_ecs::entity::Entity;
 use bevy_ecs::query::With;
 use bevy_ecs::resource::Resource;
-use bevy_ecs::system::{Query, Res, ResMut};
+use bevy_ecs::system::{Commands, Query, Res, ResMut};
 use bevy_ecs::world::World;
-use bevy_image::Image;
+use bevy_image::{Image, ImageSampler};
 use bevy_math::{Vec2, Vec3};
+use bevy_mesh::Mesh2d;
 use bevy_render::MainWorld;
 use bevy_render::render_asset::RenderAssets;
 use bevy_render::render_resource::{
@@ -42,6 +52,7 @@ use bevy_render::render_resource::{
 };
 use bevy_render::renderer::{RenderDevice, RenderQueue};
 use bevy_render::texture::GpuImage;
+use bevy_sprite_render::MeshMaterial2d;
 use bevy_transform::components::Transform;
 use std::collections::{BTreeMap, BTreeSet};
 use std::sync::{Arc, Mutex};
@@ -89,6 +100,28 @@ pub struct RegionPixels {
     pub rgba: Vec<u8>,
 }
 
+/// The coverage of one Terrain over a requested region, computed at the region's resolution:
+/// one byte a pixel, rows from the region's top, as many as the region has pixels.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct RegionCoverage {
+    /// The Terrain's Element.
+    pub terrain: Entity,
+    /// The coverage, 255 where it is full.
+    pub pixels: Vec<u8>,
+}
+
+/// The coverages handed in with the pending region, to be drawn before it is captured.
+struct RegionTerrains {
+    /// The lower-left corner of the region, in cells.
+    bottom_left: Vec2,
+    /// The side of the region in pixels.
+    size: u32,
+    /// The side of the region in cells.
+    cells: f32,
+    /// The coverages, one per Terrain that covers something there.
+    coverages: Vec<RegionCoverage>,
+}
+
 /// Marks the offscreen camera the regions are drawn with.
 #[derive(Component)]
 struct ExportCamera;
@@ -132,6 +165,10 @@ pub(crate) struct Offscreen {
     outstanding: BTreeSet<RegionRequest>,
     /// The regions that came back, by request.
     completed: BTreeMap<RegionRequest, Completed>,
+    /// The coverages of the pending region, until they are drawn.
+    terrains: Option<RegionTerrains>,
+    /// The quads the coverages of the last region are drawn on.
+    quads: Vec<Entity>,
 }
 
 /// A region that came back from the GPU.
@@ -144,7 +181,8 @@ struct Completed {
 
 /// `RenderRegion`, first half: points the offscreen camera at the square of the Level whose
 /// lower-left corner is `bottom_left`, in cells, and whose side is `tile_size` pixels at
-/// `pixels_per_cell`, and asks for its pixels.
+/// `pixels_per_cell`, and asks for its pixels, its Terrains drawn from `coverages`, computed
+/// over that square at that resolution; a Terrain without one is not drawn there.
 ///
 /// The pixels come back through [`take_region`] a few frames later. One region is captured per
 /// frame: a request is refused while the previous region still waits for its frame to be drawn,
@@ -162,6 +200,7 @@ pub fn request_region(
     bottom_left: Vec2,
     pixels_per_cell: u32,
     tile_size: u32,
+    coverages: &[RegionCoverage],
 ) -> Result<RegionRequest, RenderError> {
     if tile_size == 0 || tile_size > MOST_TILE_PIXELS {
         return Err(RenderError::BadTileSize(tile_size));
@@ -199,6 +238,17 @@ pub fn request_region(
             size: tile_size,
         });
         offscreen.capture = false;
+        #[expect(
+            clippy::cast_precision_loss,
+            reason = "a tile is at most 8192 pixels, far below where f32 loses whole numbers"
+        )]
+        let cells = tile_size as f32 / pixels_per_cell as f32;
+        offscreen.terrains = Some(RegionTerrains {
+            bottom_left,
+            size: tile_size,
+            cells,
+            coverages: coverages.to_vec(),
+        });
         (entity, request)
     };
     if let Some(mut transform) = world.get_mut::<Transform>(entity) {
@@ -237,11 +287,19 @@ pub fn take_region(
 /// Removes the offscreen camera and forgets every region requested so far.
 pub fn release_regions(world: &mut World) {
     release_camera(world);
-    if let Some(mut offscreen) = world.get_resource_mut::<Offscreen>() {
-        offscreen.pending = None;
-        offscreen.capture = false;
-        offscreen.outstanding.clear();
-        offscreen.completed.clear();
+    let quads = world
+        .get_resource_mut::<Offscreen>()
+        .map(|mut offscreen| {
+            offscreen.pending = None;
+            offscreen.capture = false;
+            offscreen.outstanding.clear();
+            offscreen.completed.clear();
+            offscreen.terrains = None;
+            std::mem::take(&mut offscreen.quads)
+        })
+        .unwrap_or_default();
+    for quad in quads {
+        world.despawn(quad);
     }
 }
 
@@ -280,6 +338,7 @@ fn spawn_camera(
                 ..Camera::default()
             },
             RenderTarget::Image(target.clone().into()),
+            RenderLayers::from_layers(&[0, EXPORT_LAYER]),
             Projection::Orthographic(OrthographicProjection {
                 near: -DEPTH,
                 far: DEPTH,
@@ -317,11 +376,79 @@ fn release_camera(world: &mut World) {
     }
 }
 
+/// Whether the coverages of the pending region wait to be drawn and no Terrain's image is
+/// loading, so they can be.
+pub(crate) fn region_terrains_ready(
+    offscreen: Res<Offscreen>,
+    drawings: Res<TerrainDrawings>,
+) -> bool {
+    offscreen.terrains.is_some() && !drawings.loading()
+}
+
+/// Draws the coverages of the pending region: one quad of the region's size per Terrain, at
+/// the Terrain's depth and with its look, that only the export camera sees, in place of the
+/// last region's quads.
+///
+/// The region is then captured a frame later, so that the quads are in place on the GPU.
+pub(crate) fn draw_region_terrains(
+    mut commands: Commands,
+    mut offscreen: ResMut<Offscreen>,
+    mut drawings: ResMut<TerrainDrawings>,
+    mut assets: TerrainAssets,
+) {
+    let Some(terrains) = offscreen.terrains.take() else {
+        return;
+    };
+    for quad in std::mem::take(&mut offscreen.quads) {
+        commands.entity(quad).despawn();
+    }
+    let mesh = drawings.quad(&mut assets.meshes);
+    let extent = Vec2::splat(terrains.cells);
+    for coverage in terrains.coverages {
+        let Some((look, depth)) = drawings.look_of(coverage.terrain) else {
+            continue;
+        };
+        if coverage.pixels.len() != (terrains.size as usize).pow(2) {
+            log::warn!("the coverage of a Terrain does not fit the region, so it is not drawn");
+            continue;
+        }
+        let image = assets.images.add(coverage_image(
+            &coverage.pixels,
+            terrains.size,
+            ImageSampler::nearest(),
+        ));
+        let material = assets
+            .materials
+            .add(look.material(terrains.bottom_left, extent, image));
+        let quad = commands
+            .spawn((
+                Mesh2d(mesh.clone()),
+                MeshMaterial2d(material),
+                quad_transform(terrains.bottom_left, extent, depth),
+                RenderLayers::layer(EXPORT_LAYER),
+            ))
+            .id();
+        offscreen.quads.push(quad);
+    }
+    if !offscreen.quads.is_empty() {
+        offscreen.fresh = true;
+    }
+}
+
 /// Decides at the end of the frame whether the pending region may be captured: not in the frame
-/// the camera was spawned in, and only once no sprite is still loading its image.
-pub(crate) fn gate_regions(mut offscreen: ResMut<Offscreen>, loading: Query<(), With<Loading>>) {
+/// the camera was spawned in or its Terrains were drawn in, only once its Terrains are drawn,
+/// and only once no sprite or Terrain is still loading its image.
+pub(crate) fn gate_regions(
+    mut offscreen: ResMut<Offscreen>,
+    loading: Query<(), With<Loading>>,
+    drawings: Res<TerrainDrawings>,
+) {
     let fresh = std::mem::take(&mut offscreen.fresh);
-    let capture = offscreen.pending.is_some() && !fresh && loading.is_empty();
+    let capture = offscreen.pending.is_some()
+        && !fresh
+        && loading.is_empty()
+        && offscreen.terrains.is_none()
+        && !drawings.loading();
     if offscreen.capture != capture {
         offscreen.capture = capture;
     }

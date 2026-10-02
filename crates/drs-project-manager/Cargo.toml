@@ -17,6 +17,7 @@ drs-catalog-engine = { path = "../drs-catalog-engine" }
 drs-history = { path = "../drs-history" }
 drs-model = { path = "../drs-model" }
 drs-output-access = { path = "../drs-output-access" }
+drs-paint-engine = { path = "../drs-paint-engine" }
 drs-project-access = { path = "../drs-project-access" }
 drs-render-engine = { path = "../drs-render-engine" }
 thiserror = { workspace = true }
@@ -28,6 +29,7 @@ dev = [
   "drs-history/dev",
   "drs-model/dev",
   "drs-output-access/dev",
+  "drs-paint-engine/dev",
   "drs-project-access/dev",
   "drs-render-engine/dev",
 ]

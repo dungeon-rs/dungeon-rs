@@ -25,6 +25,19 @@ Portals cover. The Material blends, though the colour is opaque, so the mesh sor
 with the sprites by depth, and Walls of one colour share it. A Wall whose shape
 has not been derived yet is not drawn that frame.
 
+An Element drawn as a painted surface, a Terrain, is drawn as one quad per
+tile of its derived coverage, sixteen cells a side, with the masked tiled image
+Material: its image repeated edge to edge across the Level at its natural size
+from the Level's origin, as opaque at each point as the coverage there. The
+Material's Shader is plain WGSL compiled into the Engine and added to the shader
+assets at startup; it samples the image with the image's own sampler, so a Prop
+and a Terrain share one loaded image. A tile's coverage is uploaded again when
+its revision changes, and the quads sit at the Terrain's depth in the same
+stacking order, blending so they sort with the sprites and meshes. While the
+image loads, is Missing, or failed, the placeholder's flat colour is drawn masked
+by the same coverage. A Terrain whose coverage has not been derived yet is not
+drawn that frame.
+
 One Grid cell is one world unit, `x` to the right and `y` upwards, so an
 Element's position and size in cells are its translation and size as drawn.
 The projection is a 2D camera that follows the model's `Viewport`: it looks at
@@ -34,9 +47,15 @@ as many pixels as the Viewport's zoom says.
 For the Export, `request_region` points one offscreen camera at a square of the
 Level, in cells, and draws it into a texture of the tile size at a chosen number
 of pixels per cell, through the same sprites, meshes, and depths as the viewport
-over an opaque black background; `take_region` yields the pixels once the GPU
+over an opaque black background. The request carries each Terrain's coverage
+computed over the region at its resolution, which the Engine draws for that
+capture alone, one quad of the region's size per Terrain with the same Material,
+in place of the viewport's coverage tiles, which the offscreen camera does not
+see; the coverage's texels fall on the region's pixels one to one. `take_region`
+yields the pixels once the GPU
 has handed them back, a few frames later. A region is captured only once every
-image a sprite is loading has loaded or failed, and never in the frame the
+image a sprite or a Terrain is loading has loaded or failed and its Terrains'
+coverages are in place, and never in the frame the
 camera was spawned in; a mesh has nothing to load. `release_regions` removes the
 camera when the Export is done. Without a renderer, as in a headless editor
 without Bevy's render plugins, the requests say so instead of drawing.

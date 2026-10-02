@@ -1,5 +1,7 @@
 //! The projection: a 2D camera that shows the part of the Level the [`Viewport`] names.
 
+use crate::terrain::VIEWPORT_LAYER;
+use bevy_camera::visibility::RenderLayers;
 use bevy_camera::{Camera, Camera2d, ClearColorConfig, OrthographicProjection, Projection};
 use bevy_color::Color;
 use bevy_ecs::component::Component;
@@ -23,7 +25,8 @@ pub(crate) const DEPTH: f32 = 1_000_000.0;
 /// Spawns the camera the Level is drawn with.
 ///
 /// Its projection is orthographic with one cell per world unit before zoom, and deep enough
-/// that every Element's own depth stays in view.
+/// that every Element's own depth stays in view. It sees the Terrains' coverage tiles, which the
+/// export camera does not.
 pub(crate) fn spawn_camera(mut commands: Commands) {
     commands.spawn((
         Camera2d,
@@ -36,6 +39,7 @@ pub(crate) fn spawn_camera(mut commands: Commands) {
             far: DEPTH,
             ..OrthographicProjection::default_2d()
         }),
+        RenderLayers::from_layers(&[0, VIEWPORT_LAYER]),
         LevelCamera,
     ));
 }
