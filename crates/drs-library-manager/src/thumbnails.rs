@@ -27,7 +27,7 @@ pub(crate) struct ThumbnailWork {
 }
 
 /// Opens the thumbnail cache and starts its generator, or says once why thumbnails cannot be
-/// kept.
+/// kept. A cache whose generator cannot start still serves the thumbnails it holds.
 pub(crate) fn open(world: &mut World) {
     let overrides = world
         .get_resource::<EditorDirectories>()
@@ -39,24 +39,30 @@ pub(crate) fn open(world: &mut World) {
         .copied()
         .unwrap_or_default();
     let opened = LibraryDirectories::resolve(&overrides)
-        .and_then(|directories| ThumbnailCache::open(&directories, &table))
-        .and_then(|cache| {
-            ThumbnailGenerator::start(&cache, caught).map(|generator| (cache, generator))
-        });
-    match opened {
-        Ok((cache, generator)) => {
-            world.insert_resource(ThumbnailWork {
-                cache: Some(cache),
-                generator: Some(generator),
-            });
-        }
+        .and_then(|directories| ThumbnailCache::open(&directories, &table));
+    let cache = match opened {
+        Ok(cache) => cache,
         Err(error) => {
             world.insert_resource(ThumbnailWork::default());
             world.write_message(ThumbnailsUnavailable {
                 reason: error.to_string(),
             });
+            return;
         }
-    }
+    };
+    let generator = match ThumbnailGenerator::start(&cache, caught) {
+        Ok(generator) => Some(generator),
+        Err(error) => {
+            world.write_message(ThumbnailsUnavailable {
+                reason: error.to_string(),
+            });
+            None
+        }
+    };
+    world.insert_resource(ThumbnailWork {
+        cache: Some(cache),
+        generator,
+    });
 }
 
 /// The key an Asset of the folder with `key` is kept under.

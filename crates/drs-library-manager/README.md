@@ -35,9 +35,10 @@ Command is handled, what the generator finished is written into those states,
 and the Assets the browser last named with [`Browse`](drs_model::Browse) that
 are still pending go to the front of the queue. A folder that is undone has its
 waiting Assets withdrawn and keeps its thumbnails, so a redo finds them again.
-When the cache cannot be opened or written, a
+When the cache cannot be opened or written, or its generator cannot start, a
 [`ThumbnailsUnavailable`](drs_model::ThumbnailsUnavailable) says so once and
-nothing more is generated in this session. Generation stops as soon as the
+nothing more is generated in this session; a cache that opened still serves the
+thumbnails it holds. Generation stops as soon as the
 editor is asked to quit, keeping what was finished.
 
 ## Features
