@@ -22,7 +22,8 @@ const VERSION: &str = env!("CARGO_PKG_VERSION");
 ///
 /// The crash handler goes first, so that the hook Bevy's plugins build chains it and a crash
 /// before any window still leaves a report; logging next, with its layer handed to Bevy's log
-/// plugin; then the bundled resources, which the default asset source is rooted at. The
+/// plugin, which is added on its own so that the first entry names the log file before any
+/// other plugin logs; then the bundled resources, which the default asset source is rooted at. The
 /// `lib://` asset source is registered before Bevy's `AssetPlugin` builds, since sources freeze
 /// then, and `.meta` lookups are off because Asset Folders never hold them.
 fn main() -> AppExit {
@@ -46,12 +47,15 @@ fn main() -> AppExit {
     }
     let mut app = App::new();
     register_library_source(&mut app);
+    app.add_plugins(LogPlugin {
+        custom_layer: |_| drs_diagnostics::take_layer(),
+        ..LogPlugin::default()
+    });
+    drs_diagnostics::announce_start(&logging, &resources);
     app.add_plugins(
         DefaultPlugins
-            .set(LogPlugin {
-                custom_layer: |_| drs_diagnostics::take_layer(),
-                ..LogPlugin::default()
-            })
+            .build()
+            .disable::<LogPlugin>()
             .set(asset_plugin)
             .set(WindowPlugin {
                 primary_window: Some(Window {
@@ -61,7 +65,6 @@ fn main() -> AppExit {
                 ..WindowPlugin::default()
             }),
     );
-    drs_diagnostics::announce_start(&logging, &resources);
     app.add_plugins((
         ModelPlugin,
         HistoryPlugin,
