@@ -273,7 +273,7 @@ fn an_empty_text_matches_everything() {
 /// An Asset in which every word occurs at least once where a word of the name (or of the path,
 /// for a word with `/`) begins ranks above an Asset in which some word occurs only inside a
 /// word; a word of the name begins at its start or after a character that is neither a letter
-/// nor a digit.
+/// nor a digit, a combining mark counting as part of the letter it follows.
 #[test]
 fn word_starts_rank_first() {
     let props = folder(
@@ -285,6 +285,9 @@ fn word_starts_rank_first() {
             "Old-Bed.png",
             "Bedbug_Flowerbed.png",
             "Flowerbed_Bedside.png",
+            // An `x` with a combining acute: the mark belongs to the letter, so `bed` follows a
+            // letter here.
+            "X\u{301}bed.png",
         ],
     );
 
@@ -297,6 +300,7 @@ fn word_starts_rank_first() {
             "Old-Bed.png",
             "Flowerbed.png",
             "Room2bed.png",
+            "X\u{301}bed.png",
         ]
     );
     assert_eq!(

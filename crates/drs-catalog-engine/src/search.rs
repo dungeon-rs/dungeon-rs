@@ -411,14 +411,16 @@ enum Rank {
 }
 
 /// Whether the byte at `at` of `text` begins a word: it is the start, or follows a character
-/// that is neither a letter nor a digit.
+/// that is neither a letter nor a digit. A combining mark belongs with the character before it,
+/// so what follows an `x` with a combining acute follows a letter.
 fn begins_word(text: &str, at: usize) -> bool {
     match text.as_bytes()[..at].last() {
         None => true,
         Some(byte) if byte.is_ascii() => !byte.is_ascii_alphanumeric(),
         Some(_) => text[..at]
             .chars()
-            .next_back()
+            .rev()
+            .find(|before| canonical_combining_class(*before) == 0)
             .is_none_or(|before| !before.is_alphanumeric()),
     }
 }
