@@ -26,7 +26,7 @@ use drs_model::{
     EditorDirectories, Element, ElementId, ElementKindName, FolderAdded, FolderKey, FolderRefused,
     Grid, Layer, Level, MissingAsset, MissingReason, ModelPlugin, OpenProject, PlaceElement,
     Project, ProjectOpened, ProjectRefused, ProjectRequest, ProjectSaved, Prop, Redo, Resolution,
-    ResolutionTable, SaveProject, SavedMark, Undo, UnknownComponents, UnknownKind,
+    ResolutionTable, SaveProject, SavedMark, Undo, UnknownComponents, UnknownKind, Viewport,
 };
 use drs_project_manager::ProjectManagerPlugin;
 use serde_json::{Value, json};
@@ -692,11 +692,8 @@ fn saving_is_a_fixed_point() {
 
 /// When a save cannot complete, the file that was at the chosen path before is unchanged, the
 /// Author is told the reason, and the Project keeps its unsaved changes and its remembered file.
-#[cfg(unix)]
 #[test]
 fn a_failed_save_leaves_the_old_file() {
-    use std::os::unix::fs::PermissionsExt;
-
     let mut saved = Saved::new();
     let before = fs::read(&saved.file).expect("the file");
     saved.device.place(&saved.key, BARREL, Vec2::new(2.0, 2.0));
@@ -721,27 +718,33 @@ fn a_failed_save_leaves_the_old_file() {
     assert!(saved.device.has_unsaved_changes());
     assert_eq!(saved.device.elements().len(), 4);
 
-    fs::set_permissions(&root, fs::Permissions::from_mode(0o555)).expect("read-only root");
-    if fs::write(root.join("probe"), b"").is_ok() {
-        fs::set_permissions(&root, fs::Permissions::from_mode(0o755)).expect("writable root");
-        eprintln!(
-            "skipped: this process may write into a read-only folder, so the check would prove \
-             nothing"
-        );
-        return;
-    }
-    let refused = saved
-        .device
-        .save(None)
-        .expect_err("a read-only location refuses the save");
-    fs::set_permissions(&root, fs::Permissions::from_mode(0o755)).expect("writable root");
+    // A folder the process may not write into exists only where modes are honoured.
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
 
-    assert_eq!(refused.request, ProjectRequest::Save { path: None });
-    assert!(!refused.reason.is_empty());
-    assert_eq!(fs::read(&saved.file).expect("the file"), before);
-    assert_eq!(saved.device.mark().file, Some(saved.file.clone()));
-    assert!(saved.device.has_unsaved_changes());
-    assert_eq!(saved.device.elements().len(), 4);
+        fs::set_permissions(&root, fs::Permissions::from_mode(0o555)).expect("read-only root");
+        if fs::write(root.join("probe"), b"").is_ok() {
+            fs::set_permissions(&root, fs::Permissions::from_mode(0o755)).expect("writable root");
+            eprintln!(
+                "skipped: this process may write into a read-only folder, so the check would \
+                 prove nothing"
+            );
+            return;
+        }
+        let refused = saved
+            .device
+            .save(None)
+            .expect_err("a read-only location refuses the save");
+        fs::set_permissions(&root, fs::Permissions::from_mode(0o755)).expect("writable root");
+
+        assert_eq!(refused.request, ProjectRequest::Save { path: None });
+        assert!(!refused.reason.is_empty());
+        assert_eq!(fs::read(&saved.file).expect("the file"), before);
+        assert_eq!(saved.device.mark().file, Some(saved.file.clone()));
+        assert!(saved.device.has_unsaved_changes());
+        assert_eq!(saved.device.elements().len(), 4);
+    }
 }
 
 /// A Project file whose path holds spaces, quotes, non-ASCII letters, or symbols is saved and
@@ -813,8 +816,14 @@ fn saving_is_not_a_step() {
     device.place(&key, TABLE, Vec2::ZERO);
     device.place(&key, BARREL, Vec2::ONE);
     device.undo();
+    {
+        let mut viewport = device.app.world_mut().resource_mut::<Viewport>();
+        viewport.centre = Vec2::new(7.0, -3.0);
+        viewport.zoom *= 2.0;
+    }
     let elements = device.elements();
     let depth = device.history().undo_depth();
+    let view = *device.app.world().resource::<Viewport>();
 
     device.save_as(&device.root().join("map.dungeon"));
     device.save(None).expect("saved again");
@@ -822,6 +831,7 @@ fn saving_is_not_a_step() {
     assert_eq!(device.history().undo_depth(), depth);
     assert!(device.history().can_redo());
     assert_eq!(device.elements(), elements);
+    assert_eq!(*device.app.world().resource::<Viewport>(), view);
 }
 
 /// A Project has unsaved changes exactly when the history's position differs from its position
