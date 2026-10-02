@@ -7,22 +7,42 @@ Utility set up and found at start, lays the window out with `egui_dock`:
 an Assets panel on the left that lists the Assets of every added Asset Folder
 under its Canonical Name, filtered by name, and the viewport in the centre,
 which is left transparent so the Level drawn by the render Engine shows
-through. A menu bar offers Library → Add Asset Folder…, which opens the
-platform's folder dialog and then asks for the Canonical Name, Edit → Undo
-and Redo, and Help → Show Logs, which opens the log directory in the
-platform's file manager; a status line at the bottom reports what happened
-last and what the Author is doing, including a bundle directory that was
-not found and a crash report another thread left, which is also announced
-in the crash dialog on the main thread.
+through. A status line at the bottom reports what happened last and what the
+Author is doing, including a bundle directory that was not found and a crash
+report another thread left, which is also announced in the crash dialog on the
+main thread. The window itself is described by
+[`window_plugin`](crate::window_plugin), which the Host sets on Bevy's default
+plugins: its title is `<Project> — DungeonRS`, with `• ` in front while the
+Project has unsaved changes, and its close button is answered by the Editor
+rather than closing the window, so the unsaved-changes question is asked first.
 
-The panels read the World and send Commands as messages; they never own
-domain state. The Editor writes only the model's `Viewport` (panning and
-zooming) and its own state: the chosen Asset, the selection, the filter, and
-the prompt in progress. Clicking in the viewport places the chosen Asset or
-selects the topmost Prop under the pointer, dragging a selected Prop moves it
-as one gesture, Delete removes it, Escape stops placing, and the platform's
-usual shortcuts undo and redo. Scrolling pans, a wheel or a pinch zooms, and
-the middle button or Space with the left button drags the view.
+The menu bar offers File, Library, Edit, and Help. File → Open…, Save, Save As…,
+Export Level…, and Quit, each with the platform's usual shortcut, send the
+project Manager its requests: Save goes to the Project's file or, while it has
+none, becomes Save As…, whose dialog proposes the Project's name; Open… and Quit
+first ask whether to save, discard, or cancel while there are unsaved changes,
+and a save that is refused keeps the question open with the reason. Opening a
+Project that cannot be shown in full lists each Missing Asset and unknown
+Element kind in a report the Author dismisses; the placeholders stay. Export
+Level… asks for a resolution in pixels per cell, with presets and a typed
+value that is refused in words while it lies outside the limits, shows the
+image size that results and how many placeholders would be exported as shown,
+then the platform's save dialog proposing `<Project> - <Level>.png`; while the
+Export is written the viewport, Undo, Redo, and another Export wait for it.
+Library → Add Asset Folder… opens the platform's folder dialog and then asks
+for the Canonical Name. Edit → Undo and Redo are offered while no drag or
+Export is under way. Help → Show Logs opens the log directory in the
+platform's file manager.
+
+The panels read the World and send Commands and requests as messages; they
+never own domain state. The Editor writes only the model's `Viewport` (panning
+and zooming) and its own state: the chosen Asset, the selection, the filter,
+the prompt, question, report, or dialog in progress, and whether an Export is
+being written. Clicking in the viewport places the chosen Asset or selects the
+topmost Prop under the pointer, dragging a selected Prop moves it as one
+gesture, Delete removes it, Escape stops placing, and the platform's usual
+shortcuts undo and redo. Scrolling pans, a wheel or a pinch zooms, and the
+middle button or Space with the left button drags the view.
 
 ## Features
 
