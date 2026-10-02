@@ -8,8 +8,8 @@ use bevy_ecs::resource::Resource;
 use bevy_ecs::system::SystemState;
 use bevy_ecs::world::World;
 use drs_library_access::{
-    LibraryDirectories, ThumbnailCache, ThumbnailCompletion, ThumbnailGenerator, ThumbnailJob,
-    ThumbnailKey, ThumbnailTable,
+    LibraryDirectories, LibraryError, ThumbnailCache, ThumbnailCompletion, ThumbnailGenerator,
+    ThumbnailJob, ThumbnailKey, ThumbnailTable,
 };
 use drs_model::{
     AssetAddress, AssetFolder, CaughtPanics, EditorDirectories, FolderKey, IndexedAsset,
@@ -50,7 +50,18 @@ pub(crate) fn open(world: &mut World) {
             return;
         }
     };
-    let generator = match ThumbnailGenerator::start(&cache, caught) {
+    let started = ThumbnailGenerator::start(&cache, caught);
+    keep(world, cache, started);
+}
+
+/// Keeps the opened `cache` and the generator `started` for it, or says once why none could be
+/// started; the cache serves the thumbnails it holds either way.
+fn keep(
+    world: &mut World,
+    cache: ThumbnailCache,
+    started: Result<ThumbnailGenerator, LibraryError>,
+) {
+    let generator = match started {
         Ok(generator) => Some(generator),
         Err(error) => {
             world.write_message(ThumbnailsUnavailable {
@@ -225,5 +236,94 @@ pub(crate) fn stop_on_exit(
     };
     if quitting && let Some(mut work) = world.get_resource_mut::<ThumbnailWork>() {
         work.generator = None;
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    #![expect(
+        clippy::missing_panics_doc,
+        reason = "a test stops at the first thing that is not as expected"
+    )]
+    use super::*;
+    use bevy_ecs::message::Messages;
+    use drs_model::{AssetKind, CanonicalName, ScanSkips};
+    use std::time::{Duration, Instant};
+    use tempfile::TempDir;
+
+    /// A cache whose generator cannot start still serves the thumbnails it kept, while saying
+    /// once that thumbnails cannot be generated.
+    #[test]
+    fn kept_thumbnails_are_served_without_a_generator() {
+        let root = TempDir::new().expect("temporary root");
+        let folder_path = root.path().join("props");
+        std::fs::create_dir_all(&folder_path).expect("fixture folder");
+        image::RgbaImage::new(8, 8)
+            .save(folder_path.join("Barrel.png"))
+            .expect("fixture image");
+        let key = FolderKey("props".to_owned());
+        let asset = IndexedAsset {
+            name: "Barrel".to_owned(),
+            place: "Barrel.png".to_owned(),
+            kind: AssetKind::IMAGE,
+            byte_size: 1,
+            modified: Duration::ZERO,
+        };
+        let directories = LibraryDirectories::resolve(&EditorDirectories::under(root.path()))
+            .expect("the editor's directories");
+        let table = ThumbnailTable::default();
+        {
+            let cache = ThumbnailCache::open(&directories, &table).expect("the cache");
+            let generator =
+                ThumbnailGenerator::start(&cache, CaughtPanics::default()).expect("the generator");
+            generator.enqueue([ThumbnailJob {
+                key: key_of(&key, &asset),
+                file: folder_path.join(&asset.place),
+            }]);
+            let start = Instant::now();
+            while !generator
+                .completions()
+                .iter()
+                .any(|completion| matches!(completion, ThumbnailCompletion::Finished { .. }))
+            {
+                assert!(
+                    start.elapsed() < Duration::from_secs(120),
+                    "the thumbnail was never made"
+                );
+                std::thread::sleep(Duration::from_millis(2));
+            }
+        }
+
+        let mut world = World::new();
+        world.init_resource::<Messages<ThumbnailsUnavailable>>();
+        let cache = ThumbnailCache::open(&directories, &table).expect("the cache again");
+        let refused = std::io::Error::other("no thread may be started");
+        keep(
+            &mut world,
+            cache,
+            Err(LibraryError::ThreadNotStarted(refused)),
+        );
+        let folder = world
+            .spawn(AssetFolder {
+                name: CanonicalName("Props".to_owned()),
+                key,
+                path: folder_path,
+                version: String::new(),
+                assets: vec![asset],
+                skips: ScanSkips::default(),
+            })
+            .id();
+        track(&mut world, folder);
+
+        let states = &world.get::<Thumbnails>(folder).expect("the states").states;
+        assert!(
+            matches!(states.as_slice(), [ThumbnailState::Ready(_)]),
+            "{states:?}"
+        );
+        let said = world
+            .get_resource::<Messages<ThumbnailsUnavailable>>()
+            .expect("the messages")
+            .len();
+        assert_eq!(said, 1);
     }
 }
