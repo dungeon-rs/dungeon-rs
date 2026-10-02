@@ -2449,6 +2449,7 @@ version = "0.0.1"
 dependencies = [
  "caseless",
  "drs-model",
+ "memchr",
  "unicode-normalization",
 ]
 

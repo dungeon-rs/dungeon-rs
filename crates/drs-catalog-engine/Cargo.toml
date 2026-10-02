@@ -12,6 +12,7 @@ authors.workspace = true
 [dependencies]
 caseless = { workspace = true }
 drs-model = { path = "../drs-model" }
+memchr = { workspace = true }
 unicode-normalization = { workspace = true }
 
 [features]

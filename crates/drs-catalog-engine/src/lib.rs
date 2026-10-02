@@ -1,8 +1,10 @@
 #![doc = include_str!("../README.md")]
 
 mod resolve;
+mod search;
 
 pub use resolve::{resolve, same_name};
+pub use search::{FolderSearch, Match, Matches, SearchOrder, search};
 
 use drs_model::AssetKind;
 use std::path::Path;
