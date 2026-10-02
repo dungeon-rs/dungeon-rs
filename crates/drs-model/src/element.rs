@@ -1,9 +1,10 @@
 //! Elements, their stable identity, and the registry of Element kinds.
 
-use crate::{AssetReferenceRow, PORTAL, WALL};
+use crate::{AssetReferenceRow, PORTAL, Portal, WALL};
 use bevy_ecs::component::Component;
 use bevy_ecs::entity::Entity;
 use bevy_ecs::error::BevyError;
+use bevy_ecs::query::QueryData;
 use bevy_ecs::reflect::ReflectComponent;
 use bevy_ecs::resource::Resource;
 use bevy_ecs::world::World;
@@ -93,6 +94,28 @@ pub struct Element {
 pub struct Prop {
     /// The row of the Project's Asset Reference table that names the image.
     pub asset: AssetReferenceRow,
+}
+
+/// What an Element shows an Asset through, for a query: its Prop or its Portal. Whoever needs
+/// the Asset an Element shows reads it through [`ShownAssetItem::row`], so a kind that shows an
+/// Asset is added here once rather than to every reader.
+#[derive(QueryData)]
+pub struct ShownAsset {
+    /// The Prop, when the Element is one.
+    prop: Option<&'static Prop>,
+    /// The Portal, when the Element is one.
+    portal: Option<&'static Portal>,
+}
+
+impl ShownAssetItem<'_, '_> {
+    /// The row of the Project's Asset Reference table naming the image the Element shows, or
+    /// `None` for an Element that shows no Asset.
+    #[must_use]
+    pub fn row(&self) -> Option<AssetReferenceRow> {
+        self.prop
+            .map(|prop| prop.asset)
+            .or_else(|| self.portal.map(|portal| portal.asset))
+    }
 }
 
 /// The name of an Element kind, such as `prop`; a Plugin's kind is `<plugin>/<kind>`.

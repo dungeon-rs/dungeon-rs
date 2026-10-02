@@ -18,7 +18,7 @@ use bevy_transform::components::Transform;
 use drs_library_access::asset_path;
 use drs_model::{
     AssetReferenceRow, DrawnAs, Element, ElementKindRegistry, Layer, Level, Portal, Project, Prop,
-    Resolution, ResolutionTable, WallShape,
+    Resolution, ResolutionTable, ShownAsset, WallShape,
 };
 use std::collections::BTreeMap;
 
@@ -46,16 +46,8 @@ pub(crate) struct Model<'w, 's> {
     stacking: Stacking<'w, 's>,
     /// Each Project's resolution table.
     projects: Query<'w, 's, &'static ResolutionTable, With<Project>>,
-    /// What every Element has, and the Prop or the Portal it is when it is one.
-    elements: Query<
-        'w,
-        's,
-        (
-            &'static Element,
-            Option<&'static Prop>,
-            Option<&'static Portal>,
-        ),
-    >,
+    /// What every Element has, the Asset it shows, and the Portal it is when it is one.
+    elements: Query<'w, 's, (&'static Element, ShownAsset, Option<&'static Portal>)>,
     /// How each known kind is drawn.
     kinds: Option<Res<'w, ElementKindRegistry>>,
 }
@@ -108,7 +100,7 @@ pub(crate) fn sync_props(
         .collect();
     for stacked in model.stacking.in_order() {
         let element = stacked.element;
-        let (Ok(resolutions), Ok((shape, prop, portal))) = (
+        let (Ok(resolutions), Ok((shape, shown, portal))) = (
             model.projects.get(stacked.project),
             model.elements.get(element),
         ) else {
@@ -121,10 +113,7 @@ pub(crate) fn sync_props(
         let translation = Vec3::new(shape.position.x, shape.position.y, stacked.depth);
         let rotation = portal.map_or(Quat::IDENTITY, |portal| turn(portal.rotation));
         let mirrored = portal.is_some_and(|portal| portal.mirrored);
-        let row = prop
-            .map(|prop| prop.asset)
-            .or_else(|| portal.map(|portal| portal.asset));
-        let image = image_of(resolutions, row);
+        let image = image_of(resolutions, shown.row());
         if let Some(sprite_entity) = unseen.remove(&element) {
             let Ok((_, mut drawing, mut sprite, mut transform)) = sprites.get_mut(sprite_entity)
             else {

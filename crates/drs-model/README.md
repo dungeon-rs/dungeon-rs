@@ -32,7 +32,9 @@ Element it is set into, the `index` of a part of it (a Wall's segment, a Room's
 edge), a parameter along that part, and the [`Side`](crate::Side) it faces. The
 anchor names what the Portal is set into as `host` and its part as `index`,
 never by kind. A set Portal's position, rotation, and mirroring are kept
-equal to what its anchor gives, so freeing it is clearing the anchor.
+equal to what its anchor gives, so freeing it is clearing the anchor. Whoever
+needs the Asset an Element shows, a Prop's or a Portal's, queries
+[`ShownAsset`](crate::ShownAsset) and reads its row.
 
 A [`ProjectSnapshot`](crate::ProjectSnapshot) holds every component of every
 entity of the Project as an envelope of a version and data under a stable name,

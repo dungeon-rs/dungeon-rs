@@ -10,8 +10,8 @@ use bevy_ecs::world::World;
 use drs_history::History;
 use drs_model::{
     AssetReferenceRow, AssetReferences, Element, ElementKindName, ElementKindRegistry, Layer,
-    Level, MissingAsset, OpenReport, Portal, ProjectOpened, Prop, Resolution, ResolutionTable,
-    SavedMark, UnknownKind, project_name_of,
+    Level, MissingAsset, OpenReport, ProjectOpened, Resolution, ResolutionTable, SavedMark,
+    ShownAsset, UnknownKind, project_name_of,
 };
 use drs_project_access::read_project;
 use std::collections::BTreeMap;
@@ -85,9 +85,10 @@ pub(crate) fn report(world: &World, project: Entity) -> OpenReport {
     let kinds = world.get_resource::<ElementKindRegistry>();
     for element in elements_of(world, project) {
         let row = world
-            .get::<Prop>(element)
-            .map(|prop| prop.asset)
-            .or_else(|| world.get::<Portal>(element).map(|portal| portal.asset));
+            .get_entity(element)
+            .ok()
+            .and_then(|entity| entity.get_components::<ShownAsset>().ok())
+            .and_then(|shown| shown.row());
         if let Some(row) = row {
             *uses.entry(row).or_default() += 1;
         }

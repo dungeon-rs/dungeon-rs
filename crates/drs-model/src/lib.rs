@@ -24,7 +24,7 @@ pub use assets::{
 pub use directories::{EditorDirectories, NoPlatformDirectories, ResolvedDirectories};
 pub use element::{
     DrawnAs, Element, ElementId, ElementKindDescriptor, ElementKindName, ElementKindRegistry, PROP,
-    Prop,
+    Prop, ShownAsset, ShownAssetItem,
 };
 pub use file::{PROJECT_EXTENSION, SavedMark, project_name_of, with_extension_if_missing};
 pub use matches::{AssetMatch, SearchMatches};

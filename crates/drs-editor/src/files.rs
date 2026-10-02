@@ -16,8 +16,8 @@ use bevy::ecs::system::{Query, Res, SystemParam};
 use drs_history::History;
 use drs_model::{
     Bounds, Element, ElementKindRegistry, Layer, Level, MissingAsset, MissingReason, OpenProject,
-    OpenReport, PROJECT_EXTENSION, Portal, Project, Prop, Resolution, ResolutionTable, SaveProject,
-    SavedMark, UnknownKind,
+    OpenReport, PROJECT_EXTENSION, Project, Resolution, ResolutionTable, SaveProject, SavedMark,
+    ShownAsset, UnknownKind,
 };
 use std::path::PathBuf;
 
@@ -34,16 +34,8 @@ pub(crate) struct ProjectView<'w, 's> {
     levels: Query<'w, 's, (Entity, &'static Level, Option<&'static Children>)>,
     /// Every Layer's Elements in stacking order.
     layers: Query<'w, 's, &'static Children, With<Layer>>,
-    /// Every Element's common component and, for a Prop or a Portal, the Asset it shows.
-    elements: Query<
-        'w,
-        's,
-        (
-            &'static Element,
-            Option<&'static Prop>,
-            Option<&'static Portal>,
-        ),
-    >,
+    /// Every Element's common component and the Asset it shows, if any.
+    elements: Query<'w, 's, (&'static Element, ShownAsset)>,
     /// The Element kinds this editor knows.
     kinds: Res<'w, ElementKindRegistry>,
 }
@@ -89,12 +81,9 @@ impl ProjectView<'_, '_> {
             .filter_map(|&layer| self.layers.get(layer).ok())
             .flat_map(|elements| elements.iter())
             .filter_map(|&element| self.elements.get(element).ok())
-            .filter(|(element, prop, portal)| {
+            .filter(|(element, shown)| {
                 let unknown = self.kinds.get(&element.kind).is_none();
-                let row = prop
-                    .map(|prop| prop.asset)
-                    .or_else(|| portal.map(|portal| portal.asset));
-                let missing = row.is_some_and(|row| {
+                let missing = shown.row().is_some_and(|row| {
                     matches!(
                         resolutions.and_then(|table| table.get(row)),
                         Some(Resolution::Missing(_))
