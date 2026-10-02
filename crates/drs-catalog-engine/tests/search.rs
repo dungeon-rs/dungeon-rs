@@ -144,6 +144,17 @@ fn accents_however_stored() {
     assert_eq!(places("cafe\u{301}", &props), accented);
     assert_eq!(places("CAFÉ", &props), accented);
     assert_eq!(places("cafe", &props), vec!["Cafeteria.png"]);
+
+    // An `x` with an acute has no composed form, and `ǰ`, written composed, folds to a `j` and
+    // a combining caron: in neither is the bare letter there to match.
+    let runes = folder(
+        "Runes",
+        &["Ax\u{301}e.png", "Axe.png", "ǰar.png", "Jar.png"],
+    );
+    assert_eq!(places("ax", &runes), vec!["Axe.png"]);
+    assert_eq!(places("ax\u{301}", &runes), vec!["Ax\u{301}e.png"]);
+    assert_eq!(places("j", &runes), vec!["Jar.png"]);
+    assert_eq!(places("ǰ", &runes), vec!["ǰar.png"]);
 }
 
 /// With several words, an Asset matches only when it matches each of them, in any order; two

@@ -7,6 +7,7 @@ use memchr::memmem::Finder;
 use std::cmp::Ordering;
 use std::path::Path;
 use std::sync::atomic::{AtomicU64, Ordering as AtomicOrdering};
+use unicode_normalization::char::canonical_combining_class;
 
 /// The identity of the next search built; an empty search made by `Default` has the identity
 /// zero, which no built one has.
@@ -213,20 +214,39 @@ fn begins_word(text: &str, at: usize) -> bool {
     }
 }
 
+/// Whether the byte at `at` of `text` lies inside a letter: it starts a combining mark, which
+/// belongs with the character before it, as the acute of an `x` with an acute does.
+fn inside_a_letter(text: &str, at: usize) -> bool {
+    match text.as_bytes().get(at) {
+        None => false,
+        Some(byte) if byte.is_ascii() => false,
+        Some(_) => text
+            .get(at..)
+            .and_then(|rest| rest.chars().next())
+            .is_some_and(|next| canonical_combining_class(next) != 0),
+    }
+}
+
 /// Whether `word` occurs in `text`, and if so whether at least once where a word begins; `first`
-/// is where it is already known to occur first, if it is.
+/// is where it is already known to occur first, if it is. An occurrence followed by a combining
+/// mark ends inside a letter and does not count.
 fn occurs(word: &Word, text: &str, first: Option<usize>) -> Option<Rank> {
     let mut at = match first {
         Some(at) => at,
         None => word.finder.find(text.as_bytes())?,
     };
+    let length = word.finder.needle().len();
+    let mut found = None;
     loop {
-        if begins_word(text, at) {
-            return Some(Rank::WordStarts);
+        if !inside_a_letter(text, at + length) {
+            if begins_word(text, at) {
+                return Some(Rank::WordStarts);
+            }
+            found = Some(Rank::Inside);
         }
         match word.finder.find(&text.as_bytes()[at + 1..]) {
             Some(next) => at += 1 + next,
-            None => return Some(Rank::Inside),
+            None => return found,
         }
     }
 }
