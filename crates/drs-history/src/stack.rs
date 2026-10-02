@@ -53,11 +53,13 @@ impl Step {
     }
 }
 
-/// Where the history stands: the same value exactly when the World is at the same recorded
-/// state, so a position kept at one moment tells later whether anything has changed since.
+/// Where the history stands: the same value exactly when the history stands at the same recorded
+/// step, so a position kept at one moment tells later whether anything has changed since.
 ///
 /// Undoing back to a remembered position compares equal to it; recording a new step never
-/// repeats an earlier position, however many steps are undone first.
+/// repeats an earlier position, however many steps are undone first. Clearing the history puts
+/// it back at the position of an empty history, so a position is compared only with positions
+/// taken since the last [`clear`](History::clear), as a Project opened from a file starts afresh.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct Position(u64);
 
@@ -93,8 +95,9 @@ impl History {
         Position(self.undo.last().map_or(0, |step| step.sequence))
     }
 
-    /// Forgets every step, undone or not, and any group in progress. Positions taken before are
-    /// never produced again.
+    /// Forgets every step, undone or not, and any group in progress. The history then stands at
+    /// the position of an empty history again, and the steps recorded afterwards take positions
+    /// no earlier step had.
     pub fn clear(&mut self) {
         self.undo.clear();
         self.redo.clear();
