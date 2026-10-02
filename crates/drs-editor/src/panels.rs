@@ -312,6 +312,14 @@ fn status_line(root: &mut egui::Ui, state: &EditorState) {
         ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
             if state.exporting {
                 ui.weak("The viewport waits for the Export");
+            } else if state.tool == Tool::Portal {
+                ui.weak(
+                    "Click a Wall to set a Portal into it, elsewhere to stand it free; Escape stops",
+                );
+                match &state.chosen {
+                    Some(chosen) => ui.label(format!("placing Portals of {}", chosen.name)),
+                    None => ui.label("choose an Asset for the Portal"),
+                };
             } else if let Some(chosen) = &state.chosen {
                 ui.weak("Escape stops placing");
                 ui.label(format!("placing {}", chosen.name));
@@ -328,7 +336,10 @@ fn status_line(root: &mut egui::Ui, state: &EditorState) {
                 ui.weak("Drag moves it, Delete removes it");
                 ui.label("1 Element selected");
             } else {
-                ui.weak("Choose an Asset to place it, press W to draw a Wall, or click to select");
+                ui.weak(
+                    "Choose an Asset to place it, press W to draw a Wall or P to place Portals, \
+                     or click to select",
+                );
             }
             ui.separator();
             ui.with_layout(egui::Layout::left_to_right(egui::Align::Center), |ui| {

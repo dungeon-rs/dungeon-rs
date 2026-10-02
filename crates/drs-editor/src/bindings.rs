@@ -101,6 +101,15 @@ pub(crate) const REMOVE: &[Binding] =
 /// Choose the Wall tool.
 pub(crate) const WALL_TOOL: &[Binding] = &[Binding::new(Modifiers::NONE, Key::W, KeyCode::KeyW)];
 
+/// Choose the Portal tool.
+pub(crate) const PORTAL_TOOL: &[Binding] = &[Binding::new(Modifiers::NONE, Key::P, KeyCode::KeyP)];
+
+/// Free the selected Portal, or set it into the nearest Wall.
+pub(crate) const FREE_OR_SET: &[Binding] = &[Binding::new(Modifiers::NONE, Key::F, KeyCode::KeyF)];
+
+/// Flip the side the selected Portal faces, or its mirroring.
+pub(crate) const FLIP: &[Binding] = &[Binding::new(Modifiers::NONE, Key::X, KeyCode::KeyX)];
+
 /// Finish the Wall being drawn.
 pub(crate) const FINISH: &[Binding] = &[
     Binding::new(Modifiers::NONE, Key::Enter, KeyCode::Enter),

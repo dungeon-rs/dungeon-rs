@@ -6,8 +6,8 @@ use bevy::ecs::message::MessageReader;
 use bevy::ecs::system::{ResMut, SystemParam};
 use drs_model::{
     CommandFailed, ExportRefused, FolderAdded, FolderRefused, FolderUnavailable, HistoryFailed,
-    LevelExported, ProjectOpened, ProjectRefused, ProjectRequest, ProjectSaved, ScanSkips,
-    ThumbnailsUnavailable,
+    LevelExported, PortalsRemoved, ProjectOpened, ProjectRefused, ProjectRequest, ProjectSaved,
+    ScanSkips, ThumbnailsUnavailable,
 };
 
 /// The library Manager's answers.
@@ -49,6 +49,7 @@ pub(crate) fn report(
     mut library: LibraryAnswers,
     mut failed: MessageReader<CommandFailed>,
     mut history_failed: MessageReader<HistoryFailed>,
+    mut portals_removed: MessageReader<PortalsRemoved>,
     mut project: ProjectAnswers,
 ) {
     for FolderAdded { name, skips, .. } in library.added.read() {
@@ -77,6 +78,13 @@ pub(crate) fn report(
     }
     for HistoryFailed { reason } in history_failed.read() {
         state.status.clone_from(reason);
+    }
+    for PortalsRemoved { portals, .. } in portals_removed.read() {
+        let stood = if portals.len() == 1 { "it" } else { "they" };
+        state.status = format!(
+            "Removed {} with the part of the Wall {stood} stood in",
+            counted(portals.len(), "Portal", "Portals")
+        );
     }
     for ThumbnailsUnavailable { reason } in library.thumbnails.read() {
         state.status = format!("Thumbnails cannot be kept on this device: {reason}");

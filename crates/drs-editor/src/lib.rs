@@ -9,6 +9,7 @@ mod export;
 mod files;
 mod outcomes;
 mod panels;
+mod portals;
 #[cfg(feature = "dev")]
 mod screenshot;
 #[cfg(feature = "dev")]
@@ -79,6 +80,7 @@ impl Plugin for EditorPlugin {
                     viewport::keys,
                     viewport::outline_selection,
                     walls::draw_overlays,
+                    portals::draw_marker,
                 )
                     .chain(),
             );

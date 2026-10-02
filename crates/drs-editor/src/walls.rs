@@ -1,10 +1,11 @@
 //! The Wall tool and the handles of a selected Wall: the tool strip over the viewport with its
-//! options, the Wall being drawn, picking a Wall by its line, and its points, control points, and
-//! segment middles as handles.
+//! options, the Wall being drawn, picking a Wall by its line outside the stretches its Portals
+//! cover, and its points, control points, and segment middles as handles.
 //!
 //! The Wall being drawn is the Editor's own state until it is finished, when it becomes one
 //! Place Element; every change to a placed Wall is an Edit Element.
 
+use crate::portals;
 use crate::state::{EditorState, Tool};
 use bevy::color::{Alpha, Color};
 use bevy::ecs::entity::Entity;
@@ -16,8 +17,8 @@ use bevy::math::{Isometry2d, Vec2};
 use bevy::window::{PrimaryWindow, Window};
 use bevy_egui::EguiContexts;
 use drs_model::{
-    Apply, Colour, EditElement, ElementChange, ElementId, Gesture, PlaceElement, Placement,
-    Viewport, Wall, WallShape,
+    Apply, Colour, EditElement, Element, ElementChange, ElementId, Gesture, LinePlace,
+    PlaceElement, Placement, Portal, Viewport, Wall, WallShape,
 };
 
 /// The thickness the first Wall is drawn with: an eighth of a cell.
@@ -62,9 +63,9 @@ pub(crate) enum WallHandle {
     Middle(usize),
 }
 
-/// An option of the Wall tool being changed as one gesture on the Wall it shows.
+/// An option of the tool strip being changed as one gesture on the Element it shows.
 #[derive(Debug, Clone, PartialEq)]
-struct OptionGesture {
+pub(crate) struct OptionGesture {
     /// The Wall.
     element: ElementId,
     /// The change last sent.
@@ -139,7 +140,7 @@ pub(crate) fn choose_wall_tool(state: &mut EditorState) {
     state.tool = Tool::Wall;
 }
 
-/// Leaves the Wall tool for the Select tool, discarding a Wall being drawn.
+/// Goes back to the Select tool from the Wall or the Portal tool, discarding a Wall being drawn.
 pub(crate) fn leave_wall_tool(state: &mut EditorState) {
     state.tool = Tool::Select;
     state.walls.drawing.clear();
@@ -220,10 +221,14 @@ pub(crate) fn nearest_on_line(shape: &WallShape, cells: Vec2) -> Option<(f32, us
 }
 
 /// Whether a point in cells is on a Wall: no farther from its line than half its thickness or
-/// four screen pixels, whichever is more.
+/// four screen pixels, whichever is more, where the nearest point of the line lies in no stretch
+/// a Portal covers.
 pub(crate) fn on_wall(wall: &Wall, shape: &WallShape, cells: Vec2, zoom: f32) -> bool {
     let reach = (wall.thickness / 2.0).max(LINE_PIXELS / zoom);
-    nearest_on_line(shape, cells).is_some_and(|(distance, ..)| distance <= reach)
+    nearest_on_line(shape, cells).is_some_and(|(distance, segment, t)| {
+        let place = LinePlace { segment, t };
+        distance <= reach && !shape.stretches.iter().any(|stretch| stretch.covers(place))
+    })
 }
 
 /// The handles of a Wall in the order they are hit: its points, then its control points, then
@@ -364,10 +369,10 @@ fn rgb(colour: Colour) -> [u8; 3] {
     [colour.red, colour.green, colour.blue]
 }
 
-/// Sends an option's change to the Wall it shows: a change made while the widget is held (a
+/// Sends an option's change to the Element it shows: a change made while the widget is held (a
 /// drag of the thickness, the colour picker open) is part of a gesture that ends when it is let
 /// go, so it is one step; any other change is a step of its own.
-fn send_option(
+pub(crate) fn send_option(
     option: &mut Option<OptionGesture>,
     apply: &mut MessageWriter<Apply>,
     element: ElementId,
@@ -389,7 +394,7 @@ fn send_option(
 
 /// Ends an option's gesture once its widget is let go, by sending its last change again as the
 /// gesture's end.
-fn end_option(option: &mut Option<OptionGesture>, apply: &mut MessageWriter<Apply>) {
+pub(crate) fn end_option(option: &mut Option<OptionGesture>, apply: &mut MessageWriter<Apply>) {
     if let Some(OptionGesture { element, change }) = option.take() {
         apply.write(Apply::EditElement(EditElement {
             element,
@@ -399,17 +404,20 @@ fn end_option(option: &mut Option<OptionGesture>, apply: &mut MessageWriter<Appl
     }
 }
 
-/// The tool strip over the top-left corner of the viewport: Select and Wall, then the tool's
-/// options, the thickness and the colour. With a Wall selected the options show its values and
-/// a change is sent to it as one Edit Element; with none they set the next Wall's.
+/// The tool strip over the top-left corner of the viewport: Select, Wall, and Portal, then the
+/// options. With a Portal selected they are the Portal's own; otherwise they are the thickness
+/// and the colour, of the selected Wall, a change sent to it as one Edit Element, or with none
+/// of the next Wall.
 ///
-/// Choosing the Wall tool drops the chosen Asset and the selection; choosing Select leaves the
-/// Wall tool, discarding a Wall being drawn.
+/// Choosing the Wall tool drops the chosen Asset and the selection and leaves the Portal tool;
+/// choosing the Portal tool leaves the Wall tool, discarding a Wall being drawn, and drops the
+/// selection; choosing Select leaves either.
 pub(crate) fn tool_strip(
     mut contexts: EguiContexts,
     mut state: ResMut<EditorState>,
     viewport: Res<Viewport>,
-    walls: Query<(&ElementId, &Wall)>,
+    walls: Query<(&ElementId, &Wall, Option<&WallShape>)>,
+    portals: Query<(&ElementId, &Element, &Portal)>,
     mut apply: MessageWriter<Apply>,
 ) {
     let Ok(ctx) = contexts.ctx_mut() else {
@@ -418,8 +426,17 @@ pub(crate) fn tool_strip(
     let ctx = ctx.clone();
     let selected = state
         .selected
-        .and_then(|selected| walls.iter().find(|(id, _)| **id == selected))
-        .map(|(id, wall)| (*id, wall.clone()));
+        .and_then(|selected| walls.iter().find(|(id, ..)| **id == selected))
+        .map(|(id, wall, _)| (*id, wall.clone()));
+    let portal = state
+        .selected
+        .and_then(|selected| portals.iter().find(|(id, ..)| **id == selected))
+        .map(|(id, element, portal)| (*id, element.clone(), portal.clone()));
+    let shapes = || {
+        walls
+            .iter()
+            .filter_map(|(id, wall, shape)| Some((*id, wall, shape?)))
+    };
     let corner = egui::pos2(viewport.area.min.x + 8.0, viewport.area.min.y + 8.0);
     egui::Area::new(egui::Id::new("tool-strip"))
         .fixed_pos(corner)
@@ -448,8 +465,29 @@ pub(crate) fn tool_strip(
                     {
                         choose_wall_tool(&mut state);
                     }
+                    if ui
+                        .add_enabled(
+                            enabled,
+                            egui::Button::selectable(tool == Tool::Portal, "Portal"),
+                        )
+                        .on_hover_text("P")
+                        .clicked()
+                    {
+                        portals::choose_portal_tool(&mut state);
+                    }
                     ui.separator();
-                    options(ui, &mut state, selected.as_ref(), &mut apply);
+                    if let Some((id, element, portal)) = &portal {
+                        portals::options(
+                            ui,
+                            &mut state,
+                            (*id, element, portal),
+                            shapes(),
+                            &mut apply,
+                        );
+                    } else {
+                        portals::end_options(&mut state, &mut apply);
+                        options(ui, &mut state, selected.as_ref(), &mut apply);
+                    }
                 });
             });
         });

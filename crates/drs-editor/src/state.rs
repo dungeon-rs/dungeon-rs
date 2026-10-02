@@ -1,7 +1,9 @@
 //! What the Editor itself keeps: the chosen Asset, the selection, the search, the status line,
 //! the prompts and dialogs in progress, the Export under way, the gesture under way, and the
-//! tool with the Wall being drawn. None of it is domain state.
+//! tool with the Wall being drawn and the Portal options being changed. None of it is domain
+//! state.
 
+use crate::portals::PortalTool;
 use crate::walls::{WallHandle, WallTool};
 use bevy::ecs::resource::Resource;
 use bevy::math::Vec2;
@@ -36,6 +38,8 @@ pub(crate) struct EditorState {
     pub tool: Tool,
     /// The Wall tool's own state.
     pub walls: WallTool,
+    /// The Portal tool's own state.
+    pub portals: PortalTool,
 }
 
 impl EditorState {
@@ -47,8 +51,8 @@ impl EditorState {
             || self.export.is_some()
     }
 
-    /// Whether an Element or a handle of a Wall is being dragged: the pointer went down on it and
-    /// has moved since.
+    /// Whether an Element or a handle of a Wall is being dragged, or a Portal slid along its
+    /// Wall: the pointer went down on it and has moved since.
     pub fn dragging(&self) -> bool {
         matches!(
             self.interaction,
@@ -58,6 +62,9 @@ impl EditorState {
             } | Interaction::Handle {
                 moved_at: Some(_),
                 ..
+            } | Interaction::Sliding {
+                moved_at: Some(_),
+                ..
             }
         )
     }
@@ -65,7 +72,10 @@ impl EditorState {
     /// Whether a step is still being made, by a drag, by a Wall being drawn, or by an option
     /// held while it changes, so undo and redo wait.
     pub fn step_under_way(&self) -> bool {
-        self.dragging() || self.walls.drawing_in_progress() || self.walls.option_in_progress()
+        self.dragging()
+            || self.walls.drawing_in_progress()
+            || self.walls.option_in_progress()
+            || self.portals.option_in_progress()
     }
 }
 
@@ -77,6 +87,8 @@ pub(crate) enum Tool {
     Select,
     /// Clicks add the points of a Wall.
     Wall,
+    /// Clicks place Portals of the chosen Asset.
+    Portal,
 }
 
 /// The Asset chosen for placing, with its name for the status line.
@@ -179,6 +191,15 @@ pub(crate) enum Interaction {
         /// The pointer, on screen, when the button went down.
         pointer: Vec2,
         /// The pointer, on screen, when the handle was last moved; `None` until the drag begins.
+        moved_at: Option<Vec2>,
+    },
+    /// The left button went down on a Portal set into a Wall; a drag slides it along its Wall.
+    Sliding {
+        /// The Portal.
+        element: ElementId,
+        /// The pointer, on screen, when the button went down.
+        pointer: Vec2,
+        /// The pointer, on screen, when the Portal was last slid; `None` until the drag begins.
         moved_at: Option<Vec2>,
     },
     /// The left button went down on an Element; a drag moves it.

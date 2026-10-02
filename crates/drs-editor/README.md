@@ -38,7 +38,7 @@ then the platform's save dialog proposing `<Project> - <Level>.png`; while the
 Export is written the viewport, Undo, Redo, and another Export wait for it.
 Library → Add Asset Folder… opens the platform's folder dialog and then asks
 for the Canonical Name. Edit → Undo and Redo are offered while no drag, Wall
-being drawn, or Export is under way. Help → Show Logs opens the log directory
+being drawn, option held while it changes, or Export is under way. Help → Show Logs opens the log directory
 in the platform's file manager.
 
 The grid lays out only the rows in view, as many 128-point cells as the panel's
@@ -59,15 +59,17 @@ The panels read the World and send Commands and requests as messages; they
 never own domain state. The Editor writes only the model's `Viewport` (panning
 and zooming) and its own state: the chosen Asset, the thumbnails it holds, the
 selection, the search text, the prompt, question, report, or dialog in progress,
-whether an Export is being written, the tool, and the Wall being drawn.
+whether an Export is being written, the tool, the Wall being drawn, and the
+option being changed.
 Clicking in the viewport places the chosen Asset or selects the topmost Element
-under the pointer, a Prop by its rectangle and a Wall by its line, dragging a
+under the pointer, a Prop by its rectangle, a Portal by its turned rectangle,
+and a Wall by its line outside the stretches its Portals cover, dragging a
 selected Element moves it as one gesture, Delete removes it, Escape stops
 placing, and the platform's usual shortcuts undo and redo. Scrolling pans, a
 wheel or a pinch zooms, and the middle button or Space with the left button
 drags the view.
 
-A tool strip over the viewport offers Select and Wall, and the thickness and
+A tool strip over the viewport offers Select, Wall, and Portal, and the thickness and
 colour of the selected Wall, or of the next Wall while none is selected. With
 the Wall tool, chosen there or with `W`, each click adds a point of a Wall
 previewed with a rubber band to the pointer, and Enter or a double-click
@@ -79,6 +81,19 @@ segment as one gesture, a double-click on the line adds a point there, and
 Delete removes the selected point or straightens the selected control point's
 segment.
 
+With the Portal tool, chosen in the strip or with `P`, the chosen Asset is the
+Portal's image, kept when the tool is chosen; a marker across the nearest Wall
+within half a cell or half its thickness of the pointer shows where the Portal
+will sit and which side it will face, and a click places it set into that Wall,
+or freestanding where no Wall is in reach. Choosing the tool leaves the Wall
+tool and drops the selection; Escape goes back to Select. A selected Portal set
+into a Wall slides along it when dragged, as one gesture; `X` flips its side,
+or a freestanding one's mirroring; `F` frees it where it stands, or sets a
+freestanding one into the nearest Wall within reach of its centre. The strip
+shows a selected Portal's width, its rotation in degrees while freestanding, a
+Flip button, and a Free or Set into Wall button. When a Wall edit removes
+Portals, the status line says how many.
+
 ## Features
 
 - `default`: nothing is enabled by default.
@@ -86,7 +101,8 @@ segment.
   screenshot of the window is saved there a moment after start. With `DRS_SCRIPT` set
   to a file, the editor is driven by its steps, one per frame (`wait`, `move`, `down`,
   `up`, `click`, `drag`, `key`, `hold`, `release`, `text`, `scroll`, `pinch`,
-  `screenshot`, `describe`, which also logs the Wall tool and every Wall, `close`,
+  `screenshot`, `describe`, which also logs the Wall tool, every Wall and the
+  stretches it gives way along, and every Portal, `close`,
   `quit`), fed in as the messages the window would send so egui and the viewport see
   them alike; `describe` logs every clickable widget and every cell of the grid with
   its rectangle.

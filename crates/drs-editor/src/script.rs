@@ -44,7 +44,7 @@ use bevy::reflect::enums::{DynamicEnum, DynamicVariant};
 use bevy::render::view::screenshot::{Screenshot, save_to_disk};
 use bevy::window::{CursorMoved, PrimaryWindow, Window, WindowCloseRequested, WindowEvent};
 use bevy_egui::EguiContexts;
-use drs_model::{Element, ElementId, Wall};
+use drs_model::{Element, ElementId, Portal, Wall, WallShape};
 use std::collections::VecDeque;
 use std::path::PathBuf;
 
@@ -163,6 +163,10 @@ pub(crate) struct Described<'w, 's> {
     browser: Res<'w, Browser>,
     /// Every Wall.
     walls: Query<'w, 's, (&'static ElementId, &'static Element, &'static Wall)>,
+    /// Every Portal.
+    portals: Query<'w, 's, (&'static ElementId, &'static Element, &'static Portal)>,
+    /// Every Wall's derived shape.
+    shapes: Query<'w, 's, (&'static ElementId, &'static WallShape)>,
 }
 
 /// Runs the next step of the script, before input is processed so this frame sees it.
@@ -200,6 +204,11 @@ pub(crate) fn drive(
                     describe(&described.state, window, contexts.ctx_mut().ok());
                     describe_grid(&described.browser);
                     crate::walls::describe(&described.state, &described.walls);
+                    crate::portals::describe(
+                        &described.state,
+                        &described.portals,
+                        &described.shapes,
+                    );
                 } else {
                     perform(action, *entity, window, &mut commands, &mut injected);
                 }

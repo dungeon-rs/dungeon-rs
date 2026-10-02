@@ -1,5 +1,5 @@
-//! Interaction in the viewport: placing, drawing Walls, selecting, dragging Elements and the
-//! handles of a Wall, removing, panning, and zooming.
+//! Interaction in the viewport: placing Props and Portals, drawing Walls, selecting, dragging
+//! Elements and the handles of a Wall, sliding Portals, removing, panning, and zooming.
 //!
 //! Pointer positions come from the window in logical pixels and go through the model's
 //! `Viewport` to Level cells, the same conversion the render Engine draws by. Panning and zooming
@@ -7,6 +7,7 @@
 //! Manager.
 
 use crate::bindings;
+use crate::portals;
 use crate::state::{EditorState, Interaction, Tool};
 use crate::walls;
 use bevy::color::Color;
@@ -26,7 +27,7 @@ use bevy::window::{PrimaryWindow, Window};
 use bevy_egui::input::EguiWantsInput;
 use drs_model::{
     Apply, EditElement, Element, ElementChange, ElementId, Gesture, Layer, Level, PlaceElement,
-    Placement, Redo, RemoveElement, Undo, Viewport, Wall, WallShape,
+    Placement, Portal, Redo, RemoveElement, Undo, Viewport, Wall, WallShape,
 };
 
 /// How far the pointer travels, in pixels, before a press on an Element or a handle becomes a
@@ -65,18 +66,20 @@ pub(crate) struct LevelView<'w, 's> {
     layers: Query<'w, 's, (Entity, &'static Children), With<Layer>>,
     /// Every Layer, for the one to place on.
     any_layer: Query<'w, 's, Entity, With<Layer>>,
-    /// Every Element's identity and box, and its Wall and derived shape when it is a Wall.
-    elements: Query<
-        'w,
-        's,
-        (
-            &'static ElementId,
-            &'static Element,
-            Option<&'static Wall>,
-            Option<&'static WallShape>,
-        ),
-    >,
+    /// Every Element's identity and box, its Wall and derived shape when it is a Wall, and its
+    /// Portal when it is one.
+    elements: Query<'w, 's, Picked>,
 }
+
+/// What picking reads of an Element: its identity and box, its Wall and derived shape when it is
+/// a Wall, and its Portal when it is one.
+type Picked = (
+    &'static ElementId,
+    &'static Element,
+    Option<&'static Wall>,
+    Option<&'static WallShape>,
+    Option<&'static Portal>,
+);
 
 impl LevelView<'_, '_> {
     /// The Layer new Props are placed on: the Project's only Layer for now; choosing one among
@@ -85,23 +88,27 @@ impl LevelView<'_, '_> {
         self.any_layer.iter().next()
     }
 
-    /// The topmost Element under a point in cells at `zoom`, with its centre: Layers from the
-    /// top down, and each Layer's Elements from the last drawn back. A Wall is under the point
-    /// when its line is near enough, any other Element when its box holds the point.
-    fn topmost_at(&self, cells: Vec2, zoom: f32) -> Option<(ElementId, Vec2)> {
+    /// The topmost Element under a point in cells at `zoom`, with its centre and whether it is a
+    /// Portal set into a Wall: Layers from the top down, and each Layer's Elements from the last
+    /// drawn back. A Wall is under the point when its line is near enough outside the stretches
+    /// its Portals cover, a Portal when its turned rectangle holds the point, and any other
+    /// Element when its box does.
+    fn topmost_at(&self, cells: Vec2, zoom: f32) -> Option<(ElementId, Vec2, bool)> {
         self.levels.iter().find_map(|layers| {
             layers.iter().rev().find_map(|&layer| {
                 let (_, elements) = self.layers.get(layer).ok()?;
                 elements.iter().rev().find_map(|&element| {
-                    let (id, element, wall, shape) = self.elements.get(element).ok()?;
-                    let hit = match (wall, shape) {
-                        (Some(wall), Some(shape)) => walls::on_wall(wall, shape, cells, zoom),
-                        (Some(_), None) => false,
-                        (None, _) => {
+                    let (id, element, wall, shape, portal) = self.elements.get(element).ok()?;
+                    let hit = match (wall, shape, portal) {
+                        (Some(wall), Some(shape), _) => walls::on_wall(wall, shape, cells, zoom),
+                        (Some(_), None, _) => false,
+                        (None, _, Some(portal)) => portals::on_portal(element, portal, cells),
+                        (None, _, None) => {
                             Rect::from_center_size(element.position, element.size).contains(cells)
                         }
                     };
-                    hit.then_some((*id, element.position))
+                    let set = portal.is_some_and(|portal| portal.anchor.is_some());
+                    hit.then_some((*id, element.position, set))
                 })
             })
         })
@@ -116,7 +123,41 @@ impl LevelView<'_, '_> {
         self.elements
             .iter()
             .find(|(id, ..)| **id == selected)
-            .and_then(|(id, _, wall, shape)| Some((*id, wall?, shape)))
+            .and_then(|(id, _, wall, shape, _)| Some((*id, wall?, shape)))
+    }
+
+    /// The selected Element when it is a Portal, with its box.
+    fn selected_portal(
+        &self,
+        selected: Option<ElementId>,
+    ) -> Option<(ElementId, &Element, &Portal)> {
+        let selected = selected?;
+        self.elements
+            .iter()
+            .find(|(id, ..)| **id == selected)
+            .and_then(|(id, element, _, _, portal)| Some((*id, element, portal?)))
+    }
+
+    /// The derived shape of the Wall with an identity, once it has one.
+    fn shape_of(&self, wall: ElementId) -> Option<&WallShape> {
+        self.elements
+            .iter()
+            .find(|(id, ..)| **id == wall)
+            .and_then(|(.., shape, _)| shape)
+    }
+
+    /// Every Wall that has its derived shape, bottom first in the stacking order.
+    fn walls_in_order(&self) -> Vec<(ElementId, &Wall, &WallShape)> {
+        self.levels
+            .iter()
+            .flat_map(|layers| layers.iter())
+            .filter_map(|&layer| self.layers.get(layer).ok())
+            .flat_map(|(_, elements)| elements.iter())
+            .filter_map(|&element| {
+                let (id, _, wall, shape, _) = self.elements.get(element).ok()?;
+                Some((*id, wall?, shape?))
+            })
+            .collect()
     }
 }
 
@@ -145,6 +186,7 @@ pub(crate) fn pointer(
     }
     let Some(cursor) = input.window.cursor_position() else {
         finish_gesture(&mut state, &mut apply, &viewport, &input);
+        finish_slide(&mut state, &mut apply, &viewport, &level);
         return;
     };
     let over = viewport.contains(cursor) && !input.egui.wants_any_pointer_input();
@@ -183,6 +225,13 @@ pub(crate) fn pointer(
                 finish_gesture(&mut state, &mut apply, &viewport, &input);
             }
         }
+        Interaction::Sliding { .. } => {
+            if input.buttons.pressed(MouseButton::Left) {
+                drag_slide(&mut state, &mut apply, &viewport, &level, cursor);
+            } else {
+                finish_slide(&mut state, &mut apply, &viewport, &level);
+            }
+        }
         Interaction::Pressed {
             element,
             origin,
@@ -214,6 +263,73 @@ pub(crate) fn pointer(
             }
         }
     }
+}
+
+/// The Edit Element sliding the set Portal `element` to the nearest point of its Wall's line
+/// to `cells`, as part of `gesture`.
+fn slid(level: &LevelView, element: ElementId, cells: Vec2, gesture: Gesture) -> Option<Apply> {
+    let (_, _, portal) = level.selected_portal(Some(element))?;
+    let shape = level.shape_of(portal.anchor?.host)?;
+    portals::slide(element, shape, cells, gesture)
+}
+
+/// Slides the Portal being dragged to the nearest point of its Wall's line to the pointer, once
+/// the pointer has travelled far enough to be a drag: the first slide begins the gesture and
+/// every later one continues it.
+fn drag_slide(
+    state: &mut EditorState,
+    apply: &mut MessageWriter<Apply>,
+    viewport: &Viewport,
+    level: &LevelView,
+    cursor: Vec2,
+) {
+    let Interaction::Sliding {
+        element,
+        pointer,
+        moved_at,
+    } = state.interaction
+    else {
+        return;
+    };
+    let dragging = moved_at.is_some() || (cursor - pointer).length() > DRAG_THRESHOLD;
+    if !dragging || moved_at == Some(cursor) {
+        return;
+    }
+    let gesture = if moved_at.is_some() {
+        Gesture::Continue
+    } else {
+        Gesture::Begin
+    };
+    if let Some(slide) = slid(level, element, viewport.cells_at(cursor), gesture) {
+        apply.write(slide);
+    }
+    state.interaction = Interaction::Sliding {
+        element,
+        pointer,
+        moved_at: Some(cursor),
+    };
+}
+
+/// Ends a slide that is under way once its button is up: the place the pointer last slid the
+/// Portal to is sent again as the end of the gesture, so the whole slide is one history step.
+fn finish_slide(
+    state: &mut EditorState,
+    apply: &mut MessageWriter<Apply>,
+    viewport: &Viewport,
+    level: &LevelView,
+) {
+    let Interaction::Sliding {
+        element, moved_at, ..
+    } = state.interaction
+    else {
+        return;
+    };
+    if let Some(last) = moved_at
+        && let Some(slide) = slid(level, element, viewport.cells_at(last), Gesture::End)
+    {
+        apply.write(slide);
+    }
+    state.interaction = Interaction::Idle;
 }
 
 /// Moves the handle being dragged with the pointer, once it has travelled far enough to be a
@@ -264,9 +380,11 @@ fn drag_handle(
 }
 
 /// A left press over the viewport: with the Wall tool, adds a point of the Wall being drawn or
-/// finishes it; with an Asset chosen, places it centred on the pointer; otherwise picks a handle
-/// of the selected Wall or adds a point on its line, or selects the topmost Element under the
-/// pointer and arms a drag, letting any handle go; empty space clears the selection.
+/// finishes it; with the Portal tool, places a Portal of the chosen Asset into the nearest Wall
+/// within reach or freestanding; with an Asset chosen, places a Prop of it centred on the
+/// pointer; otherwise picks a handle of the selected Wall or adds a point on its line, or
+/// selects the topmost Element under the pointer and arms a drag, or a slide for a Portal set
+/// into a Wall, letting any handle go; empty space clears the selection.
 fn press(
     state: &mut EditorState,
     apply: &mut MessageWriter<Apply>,
@@ -287,6 +405,11 @@ fn press(
         return;
     }
     let cells = viewport.cells_at(cursor);
+    if state.tool == Tool::Portal {
+        let snapped = portals::snap(level.walls_in_order(), cells, None);
+        portals::place_click(state, apply, level.current_layer(), snapped, cells);
+        return;
+    }
     if let Some(chosen) = &state.chosen {
         if let Some(layer) = level.current_layer() {
             apply.write(Apply::PlaceElement(PlaceElement {
@@ -304,15 +427,19 @@ fn press(
         return;
     }
     let hit = level.topmost_at(cells, viewport.zoom);
-    state.selected = hit.map(|(id, _)| id);
+    state.selected = hit.map(|(id, ..)| id);
     state.walls.handle = None;
-    if let Some((element, origin)) = hit {
-        state.interaction = Interaction::Pressed {
-            element,
-            origin,
-            pointer: cursor,
-            moved_at: None,
-        };
+    match hit {
+        Some((element, _, true)) => portals::press_set(state, element, cursor),
+        Some((element, origin, false)) => {
+            state.interaction = Interaction::Pressed {
+                element,
+                origin,
+                pointer: cursor,
+                moved_at: None,
+            };
+        }
+        None => {}
     }
 }
 
@@ -326,7 +453,8 @@ fn finish_gesture(
     input: &Input,
 ) {
     match state.interaction {
-        Interaction::Idle => {}
+        // A slide ends through `finish_slide`, which knows the Portal's Wall.
+        Interaction::Idle | Interaction::Sliding { .. } => {}
         Interaction::Panning { .. } => {
             if !input.buttons.pressed(MouseButton::Middle)
                 && !input.buttons.pressed(MouseButton::Left)
@@ -410,8 +538,9 @@ fn zoom_and_scroll(input: &mut Input, viewport: &mut Viewport, cursor: Vec2) {
     }
 }
 
-/// The keys: `W` chooses the Wall tool, Enter finishes the Wall being drawn, Escape stops
-/// placing or leaves the Wall tool, Delete (and Backspace on macOS) removes the selected point,
+/// The keys: `W` chooses the Wall tool and `P` the Portal tool, Enter finishes the Wall being
+/// drawn, Escape stops placing or leaves the Wall or the Portal tool, `X` flips and `F` frees or
+/// sets the selected Portal, Delete (and Backspace on macOS) removes the selected point,
 /// straightens the selected control point's segment, or removes the selected Element, and the
 /// platform's usual shortcuts undo and redo. Nothing happens while egui has the keyboard, so a
 /// text field keeps its own editing keys, nor while an Export runs, and undo and redo wait while
@@ -432,6 +561,24 @@ pub(crate) fn keys(
     if bindings::any_pressed(bindings::WALL_TOOL, &keys) {
         walls::choose_wall_tool(&mut state);
     }
+    if bindings::any_pressed(bindings::PORTAL_TOOL, &keys) {
+        portals::choose_portal_tool(&mut state);
+    }
+    if let Some((element, shape, portal)) = level.selected_portal(state.selected) {
+        if bindings::any_pressed(bindings::FLIP, &keys) {
+            apply.write(portals::flip(element, portal));
+        }
+        if bindings::any_pressed(bindings::FREE_OR_SET, &keys) {
+            portals::free_or_set(
+                &mut state,
+                &mut apply,
+                element,
+                shape.position,
+                portal,
+                level.walls_in_order(),
+            );
+        }
+    }
     if bindings::any_pressed(bindings::FINISH, &keys) && state.tool == Tool::Wall {
         walls::finish(&mut state, &mut apply, level.current_layer());
     }
@@ -439,7 +586,7 @@ pub(crate) fn keys(
         if state.chosen.is_some() {
             state.chosen = None;
         }
-        if state.tool == Tool::Wall {
+        if matches!(state.tool, Tool::Wall | Tool::Portal) {
             walls::leave_wall_tool(&mut state);
         }
     }
@@ -472,12 +619,12 @@ pub(crate) fn keys(
     }
 }
 
-/// Outlines the selected Element, drops a selection whose Element is gone, and lets go of a
-/// handle the selected Wall no longer has.
+/// Outlines the selected Element, a Portal turned as it is drawn, drops a selection whose
+/// Element is gone, and lets go of a handle the selected Wall no longer has.
 pub(crate) fn outline_selection(
     mut gizmos: Gizmos,
     mut state: ResMut<EditorState>,
-    elements: Query<(&ElementId, &Element, Option<&Wall>)>,
+    elements: Query<(&ElementId, &Element, Option<&Wall>, Option<&Portal>)>,
 ) {
     // The state is written only when something changes, so it is not marked changed every frame.
     let Some(selected) = state.selected else {
@@ -486,16 +633,16 @@ pub(crate) fn outline_selection(
         }
         return;
     };
-    let Some((_, element, wall)) = elements.iter().find(|(id, ..)| **id == selected) else {
+    let Some((_, element, wall, portal)) = elements.iter().find(|(id, ..)| **id == selected) else {
         state.selected = None;
         state.walls.handle = None;
         return;
     };
-    gizmos.rect_2d(
-        Isometry2d::from_translation(element.position),
-        element.size,
-        SELECTION,
+    let isometry = portal.map_or_else(
+        || Isometry2d::from_translation(element.position),
+        |portal| portals::outline(element, portal),
     );
+    gizmos.rect_2d(isometry, element.size, SELECTION);
     let gone = match (wall, state.walls.handle_of(selected)) {
         (Some(wall), Some(handle)) => !walls::handle_exists(wall, handle),
         (None, Some(_)) => true,
