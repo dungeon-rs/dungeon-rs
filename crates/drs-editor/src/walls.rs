@@ -39,9 +39,9 @@ pub(crate) const HANDLE_PIXELS: f32 = 6.0;
 const LINE_PIXELS: f32 = 4.0;
 /// The thinnest Wall a drag of the thickness reaches, in cells; a typed thickness is sent as
 /// typed, so one not above zero is refused with the reason.
-pub(crate) const THINNEST_DRAGGED: f32 = 0.01;
+const THINNEST_DRAGGED: f32 = 0.01;
 /// The thickest Wall the options offer, dragged or typed, in cells.
-pub(crate) const THICKEST: f32 = 16.0;
+const THICKEST: f32 = 16.0;
 /// How wide a control point's square is drawn, against a point's radius.
 const CONTROL_SIDE: f32 = 1.6;
 /// How opaque the guide lines from a control point to its segment's points are drawn.
@@ -491,6 +491,44 @@ pub(crate) fn end_option(option: &mut Option<OptionGesture>, apply: &mut Message
     }
 }
 
+/// The thickness option of the selected Wall or Room or of the next one, showing `thickness`:
+/// what the Author leaves it at and the widget's response, held while it is dragged.
+///
+/// The range has no lower end, as egui clamps typed values into it too: a drag is kept above
+/// zero here instead. A thickness already above the range shows as it is, since clamping what is
+/// shown would send a change nobody made.
+pub(crate) fn thickness_option(ui: &mut egui::Ui, thickness: f32) -> (f32, egui::Response) {
+    let mut thickness = thickness;
+    ui.label("Thickness");
+    let drag = ui.add(
+        egui::DragValue::new(&mut thickness)
+            .range(f32::NEG_INFINITY..=THICKEST)
+            .clamp_existing_to_range(false)
+            .speed(0.005)
+            .max_decimals(3)
+            .suffix(" cells")
+            .update_while_editing(false),
+    );
+    if drag.dragged() {
+        thickness = thickness.max(THINNEST_DRAGGED);
+    }
+    (thickness, drag)
+}
+
+/// A colour option labelled `label`, showing `colour`: what the Author leaves it at, and whether
+/// its picker is open, which holds it.
+pub(crate) fn colour_option(ui: &mut egui::Ui, label: &str, colour: Colour) -> (Colour, bool) {
+    ui.label(label);
+    // The colour button's popup takes the id the button's own next id is salted with.
+    let popup = ui.auto_id_with("popup");
+    let mut channels = rgb(colour);
+    egui::color_picker::color_edit_button_srgb(ui, &mut channels);
+    (
+        Colour::rgb(channels[0], channels[1], channels[2]),
+        egui::Popup::is_id_open(ui.ctx(), popup),
+    )
+}
+
 /// The tool strip over the top-left corner of the viewport: Select, Wall, Portal, Room, and Paint,
 /// then the options. With the Paint tool they are the Brush's; with a Portal selected they are
 /// the Portal's own; with a Room selected, or the Room tool chosen and none selected, they are the
@@ -617,33 +655,12 @@ fn options(
     selected: Option<&(ElementId, Wall)>,
     apply: &mut MessageWriter<Apply>,
 ) {
-    let (mut thickness, colour) = selected
+    let (thickness, colour) = selected
         .map_or((state.walls.thickness, state.walls.colour), |(_, wall)| {
             (wall.thickness, wall.colour)
         });
-    ui.label("Thickness");
-    // The range has no lower end, as egui clamps typed values into it too: a drag is kept above
-    // zero here instead. A Wall already thicker than the range shows as it is, since clamping
-    // what is shown would send a change nobody made.
-    let drag = ui.add(
-        egui::DragValue::new(&mut thickness)
-            .range(f32::NEG_INFINITY..=THICKEST)
-            .clamp_existing_to_range(false)
-            .speed(0.005)
-            .max_decimals(3)
-            .suffix(" cells")
-            .update_while_editing(false),
-    );
-    if drag.dragged() {
-        thickness = thickness.max(THINNEST_DRAGGED);
-    }
-    ui.label("Colour");
-    // The colour button's popup takes the id the button's own next id is salted with.
-    let popup = ui.auto_id_with("popup");
-    let mut channels = rgb(colour);
-    egui::color_picker::color_edit_button_srgb(ui, &mut channels);
-    let picking = egui::Popup::is_id_open(ui.ctx(), popup);
-    let picked = Colour::rgb(channels[0], channels[1], channels[2]);
+    let (thickness, drag) = thickness_option(ui, thickness);
+    let (picked, picking) = colour_option(ui, "Colour", colour);
 
     let Some((element, wall)) = selected else {
         // A thickness no Wall could have leaves the next Wall's as it was.

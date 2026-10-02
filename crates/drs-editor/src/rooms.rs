@@ -9,7 +9,7 @@
 use crate::state::{EditorState, Interaction, Tool};
 use crate::walls::{
     DEFAULT_COLOUR, DEFAULT_THICKNESS, HANDLE_PIXELS, HANDLES, NEAR_THE_LAST, OptionGesture,
-    THICKEST, THINNEST_DRAGGED, end_option, on_wall, rgb, send_option,
+    colour_option, end_option, on_wall, send_option, thickness_option,
 };
 use bevy::color::Color;
 use bevy::ecs::entity::Entity;
@@ -249,7 +249,7 @@ pub(crate) fn options(
     selected: Option<&(ElementId, Room)>,
     apply: &mut MessageWriter<Apply>,
 ) {
-    let (mut thickness, walls, floor) = selected.map_or(
+    let (thickness, walls, floor) = selected.map_or(
         (
             state.rooms.thickness,
             state.rooms.wall_colour,
@@ -257,32 +257,9 @@ pub(crate) fn options(
         ),
         |(_, room)| (room.thickness, room.wall_colour, room.floor_colour),
     );
-    ui.label("Thickness");
-    let drag = ui.add(
-        egui::DragValue::new(&mut thickness)
-            .range(f32::NEG_INFINITY..=THICKEST)
-            .clamp_existing_to_range(false)
-            .speed(0.005)
-            .max_decimals(3)
-            .suffix(" cells")
-            .update_while_editing(false),
-    );
-    if drag.dragged() {
-        thickness = thickness.max(THINNEST_DRAGGED);
-    }
-    let picker = |ui: &mut egui::Ui, label: &str, colour: Colour| {
-        ui.label(label);
-        // The colour button's popup takes the id the button's own next id is salted with.
-        let popup = ui.auto_id_with("popup");
-        let mut channels = rgb(colour);
-        egui::color_picker::color_edit_button_srgb(ui, &mut channels);
-        (
-            Colour::rgb(channels[0], channels[1], channels[2]),
-            egui::Popup::is_id_open(ui.ctx(), popup),
-        )
-    };
-    let (picked_walls, picking_walls) = picker(ui, "Walls", walls);
-    let (picked_floor, picking_floor) = picker(ui, "Floor", floor);
+    let (thickness, drag) = thickness_option(ui, thickness);
+    let (picked_walls, picking_walls) = colour_option(ui, "Walls", walls);
+    let (picked_floor, picking_floor) = colour_option(ui, "Floor", floor);
 
     let Some((element, room)) = selected else {
         // A thickness no Room could have leaves the next Room's as it was.
@@ -386,8 +363,8 @@ pub(crate) fn describe(
         state.tool == Tool::Room,
         state.rooms.drawing,
         state.rooms.thickness,
-        rgb(state.rooms.wall_colour),
-        rgb(state.rooms.floor_colour)
+        crate::walls::rgb(state.rooms.wall_colour),
+        crate::walls::rgb(state.rooms.floor_colour)
     );
     for (id, element, room, shape) in rooms {
         bevy::log::info!(
@@ -402,8 +379,8 @@ pub(crate) fn describe(
                 .map(|edge| edge.control)
                 .collect::<Vec<_>>(),
             room.thickness,
-            rgb(room.wall_colour),
-            rgb(room.floor_colour),
+            crate::walls::rgb(room.wall_colour),
+            crate::walls::rgb(room.floor_colour),
             shape.map(|shape| {
                 shape
                     .walls

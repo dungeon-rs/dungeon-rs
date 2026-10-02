@@ -8,6 +8,7 @@
 - The tool's own state keeps an `option: Option<OptionGesture>` (the Element and the change last sent) and an `option_in_progress()` over it, which `EditorState::step_under_way` includes, so undo, redo, the Edit menu, `X`, and `F` wait while the widget is held.
 - Every change goes through `walls::send_option` with `held` saying whether the widget is still held (`drag.dragged()`, the picker's popup open): held, it begins the gesture on the first change and continues it after; let go, it is a step of its own. Nothing builds an `EditElement` for an option by hand.
 - A frame with no change and the widget no longer held calls `walls::end_option`, which sends the last change again as `Gesture::End`. So does every path on which the strip stops showing the Element's options (the selection gone or changed to another kind, as `portals::end_options` does), so no Begin is left without its End.
+- A thickness and a colour are shown through `walls::thickness_option` and `walls::colour_option`, which every kind with them shares (a Wall's thickness and colour, a Room's thickness and its wall and floor colours): each returns the value the Author leaves it at and whether the widget is held, and the kind's options only choose which change to send.
 - A `DragValue` is built with `.update_while_editing(false)` and, when it has a range, `.clamp_existing_to_range(false)`, so showing a value never sends a change nobody made. A floor for dragging is applied in code after `dragged()` (`THINNEST_DRAGGED`, `NARROWEST_DRAGGED`); a typed value is sent as typed, and the Manager refuses one the kind's check rejects with its reason.
 - Values are shown and sent in the model's units, converted only at the widget (a rotation shown in degrees is sent in radians).
 
@@ -49,6 +50,9 @@ pub(crate) fn end_option(option: &mut Option<OptionGesture>, apply: &mut Message
     }
 }
 
+pub(crate) fn thickness_option(ui: &mut egui::Ui, thickness: f32) -> (f32, egui::Response) {
+    let mut thickness = thickness;
+    ui.label("Thickness");
     let drag = ui.add(
         egui::DragValue::new(&mut thickness)
             .range(f32::NEG_INFINITY..=THICKEST)
@@ -61,6 +65,12 @@ pub(crate) fn end_option(option: &mut Option<OptionGesture>, apply: &mut Message
     if drag.dragged() {
         thickness = thickness.max(THINNEST_DRAGGED);
     }
+    (thickness, drag)
+}
+
+    let (thickness, drag) = thickness_option(ui, thickness);
+    let (picked, picking) = colour_option(ui, "Colour", colour);
+
     if drag.changed() {
         send_option(
             &mut state.walls.option,
