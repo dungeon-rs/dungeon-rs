@@ -133,8 +133,10 @@ impl WallTool {
     }
 }
 
-/// Chooses the Wall tool: the chosen Asset and the selection are dropped.
+/// Chooses the Wall tool: the Paint tool is left, discarding a stroke being drawn, and the
+/// chosen Asset and the selection are dropped.
 pub(crate) fn choose_wall_tool(state: &mut EditorState) {
+    crate::paint::discard_stroke(state);
     state.chosen = None;
     state.selected = None;
     state.walls.handle = None;
@@ -431,19 +433,21 @@ pub(crate) fn end_option(option: &mut Option<OptionGesture>, apply: &mut Message
     }
 }
 
-/// The tool strip over the top-left corner of the viewport: Select, Wall, and Portal, then the
-/// options. With a Portal selected they are the Portal's own; otherwise they are the thickness
-/// and the colour, of the selected Wall, a change sent to it as one Edit Element, or with none
-/// of the next Wall.
+/// The tool strip over the top-left corner of the viewport: Select, Wall, Portal, and Paint, then
+/// the options. With the Paint tool they are the Brush's; with a Portal selected they are the
+/// Portal's own; otherwise they are the thickness and the colour, of the selected Wall, a change
+/// sent to it as one Edit Element, or with none of the next Wall.
 ///
 /// Choosing the Wall tool drops the chosen Asset and the selection and leaves the Portal tool;
 /// choosing the Portal tool leaves the Wall tool, discarding a Wall being drawn, and drops the
-/// selection; choosing Select leaves either.
+/// selection; choosing Select leaves any tool, discarding a Wall or a stroke being drawn.
 pub(crate) fn tool_strip(
     mut contexts: EguiContexts,
     mut state: ResMut<EditorState>,
     viewport: Res<Viewport>,
     level: LevelView,
+    terrains: crate::paint::Terrains,
+    layers: Query<Entity, With<drs_model::Layer>>,
     mut apply: MessageWriter<Apply>,
 ) {
     let Ok(ctx) = contexts.ctx_mut() else {
@@ -473,6 +477,7 @@ pub(crate) fn tool_strip(
                         .clicked()
                     {
                         leave_tool(&mut state);
+                        crate::paint::leave_paint_tool(&mut state);
                     }
                     if ui
                         .add_enabled(
@@ -494,8 +499,22 @@ pub(crate) fn tool_strip(
                     {
                         portals::choose_portal_tool(&mut state);
                     }
+                    if ui
+                        .add_enabled(
+                            enabled,
+                            egui::Button::selectable(tool == Tool::Paint, "Paint"),
+                        )
+                        .on_hover_text("B")
+                        .clicked()
+                    {
+                        crate::paint::choose_paint_tool(&mut state);
+                    }
                     ui.separator();
-                    if let Some((id, element, portal)) = &portal {
+                    if state.tool == Tool::Paint {
+                        portals::end_options(&mut state, &mut apply);
+                        let terrain = terrains.on(layers.iter().next());
+                        crate::paint::options(ui, &mut state, terrain, &terrains, &mut apply);
+                    } else if let Some((id, element, portal)) = &portal {
                         portals::options(
                             ui,
                             &mut state,

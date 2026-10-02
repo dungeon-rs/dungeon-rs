@@ -1,8 +1,9 @@
 //! What the Editor itself keeps: the chosen Asset, the selection, the search, the status line,
 //! the prompts and dialogs in progress, the Export under way, the gesture under way, and the
-//! tool with the Wall being drawn and the Portal options being changed. None of it is domain
-//! state.
+//! tool with the Wall or the stroke being drawn and the Portal options being changed. None of it
+//! is domain state.
 
+use crate::paint::PaintTool;
 use crate::portals::PortalTool;
 use crate::walls::{WallHandle, WallTool};
 use bevy::ecs::resource::Resource;
@@ -40,6 +41,8 @@ pub(crate) struct EditorState {
     pub walls: WallTool,
     /// The Portal tool's own state.
     pub portals: PortalTool,
+    /// The Paint tool's own state.
+    pub paint: PaintTool,
 }
 
 impl EditorState {
@@ -69,11 +72,12 @@ impl EditorState {
         )
     }
 
-    /// Whether a step is still being made, by a drag, by a Wall being drawn, or by an option
-    /// held while it changes, so undo and redo wait.
+    /// Whether a step is still being made, by a drag, by a Wall or a stroke being drawn, or by an
+    /// option held while it changes, so undo and redo wait.
     pub fn step_under_way(&self) -> bool {
         self.dragging()
             || self.walls.drawing_in_progress()
+            || self.paint.drawing_in_progress()
             || self.walls.option_in_progress()
             || self.portals.option_in_progress()
     }
@@ -89,6 +93,8 @@ pub(crate) enum Tool {
     Wall,
     /// Clicks place Portals of the chosen Asset.
     Portal,
+    /// Drags lay strokes of Terrain.
+    Paint,
 }
 
 /// The Asset chosen for placing, with its name for the status line.
@@ -175,6 +181,8 @@ pub(crate) enum Interaction {
     /// Nothing is under way.
     #[default]
     Idle,
+    /// A stroke is being drawn with the Paint tool; the release lays it.
+    Painting,
     /// The view is being dragged.
     Panning {
         /// Where the pointer was when the view last followed it.

@@ -8,6 +8,7 @@ mod diagnostics;
 mod export;
 mod files;
 mod outcomes;
+mod paint;
 mod panels;
 mod portals;
 #[cfg(feature = "dev")]
@@ -67,7 +68,7 @@ impl Plugin for EditorPlugin {
             .init_resource::<panels::Layout>()
             .add_systems(
                 EguiPrimaryContextPass,
-                (panels::draw, walls::tool_strip).chain(),
+                (panels::draw, walls::tool_strip, paint::overlay).chain(),
             )
             .add_systems(Startup, diagnostics::report_bundled_files)
             .add_systems(

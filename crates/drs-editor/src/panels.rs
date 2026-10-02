@@ -331,6 +331,12 @@ fn status_line(root: &mut egui::Ui, state: &EditorState, set_portal: bool) {
                     Some(chosen) => ui.label(format!("placing Portals of {}", chosen.name)),
                     None => ui.label("choose an Asset for the Portal"),
                 };
+            } else if state.tool == Tool::Paint {
+                ui.weak("Drag paints, Escape stops");
+                ui.label(state.chosen.as_ref().map_or_else(
+                    || "painting".to_owned(),
+                    |chosen| format!("painting with {}", chosen.name),
+                ));
             } else if let Some(chosen) = &state.chosen {
                 ui.weak("Escape stops placing");
                 ui.label(format!("placing {}", chosen.name));

@@ -1,5 +1,5 @@
-//! Interaction in the viewport: placing Props and Portals, drawing Walls, selecting, dragging
-//! Elements and the handles of a Wall, sliding Portals, removing, panning, and zooming.
+//! Interaction in the viewport: placing Props and Portals, drawing Walls, painting, selecting,
+//! dragging Elements and the handles of a Wall, sliding Portals, removing, panning, and zooming.
 //!
 //! Pointer positions come from the window in logical pixels and go through the model's
 //! `Viewport` to Level cells, the same conversion the render Engine draws by. Panning and zooming
@@ -7,6 +7,7 @@
 //! Manager.
 
 use crate::bindings;
+use crate::paint;
 use crate::portals;
 use crate::state::{EditorState, Interaction, Tool};
 use crate::walls;
@@ -27,7 +28,7 @@ use bevy::window::{PrimaryWindow, Window};
 use bevy_egui::input::EguiWantsInput;
 use drs_model::{
     Apply, EditElement, Element, ElementChange, ElementId, Gesture, Layer, Level, PlaceElement,
-    Placement, Portal, Redo, RemoveElement, Undo, Viewport, Wall, WallShape,
+    Placement, Portal, Redo, RemoveElement, Terrain, Undo, Viewport, Wall, WallShape,
 };
 
 /// How far the pointer travels, in pixels, before a press on an Element or a handle becomes a
@@ -69,6 +70,8 @@ pub(crate) struct LevelView<'w, 's> {
     /// Every Element's identity and box, its Wall and derived shape when it is a Wall, and its
     /// Portal when it is one.
     elements: Query<'w, 's, Picked>,
+    /// The Elements that are Terrain, which are never picked.
+    terrains: Query<'w, 's, (), With<Terrain>>,
 }
 
 /// What picking reads of an Element: its identity and box, its Wall and derived shape when it is
@@ -88,16 +91,27 @@ impl LevelView<'_, '_> {
         self.any_layer.iter().next()
     }
 
+    /// Whether the Layer new Props are placed on has a Terrain to paint more onto.
+    fn current_layer_has_terrain(&self) -> bool {
+        self.current_layer()
+            .and_then(|layer| self.layers.get(layer).ok())
+            .is_some_and(|(_, elements)| elements.iter().any(|e| self.terrains.contains(*e)))
+    }
+
     /// The topmost Element under a point in cells at `zoom`, with its centre and whether it is a
     /// Portal set into a Wall: Layers from the top down, and each Layer's Elements from the last
     /// drawn back. A Wall is under the point when its line is near enough outside the stretches
     /// its Portals cover, a Portal when its turned rectangle holds the point, and any other
-    /// Element when its box does.
+    /// Element when its box does; a Terrain never is, so the ground never gets in the way of what
+    /// stands on it.
     fn topmost_at(&self, cells: Vec2, zoom: f32) -> Option<(ElementId, Vec2, bool)> {
         self.levels.iter().find_map(|layers| {
             layers.iter().rev().find_map(|&layer| {
                 let (_, elements) = self.layers.get(layer).ok()?;
                 elements.iter().rev().find_map(|&element| {
+                    if self.terrains.contains(element) {
+                        return None;
+                    }
                     let (id, element, wall, shape, portal) = self.elements.get(element).ok()?;
                     let hit = match (wall, shape, portal) {
                         (Some(wall), Some(shape), _) => walls::on_wall(wall, shape, cells, zoom),
@@ -186,6 +200,9 @@ pub(crate) fn pointer(
         walls::leave_tool(&mut state);
     }
     let Some(cursor) = input.window.cursor_position() else {
+        if state.interaction == Interaction::Painting && !input.buttons.pressed(MouseButton::Left) {
+            paint::release(&mut state, &mut apply, level.current_layer(), None);
+        }
         finish_gesture(&mut state, &mut apply, &viewport, &input);
         finish_slide(&mut state, &mut apply, &viewport, &level);
         return;
@@ -209,6 +226,14 @@ pub(crate) fn pointer(
             } else if input.buttons.just_pressed(MouseButton::Left) {
                 let double = state.walls.double_click(time.elapsed_secs_f64(), cursor);
                 press(&mut state, &mut apply, &viewport, &level, cursor, double);
+            }
+        }
+        Interaction::Painting => {
+            let cells = viewport.cells_at(cursor);
+            if input.buttons.pressed(MouseButton::Left) {
+                paint::extend(&mut state, cells);
+            } else {
+                paint::release(&mut state, &mut apply, level.current_layer(), Some(cells));
             }
         }
         Interaction::Panning { last } => {
@@ -380,12 +405,12 @@ fn drag_handle(
     };
 }
 
-/// A left press over the viewport: with the Wall tool, adds a point of the Wall being drawn or
-/// finishes it; with the Portal tool, places a Portal of the chosen Asset into the nearest Wall
-/// within reach or freestanding; with an Asset chosen, places a Prop of it centred on the
-/// pointer; otherwise picks a handle of the selected Wall or adds a point on its line, or
-/// selects the topmost Element under the pointer and arms a drag, or a slide for a Portal set
-/// into a Wall, letting any handle go; empty space clears the selection.
+/// A left press over the viewport: with the Paint tool, starts a stroke; with the Wall tool, adds
+/// a point of the Wall being drawn or finishes it; with the Portal tool, places a Portal of the
+/// chosen Asset into the nearest Wall within reach or freestanding; with an Asset chosen, places
+/// a Prop of it centred on the pointer; otherwise picks a handle of the selected Wall or adds a
+/// point on its line, or selects the topmost Element under the pointer and arms a drag, or a
+/// slide for a Portal set into a Wall, letting any handle go; empty space clears the selection.
 fn press(
     state: &mut EditorState,
     apply: &mut MessageWriter<Apply>,
@@ -394,6 +419,11 @@ fn press(
     cursor: Vec2,
     double: bool,
 ) {
+    if state.tool == Tool::Paint {
+        let terrain = level.current_layer_has_terrain();
+        paint::press(state, terrain, viewport.cells_at(cursor));
+        return;
+    }
     if state.tool == Tool::Wall {
         walls::draw_click(
             state,
@@ -455,7 +485,7 @@ fn finish_gesture(
 ) {
     match state.interaction {
         // A slide ends through `finish_slide`, which knows the Portal's Wall.
-        Interaction::Idle | Interaction::Sliding { .. } => {}
+        Interaction::Idle | Interaction::Painting | Interaction::Sliding { .. } => {}
         Interaction::Panning { .. } => {
             if !input.buttons.pressed(MouseButton::Middle)
                 && !input.buttons.pressed(MouseButton::Left)
@@ -539,14 +569,16 @@ fn zoom_and_scroll(input: &mut Input, viewport: &mut Viewport, cursor: Vec2) {
     }
 }
 
-/// The keys: `W` chooses the Wall tool and `P` the Portal tool, Enter finishes the Wall being
-/// drawn, Escape stops placing or leaves the Wall or the Portal tool, `X` flips and `F` frees or
-/// sets the selected Portal, Delete (and Backspace on macOS) removes the selected point,
+/// The keys: `W` chooses the Wall tool, `P` the Portal tool, and `B` the Paint tool, Enter
+/// finishes the Wall being drawn, Escape stops placing or leaves the Wall, the Portal, or the
+/// Paint tool, discarding what is being drawn, `X` flips and `F` frees or sets the selected
+/// Portal, Delete (and Backspace on macOS) removes the selected point,
 /// straightens the selected control point's segment, or removes the selected Element, and the
 /// platform's usual shortcuts undo and redo. Nothing happens while egui has the keyboard, so a
 /// text field keeps its own editing keys, nor while an Export runs, and undo, redo, flipping, and
-/// freeing or setting wait while an Element or a handle is being dragged, a Wall is being drawn,
-/// or an option is held while it changes, since each is one step that is still being made.
+/// freeing or setting wait while an Element or a handle is being dragged, a Wall or a stroke is
+/// being drawn, or an option is held while it changes, since each is one step that is still
+/// being made.
 pub(crate) fn keys(
     keys: Res<ButtonInput<KeyCode>>,
     egui: Res<EguiWantsInput>,
@@ -584,6 +616,9 @@ pub(crate) fn keys(
             );
         }
     }
+    if bindings::any_pressed(bindings::PAINT_TOOL, &keys) {
+        paint::choose_paint_tool(&mut state);
+    }
     if bindings::any_pressed(bindings::FINISH, &keys) && state.tool == Tool::Wall {
         walls::finish(&mut state, &mut apply, level.current_layer());
     }
@@ -594,6 +629,7 @@ pub(crate) fn keys(
         if matches!(state.tool, Tool::Wall | Tool::Portal) {
             walls::leave_tool(&mut state);
         }
+        paint::leave_paint_tool(&mut state);
     }
     if bindings::any_pressed(bindings::REMOVE, &keys)
         && let Some(element) = state.selected

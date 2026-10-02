@@ -17,8 +17,9 @@
 //! - `pinch <delta>`: a trackpad pinch.
 //! - `screenshot <path>`: save a screenshot of the window there.
 //! - `describe`: log the title, the status line, the dialog open, every clickable widget with its
-//!   rectangle, every cell of the Assets panel's grid with what it shows, the Wall tool, and every
-//!   Wall, so a script can be checked and aimed without seeing the screen.
+//!   rectangle, every cell of the Assets panel's grid with what it shows, the Wall tool, every
+//!   Wall, the Paint tool with its Brush, and every Terrain, so a script can be checked and aimed
+//!   without seeing the screen.
 //! - `close`: ask to close the window, as its close button does.
 //! - `quit`: exit the editor.
 //!
@@ -44,7 +45,7 @@ use bevy::reflect::enums::{DynamicEnum, DynamicVariant};
 use bevy::render::view::screenshot::{Screenshot, save_to_disk};
 use bevy::window::{CursorMoved, PrimaryWindow, Window, WindowCloseRequested, WindowEvent};
 use bevy_egui::EguiContexts;
-use drs_model::{Element, ElementId, Portal, Wall, WallShape};
+use drs_model::{Element, ElementId, Portal, Terrain, Wall, WallShape};
 use std::collections::VecDeque;
 use std::path::PathBuf;
 
@@ -167,6 +168,8 @@ pub(crate) struct Described<'w, 's> {
     portals: Query<'w, 's, (&'static ElementId, &'static Element, &'static Portal)>,
     /// Every Wall's derived shape.
     shapes: Query<'w, 's, (&'static ElementId, &'static WallShape)>,
+    /// Every Terrain.
+    terrains: Query<'w, 's, (&'static ElementId, &'static Element, &'static Terrain)>,
 }
 
 /// Runs the next step of the script, before input is processed so this frame sees it.
@@ -209,6 +212,7 @@ pub(crate) fn drive(
                         &described.portals,
                         &described.shapes,
                     );
+                    crate::paint::describe(&described.state, &described.terrains);
                 } else {
                     perform(action, *entity, window, &mut commands, &mut injected);
                 }

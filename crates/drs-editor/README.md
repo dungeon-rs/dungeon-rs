@@ -37,9 +37,9 @@ that results and how many placeholders would be exported as shown, then the
 platform's save dialog proposing `<Project> - <Level>.png`; while the Export is
 written the viewport, Undo, Redo, and another Export wait for it. Library → Add
 Asset Folder… opens the platform's folder dialog and then asks for the Canonical
-Name. Edit → Undo and Redo are offered while no drag, Wall being drawn, option
-held while it changes, or Export is under way. Help → Show Logs opens the log
-directory in the platform's file manager.
+Name. Edit → Undo and Redo are offered while no drag, Wall or stroke being
+drawn, option held while it changes, or Export is under way. Help → Show Logs
+opens the log directory in the platform's file manager.
 
 The grid lays out only the rows in view, as many 128-point cells as the panel's
 width holds. Each cell shows a neutral square until its thumbnail is generated,
@@ -59,11 +59,12 @@ The panels read the World and send Commands and requests as messages; they
 never own domain state. The Editor writes only the model's `Viewport` (panning
 and zooming) and its own state: the chosen Asset, the thumbnails it holds, the
 selection, the search text, the prompt, question, report, or dialog in progress,
-whether an Export is being written, the tool, the Wall being drawn, and the
-option being changed.
+whether an Export is being written, the tool, the Wall or the stroke being
+drawn, the option being changed, and the Brush.
 Clicking in the viewport places the chosen Asset or selects the topmost Element
 under the pointer, a Prop by its rectangle, a Portal by its turned rectangle,
-and a Wall by its line outside the stretches its Portals cover, dragging a
+and a Wall by its line outside the stretches its Portals cover, never a
+Terrain, dragging a
 selected Element moves it as one gesture, Delete removes it, Escape stops
 placing, and the platform's usual shortcuts undo and redo. Scrolling pans, a
 wheel or a pinch zooms, and the middle button or Space with the left button
@@ -96,6 +97,22 @@ marker, a click, and `F` all take the topmost. The strip shows a selected
 Portal's width, its rotation in degrees while freestanding, a Flip button, and a
 Free Portal or Set into Wall button. When a Wall edit removes Portals, the
 status line says how many.
+
+The tool strip also offers Paint, chosen there or with `B`, which leaves the
+Wall tool and drops the selection but keeps a chosen Asset as the image the
+Brush paints with. A circle as large as the Brush follows the pointer; a press
+starts a stroke, moving adds the pointer to its path whenever it is more than an
+eighth of the Brush's size from the last point, the stroke is shown as a
+translucent band as wide as the Brush, and the release sends one Paint onto the
+current Layer with the path and the Brush's settings, naming the chosen Asset
+or, with none, no image; with no Asset chosen and no Terrain on the Layer, a
+press paints nothing and the status line asks for an Asset. The options show
+the Brush's size in cells, its hardness and strength as percentages, starting at
+two cells, 50 %, and 100 %, and the image it paints with; when an Asset is chosen
+and the Layer's Terrain shows another image, a button sends the Edit Element that
+makes the Terrain show it. The Brush is the Editor's own, never a history step
+and never saved. Escape and choosing the Wall tool discard a stroke being
+drawn.
 
 ## Features
 

@@ -119,10 +119,11 @@ pub(crate) fn line_under<'a>(
     best
 }
 
-/// Chooses the Portal tool: the Wall tool is left, discarding a Wall being drawn, the selection
-/// is dropped, and a chosen Asset is kept as the Portal's image.
+/// Chooses the Portal tool: the Wall or the Paint tool is left, discarding a Wall or a stroke
+/// being drawn, the selection is dropped, and a chosen Asset is kept as the Portal's image.
 pub(crate) fn choose_portal_tool(state: &mut EditorState) {
     state.walls.drawing.clear();
+    crate::paint::discard_stroke(state);
     state.selected = None;
     state.walls.handle = None;
     state.tool = Tool::Portal;
