@@ -36,7 +36,9 @@ its longer side without ever enlarging it, and encodes it as PNG when any pixel
 is not fully opaque and as JPEG otherwise, on threads of its own (half the
 cores, at least one), serving the Assets last named as wanted before the rest;
 a file that cannot be read is not recorded, so it is tried again at the next
-start. Writes are buffered and flushed when the queue drains, every few hundred
+start, and a file whose decoder panics is caught on its thread, marked as
+catching it through [`CaughtPanics`](drs_model::CaughtPanics), and recorded
+as broken. Writes are buffered and flushed when the queue drains, every few hundred
 thumbnails or a tenth of a second after the oldest unwritten one, and when the
 generator is dropped, which stops it after the
 thumbnails in flight.

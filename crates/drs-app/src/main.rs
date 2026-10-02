@@ -10,7 +10,7 @@ use drs_editor::{EditorPlugin, window_plugin};
 use drs_history::HistoryPlugin;
 use drs_library_access::{LibraryAccessPlugin, register_library_source, register_thumbnail_source};
 use drs_library_manager::LibraryManagerPlugin;
-use drs_model::{EditorDirectories, ModelPlugin};
+use drs_model::{CaughtPanics, EditorDirectories, ModelPlugin};
 use drs_project_manager::ProjectManagerPlugin;
 use drs_render_engine::RenderEnginePlugin;
 
@@ -30,7 +30,8 @@ const PRODUCT: Product = Product {
 /// rooted at. The `lib://` and `thumb://` asset sources are registered before Bevy's
 /// `AssetPlugin` builds, since sources freeze then, and `.meta` lookups are off because Asset
 /// Folders never hold them. The window is the one the Editor describes, so what the Editor needs
-/// of it holds by construction.
+/// of it holds by construction. Background threads that catch their own panics mark themselves
+/// with the crash handler's marker, so such a panic is logged rather than reported as a crash.
 fn main() -> AppExit {
     let directories = directories();
     let logs = drs_diagnostics::log_directory(directories.resolve().ok().map(|found| found.logs));
@@ -72,7 +73,8 @@ fn main() -> AppExit {
         RenderEnginePlugin,
         EditorPlugin::new(started),
     ));
-    app.insert_resource(directories);
+    app.insert_resource(directories)
+        .insert_resource(CaughtPanics(drs_diagnostics::mark_panics_caught));
     drs_diagnostics::run_guarded(|| app.run())
 }
 

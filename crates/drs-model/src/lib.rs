@@ -5,6 +5,7 @@ mod directories;
 mod element;
 mod file;
 mod messages;
+mod panics;
 mod project;
 mod resolution;
 mod serialisation;
@@ -29,6 +30,7 @@ pub use messages::{
     OpenProject, OpenReport, PlaceElement, ProjectOpened, ProjectRefused, ProjectRequest,
     ProjectSaved, Redo, RemoveElement, SaveProject, ThumbnailsUnavailable, Undo, UnknownKind,
 };
+pub use panics::CaughtPanics;
 pub use project::{Bounds, Grid, Layer, Level, Project};
 pub use resolution::{MissingReason, Resolution, ResolutionTable};
 pub use serialisation::{

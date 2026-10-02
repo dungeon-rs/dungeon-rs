@@ -45,6 +45,8 @@ be kept. [`EditorDirectories`](crate::EditorDirectories)
 overrides where the editor keeps its own files, so tests point them at
 temporary directories, and resolves the platform's directories where nothing
 overrides them, so every crate that writes the editor's own files asks it.
+[`CaughtPanics`](crate::CaughtPanics) is how a background thread that catches
+its own panics tells the crash handler so, which the Host puts in.
 
 Every component type here is written only by the systems of the crate that owns
 it; everyone else reads. The [`ModelPlugin`](crate::ModelPlugin) registers the

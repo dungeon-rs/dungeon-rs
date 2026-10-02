@@ -9,12 +9,13 @@ pub use source::{ThumbnailTable, register_thumbnail_source};
 
 use crate::{LibraryDirectories, LibraryError};
 use bevy_math::UVec2;
-use drs_model::FolderKey;
+use drs_model::{CaughtPanics, FolderKey};
 use generate::Made;
 use pack::{Digest, Record, Writer};
+use std::any::Any;
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::fs::File;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::mpsc::{Receiver, Sender, channel};
 use std::sync::{Arc, Condvar, Mutex, PoisonError, RwLock};
 use std::thread::JoinHandle;
@@ -325,8 +326,9 @@ struct Signal {
 
 /// Generates thumbnails in the background on a pool of threads of its own, half the available
 /// cores and at least one, so that it never competes with the asset system's decoding of
-/// thumbnails for display. Dropping it stops its threads after the thumbnails in flight and
-/// writes out what they made.
+/// thumbnails for display. A panic while making one thumbnail makes that Asset broken and
+/// leaves the thread serving the rest. Dropping it stops its threads after the thumbnails in
+/// flight and writes out what they made.
 pub struct ThumbnailGenerator {
     /// The queue the threads serve.
     signal: Arc<Signal>,
@@ -343,14 +345,29 @@ pub struct ThumbnailGenerator {
 }
 
 impl ThumbnailGenerator {
-    /// Starts the threads, idle until Assets are enqueued.
+    /// Starts the threads, idle until Assets are enqueued; each marks itself with `caught` while
+    /// it makes a thumbnail, since it catches a panic in doing so itself.
     ///
     /// # Errors
     ///
     /// [`LibraryError::Io`] when not a single thread can be started.
-    pub fn start(cache: &ThumbnailCache) -> Result<Self, LibraryError> {
+    pub fn start(cache: &ThumbnailCache, caught: CaughtPanics) -> Result<Self, LibraryError> {
         let count =
             std::thread::available_parallelism().map_or(1, |cores| (cores.get() / 2).max(1));
+        Self::start_with(cache, count, generate::make, caught)
+    }
+
+    /// Starts `count` threads that make each thumbnail with `make`.
+    ///
+    /// # Errors
+    ///
+    /// [`LibraryError::Io`] when not a single thread can be started.
+    fn start_with(
+        cache: &ThumbnailCache,
+        count: usize,
+        make: Maker,
+        caught: CaughtPanics,
+    ) -> Result<Self, LibraryError> {
         let signal = Arc::new(Signal::default());
         let (sender, receiver) = channel();
         let pending = Arc::new(Mutex::new(Vec::new()));
@@ -362,6 +379,8 @@ impl ThumbnailGenerator {
                 shared: Arc::clone(&cache.shared),
                 pending: Arc::clone(&pending),
                 completions: sender.clone(),
+                make,
+                caught,
             };
             match std::thread::Builder::new()
                 .name(format!("thumbnails-{index}"))
@@ -446,6 +465,9 @@ impl Drop for ThumbnailGenerator {
     }
 }
 
+/// What makes one thumbnail out of an image file.
+type Maker = fn(&Path) -> std::io::Result<Made>;
+
 /// One of the generator's threads.
 struct Worker {
     /// The queue.
@@ -456,13 +478,17 @@ struct Worker {
     pending: Arc<Mutex<Vec<Completed>>>,
     /// Where completions go.
     completions: Sender<ThumbnailCompletion>,
+    /// What makes each thumbnail.
+    make: Maker,
+    /// What tells the crash handler that the thread catches its own panics.
+    caught: CaughtPanics,
 }
 
 impl Worker {
     /// Generates thumbnails until the generator stops or the cache fails.
     fn run(self) {
         while let Some(job) = self.next() {
-            let made = generate::make(&job.file);
+            let made = self.make_caught(&job.file);
             let mut writer = self
                 .shared
                 .writer
@@ -516,6 +542,27 @@ impl Worker {
         }
     }
 
+    /// Makes the thumbnail of `file`; a panic in doing so is caught and makes the Asset broken,
+    /// so that one file that brings its decoder down costs neither the thread nor the queue.
+    ///
+    /// # Errors
+    ///
+    /// The error of reading the file.
+    fn make_caught(&self, file: &Path) -> std::io::Result<Made> {
+        let make = self.make;
+        (self.caught.0)(true);
+        let outcome = std::panic::catch_unwind(|| make(file));
+        (self.caught.0)(false);
+        outcome.unwrap_or_else(|payload| {
+            let reason = panic_reason(payload.as_ref());
+            log::warn!(
+                "{} has no thumbnail: decoding it panicked: {reason}",
+                file.display()
+            );
+            Ok(Made::Broken(format!("decoding it panicked: {reason}")))
+        })
+    }
+
     /// The next Asset to generate, waiting for one; `None` once the generator stops.
     fn next(&self) -> Option<ThumbnailJob> {
         let mut work = self.work();
@@ -543,6 +590,17 @@ impl Worker {
     }
 }
 
+/// What a panic said, as far as it said it in words.
+fn panic_reason(payload: &(dyn Any + Send)) -> String {
+    if let Some(reason) = payload.downcast_ref::<&str>() {
+        (*reason).to_owned()
+    } else if let Some(reason) = payload.downcast_ref::<String>() {
+        reason.clone()
+    } else {
+        "no reason given".to_owned()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     #![expect(
@@ -550,10 +608,17 @@ mod tests {
         reason = "a test stops at the first thing that is not as expected"
     )]
 
-    use super::{Queue, ThumbnailJob, ThumbnailKey};
-    use drs_model::FolderKey;
-    use std::path::PathBuf;
-    use std::time::Duration;
+    use super::{
+        Made, Queue, ThumbnailCache, ThumbnailCompletion, ThumbnailGenerator, ThumbnailJob,
+        ThumbnailKey, ThumbnailOutcome, ThumbnailTable,
+    };
+    use crate::LibraryDirectories;
+    use bevy_math::UVec2;
+    use drs_model::{CaughtPanics, FolderKey};
+    use std::cell::Cell;
+    use std::path::{Path, PathBuf};
+    use std::sync::atomic::{AtomicBool, Ordering};
+    use std::time::{Duration, Instant};
 
     /// An Asset of the folder `maps` at `place`.
     fn job(place: &str) -> ThumbnailJob {
@@ -587,5 +652,78 @@ mod tests {
 
         assert_eq!(drain(&mut queue), vec!["d", "f", "b", "c", "e"]);
         assert!(queue.is_empty());
+    }
+
+    thread_local! {
+        /// Whether the thread is marked as catching its own panics.
+        static MARKED: Cell<bool> = const { Cell::new(false) };
+    }
+
+    /// Whether the thread that panicked was marked when it did.
+    static MARKED_WHEN_PANICKING: AtomicBool = AtomicBool::new(false);
+
+    /// Marks the thread as the crash handler's marker would.
+    fn mark(caught: bool) {
+        MARKED.set(caught);
+    }
+
+    /// Makes a one-pixel thumbnail, except for `panics.png`, whose decoder falls over.
+    #[expect(
+        clippy::unnecessary_wraps,
+        clippy::missing_errors_doc,
+        reason = "it stands in for the maker, which reads a file"
+    )]
+    fn make_or_panic(path: &Path) -> std::io::Result<Made> {
+        if path.ends_with("panics.png") {
+            MARKED_WHEN_PANICKING.store(MARKED.get(), Ordering::SeqCst);
+            panic!("the decoder fell over");
+        }
+        Ok(Made::Thumbnail {
+            bytes: vec![1, 2, 3],
+            width: 1,
+            height: 1,
+        })
+    }
+
+    /// A panic while decoding one file makes that Asset broken, on a thread marked as catching it,
+    /// and the thread carries on with the remaining thumbnails.
+    #[test]
+    fn a_decoder_panic_is_broken_and_the_rest_carry_on() {
+        let root = tempfile::TempDir::new().expect("temporary root");
+        let directories = LibraryDirectories {
+            configuration: root.path().join("configuration"),
+            cache: root.path().join("cache"),
+        };
+        let cache =
+            ThumbnailCache::open(&directories, &ThumbnailTable::default()).expect("the cache");
+        let generator =
+            ThumbnailGenerator::start_with(&cache, 1, make_or_panic, CaughtPanics(mark))
+                .expect("the thread");
+
+        generator.enqueue(["a.png", "panics.png", "b.png"].map(job));
+
+        let start = Instant::now();
+        let mut finished = Vec::new();
+        while finished.len() < 3 {
+            assert!(start.elapsed() < Duration::from_secs(30), "{finished:?}");
+            for completion in generator.completions() {
+                if let ThumbnailCompletion::Finished { key, outcome } = completion {
+                    finished.push((key.place, outcome));
+                }
+            }
+            std::thread::sleep(Duration::from_millis(2));
+        }
+        finished.sort_by(|a, b| a.0.cmp(&b.0));
+        let ready = ThumbnailOutcome::Ready(UVec2::ONE);
+        assert_eq!(
+            finished,
+            vec![
+                ("a.png".to_owned(), ready.clone()),
+                ("b.png".to_owned(), ready),
+                ("panics.png".to_owned(), ThumbnailOutcome::Broken),
+            ]
+        );
+        assert!(MARKED_WHEN_PANICKING.load(Ordering::SeqCst));
+        assert!(!MARKED.get(), "the test thread was never marked");
     }
 }

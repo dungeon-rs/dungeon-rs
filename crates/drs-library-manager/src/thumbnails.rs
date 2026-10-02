@@ -12,8 +12,8 @@ use drs_library_access::{
     ThumbnailKey, ThumbnailLookup, ThumbnailOutcome, ThumbnailTable,
 };
 use drs_model::{
-    AssetFolder, Browse, EditorDirectories, FolderKey, IndexedAsset, ThumbnailState, Thumbnails,
-    ThumbnailsUnavailable,
+    AssetFolder, Browse, CaughtPanics, EditorDirectories, FolderKey, IndexedAsset, ThumbnailState,
+    Thumbnails, ThumbnailsUnavailable,
 };
 use std::collections::BTreeMap;
 
@@ -34,9 +34,15 @@ pub(crate) fn open(world: &mut World) {
         .cloned()
         .unwrap_or_default();
     let table = world.get_resource_or_init::<ThumbnailTable>().clone();
+    let caught = world
+        .get_resource::<CaughtPanics>()
+        .copied()
+        .unwrap_or_default();
     let opened = LibraryDirectories::resolve(&overrides)
         .and_then(|directories| ThumbnailCache::open(&directories, &table))
-        .and_then(|cache| ThumbnailGenerator::start(&cache).map(|generator| (cache, generator)));
+        .and_then(|cache| {
+            ThumbnailGenerator::start(&cache, caught).map(|generator| (cache, generator))
+        });
     match opened {
         Ok((cache, generator)) => {
             world.insert_resource(ThumbnailWork {
