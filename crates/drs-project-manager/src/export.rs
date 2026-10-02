@@ -350,18 +350,20 @@ impl Export {
 
     /// The lower-left corner, in cells, of the square of the Level a tile shows: the tile's
     /// column from the Bounds' left edge, and its row down from the Bounds' top edge.
+    ///
+    /// The corner is counted in whole pixels from the Bounds' lower-left corner and divided by
+    /// the resolution once per axis, so every tile's edge lands where the image's pixel grid
+    /// says, whether or not the resolution divides the tile size; the bottom row of tiles may
+    /// reach below the Bounds.
     fn bottom_left(&self, tile: u32) -> Vec2 {
         let (x, y) = self.pixel_corner(tile);
+        let left = i64::from(x);
+        let bottom = i64::from(self.height) - i64::from(y) - i64::from(self.tile_size);
         #[expect(
             clippy::cast_precision_loss,
             reason = "an image is far fewer pixels a side than f32 counts exactly"
         )]
-        let cells = |pixels: u32| pixels as f32 / self.pixels_per_cell as f32;
-        let origin = self.bounds.origin.as_vec2();
-        let height = cells(self.height);
-        Vec2::new(
-            origin.x + cells(x),
-            origin.y + height - cells(y.saturating_add(self.tile_size)),
-        )
+        let cells = |pixels: i64| pixels as f32 / self.pixels_per_cell as f32;
+        self.bounds.origin.as_vec2() + Vec2::new(cells(left), cells(bottom))
     }
 }
