@@ -55,7 +55,10 @@ impl Plugin for EditorPlugin {
             );
         #[cfg(feature = "dev")]
         {
-            app.add_systems(Update, screenshot::screenshot);
+            if let Some(path) = screenshot::ScreenshotPath::from_environment() {
+                app.insert_resource(path)
+                    .add_systems(Update, screenshot::screenshot);
+            }
             if let Some(forced) = crash_test::ForcedCrash::from_environment() {
                 app.insert_resource(forced)
                     .add_systems(Update, crash_test::on_second_frame);
