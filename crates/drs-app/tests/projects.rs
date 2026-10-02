@@ -1940,10 +1940,9 @@ impl SavedPortals {
     }
 }
 
-/// Saved with its anchor: a saved Portal holds its image's Asset Reference, its width, its
-/// position, rotation, and mirroring, and its anchor with the Wall's `ElementId`, segment,
-/// parameter, and side, and reopens the same: set into the same place of the same Wall, or
-/// freestanding where it was.
+/// A saved Portal holds its image's Asset Reference, its width, its position, rotation, and
+/// mirroring, and its anchor with the Wall's `ElementId`, segment, parameter, and side, and reopens
+/// the same: set into the same place of the same Wall, or freestanding where it was.
 #[test]
 fn portals_are_saved_with_their_anchor() {
     let mut saved = SavedPortals::new();
@@ -1992,10 +1991,9 @@ fn portals_are_saved_with_their_anchor() {
     );
 }
 
-/// A lost Wall leaves the Portal standing: a Portal whose anchor names a segment its Wall does
-/// not have, as an editor that does not know Portals may leave it, is drawn at its saved
-/// position, rotation, and mirroring, makes no Wall give way, is saved back unchanged, and can
-/// be freed.
+/// A Portal whose anchor names a segment its Wall does not have, as an editor that does not know
+/// Portals may leave it, is drawn at its saved position, rotation, and mirroring, makes no Wall
+/// give way, is saved back unchanged, and can be freed.
 #[test]
 fn a_lost_wall_leaves_the_portal_standing() {
     let mut saved = SavedPortals::new();

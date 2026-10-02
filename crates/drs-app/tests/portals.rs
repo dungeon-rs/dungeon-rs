@@ -437,10 +437,10 @@ fn assert_close(found: f32, expected: f32, what: &str) {
 /// An L-shaped Wall: four cells along the x axis, then four up.
 const CORNER: [Vec2; 3] = [Vec2::ZERO, Vec2::new(4.0, 0.0), Vec2::new(4.0, 4.0)];
 
-/// A Portal is an image with a width: it shows an image Asset at a width in cells, with a height
-/// that keeps the image's proportions, and is either freestanding, with a position, a rotation,
-/// and whether it is mirrored, or set into a Wall, anchored by that Wall's `ElementId`, one of its
-/// segments, a parameter along that segment, and a side.
+/// A Portal shows an image Asset at a width in cells, with a height that keeps the image's
+/// proportions, and is either freestanding, with a position, a rotation, and whether it is
+/// mirrored, or set into a Wall, anchored by that Wall's `ElementId`, one of its segments, a
+/// parameter along that segment, and a side.
 #[test]
 fn a_portal_is_an_image_with_a_width() {
     let mut fixture = Fixture::new();
@@ -487,8 +487,8 @@ fn a_portal_is_an_image_with_a_width() {
     );
 }
 
-/// Natural width: a placed Portal's width and height are its image's pixel width and height
-/// divided by the Grid's 256 pixels per cell.
+/// A placed Portal's width and height are its image's pixel width and height divided by the Grid's
+/// 256 pixels per cell.
 #[test]
 fn natural_width() {
     let mut fixture = Fixture::new();
@@ -503,10 +503,9 @@ fn natural_width() {
     }
 }
 
-/// Set Portals stand on the line: a Portal set into a Wall is centred on the point of its
-/// segment at its parameter, with its width along the segment's direction there and its image's
-/// top facing its side: drawn as it is when it faces the left, mirrored across the Wall's line
-/// when it faces the right.
+/// A Portal set into a Wall is centred on the point of its segment at its parameter, with its width
+/// along the segment's direction there and its image's top facing its side: drawn as it is when it
+/// faces the left, mirrored across the Wall's line when it faces the right.
 #[test]
 fn set_portals_stand_on_the_line() {
     let mut fixture = Fixture::new();
@@ -555,9 +554,9 @@ fn set_portals_stand_on_the_line() {
     assert!(!fixture.portal(up).portal.mirrored, "flipped to the left");
 }
 
-/// A Portal covers its width: a Portal set into a Wall covers the stretch of the Wall's line
-/// that reaches half its width either way from its centre, measured along the line and across
-/// the Wall's points, and stopping at the Wall's ends.
+/// A Portal set into a Wall covers the stretch of the Wall's line that reaches half its width
+/// either way from its centre, measured along the line and across the Wall's points, and stopping
+/// at the Wall's ends.
 #[test]
 fn a_portal_covers_its_width() {
     let mut fixture = Fixture::new();
@@ -589,9 +588,8 @@ fn a_portal_covers_its_width() {
     assert_close(stretch.end.t, 0.1875, "a cell after the centre");
 }
 
-/// Placed into a Wall at once: a Place Element of a Portal with an anchor places the Portal
-/// already set into the Wall, as one history step that undo takes away whole and redo brings
-/// back set into the same place.
+/// A Place Element of a Portal with an anchor places the Portal already set into the Wall, as one
+/// history step that undo takes away whole and redo brings back set into the same place.
 #[test]
 fn placed_into_a_wall_at_once() {
     let mut fixture = Fixture::new();
@@ -614,9 +612,9 @@ fn placed_into_a_wall_at_once() {
     assert_eq!(fixture.shape(wall).stretches.len(), 1);
 }
 
-/// Set into a Wall: a Set Portal into Wall anchors a Portal, freestanding or set into any Wall,
-/// to the given Wall, segment, parameter, and side, as one history step that undo returns to the
-/// anchor, position, rotation, and mirroring it had.
+/// A Set Portal into Wall anchors a Portal, freestanding or set into any Wall, to the given Wall,
+/// segment, parameter, and side, as one history step that undo returns to the anchor, position,
+/// rotation, and mirroring it had.
 #[test]
 fn set_into_a_wall() {
     let mut fixture = Fixture::new();
@@ -671,9 +669,9 @@ fn set_into_a_wall() {
     assert!(fixture.shape(first).stretches.is_empty());
 }
 
-/// Freed where it stands: a Free Portal makes a Portal set into a Wall freestanding with the
-/// position, rotation, and mirroring it had, so nothing moves on the Level and its Wall is drawn
-/// whole again, as one history step that undo returns to the same anchor.
+/// A Free Portal makes a Portal set into a Wall freestanding with the position, rotation, and
+/// mirroring it had, so nothing moves on the Level and its Wall is drawn whole again, as one
+/// history step that undo returns to the same anchor.
 #[test]
 fn freed_where_it_stands() {
     let mut fixture = Fixture::new();
@@ -703,11 +701,11 @@ fn freed_where_it_stands() {
     assert_eq!(fixture.shape(wall).stretches.len(), 1);
 }
 
-/// Refused anchors: a Set Portal into Wall or a Place Element of a Portal whose anchor names an
-/// Element that is not a Wall, a Wall on another Level, a segment the Wall does not have, or a
-/// parameter outside 0 to 1, a Free Portal of a freestanding Portal, and a Set Portal into Wall
-/// or Free Portal of an Element that is not a Portal are answered with the reason, change
-/// nothing, record no history step, and add no Asset Reference to the Project.
+/// A Set Portal into Wall or a Place Element of a Portal whose anchor names an Element that is not
+/// a Wall, a Wall on another Level, a segment the Wall does not have, or a parameter outside 0 to
+/// 1, a Free Portal of a freestanding Portal, and a Set Portal into Wall or Free Portal of an
+/// Element that is not a Portal are answered with the reason, change nothing, record no history
+/// step, and add no Asset Reference to the Project.
 #[test]
 fn refused_anchors() {
     let mut fixture = Fixture::new();
@@ -749,9 +747,9 @@ fn refused_anchors() {
     }));
 }
 
-/// Sliding along the Wall: an Edit Element changing a set Portal's segment and parameter moves
-/// it along its Wall with its side kept, and a drag of it records a single history step however
-/// long, which undo returns to where the drag began.
+/// An Edit Element changing a set Portal's segment and parameter moves it along its Wall with its
+/// side kept, and a drag of it records a single history step however long, which undo returns to
+/// where the drag began.
 #[test]
 fn sliding_along_the_wall() {
     let mut fixture = Fixture::new();
@@ -783,12 +781,11 @@ fn sliding_along_the_wall() {
     assert_eq!(fixture.portal(door), start, "where the drag began");
 }
 
-/// Portals stay editable: a Portal's width, a set Portal's side, and a freestanding Portal's
-/// position, rotation, and mirroring are each changed through Edit Element, every change a step
-/// of its own outside a drag; a width not above zero, a segment or parameter its Wall does not
-/// have, a position, rotation, or mirroring of a set Portal, and a side or a place along a Wall
-/// of a freestanding Portal are refused with the reason, change nothing, and record no history
-/// step.
+/// A Portal's width, a set Portal's side, and a freestanding Portal's position, rotation, and
+/// mirroring are each changed through Edit Element, every change a step of its own outside a drag;
+/// a width not above zero, a segment or parameter its Wall does not have, a position, rotation, or
+/// mirroring of a set Portal, and a side or a place along a Wall of a freestanding Portal are
+/// refused with the reason, change nothing, and record no history step.
 #[test]
 fn portals_stay_editable() {
     let mut fixture = Fixture::new();
@@ -835,8 +832,8 @@ fn portals_stay_editable() {
     }
 }
 
-/// Removed Portals return set: undoing the removal of a Portal set into a Wall restores it with
-/// its `ElementId`, its anchor, and its place in the stacking order, and its Wall gives way again.
+/// Undoing the removal of a Portal set into a Wall restores it with its `ElementId`, its anchor,
+/// and its place in the stacking order, and its Wall gives way again.
 #[test]
 fn removed_portals_return_set() {
     let mut fixture = Fixture::new();
@@ -860,9 +857,9 @@ fn removed_portals_return_set() {
     );
 }
 
-/// Moves with its Wall: moving a Wall, moving a point, setting or unsetting a control point, and
-/// changing the thickness or the colour change no Portal's segment, parameter, or side; each
-/// Portal set into the Wall stands at its parameter on its segment as the segment now is.
+/// Moving a Wall, moving a point, setting or unsetting a control point, and changing the thickness
+/// or the colour change no Portal's segment, parameter, or side; each Portal set into the Wall
+/// stands at its parameter on its segment as the segment now is.
 #[test]
 fn moves_with_its_wall() {
     let mut fixture = Fixture::new();
@@ -972,10 +969,9 @@ fn moves_with_its_wall() {
     assert_eq!(fixture.anchor(door), anchor, "the anchor never changed");
 }
 
-/// Adding a point keeps Portals in place: adding a point on segment k at parameter s moves a
-/// Portal on segment k at a parameter t below s to t / s on segment k, one at or above s to
-/// (t − s) / (1 − s) on segment k + 1, and every Portal on a later segment one segment on, in
-/// the same history step, so no Portal moves on the Level.
+/// Adding a point on segment k at parameter s moves a Portal on segment k at a parameter t below s
+/// to t / s on segment k, one at or above s to (t − s) / (1 − s) on segment k + 1, and every Portal
+/// on a later segment one segment on, in the same history step, so no Portal moves on the Level.
 #[test]
 fn adding_a_point_keeps_portals_in_place() {
     let mut fixture = Fixture::new();
@@ -1035,11 +1031,11 @@ fn adding_a_point_keeps_portals_in_place() {
     );
 }
 
-/// Removing a point carries the Portals beside it: removing an inner point moves each Portal on
-/// the two segments it joins whose stretch does not cover it onto the joined segment, at the
-/// share of the two segments' combined length that lay before the Portal's centre, and every
-/// Portal on a later segment one segment back; removing the first point moves every Portal on a
-/// remaining segment one segment back; all in the same history step.
+/// Removing an inner point moves each Portal on the two segments it joins whose stretch does not
+/// cover it onto the joined segment, at the share of the two segments' combined length that lay
+/// before the Portal's centre, and every Portal on a later segment one segment back; removing the
+/// first point moves every Portal on a remaining segment one segment back; all in the same history
+/// step.
 #[test]
 fn removing_a_point_carries_the_portals_beside_it() {
     let mut fixture = Fixture::new();
@@ -1086,9 +1082,8 @@ fn removing_a_point_carries_the_portals_beside_it() {
     );
 }
 
-/// Gone with its part of the Wall: a Portal whose stretch covers an inner point being removed is
-/// removed in the same history step, which undo restores whole; the Author is told how many
-/// Portals were removed.
+/// A Portal whose stretch covers an inner point being removed is removed in the same history step,
+/// which undo restores whole; the Author is told how many Portals were removed.
 #[test]
 fn gone_with_a_covered_point() {
     let mut fixture = Fixture::new();
@@ -1118,8 +1113,8 @@ fn gone_with_a_covered_point() {
     assert_eq!(fixture.state(), before, "restored whole");
 }
 
-/// Gone with its part of the Wall: a Portal on the segment that removing an end point takes away
-/// is removed in the same history step, which undo restores whole; the Author is told.
+/// A Portal on the segment that removing an end point takes away is removed in the same history
+/// step, which undo restores whole; the Author is told.
 #[test]
 fn gone_with_an_end_segment() {
     let mut fixture = Fixture::new();
@@ -1143,8 +1138,8 @@ fn gone_with_an_end_segment() {
     assert_eq!(fixture.state(), before);
 }
 
-/// Gone with its part of the Wall: every Portal set into a Wall removed by Remove Element is
-/// removed in the same history step, which undo restores whole; the Author is told how many.
+/// Every Portal set into a Wall removed by Remove Element is removed in the same history step,
+/// which undo restores whole; the Author is told how many.
 #[test]
 fn gone_with_the_wall() {
     let mut fixture = Fixture::new();
@@ -1183,9 +1178,8 @@ fn gone_with_the_wall() {
     assert_eq!(fixture.shape(wall).stretches.len(), 2);
 }
 
-/// Gone with its part of the Wall: removing a point of a two-point Wall removes the Wall and
-/// every Portal set into it in the same history step, which undo restores whole; the Author is
-/// told.
+/// Removing a point of a two-point Wall removes the Wall and every Portal set into it in the same
+/// history step, which undo restores whole; the Author is told.
 #[test]
 fn gone_with_a_two_point_wall() {
     let mut fixture = Fixture::new();
@@ -1210,8 +1204,7 @@ fn gone_with_a_two_point_wall() {
     assert_eq!(fixture.shape(wall).stretches.len(), 1);
 }
 
-/// Freestanding Portals stay put: no edit of any Wall moves, turns, or removes a freestanding
-/// Portal.
+/// No edit of any Wall moves, turns, or removes a freestanding Portal.
 #[test]
 fn freestanding_portals_stay_put() {
     let mut fixture = Fixture::new();
@@ -1242,9 +1235,8 @@ fn freestanding_portals_stay_put() {
     assert!(fixture.removed().is_empty());
 }
 
-/// No direction keeps the rotation: a Portal set into a Wall at a place where its segment has no
-/// direction, a segment of no length or a curve whose control point lies on its end, keeps the
-/// rotation it had.
+/// A Portal set into a Wall at a place where its segment has no direction, a segment of no length
+/// or a curve whose control point lies on its end, keeps the rotation it had.
 #[test]
 fn no_direction_keeps_the_rotation() {
     let mut fixture = Fixture::new();
@@ -1288,8 +1280,8 @@ fn no_direction_keeps_the_rotation() {
     assert_close(pinched.portal.rotation, FRAC_PI_2, "the angle it had");
 }
 
-/// Placement records a reference: placing a Prop or a Portal records in the Project an Asset
-/// Reference; placing a second Element of the same Asset adds no second Asset Reference.
+/// Placing a Prop or a Portal records in the Project an Asset Reference; placing a second Element
+/// of the same Asset adds no second Asset Reference.
 #[test]
 fn portals_record_a_reference() {
     let mut fixture = Fixture::new();
@@ -1305,9 +1297,8 @@ fn portals_record_a_reference() {
     assert_eq!(fixture.references().assets.len(), 1, "no second reference");
 }
 
-/// Placement records the folder: the first Prop or Portal placed from an Asset Folder records
-/// that folder's Canonical Name and version in the Project; later Elements from the same folder
-/// add no second record.
+/// The first Prop or Portal placed from an Asset Folder records that folder's Canonical Name and
+/// version in the Project; later Elements from the same folder add no second record.
 #[test]
 fn portals_record_the_folder() {
     let mut fixture = Fixture::new();
@@ -1320,9 +1311,8 @@ fn portals_record_the_folder() {
     assert_eq!(fixture.references().folders, folders);
 }
 
-/// One history: Place Element, Edit Element, Remove Element, Set Portal into Wall, and Free
-/// Portal are each one undo step, and undo walks back through them in the order they were
-/// applied.
+/// Place Element, Edit Element, Remove Element, Set Portal into Wall, and Free Portal are each one
+/// undo step, and undo walks back through them in the order they were applied.
 #[test]
 fn portal_commands_share_the_history() {
     let mut fixture = Fixture::new();
@@ -1374,8 +1364,8 @@ fn portal_commands_share_the_history() {
     }
 }
 
-/// Redo repeats exactly: redoing a Place Element, Edit Element, Remove Element, Set Portal into
-/// Wall, or Free Portal leaves the Level as it was before the undo.
+/// Redoing a Place Element, Edit Element, Remove Element, Set Portal into Wall, or Free Portal
+/// leaves the Level as it was before the undo.
 #[test]
 fn portal_commands_redo_exactly() {
     let mut fixture = Fixture::new();

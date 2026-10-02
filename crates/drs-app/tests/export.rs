@@ -1137,9 +1137,9 @@ fn anchored(host: ElementId, segment: usize, t: f32, side: Side) -> PortalAnchor
     }
 }
 
-/// The Wall gives way: a Wall is not drawn along any stretch a Portal set into it covers; at each
-/// end of such a stretch the stroke ends squarely across the line. A Portal shorter than the
-/// Wall is thick stands in a gap with the background beside it.
+/// A Wall is not drawn along any stretch a Portal set into it covers; at each end of such a stretch
+/// the stroke ends squarely across the line. A Portal shorter than the Wall is thick stands in a
+/// gap with the background beside it.
 #[test]
 fn a_wall_gives_way_to_its_portal() {
     let mut fixture = Fixture::new();
@@ -1179,8 +1179,8 @@ fn a_wall_gives_way_to_its_portal() {
     assert_eq!(at(4.2, 15.0), YELLOW_PIXEL, "the Wall's own cap");
 }
 
-/// The Wall gives way across a point: a Portal across a point of a Wall leaves out both
-/// segments within its stretch, the join at the point included.
+/// A Portal across a point of a Wall leaves out both segments within its stretch, the join at the
+/// point included.
 #[test]
 fn a_gap_follows_the_corner() {
     let mut fixture = Fixture::new();
@@ -1219,9 +1219,8 @@ fn a_gap_follows_the_corner() {
     );
 }
 
-/// Set Portals stand on the line: a Portal set into a Wall is turned to the Wall's direction
-/// with its image's top facing its side, drawn as it is facing the left and mirrored across the
-/// line facing the right.
+/// A Portal set into a Wall is turned to the Wall's direction with its image's top facing its side,
+/// drawn as it is facing the left and mirrored across the line facing the right.
 #[test]
 fn a_portal_faces_its_side() {
     let mut fixture = Fixture::new();
@@ -1266,8 +1265,8 @@ fn a_portal_faces_its_side() {
     assert_eq!(at(14.7, 15.0), PURPLE_PIXEL, "the bottom to the left");
 }
 
-/// Freestanding like a Prop: a freestanding Portal is drawn centred on its position, turned
-/// counter-clockwise by its rotation.
+/// A freestanding Portal is drawn centred on its position, turned counter-clockwise by its
+/// rotation.
 #[test]
 fn a_freestanding_portal_is_turned() {
     let mut fixture = Fixture::new();
@@ -1292,8 +1291,8 @@ fn a_freestanding_portal_is_turned() {
     );
 }
 
-/// Portals stack like Elements: every Portal is drawn at its place in the stacking order,
-/// Portals that overlap each other included, and the Wall is left out along what either covers.
+/// Every Portal is drawn at its place in the stacking order, Portals that overlap each other
+/// included, and the Wall is left out along what either covers.
 #[test]
 fn overlapping_portals_stack() {
     let mut fixture = Fixture::new();
