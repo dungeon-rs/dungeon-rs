@@ -173,6 +173,9 @@ impl ElementKindRegistry {
 
     /// Forgets a kind, as an editor that never knew it would, returning its descriptor if it was
     /// known.
+    ///
+    /// The editor itself never forgets a kind; tests use this to stand in for an older editor
+    /// without it.
     pub fn remove(&mut self, name: &ElementKindName) -> Option<ElementKindDescriptor> {
         self.kinds.remove(name)
     }

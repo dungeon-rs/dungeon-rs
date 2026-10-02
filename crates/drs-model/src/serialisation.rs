@@ -260,6 +260,9 @@ impl SerialisationRegistry {
     /// Forgets the component registered under `name`, as an editor that never knew it would, so
     /// its envelopes are kept verbatim from then on. Returns whether a component was registered
     /// under the name.
+    ///
+    /// The editor itself never forgets a component; tests use this to stand in for an older
+    /// editor without it.
     pub fn remove(&mut self, name: &str) -> bool {
         self.entries.remove(name).is_some()
     }
