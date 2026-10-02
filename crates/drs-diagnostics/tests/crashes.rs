@@ -31,6 +31,9 @@ struct Fixture {
     logs: PathBuf,
     /// The log file entries go to.
     log_file: PathBuf,
+    /// The UTC day the log file was named for; a test comparing the file gives up when the
+    /// day has changed since, rather than fail at midnight.
+    day: time::Date,
 }
 
 /// The fixture, made once.
@@ -65,6 +68,7 @@ fn setup() -> (&'static Fixture, MutexGuard<'static, ()>) {
             _root: root,
             logs,
             log_file,
+            day: time::OffsetDateTime::now_utc().date(),
         }
     });
     (fixture, turn)
@@ -152,7 +156,9 @@ fn the_report_holds_each_field_under_its_heading() {
     assert!(section("Location").contains("crashes.rs"), "{text}");
     assert_eq!(section("Thread"), "worker");
     assert!(!section("Backtrace").is_empty(), "{text}");
-    assert_eq!(section("Log file"), fixture.log_file.display().to_string());
+    if time::OffsetDateTime::now_utc().date() == fixture.day {
+        assert_eq!(section("Log file"), fixture.log_file.display().to_string());
+    }
 }
 
 /// The report holds no environment variables, no user name, and no host name.
@@ -180,6 +186,9 @@ fn a_crash_is_logged() {
     crash_on_a_thread(message.clone());
 
     let (path, _) = report_holding(&fixture.logs, &message);
+    if time::OffsetDateTime::now_utc().date() != fixture.day {
+        return;
+    }
     let log = fs::read_to_string(&fixture.log_file).expect("the log file");
     let entry = log
         .lines()
@@ -202,10 +211,12 @@ fn the_report_comes_first() {
     let pending = announce_pending().expect("the report left pending");
     assert_eq!(pending.path, path);
     assert_eq!(pending.message, message);
-    assert_eq!(
-        pending.log_file.as_deref(),
-        Some(fixture.log_file.as_path())
-    );
+    if time::OffsetDateTime::now_utc().date() == fixture.day {
+        assert_eq!(
+            pending.log_file.as_deref(),
+            Some(fixture.log_file.as_path())
+        );
+    }
     assert!(announce_pending().is_none());
 }
 

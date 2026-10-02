@@ -8,8 +8,9 @@
 )]
 
 use drs_diagnostics::{
-    BundledFilesNotFound, DEFAULT_LEVEL, KEPT_LOG_FILES, LogDirectives, LoggingError,
-    log_directives, log_start, start_logging, take_layer,
+    BUNDLE_MARKER, BundledFilesNotFound, DEFAULT_LEVEL, KEPT_LOG_FILES, LogDirectives,
+    LoggingError, locate_bundled_files, log_directives, log_directory, log_start, start_logging,
+    take_layer,
 };
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -29,7 +30,8 @@ fn subscriber(
     (file, tracing::subscriber::set_default(subscriber))
 }
 
-/// Today's UTC date as the file name carries it.
+/// Today's UTC date as the file name carries it. A test that names the day takes it before
+/// starting and gives up when it has changed since, rather than fail at midnight.
 fn today() -> String {
     let format = time::macros::format_description!("[year]-[month]-[day]");
     time::OffsetDateTime::now_utc()
@@ -67,20 +69,24 @@ fn log_files(directory: &Path) -> Vec<String> {
 fn entries_are_logged_to_the_dated_file() {
     let root = TempDir::new().expect("temporary root");
     let logs = root.path().join("logs");
+    let day = today();
     let (file, guard) = subscriber(&logs, log_directives(None));
 
     tracing::info!(target: "drs_test::module", "the first entry");
     tracing::warn!(target: "drs_test::module", "the second entry");
     drop(guard);
 
-    assert_eq!(file, logs.join(format!("dungeon-rs.{}.log", today())));
+    if today() != day {
+        return;
+    }
+    assert_eq!(file, logs.join(format!("dungeon-rs.{day}.log")));
     let text = fs::read_to_string(&file).expect("the log file");
     let first = text.lines().next().expect("a first line");
     assert!(first.contains("the first entry"), "{first}");
     assert!(first.contains(" INFO "), "{first}");
     assert!(first.contains("drs_test::module"), "{first}");
     assert!(
-        first.contains(&today()) && first.contains('T') && first.contains('Z'),
+        first.contains(&day) && first.contains('T') && first.contains('Z'),
         "{first}"
     );
     assert!(
@@ -123,15 +129,16 @@ fn a_week_of_files_is_kept() {
     }
     let report = logs.join("crash-2026-09-05T10-00-00Z.txt");
     fs::write(&report, "a report\n").expect("a crash report");
+    let day = today();
 
     let logging = start_logging(&logs, log_directives(None));
 
+    if today() != day {
+        return;
+    }
     let kept = log_files(&logs);
     assert_eq!(kept.len(), KEPT_LOG_FILES, "{kept:?}");
-    assert!(
-        kept.contains(&format!("dungeon-rs.{}.log", today())),
-        "{kept:?}"
-    );
+    assert!(kept.contains(&format!("dungeon-rs.{day}.log")), "{kept:?}");
     for day in 1..=4 {
         assert!(
             !kept.contains(&format!("dungeon-rs.2026-09-{day:02}.log")),
@@ -243,6 +250,22 @@ fn a_malformed_rust_log_falls_back_to_the_default() {
     assert!(text.contains("an info entry"), "{text}");
 }
 
+/// The log directory is the one the editor's directories resolved to; when they resolved to
+/// none, it is under the platform's temporary directory, never the working directory.
+#[test]
+fn the_log_directory_is_the_one_resolved_or_under_the_temporary_directory() {
+    let resolved = PathBuf::from("/editor/cache/logs");
+
+    assert_eq!(log_directory(Some(resolved.clone())), resolved);
+    let fallback = log_directory(None);
+    assert!(
+        fallback.starts_with(std::env::temp_dir()),
+        "{}",
+        fallback.display()
+    );
+    assert!(fallback.ends_with("logs"), "{}", fallback.display());
+}
+
 /// The first entry logged at start names the current log file's path.
 #[test]
 fn the_first_entry_names_the_log_file() {
@@ -262,4 +285,68 @@ fn the_first_entry_names_the_log_file() {
     assert!(first.contains(&file.display().to_string()), "{first}");
     assert_eq!(started.log_file.as_deref(), Some(file.as_path()));
     assert_eq!(started.logs, logs);
+}
+
+/// A bundle directory whose marker names a version other than the editor's is used, and the
+/// start logs a warning naming the directory and the version.
+#[test]
+fn a_marker_naming_another_version_is_logged_as_a_warning() {
+    let root = TempDir::new().expect("temporary root");
+    let editor = root.path().join("editor").join("dungeon-rs");
+    let bundle = root.path().join("editor").join("bundle");
+    fs::create_dir_all(&bundle).expect("the bundle directory");
+    fs::write(&editor, "").expect("the executable");
+    fs::write(bundle.join(BUNDLE_MARKER), "0.0.0\n").expect("the marker");
+    let found = locate_bundled_files(&editor, "0.0.1").expect("the Bundled Files");
+    let logging = start_logging(&root.path().join("logs"), log_directives(None));
+    let file = logging.file.clone().expect("a log file");
+    let _guard = tracing::subscriber::set_default(
+        tracing_subscriber::registry::Registry::default()
+            .with(take_layer().expect("the layer logging yields")),
+    );
+
+    let started = log_start(&logging, Ok(found));
+
+    assert_eq!(started.asset_root(), bundle);
+    let text = fs::read_to_string(&file).expect("the log file");
+    let warning = text
+        .lines()
+        .find(|line| line.contains(" WARN "))
+        .expect("a warning");
+    assert!(warning.contains(&bundle.display().to_string()), "{warning}");
+    assert!(warning.contains("0.0.0"), "{warning}");
+}
+
+/// When no location is marked, the start logs an error naming every location tried, and the
+/// asset root is the first of them, so nothing else is read.
+#[test]
+fn no_bundle_directory_is_logged_as_an_error_naming_every_location_tried() {
+    let root = TempDir::new().expect("temporary root");
+    let tried = vec![
+        root.path().join("editor").join("bundle"),
+        root.path().join("Resources"),
+    ];
+    let logging = start_logging(&root.path().join("logs"), log_directives(None));
+    let file = logging.file.clone().expect("a log file");
+    let _guard = tracing::subscriber::set_default(
+        tracing_subscriber::registry::Registry::default()
+            .with(take_layer().expect("the layer logging yields")),
+    );
+
+    let started = log_start(
+        &logging,
+        Err(BundledFilesNotFound {
+            tried: tried.clone(),
+        }),
+    );
+
+    assert_eq!(started.asset_root(), tried[0]);
+    let text = fs::read_to_string(&file).expect("the log file");
+    let error = text
+        .lines()
+        .find(|line| line.contains(" ERROR "))
+        .expect("an error");
+    for location in &tried {
+        assert!(error.contains(&location.display().to_string()), "{error}");
+    }
 }

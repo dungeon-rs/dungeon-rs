@@ -101,6 +101,9 @@ fn a_marker_naming_another_version_is_still_used() {
 }
 
 /// The bundle directory found does not depend on the directory the editor was started from.
+///
+/// The working directory is process-wide; the test runner gives each test its own process, so
+/// the change reaches no other test.
 #[test]
 fn the_working_directory_never_matters() {
     let root = TempDir::new().expect("temporary root");
