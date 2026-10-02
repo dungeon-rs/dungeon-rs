@@ -35,17 +35,19 @@ When the editor misbehaves, what it knew must survive the moment. This capabilit
 20. As an Author, I get the crash report written somewhere even when the log folder cannot be written, with the dialog naming where, so that a crash never goes unrecorded.
 21. As a contributor, I can read the crash and the report's path in the log as well, so that the log alone shows how a session ended.
 22. As a contributor, I can run the editor headless, in tests, or on a continuous-integration machine and get crash reports without a dialog, so that an automated run never waits for a click.
+23. As an Author, I get no crash report and no dialog for a panic that a background thread catches and recovers from itself, so that a crash report always means the editor crashed.
+24. As a contributor, I can read such a caught panic in the log, with its message, location, and thread, so that what a background thread survived is still on record.
 
 ### Bundled Files
 
-23. As an Author on Windows or Linux, I can run the editor from wherever it was unpacked, because it finds its Bundled Files beside its executable.
-24. As an Author on macOS, I can run the editor from the Applications folder, because it finds its Bundled Files inside its application.
-25. As a contributor, I can start the editor from the workspace and have it find the Bundled Files there, so that development needs no copying.
-26. As an Author, I can start the editor from any folder and have it find its Bundled Files, so that the working directory never matters.
-27. As an Author, I am told when the bundle directory cannot be found, with the places that were tried, while the editor starts anyway, so that a broken install explains itself instead of crashing.
-28. As a contributor, I get a report naming a Bundled File that is missing or unreadable when I look one up, never a crash, so that one lost file never takes the editor down.
-29. As an Author, I can rely on my Asset Folders never being read as Bundled Files and the Bundled Files never appearing as Assets, so that the two are never confused.
-30. As a contributor, I can rely on a Bundled File lookup never reaching outside the bundle directory, so that a bad name cannot read an arbitrary file.
+25. As an Author on Windows or Linux, I can run the editor from wherever it was unpacked, because it finds its Bundled Files beside its executable.
+26. As an Author on macOS, I can run the editor from the Applications folder, because it finds its Bundled Files inside its application.
+27. As a contributor, I can start the editor from the workspace and have it find the Bundled Files there, so that development needs no copying.
+28. As an Author, I can start the editor from any folder and have it find its Bundled Files, so that the working directory never matters.
+29. As an Author, I am told when the bundle directory cannot be found, with the places that were tried, while the editor starts anyway, so that a broken install explains itself instead of crashing.
+30. As a contributor, I get a report naming a Bundled File that is missing or unreadable when I look one up, never a crash, so that one lost file never takes the editor down.
+31. As an Author, I can rely on my Asset Folders never being read as Bundled Files and the Bundled Files never appearing as Assets, so that the two are never confused.
+32. As a contributor, I can rely on a Bundled File lookup never reaching outside the bundle directory, so that a bad name cannot read an arbitrary file.
 
 ## Rules
 
@@ -79,7 +81,7 @@ _Why_: the lines just before a crash are the ones a contributor needs, and a buf
 
 ### Crashes
 
-**A crash leaves a report**: a panic on any thread writes a crash report named `crash-<UTC timestamp>.txt` in the log directory before anything else is done about it, and never overwrites an earlier report.
+**A crash leaves a report**: a panic on any thread, except one caught on a thread marked as catching its own, writes a crash report named `crash-<UTC timestamp>.txt` in the log directory before anything else is done about it, and never overwrites an earlier report.
 
 **What the report holds**: the UTC timestamp, the editor's version, the operating system and architecture, the panic message, the source location, the name of the thread, a backtrace, and the path of the current log file, each under its own heading.
 
@@ -94,6 +96,9 @@ _Why_: the lines just before a crash are the ones a contributor needs, and a buf
 **Somewhere always**: when the log directory cannot be written, the report is written to the platform's temporary directory instead, and the dialog and the terminal name that path.
 
 **A crash is logged**: the panic message and the report's path are logged at `error` once the report is written.
+
+**A caught panic is only logged**: a panic on a thread that has marked itself as catching its own panics, while it is marked, is logged at `warn` with its message, its source location, and the name of the thread, and writes no crash report, shows no dialog, and leaves nothing to announce.
+_Why_: such a thread turns the panic into the failure of one job and carries on, so the editor has not crashed.
 
 **Dialogs can be off**: the crash handler can be installed without dialogs, and then writes and logs the report and shows nothing; tests install it that way.
 
@@ -126,6 +131,7 @@ _Why_ `\` and `:`: they are not the same path on every platform, so a name holdi
 - **The editor's directories**: the directory overrides in the model gained the log directory and resolve the platform's directories themselves, the log directory being `logs` under the cache directory unless named, so LibraryAccess and the Host share one resolver. The Host's development-only `DRS_DIRECTORIES` places every directory under that root. When the platform names no directories, the Utility names `dungeon-rs/logs` under the platform's temporary directory, so logging has somewhere to go.
 - **Logging**: a daily rolling file appender with a maximum of seven files, writing synchronously, over a directory the Utility creates before the appender is built. _Why_ create first: the appender logs an error of its own when the directory it prunes does not exist yet. The Utility prunes by the dates in the file names before the appender is built, to one fewer than the kept count with today's file counted when it already exists, since the appender prunes by file-creation time, which not every file system remembers, both when it is built and at midnight; so pruned, the appender finds fewer files than its maximum and deletes nothing at start. Dates roll on UTC, the appender's clock, and entries carry UTC timestamps for the same reason, so the log and the report never disagree. The file layer's filter is the default directives with those of `RUST_LOG` laid over them when it is well-formed, the more specific winning, which is how Bevy's log plugin reads the variable for the terminal, and the default directives alone otherwise; the Host hands the log plugin the Utility's default filter, so the terminal starts from the same directives as the file and the two agree. When logging goes to the terminal only, the first entry is a warning that says so and why.
 - **Crash handler**: a panic hook installed once per process, which records the thread it was installed on as the main thread and chains the hook it replaced. On a panic it writes the report, prints its path to the terminal, logs it at `error`, and leaves the report pending; on the main thread with dialogs on it then shows the dialog at once. The Editor asks each frame, on the main thread, for a pending report, shows the dialog, and puts the report's path in the status line; the guarded run announces one left pending when the App ends, so a panic the executor carries to the main thread is announced exactly once, and resumes the panic afterwards so the process still ends as a panic does. The report file is created only if it does not exist yet, with a numbered suffix when two crashes fall in the same second. The hook catches a panic of its own, as from a closed terminal or a dialog that cannot open, refuses to run again on a thread it is already running on, and ignores every error it meets; when the report cannot be written anywhere, the terminal says so and nothing else happens. The backtrace is captured whatever `RUST_BACKTRACE` says; the operating system and architecture are the standard library's names.
+- **Caught panics**: the Utility's `mark_panics_caught` sets a flag of the calling thread that the hook reads; on a marked thread the hook only logs the panic and neither writes a report, chains the hook it replaced, nor leaves anything pending. A thread that runs each job of a queue under `catch_unwind` marks itself before the job and unmarks itself after. The marker reaches such a thread through the model's CaughtPanics resource, which holds the marking function and which the Host fills with `mark_panics_caught`; without it, as in a headless test, marking does nothing. _Why_ through the model: the threads that catch their own panics are LibraryAccess's thumbnail generator's, and LibraryAccess may depend on the model alone, and the Host is the component that holds both the Utility and the model.
 - **Whether a dialog can be shown is the Utility's to say**: not on a continuous-integration run, not when `DRS_NO_DIALOGS` is set, not on Linux without a display, and, in a development build, not while a script drives the editor; the Host passes the answer when installing the handler.
 - **The dialog**: a native message dialog. The Utility is granted `rfd` next to the Editor in the Restricted external dependencies table. _Why_: a crash dialog may be needed before the Editor exists, so this is the one place a dialog is shown outside the Client.
 - **Bundled Files**: a `bundle` directory at the workspace root holds the editor's Bundled Files and the marker file `dungeon-rs.bundle`, which holds the editor's version; the workspace gate checks that the marker names the workspace's version (the workspace capability's Rule "Bundle marker names the version"). The Utility finds the bundle directory from the executable's location through the layouts above; a marker that names no version marks the directory and is accepted without a warning. It gives one Bundled File by a plain relative name, checked to exist under the directory; no component looks one up, since the editor ships no Bundled File it reads itself, and what the engine loads from the bundle directory is reported by the engine's own log entries. The `lib://` source stays as it is; the two sources share nothing.
@@ -154,6 +160,7 @@ _Why_ `\` and `:`: they are not the same path on every platform, so a name holdi
 - **Before any window**: no automated test; checked by hand (see Notes).
 - **Somewhere always**: `crates/drs-diagnostics/tests/crash_fallback.rs::an_unwritable_log_directory_sends_the_report_to_the_temporary_directory`
 - **A crash is logged**: `crates/drs-diagnostics/tests/crashes.rs::a_crash_is_logged`
+- **A caught panic is only logged**: `crates/drs-diagnostics/tests/crashes.rs::a_caught_panic_is_only_logged` (the log entry is checked unless the day changed during the test)
 - **Dialogs can be off**: `crates/drs-diagnostics/tests/crashes.rs::dialogs_can_be_off`
 - **Dialogs only where someone can answer**: no automated test; checked by hand (see Notes).
 - **Found by layout**: `crates/drs-diagnostics/tests/bundled_files.rs::the_bundle_beside_the_executable_is_found`, `crates/drs-diagnostics/tests/bundled_files.rs::the_bundle_inside_the_macos_application_is_found`, `crates/drs-diagnostics/tests/bundled_files.rs::the_bundle_in_a_workspace_ancestor_is_found`

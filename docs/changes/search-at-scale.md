@@ -11,7 +11,7 @@ A vendor library holds hundreds of thousands of Assets, and the Author looks for
 
 The browser has a search field. Each keystroke searches every added Asset Folder at once and shows the matches, ranked, within the same moment: Assets in which every typed word begins a word of the name come first, then those that only contain it, each group in order of name. Several words narrow the matches; a word with a `/` in it matches the folder's Canonical Name and the subfolders as well, so `furniture/table` finds the tables in a furniture folder. The browser says how many Assets match, says so plainly when none do, and with nothing typed shows the whole library as it does without a search. The search follows the library: a folder added, undone, redone, or refreshed at start changes the matches at once, without the Author typing again. It is built in memory from the folders' indexes and never written to disk.
 
-This change follows Thumbnails on the roadmap and builds on the browser that change leaves: one grid of thumbnails, a line per Asset Folder above it.
+This change builds on the browser as it is: one grid of thumbnails, a line per Asset Folder above it.
 
 ## User Stories
 
@@ -104,7 +104,7 @@ This change follows Thumbnails on the roadmap and builds on the browser that cha
 ## Changes to existing behaviour
 
 - asset-folders — **Filtered by name**: removed, and replaced by Words of the text, Matched by part of a name, Accents however stored, Every word must match, A word with a slash matches the path, An empty text matches everything, Word starts rank first, and A deterministic order: the text was one piece compared lower-cased, and is now words that must all match, compared case-folded and Unicode-normalised, with ranked matches.
-- asset-folders — **Browsed across folders** (as Thumbnails leaves it): modified so that its order, by the Canonical Name of the folder and then by place, holds when nothing is typed; with text typed, Matches in the grid gives the order, and the count beside each folder is of its matching Assets.
+- asset-folders — **Browsed across folders**: modified so that its order, by the Canonical Name of the folder and then by place, holds when nothing is typed; with text typed, Matches in the grid gives the order, and the count beside each folder is of its matching Assets.
 
 ## Implementation Decisions
 
@@ -125,7 +125,7 @@ This change follows Thumbnails on the roadmap and builds on the browser that cha
 ### Editor: the browser
 
 - The search field replaces the filter field; its text lives in the Editor's own state as the filter does today, and every change is sent as the message above, an empty text included.
-- With text typed, the grid Thumbnails builds lays out the matches from the resource, in its order, through the same virtual rows, and the wanted set it sends for thumbnails is the matches in the laid-out and prefetched rows. Until the answer for the current text arrives, one frame later, the previous answer is shown. With nothing typed, the grid shows every Asset in folder and place order straight from the folders' indexes, as Thumbnails builds it.
+- With text typed, the grid lays out the matches from the resource, in its order, through the same virtual rows, and the wanted set it sends for thumbnails is the matches in the laid-out and prefetched rows. Until the answer for the current text arrives, one frame later, the previous answer is shown. With nothing typed, the grid shows every Asset in folder and place order straight from the folders' indexes, as it does now.
 - Above the grid, a line gives the count ("12 Assets match", "400,000 Assets"), and each folder's line its count of matches. No match gives the message quoting the text; with no folder added the existing message stays.
 - A change of the text resets the grid's scroll offset to the top. The chosen Asset is kept in the Editor's state independently of the matches, as it is today.
 - The Editor no longer matches names itself; the pinned Implementation Decision that says it filters by name itself no longer holds.
@@ -162,4 +162,4 @@ Three seams. CatalogEngine's Search is tested directly over searches built from 
 ## Further Notes
 
 - "Search", "match", and "search field" are plain English for presentation, not domain concepts, as "browser" already is; they carry no invariant.
-- LibraryManager answers the browser's search and the wanted set Thumbnails adds through its Browse operation, shown in the architecture's Browse the library call chain.
+- LibraryManager answers the browser's search and the wanted set of thumbnails through its Browse operation, shown in the architecture's Browse the library call chain.
