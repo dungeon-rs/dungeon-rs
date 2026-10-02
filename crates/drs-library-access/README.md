@@ -25,13 +25,13 @@ changes at runtime. The Host registers it with
 [`register_library_source`](crate::register_library_source) before Bevy's
 `AssetPlugin` is added, because asset sources freeze when that plugin builds.
 
-Thumbnails are kept in one append-only pack of encoded thumbnails and its index
-of fixed 32-byte records, in a `thumbnails` directory under the cache directory,
+Thumbnails are kept in one append-only thumbnail pack of encoded thumbnails and
+its index of fixed 32-byte records, in a `thumbnails` directory under the cache directory,
 shared by every folder. A record names its thumbnail by a digest of the Asset's
 key (folder key, place, byte size, and modification time), so a changed file
 misses and gets a new thumbnail; a record of length zero says the file could not
 be decoded as an image. Opening the cache reads the index whole, skips and logs
-a record that is incomplete or points beyond the pack, and replaces files it
+a record that is incomplete or points beyond the thumbnail pack, and replaces files it
 cannot make sense of with empty ones. The generator decodes the file, takes its
 first frame, fits it with a box filter into 128 pixels on its longer side
 without ever enlarging it, and encodes it as PNG when any pixel is not fully
@@ -43,7 +43,7 @@ catching it through [`CaughtPanics`](drs_model::CaughtPanics), and the file is
 recorded as broken. Writes are buffered and flushed when the queue drains, every
 few hundred thumbnails or a tenth of a second after the oldest unwritten one,
 and when the generator is dropped, which stops it after the thumbnails in
-flight. Each flush syncs the pack before it writes the index, so no record
+flight. Each flush syncs the thumbnail pack before it writes the index, so no record
 outlives its thumbnail, and the first write that fails is handed back once and
 stops all writing.
 
