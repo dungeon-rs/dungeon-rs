@@ -66,9 +66,7 @@ pub(crate) fn place_wall(
     layer: Entity,
     wall: Wall,
 ) -> Result<(), AuthoringError> {
-    if let Some(reason) = wall.malformation() {
-        return Err(AuthoringError::MalformedWall(reason));
-    }
+    well_formed(&wall)?;
     crate::record_step(
         world,
         PlaceWall {
@@ -115,6 +113,16 @@ impl ReversibleCommand for Reshape {
             .ok_or(AuthoringError::NotAWall(self.element))? = previous.clone();
         Ok(())
     }
+}
+
+/// Refuses a Wall that would not be one, for the reason [`Wall::malformation`] gives.
+///
+/// # Errors
+///
+/// [`AuthoringError::MalformedWall`] with that reason.
+pub(crate) fn well_formed(wall: &Wall) -> Result<(), AuthoringError> {
+    wall.malformation()
+        .map_or(Ok(()), |reason| Err(AuthoringError::MalformedWall(reason)))
 }
 
 /// The Wall an Element is.

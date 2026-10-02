@@ -1,7 +1,7 @@
 //! Edit Element: a property change, grouped so that a gesture is one step.
 
 use crate::AuthoringError;
-use crate::wall::{add_point, remove_point, translated, wall_of};
+use crate::wall::{add_point, remove_point, translated, wall_of, well_formed};
 use bevy_ecs::world::World;
 use drs_history::{SetField, Target};
 use drs_model::{EditElement, Element, ElementChange, ElementId, Gesture, Wall};
@@ -32,35 +32,32 @@ pub(crate) fn edit_element(world: &mut World, command: &EditElement) -> Result<(
         ElementChange::Position(position) => match world.get::<Wall>(entity) {
             Some(wall) => {
                 let moved = translated(wall, *position);
-                if let Some(reason) = moved.malformation() {
-                    return Err(AuthoringError::MalformedWall(reason));
-                }
+                well_formed(&moved)?;
                 SetField::<ElementId>::new::<Wall>(id, "", moved)
             }
             None => SetField::<ElementId>::new::<Element>(id, "position", *position),
         },
         ElementChange::Point { index, position } => {
-            let points = wall_of(world, id)?.points.len();
-            if *index >= points {
-                return Err(AuthoringError::NoPoint {
-                    index: *index,
-                    points,
-                });
-            }
-            finite(*position)?;
+            let mut wall = wall_of(world, id)?;
+            let points = wall.points.len();
+            *wall.points.get_mut(*index).ok_or(AuthoringError::NoPoint {
+                index: *index,
+                points,
+            })? = *position;
+            well_formed(&wall)?;
             SetField::<ElementId>::new::<Wall>(id, &format!("points[{index}]"), *position)
         }
         ElementChange::Control { segment, position } => {
-            let segments = wall_of(world, id)?.segments.len();
-            if *segment >= segments {
-                return Err(AuthoringError::NoSegment {
+            let mut wall = wall_of(world, id)?;
+            let segments = wall.segments.len();
+            wall.segments
+                .get_mut(*segment)
+                .ok_or(AuthoringError::NoSegment {
                     segment: *segment,
                     segments,
-                });
-            }
-            if let Some(position) = position {
-                finite(*position)?;
-            }
+                })?
+                .control = *position;
+            well_formed(&wall)?;
             SetField::<ElementId>::new::<Wall>(
                 id,
                 &format!("segments[{segment}].control"),
@@ -68,12 +65,9 @@ pub(crate) fn edit_element(world: &mut World, command: &EditElement) -> Result<(
             )
         }
         ElementChange::Thickness(thickness) => {
-            wall_of(world, id)?;
-            if !(*thickness > 0.0 && thickness.is_finite()) {
-                return Err(AuthoringError::MalformedWall(format!(
-                    "a Wall's thickness must be above zero, not {thickness}"
-                )));
-            }
+            let mut wall = wall_of(world, id)?;
+            wall.thickness = *thickness;
+            well_formed(&wall)?;
             SetField::<ElementId>::new::<Wall>(id, "thickness", *thickness)
         }
         ElementChange::Colour(colour) => {
@@ -95,19 +89,4 @@ pub(crate) fn edit_element(world: &mut World, command: &EditElement) -> Result<(
         crate::history(world)?.end_group();
     }
     outcome
-}
-
-/// Refuses a point that is not finite.
-///
-/// # Errors
-///
-/// [`AuthoringError::MalformedWall`] when either coordinate is not finite.
-fn finite(position: bevy_math::Vec2) -> Result<(), AuthoringError> {
-    if position.is_finite() {
-        Ok(())
-    } else {
-        Err(AuthoringError::MalformedWall(
-            "a Wall's points must be finite".to_owned(),
-        ))
-    }
 }
