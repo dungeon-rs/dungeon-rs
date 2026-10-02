@@ -29,7 +29,8 @@ pub struct RenderEnginePlugin;
 
 impl Plugin for RenderEnginePlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(Startup, projection::spawn_camera)
+        app.init_resource::<walls::WallMaterials>()
+            .add_systems(Startup, projection::spawn_camera)
             .add_systems(
                 PostUpdate,
                 (

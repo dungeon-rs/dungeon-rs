@@ -17,8 +17,8 @@ An Element drawn as a stroked path, a Wall, is drawn as one mesh with a
 flat-colour Material, built from the stroke mesh of its derived shape and
 replaced whenever that shape changes, at its depth in the same stacking order as
 the sprites. The Material blends, though the colour is opaque, so the mesh sorts
-with the sprites by depth. A Wall whose shape has not been derived yet is not
-drawn that frame.
+with the sprites by depth, and Walls of one colour share it. A Wall whose shape
+has not been derived yet is not drawn that frame.
 
 One Grid cell is one world unit, `x` to the right and `y` upwards, so an
 Element's position and size in cells are its translation and size as drawn.
