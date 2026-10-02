@@ -53,6 +53,12 @@ const MAGENTA: &str = "odd 'things' & more/caf\u{e9} #1? [v2].png";
 /// A solid magenta image of one cell by one cell; Windows forbids `?` in file names.
 #[cfg(windows)]
 const MAGENTA: &str = "odd 'things' & more/caf\u{e9} #1 [v2].png";
+/// A solid grey image of one cell by one cell that a Project comes to miss.
+const GONE: &str = "gone.png";
+/// The colour of the grey image, which a Missing Asset never shows.
+const GREY_PIXEL: [u8; 4] = [128, 128, 128, 255];
+/// The placeholder of a Missing Asset over the Export's black background.
+const PLACEHOLDER_PIXEL: [u8; 4] = [173, 68, 80, 255];
 /// The colour of the red image.
 const RED_PIXEL: [u8; 4] = [255, 0, 0, 255];
 /// The colour of the blue image.
@@ -249,6 +255,7 @@ impl Fixture {
         png(&folder, BLUE, UVec2::new(512, 256), BLUE_PIXEL);
         png(&folder, GREEN, UVec2::splat(256), GREEN_PIXEL);
         png(&folder, MAGENTA, UVec2::splat(256), MAGENTA_PIXEL);
+        png(&folder, GONE, UVec2::splat(256), GREY_PIXEL);
         let mut app = editor(root.path());
         let added = add_folder(&mut app, &folder, "Fixtures");
         Self {
@@ -582,8 +589,32 @@ fn drawn_as_in_the_editor() {
     fixture.place(BLUE, Vec2::new(6.0, 5.5));
     fixture.place(GREEN, Vec2::new(6.5, 5.5));
     fixture.place(RED, Vec2::new(20.5, 12.5));
+    fixture.place(GONE, Vec2::new(12.5, 20.5));
+    // The saved file is made to record the grey Asset at a place its folder does not hold, so it
+    // opens with that Asset Missing.
+    let saved = fixture.save("missing.dungeon");
+    let text = fs::read_to_string(&saved).expect("the saved Project");
+    assert!(text.contains("\"gone.png\""), "the place is recorded");
+    fs::write(
+        &saved,
+        text.replace("\"gone.png\"", "\"elsewhere/gone.png\""),
+    )
+    .expect("the Project rewritten");
+    fixture.open(&saved);
 
     let picture = fixture.picture("stacked.png");
+
+    assert_eq!(
+        picture.at_cell(12, 20),
+        PLACEHOLDER_PIXEL,
+        "a Missing Asset"
+    );
+    assert_eq!(picture.count(GREY_PIXEL), 0, "never its image");
+    assert_eq!(
+        picture.count(PLACEHOLDER_PIXEL),
+        (PIXELS_PER_CELL * PIXELS_PER_CELL) as usize,
+        "the placeholder at the Missing Asset's size"
+    );
 
     assert_eq!(picture.at_cell(5, 5), BLUE_PIXEL, "blue over red");
     assert_eq!(picture.at_cell(6, 5), GREEN_PIXEL, "green over blue");
