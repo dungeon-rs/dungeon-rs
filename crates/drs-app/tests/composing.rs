@@ -522,52 +522,77 @@ fn a_new_step_clears_redo() {
     assert_eq!(order, vec![first, third]);
 }
 
-/// A Command that cannot be carried out is answered with the reason; nothing is placed and
-/// nothing is recorded.
+/// A Command that cannot be carried out is answered with the reason; nothing is placed, changed,
+/// or removed, and nothing is recorded.
 #[test]
 fn a_failed_command_is_reported() {
     let mut fixture = Fixture::new();
     let layer = fixture.layer();
-    let before = fixture.history().undo_depth();
+    let placed = fixture.place(TABLE, Vec2::ZERO);
+    let before = fixture.props();
+    let depth = fixture.history().undo_depth();
+    let unknown = ElementId::new();
 
-    fixture
-        .app
-        .world_mut()
-        .write_message(Apply::PlaceElement(PlaceElement {
+    let commands = [
+        Apply::PlaceElement(PlaceElement {
             layer,
             position: Vec2::ZERO,
             asset: ChosenAsset {
                 folder: fixture.key.clone(),
                 place: "nowhere.png".to_owned(),
             },
-        }));
-    fixture.app.update();
+        }),
+        Apply::EditElement(EditElement {
+            element: unknown,
+            change: ElementChange::Position(Vec2::ONE),
+            gesture: Gesture::Single,
+        }),
+        Apply::RemoveElement(RemoveElement { element: unknown }),
+    ];
+    for command in commands {
+        fixture.app.world_mut().write_message(command.clone());
+        fixture.app.update();
 
-    let failed: Vec<CommandFailed> = fixture
-        .app
-        .world_mut()
-        .resource_mut::<Messages<CommandFailed>>()
-        .drain()
-        .collect();
-    assert_eq!(failed.len(), 1);
-    assert!(matches!(failed[0].command, Apply::PlaceElement(_)));
-    assert!(
-        failed[0].reason.contains("nowhere.png"),
-        "{}",
-        failed[0].reason
-    );
-    assert!(fixture.props().is_empty());
-    assert_eq!(fixture.history().undo_depth(), before);
-    assert!(!fixture.history().can_redo());
+        let failed: Vec<CommandFailed> = fixture
+            .app
+            .world_mut()
+            .resource_mut::<Messages<CommandFailed>>()
+            .drain()
+            .collect();
+        assert_eq!(failed.len(), 1, "{command:?}");
+        assert_eq!(failed[0].command, command);
+        let named = match &command {
+            Apply::PlaceElement(_) => "nowhere.png".to_owned(),
+            Apply::EditElement(_) | Apply::RemoveElement(_) => format!("{unknown:?}"),
+        };
+        assert!(
+            failed[0].reason.contains(&named),
+            "{} names {named}",
+            failed[0].reason
+        );
+        assert_eq!(fixture.props(), before, "{command:?}");
+        assert_eq!(fixture.history().undo_depth(), depth, "{command:?}");
+        assert!(!fixture.history().can_redo());
+    }
+    assert_eq!(fixture.props()[0].id, placed);
 }
 
-/// Add Asset Folder and Place Element are each one undo step, and undo walks back through them
-/// in the order they were applied whichever Manager handled them.
+/// Add Asset Folder, Place Element, Edit Element, and Remove Element are each one undo step, and
+/// undo walks back through them in the order they were applied whichever Manager handled them.
 #[test]
 fn one_history() {
     let mut fixture = Fixture::new();
-    fixture.place(TABLE, Vec2::ZERO);
-    assert_eq!(fixture.history().undo_depth(), 2);
+    let id = fixture.place(TABLE, Vec2::ZERO);
+    fixture.edit(id, Vec2::new(3.0, 4.0), Gesture::Single);
+    fixture.remove(id);
+    assert_eq!(fixture.history().undo_depth(), 4);
+    assert!(fixture.props().is_empty());
+
+    fixture.undo();
+    assert_eq!(fixture.props()[0].element.position, Vec2::new(3.0, 4.0));
+
+    fixture.undo();
+    assert_eq!(fixture.props()[0].element.position, Vec2::ZERO);
 
     fixture.undo();
     assert!(fixture.props().is_empty());
