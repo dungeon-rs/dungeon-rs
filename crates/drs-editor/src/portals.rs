@@ -14,7 +14,7 @@ use bevy::color::Color;
 use bevy::ecs::entity::Entity;
 use bevy::ecs::message::MessageWriter;
 use bevy::ecs::query::With;
-use bevy::ecs::system::{Query, Res, Single};
+use bevy::ecs::system::{Res, Single};
 use bevy::gizmos::gizmos::Gizmos;
 use bevy::math::{Isometry2d, Rot2, Vec2, ops};
 use bevy::window::{PrimaryWindow, Window};
@@ -351,8 +351,8 @@ pub(crate) fn outline(element: &Element, portal: &Portal) -> Isometry2d {
 #[cfg(feature = "dev")]
 pub(crate) fn describe(
     state: &EditorState,
-    portals: &Query<(&ElementId, &Element, &Portal)>,
-    shapes: &Query<(&ElementId, &WallShape)>,
+    portals: &bevy::ecs::system::Query<(&ElementId, &Element, &Portal)>,
+    shapes: &bevy::ecs::system::Query<(&ElementId, &WallShape)>,
 ) {
     bevy::log::info!(
         "describe: portal tool {}, selected {:?}",
