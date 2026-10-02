@@ -13,9 +13,18 @@ use kurbo::{Line, ParamCurve, Point, QuadBez};
 
 /// How far, in Grid cells, a chord of the flattened line or an arc of the stroke may stray from
 /// the curve it stands for: a pixel at the highest Export resolution.
+///
+/// A curved segment so strongly bent that it would take more than [`MOST_CHORDS`] chords is
+/// flattened into that many, and its chords then stray farther; that takes a control point more
+/// than thirty thousand cells from the middle of its segment.
 const TOLERANCE: f64 = 0.001;
 
-/// The most chords one curved segment is flattened into, whatever its size.
+/// The fewest chords a curved segment is flattened into, so that its middle is always a point of
+/// the line.
+const FEWEST_CHORDS: f64 = 2.0;
+
+/// The most chords one curved segment is flattened into, whatever its size; past it the
+/// [`TOLERANCE`] no longer holds.
 const MOST_CHORDS: f64 = 4096.0;
 
 /// The most times an arc of a join or cap is halved: 2¹⁶ pieces is far finer than any Wall needs.
@@ -59,10 +68,10 @@ pub fn generate_walls(wall: &Wall) -> WallShape {
 }
 
 /// `SplitWall`: the Wall with a point added on `segment` at parameter `t`, splitting the segment
-/// into two whose joined curve is exactly the one it had.
+/// into two whose joined curve is the one it had, to single precision.
 ///
-/// A straight segment becomes two straight segments; a curved one becomes the two halves of its
-/// curve, each with its own control point. The new point sits after the segment's first point,
+/// A straight segment becomes two straight segments; a curved one becomes the two pieces of its
+/// curve on either side of `t`, each with its own control point. The new point sits after the segment's first point,
 /// so the segments after it are numbered one higher.
 ///
 /// # Errors
@@ -140,7 +149,7 @@ fn chords_of(start: Point, control: Point, end: Point) -> usize {
     let chords = (bend / (4.0 * TOLERANCE))
         .sqrt()
         .ceil()
-        .clamp(2.0, MOST_CHORDS) as usize;
+        .clamp(FEWEST_CHORDS, MOST_CHORDS) as usize;
     chords + chords % 2
 }
 

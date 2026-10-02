@@ -8,7 +8,7 @@ thousandth of a cell off the curve, each point tagged with the segment it lies
 on and the parameter along it, and the stroke mesh at the Wall's thickness with
 round joins at its points and round caps at its ends.
 [`split_wall`](crate::split_wall) splits a segment at a parameter into two
-segments of exactly the shape it had.
+segments of the shape it had, to single precision.
 
 Strokes are tessellated by the Engine itself, with no trigonometry: a round join
 or cap is an arc subdivided by halving its angle until it is within the
