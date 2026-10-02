@@ -72,6 +72,8 @@ struct Shared {
     writer: Mutex<Writer>,
     /// The pack, open for positional reads.
     reader: Arc<File>,
+    /// The pack's path, for errors.
+    pack_path: PathBuf,
     /// What the `thumb://` source serves.
     table: ThumbnailTable,
 }
@@ -148,7 +150,8 @@ impl ThumbnailCache {
         directories: &LibraryDirectories,
         table: &ThumbnailTable,
     ) -> Result<Self, LibraryError> {
-        let opened = pack::open(&directories.cache.join(THUMBNAIL_DIRECTORY))?;
+        let directory = directories.cache.join(THUMBNAIL_DIRECTORY);
+        let opened = pack::open(&directory)?;
         let reader = Arc::new(opened.reader);
         table.attach(Arc::clone(&reader));
         Ok(Self {
@@ -156,6 +159,7 @@ impl ThumbnailCache {
                 records: RwLock::new(opened.records),
                 writer: Mutex::new(opened.writer),
                 reader,
+                pack_path: directory.join(pack::PACK_FILE),
                 table: table.clone(),
             }),
         })
@@ -204,7 +208,7 @@ impl ThumbnailCache {
             .map(Some)
             .map_err(|source| LibraryError::Io {
                 action: "read",
-                path: PathBuf::from(pack::PACK_FILE),
+                path: self.shared.pack_path.clone(),
                 source,
             })
     }
