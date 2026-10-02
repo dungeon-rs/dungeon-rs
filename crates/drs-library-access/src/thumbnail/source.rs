@@ -1,8 +1,8 @@
 //! The asset source thumbnails are read through: `thumb://<folder-key>/<place>`.
 
 use super::pack::{Digest, Record, digest, read_entry};
-use crate::LibraryTable;
 use crate::source::key_and_parts;
+use crate::{LibraryError, LibraryTable};
 use bevy_app::App;
 use bevy_asset::AssetApp;
 use bevy_asset::io::{
@@ -15,7 +15,7 @@ use drs_model::{FolderKey, THUMBNAIL_SOURCE};
 use std::collections::HashMap;
 use std::fs::File;
 use std::future::ready;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::sync::{Arc, PoisonError, RwLock};
 
 /// Which thumbnail serves each Asset at its current byte size and modification time, shared
@@ -29,8 +29,8 @@ pub struct ThumbnailTable {
 /// What the `thumb://` reader serves.
 #[derive(Default)]
 struct Served {
-    /// The pack, open for positional reads, once the thumbnail cache is open.
-    pack: Option<Arc<File>>,
+    /// The pack, open for positional reads, and its path, once the thumbnail cache is open.
+    pack: Option<(Arc<File>, PathBuf)>,
     /// The record serving each Asset, by the digest of its folder key and place.
     records: HashMap<Digest, Record>,
 }
@@ -41,12 +41,12 @@ fn place_digest(folder: &str, place: &str) -> Digest {
 }
 
 impl ThumbnailTable {
-    /// Serves thumbnails out of `pack` from now on.
-    pub(crate) fn attach(&self, pack: Arc<File>) {
+    /// Serves thumbnails out of `pack`, the file at `path`, from now on.
+    pub(crate) fn attach(&self, pack: Arc<File>, path: PathBuf) {
         self.served
             .write()
             .unwrap_or_else(PoisonError::into_inner)
-            .pack = Some(pack);
+            .pack = Some((pack, path));
     }
 
     /// Serves the Asset at `place` in the folder with `key` from `record`, or nothing when
@@ -64,24 +64,38 @@ impl ThumbnailTable {
         }
     }
 
-    /// The encoded thumbnail served for the Asset at `place` in the folder with `key`.
+    /// The encoded thumbnail, a PNG or a JPEG, that the `thumb://` source serves for the Asset
+    /// at `place` in the folder with `key`, read out of the pack; `None` when it serves none.
     ///
     /// # Errors
     ///
-    /// [`AssetReaderError::NotFound`] when no thumbnail is served for it, or
-    /// [`AssetReaderError::Io`] when the pack cannot be read.
-    fn bytes(&self, key: &str, place: &str, path: &Path) -> Result<Vec<u8>, AssetReaderError> {
-        let not_found = || AssetReaderError::NotFound(path.to_path_buf());
-        let (pack, record) = {
+    /// [`LibraryError::Io`] when the pack cannot be read.
+    pub fn read(&self, key: &FolderKey, place: &str) -> Result<Option<Vec<u8>>, LibraryError> {
+        self.entry(key.as_str(), place)
+            .map_err(|(source, path)| LibraryError::Io {
+                action: "read",
+                path,
+                source,
+            })
+    }
+
+    /// The thumbnail served for the Asset at `place` in the folder with `key`, or `None`.
+    ///
+    /// # Errors
+    ///
+    /// The error of reading the pack, with the pack's path.
+    fn entry(&self, key: &str, place: &str) -> Result<Option<Vec<u8>>, (std::io::Error, PathBuf)> {
+        let found = {
             let served = self.served.read().unwrap_or_else(PoisonError::into_inner);
-            let record = served
-                .records
-                .get(&place_digest(key, place))
-                .copied()
-                .ok_or_else(not_found)?;
-            (served.pack.clone().ok_or_else(not_found)?, record)
+            let record = served.records.get(&place_digest(key, place)).copied();
+            record.zip(served.pack.clone())
         };
-        read_entry(&pack, record).map_err(|error| AssetReaderError::Io(Arc::new(error)))
+        let Some((record, (pack, path))) = found else {
+            return Ok(None);
+        };
+        read_entry(&pack, record)
+            .map(Some)
+            .map_err(|error| (error, path))
     }
 }
 
@@ -106,7 +120,11 @@ impl ThumbnailReader {
         let (key, parts) = key_and_parts(path).ok_or_else(not_found)?;
         let parts: Option<Vec<&str>> = parts.into_iter().map(std::ffi::OsStr::to_str).collect();
         let place = parts.ok_or_else(not_found)?.join("/");
-        Ok(VecReader::new(self.table.bytes(key, &place, path)?))
+        match self.table.entry(key, &place) {
+            Ok(Some(bytes)) => Ok(VecReader::new(bytes)),
+            Ok(None) => Err(not_found()),
+            Err((error, _)) => Err(AssetReaderError::Io(Arc::new(error))),
+        }
     }
 }
 

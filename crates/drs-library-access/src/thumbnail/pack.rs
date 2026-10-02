@@ -17,9 +17,9 @@ use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
 
 /// The pack's file name in the thumbnail directory.
-pub(crate) const PACK_FILE: &str = "thumbnails.pack";
+const PACK_FILE: &str = "thumbnails.pack";
 /// The index's file name in the thumbnail directory.
-pub(crate) const INDEX_FILE: &str = "thumbnails.index";
+const INDEX_FILE: &str = "thumbnails.index";
 /// What the pack starts with.
 const PACK_MAGIC: [u8; 8] = *b"DRSTHPK\0";
 /// What the index starts with.
@@ -123,6 +123,8 @@ pub(crate) struct Opened {
     pub writer: Writer,
     /// The pack, open for positional reads.
     pub reader: File,
+    /// The pack's path, for errors.
+    pub pack_path: PathBuf,
 }
 
 /// Opens the pack and index in `directory`, creating the directory and both files when absent.
@@ -199,7 +201,7 @@ pub(crate) fn open(directory: &Path) -> Result<Opened, LibraryError> {
         writer: Writer {
             pack,
             index,
-            pack_path,
+            pack_path: pack_path.clone(),
             index_path,
             pack_end,
             pack_pending: Vec::new(),
@@ -209,6 +211,7 @@ pub(crate) fn open(directory: &Path) -> Result<Opened, LibraryError> {
             failed: false,
         },
         reader,
+        pack_path,
     })
 }
 

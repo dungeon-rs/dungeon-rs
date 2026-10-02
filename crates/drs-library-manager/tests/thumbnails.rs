@@ -11,9 +11,7 @@
 use bevy_app::App;
 use bevy_ecs::message::Messages;
 use drs_history::HistoryPlugin;
-use drs_library_access::{
-    LibraryAccessPlugin, LibraryDirectories, ThumbnailCache, ThumbnailKey, ThumbnailTable,
-};
+use drs_library_access::{LibraryAccessPlugin, ThumbnailTable};
 use drs_library_manager::LibraryManagerPlugin;
 use drs_model::{
     AddFolder, AssetFolder, CanonicalName, EditorDirectories, FolderAdded, FolderRefused,
@@ -139,28 +137,20 @@ fn all_ready(states: &[(String, ThumbnailState)]) -> bool {
         .all(|(_, state)| matches!(state, ThumbnailState::Ready(_)))
 }
 
-/// The thumbnail kept for the Asset at `place`, read back through the cache and decoded.
-fn thumbnail(app: &mut App, root: &Path, place: &str) -> DynamicImage {
+/// The thumbnail the editor serves for the Asset at `place`, read back through its own table
+/// of what the `thumb://` source serves, and decoded.
+fn thumbnail(app: &mut App, place: &str) -> DynamicImage {
     let world = app.world_mut();
-    let (folder, asset) = world
+    let folder = world
         .query::<&AssetFolder>()
         .iter(world)
-        .find_map(|folder| {
-            let asset = folder.assets.iter().find(|asset| asset.place == place)?;
-            Some((folder.key.clone(), asset.clone()))
-        })
+        .find(|folder| folder.assets.iter().any(|asset| asset.place == place))
+        .map(|folder| folder.key.clone())
         .expect("the fixture is an Asset");
-    let directories =
-        LibraryDirectories::resolve(&EditorDirectories::under(root)).expect("directories");
-    let cache =
-        ThumbnailCache::open(&directories, &ThumbnailTable::default()).expect("the cache opens");
-    let bytes = cache
-        .read(&ThumbnailKey {
-            folder,
-            place: asset.place,
-            byte_size: asset.byte_size,
-            modified: asset.modified,
-        })
+    let bytes = world
+        .get_resource::<ThumbnailTable>()
+        .expect("the thumbnail table")
+        .read(&folder, place)
         .expect("the pack is read")
         .expect("the Asset has a thumbnail");
     image::load_from_memory(&bytes).expect("the thumbnail decodes")
@@ -286,7 +276,7 @@ fn every_image_format() {
         ]
     );
     for place in ["barrel.jpg", "crate.png", "tree.webp"] {
-        let decoded = thumbnail(&mut app, root.path(), place);
+        let decoded = thumbnail(&mut app, place);
         assert_eq!((decoded.width(), decoded.height()), (48, 48));
     }
 }
@@ -311,7 +301,7 @@ fn transparency_is_kept() {
     add(&mut app, &maps, "Maps");
     settle(&mut app);
 
-    let decoded = thumbnail(&mut app, root.path(), "cut_out.png").to_rgba8();
+    let decoded = thumbnail(&mut app, "cut_out.png").to_rgba8();
     assert_eq!(
         decoded.get_pixel(2, 2).0[3],
         0,
@@ -337,9 +327,9 @@ fn fitted_never_enlarged() {
         sizes(&states),
         vec![("fence.png", Some([32, 128])), ("token.png", Some([16, 8]))]
     );
-    let fence = thumbnail(&mut app, root.path(), "fence.png");
+    let fence = thumbnail(&mut app, "fence.png");
     assert_eq!((fence.width(), fence.height()), (32, 128));
-    let token = thumbnail(&mut app, root.path(), "token.png");
+    let token = thumbnail(&mut app, "token.png");
     assert_eq!((token.width(), token.height()), (16, 8));
 }
 
@@ -366,10 +356,7 @@ fn the_first_frame() {
     add(&mut app, &maps, "Maps");
     settle(&mut app);
 
-    let pixel = thumbnail(&mut app, root.path(), "torch.png")
-        .to_rgb8()
-        .get_pixel(4, 4)
-        .0;
+    let pixel = thumbnail(&mut app, "torch.png").to_rgb8().get_pixel(4, 4).0;
     assert!(pixel[0] > 180 && pixel[2] < 80, "red, not blue: {pixel:?}");
 }
 
@@ -511,7 +498,7 @@ fn a_changed_file_gets_a_new_thumbnail() {
         sizes(&states(&mut again)),
         vec![("tile.png", Some([60, 30]))]
     );
-    let pixel = thumbnail(&mut again, root.path(), "tile.png")
+    let pixel = thumbnail(&mut again, "tile.png")
         .to_rgb8()
         .get_pixel(5, 5)
         .0;
@@ -652,7 +639,7 @@ fn quitting_stops_generation() {
     assert!(!ready.is_empty(), "what was finished is kept");
     assert!(ready.len() < states.len(), "the queue was not waited for");
     for place in ready {
-        let decoded = thumbnail(&mut again, root.path(), place);
+        let decoded = thumbnail(&mut again, place);
         assert_eq!((decoded.width(), decoded.height()), (128, 128));
     }
 }
@@ -743,7 +730,7 @@ fn an_unreadable_cache_starts_afresh() {
         "a damaged cache is not reported"
     );
     assert!(all_ready(&settle(&mut again)));
-    let decoded = thumbnail(&mut again, root.path(), "tile_0.png");
+    let decoded = thumbnail(&mut again, "tile_0.png");
     assert_eq!((decoded.width(), decoded.height()), (40, 40));
 }
 

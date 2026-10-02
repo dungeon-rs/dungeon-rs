@@ -14,7 +14,6 @@ use generate::Made;
 use pack::{Digest, Record, Writer};
 use std::any::Any;
 use std::collections::{HashMap, HashSet, VecDeque};
-use std::fs::File;
 use std::path::{Path, PathBuf};
 use std::sync::mpsc::{Receiver, Sender, channel};
 use std::sync::{Arc, Condvar, Mutex, PoisonError, RwLock};
@@ -58,10 +57,6 @@ struct Shared {
     records: RwLock<HashMap<Digest, Record>>,
     /// What appends to the pack and the index.
     writer: Mutex<Writer>,
-    /// The pack, open for positional reads.
-    reader: Arc<File>,
-    /// The pack's path, for errors.
-    pack_path: PathBuf,
     /// What the `thumb://` source serves.
     table: ThumbnailTable,
 }
@@ -150,14 +145,11 @@ impl ThumbnailCache {
     ) -> Result<Self, LibraryError> {
         let directory = directories.cache.join(THUMBNAIL_DIRECTORY);
         let opened = pack::open(&directory)?;
-        let reader = Arc::new(opened.reader);
-        table.attach(Arc::clone(&reader));
+        table.attach(Arc::new(opened.reader), opened.pack_path);
         Ok(Self {
             shared: Arc::new(Shared {
                 records: RwLock::new(opened.records),
                 writer: Mutex::new(opened.writer),
-                reader,
-                pack_path: directory.join(pack::PACK_FILE),
                 table: table.clone(),
             }),
         })
@@ -184,32 +176,6 @@ impl ThumbnailCache {
             }
             None => ThumbnailState::Pending,
         }
-    }
-
-    /// The encoded thumbnail of the Asset under `key`, a PNG or a JPEG, or `None` when it has no
-    /// thumbnail.
-    ///
-    /// # Errors
-    ///
-    /// [`LibraryError::Io`] when the pack cannot be read.
-    pub fn read(&self, key: &ThumbnailKey) -> Result<Option<Vec<u8>>, LibraryError> {
-        let record = self
-            .shared
-            .records
-            .read()
-            .unwrap_or_else(PoisonError::into_inner)
-            .get(&key.digest())
-            .copied();
-        let Some(record) = record.filter(|record| !record.is_broken()) else {
-            return Ok(None);
-        };
-        pack::read_entry(&self.shared.reader, record)
-            .map(Some)
-            .map_err(|source| LibraryError::Io {
-                action: "read",
-                path: self.shared.pack_path.clone(),
-                source,
-            })
     }
 }
 

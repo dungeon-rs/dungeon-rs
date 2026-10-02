@@ -6,8 +6,10 @@ Its contract: the Manifests ([`read_manifests`](crate::read_manifests) to find
 every folder at startup, [`write_manifest`](crate::write_manifest) to remember a
 folder, and [`forget_manifest`](crate::forget_manifest) to drop one),
 [`scan_folder`](crate::scan_folder), [`load_asset`](crate::load_asset), and
-the Thumbnail: [`ThumbnailCache`](crate::ThumbnailCache) and
-[`ThumbnailGenerator`](crate::ThumbnailGenerator).
+the Thumbnail: [`ThumbnailCache`](crate::ThumbnailCache),
+[`ThumbnailGenerator`](crate::ThumbnailGenerator), and
+[`ThumbnailTable::read`](crate::ThumbnailTable::read) for the bytes of the
+thumbnail served for an Asset.
 
 The Manifest of an Asset Folder lives in the editor's configuration directory
 and its index cache in the editor's cache directory, both named by the folder
