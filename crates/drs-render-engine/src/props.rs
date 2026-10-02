@@ -1,5 +1,7 @@
-//! One sprite per Element but a Wall, kept in step with the model through change detection.
+//! One sprite per Element drawn as an image, or of a kind this editor does not know, kept in step
+//! with the model through change detection.
 
+use crate::drawn_as;
 use crate::stacking::Stacking;
 use bevy_asset::{AssetPath, AssetServer, Handle, LoadState};
 use bevy_color::Color;
@@ -7,14 +9,16 @@ use bevy_ecs::component::Component;
 use bevy_ecs::entity::Entity;
 use bevy_ecs::hierarchy::Children;
 use bevy_ecs::lifecycle::RemovedComponents;
-use bevy_ecs::query::{Changed, Has, Or, With};
+use bevy_ecs::query::{Changed, Or, With};
 use bevy_ecs::system::{Commands, EntityCommands, Query, Res, SystemParam};
 use bevy_image::Image;
 use bevy_math::Vec3;
 use bevy_sprite::Sprite;
 use bevy_transform::components::Transform;
 use drs_library_access::asset_path;
-use drs_model::{Element, Layer, Level, Project, Prop, Resolution, ResolutionTable, Wall};
+use drs_model::{
+    DrawnAs, Element, ElementKindRegistry, Layer, Level, Project, Prop, Resolution, ResolutionTable,
+};
 use std::collections::BTreeMap;
 
 /// Marks a sprite entity as drawing one Element.
@@ -41,9 +45,10 @@ pub(crate) struct Model<'w, 's> {
     stacking: Stacking<'w, 's>,
     /// Each Project's resolution table.
     projects: Query<'w, 's, &'static ResolutionTable, With<Project>>,
-    /// What every Element has, the Prop it is when it is one, and whether it is a Wall, which is
-    /// drawn as a stroke rather than a sprite.
-    elements: Query<'w, 's, (&'static Element, Option<&'static Prop>, Has<Wall>)>,
+    /// What every Element has, and the Prop it is when it is one.
+    elements: Query<'w, 's, (&'static Element, Option<&'static Prop>)>,
+    /// How each known kind is drawn.
+    kinds: Option<Res<'w, ElementKindRegistry>>,
 }
 
 /// Whether anything the sprites depend on changed since the sprites were last brought in step.
@@ -67,10 +72,10 @@ pub(crate) fn props_changed(
     !elements.is_empty() || !orders.is_empty() || !tables.is_empty() || removed > 0
 }
 
-/// Brings the sprites in step with the model: one per Element but a Wall, at its position and
-/// size and at its depth in the stacking order; sprites of Elements that are gone are removed. A
-/// Prop shows the image its Asset Reference resolves to; a Missing Asset and an Element of a kind
-/// this editor does not know show the placeholder.
+/// Brings the sprites in step with the model: one per Element whose kind is drawn as an image or
+/// is not known, at its position and size and at its depth in the stacking order; sprites of
+/// Elements that are gone are removed. A Prop shows the image its Asset Reference resolves to; a
+/// Missing Asset and an Element of a kind this editor does not know show the placeholder.
 pub(crate) fn sync_props(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
@@ -83,14 +88,15 @@ pub(crate) fn sync_props(
         .collect();
     for stacked in model.stacking.in_order() {
         let element = stacked.element;
-        let (Ok(resolutions), Ok((shape, prop, wall))) = (
+        let (Ok(resolutions), Ok((shape, prop))) = (
             model.projects.get(stacked.project),
             model.elements.get(element),
         ) else {
             continue;
         };
-        if wall {
-            continue;
+        match drawn_as(model.kinds.as_deref(), shape) {
+            Some(DrawnAs::StrokedPath) => continue,
+            Some(DrawnAs::Image) | None => {}
         }
         let translation = Vec3::new(shape.position.x, shape.position.y, stacked.depth);
         let image = image_of(resolutions, prop);

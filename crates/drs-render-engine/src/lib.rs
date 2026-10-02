@@ -20,7 +20,7 @@ use bevy_ecs::schedule::{IntoScheduleConfigs, SystemCondition};
 use bevy_render::renderer::render_system;
 use bevy_render::{ExtractSchedule, Render, RenderApp, RenderSystems};
 use bevy_transform::TransformSystems;
-use drs_model::Viewport;
+use drs_model::{DrawnAs, Element, ElementKindRegistry, Viewport};
 
 /// Draws the Level: the viewport systems that keep one sprite per Prop and one mesh per Wall,
 /// the projection that follows the [`Viewport`], and the offscreen rendering of regions for the
@@ -60,4 +60,10 @@ impl Plugin for RenderEnginePlugin {
             app.init_resource::<region::Offscreen>();
         }
     }
+}
+
+/// How an Element is drawn, by its kind's descriptor; `None` for a kind this editor does not
+/// know, which is drawn as a placeholder.
+pub(crate) fn drawn_as(kinds: Option<&ElementKindRegistry>, element: &Element) -> Option<DrawnAs> {
+    kinds?.get(&element.kind).map(|kind| kind.drawn_as)
 }

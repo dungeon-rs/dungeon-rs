@@ -1,6 +1,7 @@
-//! One mesh with a flat-colour Material per Wall, kept in step with the model through change
-//! detection.
+//! One mesh with a flat-colour Material per Element drawn as a stroked path, kept in step with the
+//! model through change detection.
 
+use crate::drawn_as;
 use crate::stacking::Stacking;
 use bevy_asset::{Assets, RenderAssetUsages};
 use bevy_color::Color;
@@ -10,13 +11,15 @@ use bevy_ecs::entity::Entity;
 use bevy_ecs::hierarchy::Children;
 use bevy_ecs::lifecycle::RemovedComponents;
 use bevy_ecs::query::{Changed, Or, With};
-use bevy_ecs::system::{Commands, Query, ResMut};
+use bevy_ecs::system::{Commands, Query, Res, ResMut};
 use bevy_ecs::world::Ref;
 use bevy_math::Vec3;
 use bevy_mesh::{Indices, Mesh, Mesh2d, PrimitiveTopology};
 use bevy_sprite_render::{AlphaMode2d, ColorMaterial, MeshMaterial2d};
 use bevy_transform::components::Transform;
-use drs_model::{Colour, Layer, Level, Project, Wall, WallShape};
+use drs_model::{
+    Colour, DrawnAs, Element, ElementKindRegistry, Layer, Level, Project, Wall, WallShape,
+};
 use std::collections::BTreeMap;
 
 /// Marks a mesh entity as drawing one Wall.
@@ -77,17 +80,18 @@ fn mesh_of(shape: &WallShape) -> Mesh {
     .with_inserted_indices(Indices::U32(shape.mesh.indices.clone()))
 }
 
-/// Brings the Walls' meshes in step with the model: one mesh per Wall that has its derived
-/// shape, in its colour, at its depth in the stacking order shared with the sprites, replaced
-/// when the shape changes; the meshes of Walls that are gone are removed. A Wall whose shape is
-/// not derived yet is not drawn that frame.
+/// Brings the Walls' meshes in step with the model: one mesh per Element whose kind is drawn as a
+/// stroked path and that has its derived shape, in its colour, at its depth in the stacking order
+/// shared with the sprites, replaced when the shape changes; the meshes of Walls that are gone
+/// are removed. A Wall whose shape is not derived yet is not drawn that frame.
 ///
 /// The Material blends rather than being opaque, though the colour is, so that the Wall sorts
 /// with the sprites by depth.
 pub(crate) fn sync_walls(
     mut commands: Commands,
     stacking: Stacking,
-    walls: Query<(&Wall, Ref<WallShape>)>,
+    kinds: Option<Res<ElementKindRegistry>>,
+    walls: Query<(&Element, &Wall, Ref<WallShape>)>,
     mut drawings: Query<(
         Entity,
         &mut WallDrawing,
@@ -103,9 +107,13 @@ pub(crate) fn sync_walls(
         .map(|(drawing, wall, ..)| (wall.element, drawing))
         .collect();
     for stacked in stacking.in_order() {
-        let Ok((wall, shape)) = walls.get(stacked.element) else {
+        let Ok((element, wall, shape)) = walls.get(stacked.element) else {
             continue;
         };
+        match drawn_as(kinds.as_deref(), element) {
+            Some(DrawnAs::StrokedPath) => {}
+            Some(DrawnAs::Image) | None => continue,
+        }
         let translation = Vec3::new(0.0, 0.0, stacked.depth);
         if let Some(drawn) = unseen.remove(&stacked.element) {
             let Ok((_, mut drawing, mesh, material, mut transform)) = drawings.get_mut(drawn)
