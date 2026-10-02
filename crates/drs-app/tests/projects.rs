@@ -1406,7 +1406,10 @@ fn two_normalisations_are_never_chosen_between() {
     let folder = library(
         device.root(),
         "library",
-        &[(composed, BARREL_PIXELS), ("\u{1eb9}\u{301}.png", BARREL_PIXELS)],
+        &[
+            (composed, BARREL_PIXELS),
+            ("\u{1eb9}\u{301}.png", BARREL_PIXELS),
+        ],
     );
     let key = device.add_folder(&folder, FIXTURES);
     device.place(&key, composed, Vec2::ZERO);
