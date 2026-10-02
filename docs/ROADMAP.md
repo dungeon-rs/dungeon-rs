@@ -2,7 +2,6 @@
 
 ## I can build and export a simple dungeon: Walls, doors, Rooms, painted Terrain, and Layers, from a library I can actually browse
 
-- **[Portals](changes/portals.md)**: doors and windows set into Walls stay anchored through every Wall edit, or stand free. Commands: Set Portal into Wall, Free Portal.
 - **[Rooms](changes/rooms.md)**: a Room outline generates its floor and its Walls, and its points stay editable. Commands: none.
 - **Snapping**: points of Walls and Rooms snap to the Grid and to each other's points while they are placed or dragged, so Rooms can share edges exactly; holding a modifier places freely. Commands: none.
 - **[Rooms combine and cut](changes/rooms-combine-and-cut.md)**: overlapping Room outlines combine into one, a Room cuts another, their Walls follow, and Portals set into them stay anchored. Commands: none.

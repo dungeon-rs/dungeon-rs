@@ -140,7 +140,7 @@ _Why_: strength is how much of the Material a stroke shows, not how much it adds
 
 ## Changes to existing behaviour
 
-The composing Rules named here are those the composing spec holds now. Where Portals lands first, its modifications of the same Rules stand and the clauses below are added to them.
+The composing Rules named here are those the composing spec holds now, Portals included: the Portal clauses those Rules hold stand, and the clauses below are added to them.
 
 - composing — **Placed where clicked**: modified to "with an Asset chosen and neither the Wall tool nor the Paint tool chosen, a click on the Level places a Prop of that Asset on the current Layer, centred on the clicked point", because a press with the Paint tool paints.
 - composing — **Placed on top**: modified to "a new Element is placed above every Element already on its Layer, except a Terrain made by a Paint, which is placed below them (Terrain goes under)", because ground lies under what stands on it.

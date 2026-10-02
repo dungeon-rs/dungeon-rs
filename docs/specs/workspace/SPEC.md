@@ -107,4 +107,5 @@ The architecture decomposes the editor into components, each its own crate, with
 
 ## Notes
 
-"Contributor" is the engineering role; it is not the domain's Author.
+- "Contributor" is the engineering role; it is not the domain's Author.
+- Three Rules (One gate, CI runs the gate, Weekly supply chain) have no test, against the requirement that every Rule has one. They are facts of the `justfile` and the CI workflows rather than of the `ci` tool, and the accepted deviation is that the gate itself is their seam: every run of `just check`, every pull request, and the weekly schedule exercise them.
