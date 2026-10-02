@@ -9,7 +9,7 @@ use bevy_ecs::component::Component;
 use bevy_ecs::entity::Entity;
 use bevy_ecs::hierarchy::Children;
 use bevy_ecs::lifecycle::RemovedComponents;
-use bevy_ecs::query::{Changed, Or, With};
+use bevy_ecs::query::{Changed, Or, With, Without};
 use bevy_ecs::system::{Commands, EntityCommands, Query, Res, SystemParam};
 use bevy_image::Image;
 use bevy_math::Vec3;
@@ -17,7 +17,8 @@ use bevy_sprite::Sprite;
 use bevy_transform::components::Transform;
 use drs_library_access::asset_path;
 use drs_model::{
-    DrawnAs, Element, ElementKindRegistry, Layer, Level, Project, Prop, Resolution, ResolutionTable,
+    DrawnAs, Element, ElementKindRegistry, Layer, Level, Project, Prop, Resolution,
+    ResolutionTable, WallShape,
 };
 use std::collections::BTreeMap;
 
@@ -52,12 +53,15 @@ pub(crate) struct Model<'w, 's> {
 }
 
 /// Whether anything the sprites depend on changed since the sprites were last brought in step.
+///
+/// An Element drawn from its derived stroke is left out: it has no sprite, and its box changes
+/// with every move of its points.
 #[expect(
     clippy::type_complexity,
     reason = "a Bevy query filter is spelled out by the components it watches"
 )]
 pub(crate) fn props_changed(
-    elements: Query<(), Or<(Changed<Element>, Changed<Prop>)>>,
+    elements: Query<(), (Or<(Changed<Element>, Changed<Prop>)>, Without<WallShape>)>,
     orders: Query<
         (),
         (
