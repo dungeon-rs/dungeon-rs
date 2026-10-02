@@ -8,6 +8,7 @@ mod required_features;
 #[cfg(test)]
 mod testing;
 mod violation;
+mod wgsl_shaders;
 mod workspace_features;
 
 use anyhow::{Context, Result};
@@ -54,6 +55,9 @@ pub enum Commands {
     /// Validates that every Bevy crate in use is a narrow crate or restricted in `ARCHITECTURE.md`.
     #[clap(name = "bevy-crates")]
     ValidateBevyCrates,
+    /// Validates that every WGSL Shader in a crate's `shaders` directory parses and validates.
+    #[clap(name = "wgsl-shaders")]
+    ValidateWgslShaders,
 }
 
 fn main() -> Result<()> {
@@ -90,6 +94,7 @@ fn run(command: Commands, metadata: &Metadata) -> Result<Vec<Violation>> {
         Commands::ValidateBevyCrates => {
             bevy_crates::check(&architecture_markdown(metadata)?, metadata)?
         }
+        Commands::ValidateWgslShaders => wgsl_shaders::check(metadata)?,
     })
 }
 
