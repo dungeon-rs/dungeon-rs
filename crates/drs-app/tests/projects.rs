@@ -24,11 +24,12 @@ use drs_library_manager::LibraryManagerPlugin;
 use drs_model::{
     AddFolder, Apply, AssetAddress, AssetReferences, Bounds, CanonicalName, Colour, CommandFailed,
     EditElement, EditorDirectories, Element, ElementChange, ElementId, ElementKindName,
-    ElementKindRegistry, FolderAdded, FolderKey, FolderRefused, Gesture, Grid, Layer, Level,
-    MissingAsset, MissingReason, ModelPlugin, OpenProject, PlaceElement, Placement, Project,
-    ProjectOpened, ProjectRefused, ProjectRequest, ProjectSaved, Prop, Redo, Resolution,
-    ResolutionTable, SaveProject, SavedMark, Serialisable, SerialisationRegistry, Undo,
-    UnknownComponents, UnknownKind, Viewport, WALL, Wall, WallShape,
+    ElementKindRegistry, FolderAdded, FolderKey, FolderRefused, FreePortal, Gesture, Grid, Layer,
+    Level, MissingAsset, MissingReason, ModelPlugin, OpenProject, PORTAL, PlaceElement, Placement,
+    Portal, PortalAnchor, Project, ProjectOpened, ProjectRefused, ProjectRequest, ProjectSaved,
+    Prop, Redo, Resolution, ResolutionTable, SaveProject, SavedMark, Serialisable,
+    SerialisationRegistry, Side, Undo, UnknownComponents, UnknownKind, Viewport, WALL, Wall,
+    WallShape,
 };
 use drs_project_manager::ProjectManagerPlugin;
 use serde_json::{Value, json};
@@ -283,6 +284,65 @@ impl Device {
                 .remove(<Wall as Serialisable>::NAME),
             "the Wall was known"
         );
+    }
+
+    /// Makes the device an editor that does not know the Portal kind, as an older one would be.
+    fn forget_portals(&mut self) {
+        let world = self.app.world_mut();
+        world.resource_mut::<ElementKindRegistry>().remove(&PORTAL);
+        assert!(
+            world
+                .resource_mut::<SerialisationRegistry>()
+                .remove(<Portal as Serialisable>::NAME),
+            "the Portal was known"
+        );
+    }
+
+    /// Places a Portal of the Asset at `place` in the folder with `key`, set at `anchor` or
+    /// freestanding on `position`.
+    fn portal(
+        &mut self,
+        key: &FolderKey,
+        place: &str,
+        position: Vec2,
+        anchor: Option<PortalAnchor>,
+    ) -> ElementId {
+        let layer = self.layer();
+        self.apply(Apply::PlaceElement(PlaceElement {
+            layer,
+            placement: Placement::Portal {
+                position,
+                asset: AssetAddress {
+                    folder: key.clone(),
+                    place: place.to_owned(),
+                },
+                anchor,
+            },
+        }));
+        self.elements()
+            .last()
+            .map(|placed| placed.id)
+            .expect("the placed Portal is the last child of the Layer")
+    }
+
+    /// Every Portal on the Layer in stacking order, with its Element.
+    fn portals(&mut self) -> Vec<(ElementId, Element, Portal)> {
+        let layer = self.layer();
+        let world = self.app.world_mut();
+        let children: Vec<Entity> = world
+            .get::<Children>(layer)
+            .map(|children| children.iter().copied().collect())
+            .unwrap_or_default();
+        children
+            .into_iter()
+            .filter_map(|entity| {
+                Some((
+                    *world.get::<ElementId>(entity)?,
+                    world.get::<Element>(entity)?.clone(),
+                    world.get::<Portal>(entity)?.clone(),
+                ))
+            })
+            .collect()
     }
 
     /// Sends Undo and runs one update.
@@ -1796,4 +1856,178 @@ fn unknown_walls_round_trip() {
     );
     saved.device.opens(&copy);
     assert_eq!(saved.device.walls(), walls);
+}
+
+/// A device that saved a Wall with a Portal set into its last segment, and a freestanding Portal
+/// turned and mirrored.
+struct SavedPortals {
+    /// The device.
+    device: Device,
+    /// The Wall.
+    wall: ElementId,
+    /// The set Portal and the freestanding one.
+    portals: [ElementId; 2],
+    /// The file saved.
+    file: PathBuf,
+}
+
+impl SavedPortals {
+    /// Places the Props of [`Saved`], the Wall, and the two Portals, and saves.
+    fn new() -> Self {
+        let mut saved = Saved::new();
+        let wall = saved.device.wall(
+            &[
+                Vec2::new(1.0, 1.0),
+                Vec2::new(6.0, 1.0),
+                Vec2::new(6.0, 5.0),
+            ],
+            &[None, None],
+            0.25,
+            Colour::rgb(60, 60, 60),
+        );
+        let set = saved.device.portal(
+            &saved.key,
+            TABLE,
+            Vec2::ZERO,
+            Some(PortalAnchor {
+                host: wall,
+                segment: 1,
+                t: 0.25,
+                side: Side::Right,
+            }),
+        );
+        let free = saved
+            .device
+            .portal(&saved.key, BARREL, Vec2::new(-3.0, 2.5), None);
+        for change in [ElementChange::Rotation(0.5), ElementChange::Mirrored(true)] {
+            saved.device.apply(Apply::EditElement(EditElement {
+                element: free,
+                change,
+                gesture: Gesture::Single,
+            }));
+        }
+        let file = saved
+            .device
+            .save_as(&saved.device.root().join("portals.dungeon"));
+        Self {
+            device: saved.device,
+            wall,
+            portals: [set, free],
+            file,
+        }
+    }
+}
+
+/// Saved with its anchor: a saved Portal holds its image's Asset Reference, its width, its
+/// position, rotation, and mirroring, and its anchor with the Wall's `ElementId`, segment,
+/// parameter, and side, and reopens the same: set into the same place of the same Wall, or
+/// freestanding where it was.
+#[test]
+fn portals_are_saved_with_their_anchor() {
+    let mut saved = SavedPortals::new();
+    let portals = saved.device.portals();
+
+    let written = json(&saved.file);
+    let set = &written["elements"][saved.portals[0].as_raw().to_string()];
+    assert_eq!(set["element"]["data"]["kind"], json!("portal"));
+    assert_eq!(set["portal"]["version"], json!(1));
+    let data = &set["portal"]["data"];
+    assert_eq!(data["width"], json!(2.0));
+    assert_eq!(data["mirrored"], json!(true), "facing the right");
+    assert_eq!(
+        data["anchor"],
+        json!({
+            "host": saved.wall.as_raw().to_string(),
+            "segment": 1,
+            "t": 0.25,
+            "side": "Right"
+        })
+    );
+    let free = &written["elements"][saved.portals[1].as_raw().to_string()];
+    assert_eq!(free["portal"]["data"]["anchor"], Value::Null);
+    assert_eq!(free["portal"]["data"]["rotation"], json!(0.5));
+    assert_eq!(free["element"]["data"]["position"], json!([-3.0, 2.5]));
+
+    let mut other = Device::new();
+    other.opens(&saved.file);
+    assert_eq!(
+        other.portals(),
+        portals,
+        "set and freestanding as they were"
+    );
+    let shape = other
+        .walls()
+        .into_iter()
+        .find(|(id, ..)| *id == saved.wall)
+        .and_then(|(.., shape)| shape)
+        .expect("the Wall has its shape");
+    assert_eq!(shape.stretches.len(), 1, "the Wall gives way again");
+
+    let again = other.save_as(&other.root().join("again.dungeon"));
+    assert_eq!(
+        fs::read(&again).expect("the file saved again"),
+        fs::read(&saved.file).expect("the file")
+    );
+}
+
+/// A lost Wall leaves the Portal standing: a Portal whose anchor names a segment its Wall does
+/// not have, as an editor that does not know Portals may leave it, is drawn at its saved
+/// position, rotation, and mirroring, makes no Wall give way, is saved back unchanged, and can
+/// be freed.
+#[test]
+fn a_lost_wall_leaves_the_portal_standing() {
+    let mut saved = SavedPortals::new();
+    let portals = saved.device.portals();
+    let mut unaware = Device::new();
+    unaware.forget_portals();
+    unaware.opens(&saved.file);
+    assert!(unaware.portals().is_empty(), "no Portal is known");
+    unaware.apply(Apply::EditElement(EditElement {
+        element: saved.wall,
+        change: ElementChange::RemovePoint { index: 2 },
+        gesture: Gesture::Single,
+    }));
+    let copy = unaware.save_as(&unaware.root().join("copy.dungeon"));
+
+    saved.device.opens(&copy);
+    assert_eq!(
+        saved.device.portals(),
+        portals,
+        "standing where it was saved"
+    );
+    let (.., wall, shape) = saved
+        .device
+        .walls()
+        .into_iter()
+        .find(|(id, ..)| *id == saved.wall)
+        .expect("the Wall");
+    assert_eq!(
+        wall.segments.len(),
+        1,
+        "the segment it was set into is gone"
+    );
+    assert!(
+        shape.expect("the Wall has its shape").stretches.is_empty(),
+        "no Wall gives way"
+    );
+    let again = saved
+        .device
+        .save_as(&saved.device.root().join("again.dungeon"));
+    assert_eq!(
+        fs::read(&again).expect("the file saved again"),
+        fs::read(&copy).expect("the copy"),
+        "saved back unchanged"
+    );
+
+    saved.device.apply(Apply::FreePortal(FreePortal {
+        portal: saved.portals[0],
+    }));
+    let (_, element, portal) = saved
+        .device
+        .portals()
+        .into_iter()
+        .find(|(id, ..)| *id == saved.portals[0])
+        .expect("the Portal");
+    assert_eq!(portal.anchor, None, "freed");
+    assert_eq!(element, portals[0].1, "where it stood");
 }
