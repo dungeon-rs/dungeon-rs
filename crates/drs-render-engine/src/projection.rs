@@ -1,7 +1,6 @@
 //! The projection: a 2D camera that shows the part of the Level the [`Viewport`] names.
 
-use crate::terrain::VIEWPORT_LAYER;
-use bevy_camera::visibility::RenderLayers;
+use bevy_camera::visibility::{Layer, RenderLayers};
 use bevy_camera::{Camera, Camera2d, ClearColorConfig, OrthographicProjection, Projection};
 use bevy_color::Color;
 use bevy_ecs::component::Component;
@@ -18,6 +17,15 @@ pub(crate) struct LevelCamera;
 /// What shows where nothing is drawn: a mid grey, so the dark grey a Wall is drawn in by default
 /// and the editor's dark panels both stand apart from it.
 const BACKDROP: Color = Color::srgb(0.52, 0.52, 0.55);
+
+/// The render layer only the viewport's camera sees, beside the default layer both cameras see:
+/// what the viewport draws in place of something the Export computes for itself, such as the
+/// Terrains' coverage tiles.
+pub(crate) const VIEWPORT_LAYER: Layer = 1;
+
+/// The render layer only the export camera sees, beside the default layer: what the Export
+/// computes for the region it captures, such as the Terrains' coverages at its resolution.
+pub(crate) const EXPORT_LAYER: Layer = 2;
 
 /// Depth beyond which Elements are clipped, either way; stacking assigns one unit per Element.
 pub(crate) const DEPTH: f32 = 1_000_000.0;

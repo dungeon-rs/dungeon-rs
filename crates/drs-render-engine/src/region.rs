@@ -23,11 +23,9 @@
 //! place of the viewport's coverage tiles, which it does not see. The coverage's texels fall on
 //! the region's pixels one to one.
 
-use crate::projection::DEPTH;
+use crate::projection::{DEPTH, EXPORT_LAYER};
 use crate::props::Loading;
-use crate::terrain::{
-    EXPORT_LAYER, TerrainAssets, TerrainDrawings, coverage_image, quad_transform,
-};
+use crate::terrain::{TerrainAssets, TerrainDrawings, coverage_image, quad_transform};
 use bevy_asset::{Assets, Handle};
 use bevy_camera::visibility::RenderLayers;
 use bevy_camera::{

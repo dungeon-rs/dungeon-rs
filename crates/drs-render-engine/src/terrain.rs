@@ -3,11 +3,12 @@
 //! detection.
 
 use crate::drawn_as;
+use crate::projection::VIEWPORT_LAYER;
 use crate::stacking::Stacking;
 use bevy_asset::{
     Asset, AssetPath, AssetServer, Assets, Handle, LoadState, RenderAssetUsages, uuid_handle,
 };
-use bevy_camera::visibility::{Layer, RenderLayers};
+use bevy_camera::visibility::RenderLayers;
 use bevy_color::{Color, ColorToComponents, LinearRgba};
 use bevy_ecs::component::Component;
 use bevy_ecs::entity::Entity;
@@ -39,13 +40,6 @@ const SHADER_SOURCE: &str = include_str!("shaders/terrain.wgsl");
 
 /// The handle the masked tiled image Shader is added under at startup.
 pub(crate) const SHADER: Handle<Shader> = uuid_handle!("5d7c2f0e-8b4a-4c61-9e3f-2a6d1b8c4f17");
-
-/// The render layer only the viewport's camera sees: the coverage tiles of the derived model.
-pub(crate) const VIEWPORT_LAYER: Layer = 1;
-
-/// The render layer only the export camera sees: the coverages computed for the region it
-/// captures.
-pub(crate) const EXPORT_LAYER: Layer = 2;
 
 /// The flat colour that stands in for a Terrain's image while it loads, when it is Missing, and
 /// when it failed to load, masked by the coverage as the image would be.
