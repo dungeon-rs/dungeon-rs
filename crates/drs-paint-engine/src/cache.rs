@@ -154,7 +154,8 @@ fn bring_up(cache: &mut PaintCache, strokes: &[Stroke]) -> Applied {
             applied.changed |= cache.store(*key, pixels);
         }
     }
-    cache.strokes = strokes.to_vec();
+    cache.strokes.truncate(kept);
+    cache.strokes.extend_from_slice(&strokes[kept..]);
     applied
 }
 
