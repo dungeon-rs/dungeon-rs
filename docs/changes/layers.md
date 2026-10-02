@@ -145,7 +145,7 @@ _Why_: a Level without a Layer has nowhere to place anything, and every tool wou
 
 ## Changes to existing behaviour
 
-The composing Rules named here are those composing holds once Rooms, Rooms combine and cut, and Paint Terrain with one Material have landed, which come before this change on the roadmap; the clauses below are added to what those Rules then say.
+The composing Rules named here are those composing holds once Rooms and Rooms combine and cut have landed, which come before this change on the roadmap, over the composing spec as pinned with Terrain; the clauses below are added to what those Rules then say.
 
 - composing — **One history**: modified to add Add Layer, Remove Layer, Reorder Layers, and Restack to the Commands that are each one undo step in the one history, because Layers and restacking join the history.
 - composing — **Redo repeats exactly**: modified to add Add Layer, Remove Layer, Reorder Layers, and Restack, for the same reason.
