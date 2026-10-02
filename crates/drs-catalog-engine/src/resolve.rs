@@ -31,11 +31,12 @@ fn folded_place(place: &str) -> String {
 ///
 /// The folder is the one whose Canonical Name is the reference's, compared as [`same_name`]
 /// compares; without it the Asset is Missing because the folder is absent. In that folder, the
-/// first recorded place at which an Asset sits, spelled byte for byte as recorded, resolves
+/// first recorded place at which exactly one Asset sits, compared Unicode-normalised, resolves
 /// exactly; failing that, the first recorded place that exactly one Asset's place matches
-/// ignoring letter case and Unicode normalisation resolves to that Asset, while two or more such
-/// Assets make the reference Missing as ambiguous, as two files that differ only in their Unicode
-/// normalisation do on a file system that keeps both.
+/// ignoring letter case and Unicode normalisation resolves to that Asset. At either step, two or
+/// more such Assets make the reference Missing as ambiguous, as two files that differ only in
+/// their Unicode normalisation do on a file system that keeps both: the recorded place is
+/// normalised, so it cannot tell them apart.
 /// A folder holding neither makes it Missing with the folder's version on this device. Nothing
 /// is read from disk: the folder's version and the recorded one are never compared, and neither
 /// are the Asset's size or content.
@@ -54,27 +55,25 @@ pub fn resolve<'a>(
         place: place.to_owned(),
     };
 
-    for known in &reference.places {
-        if let Some(asset) = folder.assets.iter().find(|asset| asset.place == *known) {
-            return resolved(&asset.place);
-        }
-    }
-    for known in &reference.places {
-        let wanted = folded_place(known);
-        let candidates: Vec<&str> = folder
-            .assets
-            .iter()
-            .map(|asset| asset.place.as_str())
-            .filter(|place| folded_place(place) == wanted)
-            .collect();
-        match candidates.as_slice() {
-            [] => {}
-            [only] => return resolved(only),
-            several => {
-                return Resolution::Missing(MissingReason::Ambiguous {
-                    version: folder.version.clone(),
-                    candidates: several.iter().map(|place| (*place).to_owned()).collect(),
-                });
+    let steps: [fn(&str) -> String; 2] = [normalised, folded_place];
+    for compared in steps {
+        for known in &reference.places {
+            let wanted = compared(known);
+            let candidates: Vec<&str> = folder
+                .assets
+                .iter()
+                .map(|asset| asset.place.as_str())
+                .filter(|place| compared(place) == wanted)
+                .collect();
+            match candidates.as_slice() {
+                [] => {}
+                [only] => return resolved(only),
+                several => {
+                    return Resolution::Missing(MissingReason::Ambiguous {
+                        version: folder.version.clone(),
+                        candidates: several.iter().map(|place| (*place).to_owned()).collect(),
+                    });
+                }
             }
         }
     }
@@ -127,26 +126,36 @@ mod tests {
         }
     }
 
-    /// The file spelled byte for byte as recorded resolves, even beside one that differs from it
-    /// only in Unicode normalisation; two files that each differ from the recorded spelling only
-    /// in their normalisation are never chosen between.
+    /// Two files whose places differ from the recorded one, or from each other, only in Unicode
+    /// normalisation are never chosen between, even when one is spelled byte for byte as
+    /// recorded: the recorded place is normalised, so it cannot say which was placed. A lone such
+    /// file resolves.
     #[test]
     fn two_normalisations_are_ambiguous() {
-        let composed = "props/caf\u{e9}.png";
+        // `é` is written composed here; `e\u{301}` is an `e` and a combining acute.
+        let composed = "props/café.png";
         let decomposed = "props/cafe\u{301}.png";
         assert_eq!(
             resolve(&reference(composed), [&folder(&[decomposed, composed])]),
+            Resolution::Missing(MissingReason::Ambiguous {
+                version: "2026-10-02".to_owned(),
+                candidates: vec![decomposed.to_owned(), composed.to_owned()],
+            })
+        );
+        assert_eq!(
+            resolve(&reference(composed), [&folder(&[decomposed])]),
             Resolution::Resolved {
                 folder: FolderKey("fixtures".to_owned()),
-                place: composed.to_owned(),
+                place: decomposed.to_owned(),
             }
         );
 
-        // The two marks below and above the `e`, in canonical order and in the other.
+        // The two marks below and above the `e`, in canonical order and in the other; `ẹ` is
+        // written composed.
         let canonical = "props/e\u{323}\u{301}.png";
         let reordered = "props/e\u{301}\u{323}.png";
         let resolution = resolve(
-            &reference("props/\u{1eb9}\u{301}.png"),
+            &reference("props/ẹ\u{301}.png"),
             [&folder(&[canonical, reordered])],
         );
 

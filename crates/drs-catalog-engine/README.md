@@ -11,10 +11,11 @@ rule is another `IndexingRule`, not a change to the Engine.
 [`resolve`](crate::resolve) decides which Asset on this device an Asset
 Reference means: the Asset Folder whose Canonical Name is the recorded one,
 compared the way names are compared for uniqueness ([`same_name`](crate::same_name)),
-then the file at a recorded place, or the one file that differs from a recorded
-place only in letter case or Unicode normalisation. Anything less certain is a
-Missing Asset with its reason; two files that would each fit are never chosen
-between.
+then the one file at a recorded place, compared Unicode-normalised, or the one
+file that differs from a recorded place only in letter case or Unicode
+normalisation. Anything less certain is a Missing Asset with its reason; two
+files that would each fit are never chosen between, even when one is spelled
+byte for byte as recorded.
 
 [`FolderSearch::build`](crate::FolderSearch::build) turns one Asset Folder's
 Canonical Name and index into that folder's search, and
