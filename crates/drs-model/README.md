@@ -23,6 +23,14 @@ it and never saved: its line flattened into chords, each point tagged with its
 segment and the parameter along it, and the stroke it is drawn with. The
 authoring Manager writes it; whoever draws or picks a Wall reads it.
 
+A Portal carries [`Portal`](crate::Portal): the Asset Reference row of its image,
+its width in Grid cells, its rotation, whether it is mirrored, and, when it is
+set into a Wall, its [`PortalAnchor`](crate::PortalAnchor): the identity of the
+Element it is set into, a segment, a parameter along it, and the
+[`Side`](crate::Side) it faces. The anchor names what the Portal is set into as
+`host`, never by kind. A set Portal's position, rotation, and mirroring are kept
+equal to what its anchor gives, so freeing it is clearing the anchor.
+
 A [`ProjectSnapshot`](crate::ProjectSnapshot) holds every component of every
 entity of the Project as an envelope of a version and data under a stable name,
 in no file's shape: how a snapshot is laid out in a Project file is
@@ -61,8 +69,8 @@ its own panics tells the crash handler so, which the Host puts in.
 
 Every component type here is written only by the systems of the crate that owns
 it; everyone else reads. The [`ModelPlugin`](crate::ModelPlugin) registers the
-types for reflection, the messages, and the Element kind registry with Prop
-and Wall as its kinds, and orders the Managers' handling through
+types for reflection, the messages, and the Element kind registry with Prop,
+Wall, and Portal as its kinds, and orders the Managers' handling through
 [`ManagerSystems`](crate::ManagerSystems): Commands before Undo before Redo.
 
 ## Features

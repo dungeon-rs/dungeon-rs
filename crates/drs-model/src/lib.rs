@@ -7,6 +7,7 @@ mod file;
 mod matches;
 mod messages;
 mod panics;
+mod portal;
 mod project;
 mod resolution;
 mod serialisation;
@@ -36,6 +37,7 @@ pub use messages::{
     UnknownKind,
 };
 pub use panics::CaughtPanics;
+pub use portal::{PORTAL, Portal, PortalAnchor, Side};
 pub use project::{Bounds, Grid, Layer, Level, Project};
 pub use resolution::{MissingReason, Resolution, ResolutionTable};
 pub use serialisation::{
@@ -67,6 +69,7 @@ impl Plugin for ModelPlugin {
             .register_type::<ElementId>()
             .register_type::<Prop>()
             .register_type::<Wall>()
+            .register_type::<Portal>()
             .register_type::<AssetReferences>()
             .register_type::<ResolutionTable>()
             .register_type::<UnknownComponents>()
