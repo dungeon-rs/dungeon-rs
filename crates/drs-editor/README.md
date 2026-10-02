@@ -31,15 +31,15 @@ first ask whether to save, discard, or cancel while there are unsaved changes,
 and a save that is refused keeps the question open with the reason. Opening a
 Project that cannot be shown in full lists each Missing Asset and unknown
 Element kind in a report the Author dismisses; the placeholders stay. Export
-Level… asks for a resolution in pixels per cell, with presets and a typed
-value that is refused in words while it lies outside the limits, shows the
-image size that results and how many placeholders would be exported as shown,
-then the platform's save dialog proposing `<Project> - <Level>.png`; while the
-Export is written the viewport, Undo, Redo, and another Export wait for it.
-Library → Add Asset Folder… opens the platform's folder dialog and then asks
-for the Canonical Name. Edit → Undo and Redo are offered while no drag, Wall
-being drawn, option held while it changes, or Export is under way. Help → Show Logs opens the log directory
-in the platform's file manager.
+Level… asks for a resolution in pixels per cell, with presets and a typed value
+that is refused in words while it lies outside the limits, shows the image size
+that results and how many placeholders would be exported as shown, then the
+platform's save dialog proposing `<Project> - <Level>.png`; while the Export is
+written the viewport, Undo, Redo, and another Export wait for it. Library → Add
+Asset Folder… opens the platform's folder dialog and then asks for the Canonical
+Name. Edit → Undo and Redo are offered while no drag, Wall being drawn, option
+held while it changes, or Export is under way. Help → Show Logs opens the log
+directory in the platform's file manager.
 
 The grid lays out only the rows in view, as many 128-point cells as the panel's
 width holds. Each cell shows a neutral square until its thumbnail is generated,
@@ -69,8 +69,9 @@ placing, and the platform's usual shortcuts undo and redo. Scrolling pans, a
 wheel or a pinch zooms, and the middle button or Space with the left button
 drags the view.
 
-A tool strip over the viewport offers Select, Wall, and Portal, and the thickness and
-colour of the selected Wall, or of the next Wall while none is selected. With
+A tool strip over the viewport offers Select, Wall, and Portal, and the
+thickness and colour of the selected Wall, or of the next Wall while none is
+selected. With
 the Wall tool, chosen there or with `W`, each click adds a point of a Wall
 previewed with a rubber band to the pointer, and Enter or a double-click
 finishes it as one Place Element; choosing an Asset leaves the tool, and
@@ -89,10 +90,12 @@ or freestanding where no Wall is in reach. Choosing the tool leaves the Wall
 tool and drops the selection; Escape goes back to Select. A selected Portal set
 into a Wall slides along it when dragged, as one gesture; `X` flips its side,
 or a freestanding one's mirroring; `F` frees it where it stands, or sets a
-freestanding one into the nearest Wall within reach of its centre. The strip
-shows a selected Portal's width, its rotation in degrees while freestanding, a
-Flip button, and a Free or Set into Wall button. When a Wall edit removes
-Portals, the status line says how many.
+freestanding one into the nearest Wall within reach of its centre; both wait,
+as undo does, while a step is being made. Where two Walls are equally near, the
+marker, a click, and `F` all take the topmost. The strip shows a selected
+Portal's width, its rotation in degrees while freestanding, a Flip button, and a
+Free Portal or Set into Wall button. When a Wall edit removes Portals, the
+status line says how many.
 
 ## Features
 
