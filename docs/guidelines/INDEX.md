@@ -9,6 +9,7 @@
 - [Editor modal dialog](./editor-modal-dialog.md): use when the Editor asks or tells the Author something that must be answered before the window is used again.
 - [Element kind](./element-kind.md): use when the editor gains a new kind of Element.
 - [Engine cache held by a Manager](./engine-cache-held-by-a-manager.md): use when an Engine keeps work between calls whose result others read.
+- [Export-only content through render layers](./export-only-content.md): use when RenderEngine draws a stand-in in the viewport and an exact version for the Export.
 - [Failure shown in the status line](./status-line-failure.md): use when the Editor learns of a failure the Author must see without a modal.
 - [Headless seam test](./headless-seam-test.md): use when writing a test at a Manager seam.
 - [Message handler of a Manager](./manager-message-handler.md): use when a Manager handles a new Command or request message.
