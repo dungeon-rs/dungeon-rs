@@ -386,3 +386,23 @@ pub struct ExportRefused {
     /// Why, in words the Author can be shown.
     pub reason: String,
 }
+
+/// Browse: what the browser shows, so the library Manager serves it first. Sent by the Editor
+/// whenever the set changes.
+///
+/// Handled by the library Manager; nothing comes back but the thumbnail states it updates.
+#[derive(Message, Debug, Clone, Default, PartialEq, Eq)]
+pub struct Browse {
+    /// The Assets whose thumbnails the browser wants first: those in its laid-out rows and the
+    /// rows either side, each by its folder's key and its place in that folder.
+    pub wanted: Vec<(FolderKey, String)>,
+}
+
+/// Thumbnails cannot be kept on this device for the rest of the session: the thumbnail cache
+/// could not be opened or written. Sent once by the library Manager; the browser shows
+/// placeholders from then on.
+#[derive(Message, Debug, Clone, PartialEq, Eq)]
+pub struct ThumbnailsUnavailable {
+    /// Why, in words the Author can be shown.
+    pub reason: String,
+}

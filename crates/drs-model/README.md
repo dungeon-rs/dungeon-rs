@@ -34,7 +34,14 @@ in. The Editor steers it and the render Engine follows it; its conversions
 between cells and screen points are the ones picking and drawing share.
 
 Each added Asset Folder is an entity carrying [`AssetFolder`](crate::AssetFolder)
-with its index of Assets. [`EditorDirectories`](crate::EditorDirectories)
+with its index of Assets, and [`Thumbnails`](crate::Thumbnails) with where
+each Asset's thumbnail stands: pending, ready at its pixel size, or broken. A
+thumbnail is read through the asset source
+[`THUMBNAIL_SOURCE`](crate::THUMBNAIL_SOURCE), as
+`thumb://<folder-key>/<place>`; the Editor names the Assets it shows with
+[`Browse`](crate::Browse), and
+[`ThumbnailsUnavailable`](crate::ThumbnailsUnavailable) says thumbnails cannot
+be kept. [`EditorDirectories`](crate::EditorDirectories)
 overrides where the editor keeps its own files, so tests point them at
 temporary directories, and resolves the platform's directories where nothing
 overrides them, so every crate that writes the editor's own files asks it.

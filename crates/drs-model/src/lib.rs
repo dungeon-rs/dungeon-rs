@@ -9,6 +9,7 @@ mod project;
 mod resolution;
 mod serialisation;
 mod snapshot;
+mod thumbnails;
 mod viewport;
 
 pub use assets::{
@@ -22,11 +23,11 @@ pub use element::{
 };
 pub use file::{PROJECT_EXTENSION, SavedMark, project_name_of, with_extension_if_missing};
 pub use messages::{
-    AddFolder, Apply, AssetFolderChanged, ChosenAsset, CommandFailed, EditElement, ElementChange,
-    ExportLevel, ExportRefused, FolderAdded, FolderRefusal, FolderRefused, FolderUnavailable,
-    Gesture, HistoryFailed, LevelExported, ManagerSystems, MissingAsset, OpenProject, OpenReport,
-    PlaceElement, ProjectOpened, ProjectRefused, ProjectRequest, ProjectSaved, Redo, RemoveElement,
-    SaveProject, Undo, UnknownKind,
+    AddFolder, Apply, AssetFolderChanged, Browse, ChosenAsset, CommandFailed, EditElement,
+    ElementChange, ExportLevel, ExportRefused, FolderAdded, FolderRefusal, FolderRefused,
+    FolderUnavailable, Gesture, HistoryFailed, LevelExported, ManagerSystems, MissingAsset,
+    OpenProject, OpenReport, PlaceElement, ProjectOpened, ProjectRefused, ProjectRequest,
+    ProjectSaved, Redo, RemoveElement, SaveProject, ThumbnailsUnavailable, Undo, UnknownKind,
 };
 pub use project::{Bounds, Grid, Layer, Level, Project};
 pub use resolution::{MissingReason, Resolution, ResolutionTable};
@@ -35,6 +36,7 @@ pub use serialisation::{
     SerialisationRegistry, Tier, UnknownComponents, read_only_version,
 };
 pub use snapshot::{LayerSnapshot, LevelSnapshot, ProjectSnapshot};
+pub use thumbnails::{THUMBNAIL_SOURCE, ThumbnailState, Thumbnails};
 pub use viewport::Viewport;
 
 use bevy_app::{App, Plugin, Update};
@@ -60,6 +62,7 @@ impl Plugin for ModelPlugin {
             .register_type::<ResolutionTable>()
             .register_type::<UnknownComponents>()
             .register_type::<AssetFolder>()
+            .register_type::<Thumbnails>()
             .register_type::<EditorDirectories>()
             .register_type::<Viewport>()
             .insert_resource(serialisation)
@@ -71,6 +74,8 @@ impl Plugin for ModelPlugin {
             .add_message::<FolderRefused>()
             .add_message::<FolderUnavailable>()
             .add_message::<AssetFolderChanged>()
+            .add_message::<Browse>()
+            .add_message::<ThumbnailsUnavailable>()
             .add_message::<Apply>()
             .add_message::<CommandFailed>()
             .add_message::<HistoryFailed>()
