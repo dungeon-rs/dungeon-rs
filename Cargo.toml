@@ -106,6 +106,7 @@ rfd = "=0.17.2"
 blake3 = "1.8"
 caseless = "0.2"
 directories = "6.0"
+kurbo = { version = "0.13", default-features = false, features = ["std"] }
 log = "0.4"
 png = "0.18"
 image = { version = "0.25", default-features = false, features = ["png", "jpeg", "webp"] }
