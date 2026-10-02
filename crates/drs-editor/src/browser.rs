@@ -201,12 +201,14 @@ fn grid_of<'a>(
 }
 
 /// The line above the grid: how many Assets the library holds, how many match, or that none
-/// matches the `typed` text.
-fn summary(grid: &Grid, typed: &str) -> String {
+/// matches the text answered.
+fn summary(grid: &Grid) -> String {
     match (grid, grid.len()) {
         (Grid::Library(..), 1) => "1 Asset".to_owned(),
         (Grid::Library(..), total) => format!("{} Assets", grouped(total)),
-        (Grid::Matches(_), 0) => format!("No Asset matches \u{201c}{}\u{201d}", typed.trim()),
+        (Grid::Matches(matches), 0) => {
+            format!("No Asset matches \u{201c}{}\u{201d}", matches.text.trim())
+        }
         (Grid::Matches(_), 1) => "1 Asset matches".to_owned(),
         (Grid::Matches(_), total) => format!("{} Assets match", grouped(total)),
     }
@@ -265,7 +267,7 @@ pub(crate) fn show(
     let to_top = typed || shown != browser.shown;
     browser.shown = shown;
 
-    let summary = summary(&grid, &state.search);
+    let summary = summary(&grid);
     ui.label(&summary);
     #[cfg(feature = "dev")]
     {
