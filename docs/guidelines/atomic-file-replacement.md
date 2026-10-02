@@ -1,6 +1,6 @@
 # Atomic file replacement
 
-**Use when**: a ResourceAccess writes a file the Author must never find half-written: a saved Project, an Export. **Not when**: the file is the editor's own record in its configuration directory (a Manifest, which `drs-library-access` writes through `write_atomically`), or the file is read, not written.
+**Use when**: a ResourceAccess writes a file that must never be found half-written: a saved Project, an Export, a Manifest or an index cache (`drs-library-access` writes both through one `write_atomically`). **Not when**: the file is read, not written, or is appended to (a log).
 **Exemplar**: `crates/drs-project-access/src/lib.rs`
 
 ## Rules

@@ -3,7 +3,9 @@
 use crate::{LibraryDirectories, LibraryError, LibraryTable};
 use drs_model::{CanonicalName, FolderKey};
 use serde::{Deserialize, Serialize};
+use std::io::Write;
 use std::path::{Path, PathBuf};
+use tempfile::{Builder, NamedTempFile};
 
 /// The extension of Manifest files.
 const MANIFEST_EXTENSION: &str = "json";
@@ -82,23 +84,56 @@ pub fn write_manifest(
     write_atomically(&directories.manifest_file(&manifest.key), text.as_bytes())
 }
 
-/// Writes a file through a sibling temporary file and a rename, so a reader never sees half of it.
+/// Writes a file through a temporary file beside it that is flushed and renamed over it, so a
+/// reader never sees half of it and a write that fails leaves the file as it was.
 ///
 /// # Errors
 ///
-/// [`LibraryError::Io`] when the temporary file cannot be written or renamed.
+/// [`LibraryError::Io`] when the temporary file cannot be created, written, flushed, or renamed.
 pub(crate) fn write_atomically(file: &Path, bytes: &[u8]) -> Result<(), LibraryError> {
-    let temporary = file.with_extension("tmp");
-    std::fs::write(&temporary, bytes).map_err(|source| LibraryError::Io {
-        action: "write",
-        path: temporary.clone(),
-        source,
-    })?;
-    std::fs::rename(&temporary, file).map_err(|source| LibraryError::Io {
-        action: "replace",
-        path: file.to_path_buf(),
-        source,
-    })
+    let io = |action: &'static str| {
+        move |source: std::io::Error| LibraryError::Io {
+            action,
+            path: file.to_path_buf(),
+            source,
+        }
+    };
+    let mut temporary = file_beside(file).map_err(io("create a file beside"))?;
+    temporary.write_all(bytes).map_err(io("write"))?;
+    temporary.as_file().sync_all().map_err(io("flush"))?;
+    temporary
+        .persist(file)
+        .map_err(|error| io("rename")(error.error))?;
+    Ok(())
+}
+
+/// The temporary file a Manifest or an index cache is written to until it is complete: the
+/// path's file name, a random infix, and a `.part` suffix, in the same directory so the final
+/// rename never crosses a file system; removed when dropped unless it is persisted. It is
+/// created with the usual mode, which the process's umask narrows as for every new file.
+///
+/// # Errors
+///
+/// The error of creating the file.
+fn file_beside(path: &Path) -> std::io::Result<NamedTempFile> {
+    let name = path.file_name().map_or_else(
+        || std::ffi::OsString::from("record"),
+        std::ffi::OsStr::to_os_string,
+    );
+    let beside = path
+        .parent()
+        .filter(|parent| !parent.as_os_str().is_empty())
+        .unwrap_or(Path::new("."));
+    let mut prefix = name;
+    prefix.push(".");
+    let mut builder = Builder::new();
+    builder.prefix(&prefix).suffix(".part");
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        builder.permissions(std::fs::Permissions::from_mode(0o666));
+    }
+    builder.tempfile_in(beside)
 }
 
 /// `Manifests`, forgetting: removes the Manifest of the folder with `key`, if there is one, and
