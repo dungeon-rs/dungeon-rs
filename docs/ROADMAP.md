@@ -4,6 +4,7 @@
 
 - **[Portals](changes/portals.md)**: doors and windows set into Walls stay anchored through every Wall edit, or stand free. Commands: Set Portal into Wall, Free Portal.
 - **[Rooms](changes/rooms.md)**: a Room outline generates its floor and its Walls, and its points stay editable. Commands: none.
+- **Snapping**: points of Walls and Rooms snap to the Grid and to each other's points while they are placed or dragged, so Rooms can share edges exactly; holding a modifier places freely. Commands: none.
 - **[Rooms combine and cut](changes/rooms-combine-and-cut.md)**: overlapping Room outlines combine into one, a Room cuts another, their Walls follow, and Portals set into them stay anchored. Commands: none.
 - **[Paint Terrain with one Material](changes/paint-terrain.md)**: the Author paints Terrain with a Brush, each stroke one undo step, and the Export shows it. Commands: Paint.
 - **Erase and reshape strokes**: an erase is a stroke like any other, and every stroke's path and Brush settings stay editable after it is laid down. Commands: none.
