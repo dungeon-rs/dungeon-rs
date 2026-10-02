@@ -105,14 +105,16 @@ fn the_log_directory_is_made() {
     assert_eq!(log_files(&logs).len(), 1);
 }
 
-/// At most seven daily log files exist after start: the oldest beyond seven are deleted, and
-/// crash reports are never deleted.
+/// At most seven daily log files exist after start: the oldest by the date in their names are
+/// deleted beyond seven, whatever order they were written in, and crash reports are never
+/// deleted.
 #[test]
 fn a_week_of_files_is_kept() {
     let root = TempDir::new().expect("temporary root");
     let logs = root.path().join("logs");
     fs::create_dir_all(&logs).expect("the log directory");
-    for day in 1..=10 {
+    // Written newest first, so that the file system's creation order says nothing useful.
+    for day in (1..=10).rev() {
         fs::write(
             logs.join(format!("dungeon-rs.2026-09-{day:02}.log")),
             "old\n",
@@ -130,6 +132,13 @@ fn a_week_of_files_is_kept() {
         kept.contains(&format!("dungeon-rs.{}.log", today())),
         "{kept:?}"
     );
+    for day in 1..=4 {
+        assert!(
+            !kept.contains(&format!("dungeon-rs.2026-09-{day:02}.log")),
+            "{kept:?}"
+        );
+    }
+    assert!(kept.contains(&"dungeon-rs.2026-09-10.log".to_owned()));
     assert!(report.is_file());
     assert!(logging.file.is_some());
 }

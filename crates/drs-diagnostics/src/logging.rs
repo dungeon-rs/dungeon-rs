@@ -202,6 +202,35 @@ pub(crate) fn current_log_file(now: time::OffsetDateTime) -> Option<PathBuf> {
     state.file.then(|| state.directory.join(log_file_name(now)))
 }
 
+/// Deletes the oldest daily log files beyond the kept count, oldest by the date in the name,
+/// leaving room for the file of the day of `now`; crash reports and anything else in the
+/// directory are never touched.
+fn prune_by_date(directory: &Path, now: time::OffsetDateTime) {
+    let Ok(entries) = std::fs::read_dir(directory) else {
+        return;
+    };
+    let today = log_file_name(now);
+    let prefix = format!("{LOG_FILE_PREFIX}.");
+    let suffix = format!(".{LOG_FILE_SUFFIX}");
+    let mut dated: Vec<(String, PathBuf)> = entries
+        .flatten()
+        .filter_map(|entry| {
+            let name = entry.file_name().to_str()?.to_owned();
+            let date = name.strip_prefix(&prefix)?.strip_suffix(&suffix)?;
+            (name != today).then(|| (date.to_owned(), entry.path()))
+        })
+        .collect();
+    dated.sort();
+    let room_for_today = KEPT_LOG_FILES.saturating_sub(1);
+    for (_, path) in dated
+        .iter()
+        .take(dated.len().saturating_sub(room_for_today))
+    {
+        // A file that cannot be deleted stays; the next start tries again.
+        let _ = std::fs::remove_file(path);
+    }
+}
+
 /// The name of the log file for the UTC day of `now`.
 fn log_file_name(now: time::OffsetDateTime) -> String {
     let mut name = String::new();
@@ -217,7 +246,8 @@ fn log_file_name(now: time::OffsetDateTime) -> String {
 }
 
 /// The daily appender over `directory`, created first so the appender finds the directory it
-/// prunes.
+/// prunes, and pruned by the dates in the file names before the appender prunes by creation
+/// time at midnight, so a start deletes the oldest files whatever the file system remembers.
 ///
 /// # Errors
 ///
@@ -229,6 +259,7 @@ fn appender(
         path: directory.to_path_buf(),
         source,
     })?;
+    prune_by_date(directory, time::OffsetDateTime::now_utc());
     tracing_appender::rolling::Builder::new()
         .rotation(tracing_appender::rolling::Rotation::DAILY)
         .filename_prefix(LOG_FILE_PREFIX)
