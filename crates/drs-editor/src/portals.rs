@@ -247,7 +247,7 @@ pub(crate) fn options<'a>(
     walls: impl IntoIterator<Item = (ElementId, &'a Wall, &'a WallShape)>,
     apply: &mut MessageWriter<Apply>,
 ) {
-    let (element, shape, portal) = selected;
+    let (id, element, portal) = selected;
     ui.label("Width");
     let mut width = portal.width;
     let drag = ui.add(
@@ -280,12 +280,12 @@ pub(crate) fn options<'a>(
         }
     }
     if let Some(change) = change {
-        crate::walls::send_option(&mut state.portals.option, apply, element, change, held);
+        crate::walls::send_option(&mut state.portals.option, apply, id, change, held);
     } else if !held {
         crate::walls::end_option(&mut state.portals.option, apply);
     }
     if ui.button("Flip").on_hover_text("X").clicked() {
-        apply.write(flip(element, portal));
+        apply.write(flip(id, portal));
     }
     let label = if portal.anchor.is_some() {
         "Free Portal"
@@ -293,7 +293,7 @@ pub(crate) fn options<'a>(
         "Set into Wall"
     };
     if ui.button(label).on_hover_text("F").clicked() {
-        free_or_set(state, apply, element, shape.position, portal, walls);
+        free_or_set(state, apply, id, element.position, portal, walls);
     }
 }
 

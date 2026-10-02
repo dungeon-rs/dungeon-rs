@@ -67,7 +67,7 @@ pub(crate) enum WallHandle {
 /// An option of the tool strip being changed as one gesture on the Element it shows.
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) struct OptionGesture {
-    /// The Wall.
+    /// The Element whose option is being changed.
     element: ElementId,
     /// The change last sent.
     change: ElementChange,
