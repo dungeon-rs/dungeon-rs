@@ -9,7 +9,7 @@ use bevy_ecs::system::SystemState;
 use bevy_ecs::world::World;
 use drs_library_access::{
     LibraryDirectories, ThumbnailCache, ThumbnailCompletion, ThumbnailGenerator, ThumbnailJob,
-    ThumbnailKey, ThumbnailLookup, ThumbnailOutcome, ThumbnailTable,
+    ThumbnailKey, ThumbnailTable,
 };
 use drs_model::{
     AssetFolder, Browse, CaughtPanics, EditorDirectories, FolderKey, IndexedAsset, ThumbnailState,
@@ -80,20 +80,16 @@ pub(crate) fn track(world: &mut World, folder: Entity) {
     let mut jobs = Vec::new();
     for asset in &added.assets {
         let key = key_of(&added.key, asset);
-        let found = work
+        let state = work
             .and_then(|work| work.cache.as_ref())
-            .map_or(ThumbnailLookup::Absent, |cache| cache.lookup(&key));
-        states.push(match found {
-            ThumbnailLookup::Ready(size) => ThumbnailState::Ready(size),
-            ThumbnailLookup::Broken => ThumbnailState::Broken,
-            ThumbnailLookup::Absent => {
-                jobs.push(ThumbnailJob {
-                    key,
-                    file: added.path.join(&asset.place),
-                });
-                ThumbnailState::Pending
-            }
-        });
+            .map_or(ThumbnailState::Pending, |cache| cache.lookup(&key));
+        if state == ThumbnailState::Pending {
+            jobs.push(ThumbnailJob {
+                key,
+                file: added.path.join(&asset.place),
+            });
+        }
+        states.push(state);
     }
     if let Some(generator) = work.and_then(|work| work.generator.as_ref()) {
         generator.enqueue(jobs);
@@ -144,12 +140,7 @@ pub(crate) fn drain(world: &mut World) {
     let folders = folders_by_key(world);
     for completion in completions {
         match completion {
-            ThumbnailCompletion::Finished { key, outcome } => {
-                let state = match outcome {
-                    ThumbnailOutcome::Ready(size) => ThumbnailState::Ready(size),
-                    ThumbnailOutcome::Broken => ThumbnailState::Broken,
-                    ThumbnailOutcome::Unreadable => continue,
-                };
+            ThumbnailCompletion::Finished { key, state } => {
                 if let Some(&folder) = folders.get(&key.folder) {
                     settle(world, folder, &key, state);
                 }

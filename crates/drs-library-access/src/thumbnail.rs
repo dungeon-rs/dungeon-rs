@@ -9,7 +9,7 @@ pub use source::{ThumbnailTable, register_thumbnail_source};
 
 use crate::{LibraryDirectories, LibraryError};
 use bevy_math::UVec2;
-use drs_model::{CaughtPanics, FolderKey};
+use drs_model::{CaughtPanics, FolderKey, ThumbnailState};
 use generate::Made;
 use pack::{Digest, Record, Writer};
 use std::any::Any;
@@ -54,17 +54,6 @@ impl ThumbnailKey {
     }
 }
 
-/// What the cache holds for an Asset.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum ThumbnailLookup {
-    /// A thumbnail this many pixels wide and high.
-    Ready(UVec2),
-    /// A record that the file could not be decoded as an image.
-    Broken,
-    /// Nothing: the thumbnail is still to be generated.
-    Absent,
-}
-
 /// What is shared between the cache, its generator's threads, and nobody else.
 struct Shared {
     /// Every record served, by the digest of its key.
@@ -107,7 +96,7 @@ impl Shared {
                     // A closed channel only means nobody is listening any more.
                     let _ = completions.send(ThumbnailCompletion::Finished {
                         key: completed.key,
-                        outcome: completed.outcome,
+                        state: completed.state,
                     });
                 }
                 Some(digests)
@@ -134,8 +123,8 @@ struct Completed {
     key: ThumbnailKey,
     /// Where its thumbnail lies.
     record: Record,
-    /// What it came to.
-    outcome: ThumbnailOutcome,
+    /// What it came to: ready or broken.
+    state: ThumbnailState,
 }
 
 /// The thumbnail cache: one append-only pack of encoded thumbnails and its index, in a
@@ -176,11 +165,12 @@ impl ThumbnailCache {
         })
     }
 
-    /// What the cache holds for the Asset under `key`, the last record appended for it winning.
-    /// From now on the `thumb://` source serves the Asset at that place from what was found,
-    /// or nothing when there is no thumbnail.
+    /// Where the thumbnail of the Asset under `key` stands in the cache, the last record
+    /// appended for it winning: ready, broken, or, with no record, pending. From now on the
+    /// `thumb://` source serves the Asset at that place from what was found, or nothing when
+    /// there is no thumbnail.
     #[must_use]
-    pub fn lookup(&self, key: &ThumbnailKey) -> ThumbnailLookup {
+    pub fn lookup(&self, key: &ThumbnailKey) -> ThumbnailState {
         let record = self
             .shared
             .records
@@ -190,11 +180,11 @@ impl ThumbnailCache {
             .copied();
         self.shared.table.serve(&key.folder, &key.place, record);
         match record {
-            Some(record) if record.is_broken() => ThumbnailLookup::Broken,
+            Some(record) if record.is_broken() => ThumbnailState::Broken,
             Some(record) => {
-                ThumbnailLookup::Ready(UVec2::new(record.width.into(), record.height.into()))
+                ThumbnailState::Ready(UVec2::new(record.width.into(), record.height.into()))
             }
-            None => ThumbnailLookup::Absent,
+            None => ThumbnailState::Pending,
         }
     }
 
@@ -234,17 +224,6 @@ pub struct ThumbnailJob {
     pub file: PathBuf,
 }
 
-/// What generating an Asset's thumbnail came to.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum ThumbnailOutcome {
-    /// The thumbnail is kept and served, this many pixels wide and high.
-    Ready(UVec2),
-    /// The file could not be decoded as an image, which is recorded.
-    Broken,
-    /// The file could not be read; nothing is recorded, so it is tried again at the next start.
-    Unreadable,
-}
-
 /// What the generator hands back.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ThumbnailCompletion {
@@ -252,8 +231,10 @@ pub enum ThumbnailCompletion {
     Finished {
         /// The Asset.
         key: ThumbnailKey,
-        /// What came of it.
-        outcome: ThumbnailOutcome,
+        /// What came of it: ready, kept and served; broken, recorded as not decodable as an
+        /// image; or still pending, since the file could not be read and nothing is recorded,
+        /// so it is tried again at the next start.
+        state: ThumbnailState,
     },
     /// The cache could not be written, for this reason; the generator has stopped, the
     /// thumbnails it had not written out are lost, and nothing more is written. Handed back once.
@@ -526,10 +507,7 @@ impl Worker {
                         pending.push(Completed {
                             key: job.key,
                             record,
-                            outcome: ThumbnailOutcome::Ready(UVec2::new(
-                                width.into(),
-                                height.into(),
-                            )),
+                            state: ThumbnailState::Ready(UVec2::new(width.into(), height.into())),
                         });
                     }
                 }
@@ -539,7 +517,7 @@ impl Worker {
                         pending.push(Completed {
                             key: job.key,
                             record,
-                            outcome: ThumbnailOutcome::Broken,
+                            state: ThumbnailState::Broken,
                         });
                     }
                 }
@@ -551,7 +529,7 @@ impl Worker {
                     self.work().queue.release([digest]);
                     let _ = self.completions.send(ThumbnailCompletion::Finished {
                         key: job.key,
-                        outcome: ThumbnailOutcome::Unreadable,
+                        state: ThumbnailState::Pending,
                     });
                 }
             }
@@ -641,11 +619,11 @@ mod tests {
 
     use super::{
         Made, Queue, ThumbnailCache, ThumbnailCompletion, ThumbnailGenerator, ThumbnailJob,
-        ThumbnailKey, ThumbnailOutcome, ThumbnailTable,
+        ThumbnailKey, ThumbnailTable,
     };
     use crate::LibraryDirectories;
     use bevy_math::UVec2;
-    use drs_model::{CaughtPanics, FolderKey};
+    use drs_model::{CaughtPanics, FolderKey, ThumbnailState};
     use std::cell::Cell;
     use std::path::{Path, PathBuf};
     use std::sync::atomic::{AtomicBool, Ordering};
@@ -741,20 +719,20 @@ mod tests {
         while finished.len() < 3 {
             assert!(start.elapsed() < Duration::from_secs(30), "{finished:?}");
             for completion in generator.completions() {
-                if let ThumbnailCompletion::Finished { key, outcome } = completion {
-                    finished.push((key.place, outcome));
+                if let ThumbnailCompletion::Finished { key, state } = completion {
+                    finished.push((key.place, state));
                 }
             }
             std::thread::sleep(Duration::from_millis(2));
         }
         finished.sort_by(|a, b| a.0.cmp(&b.0));
-        let ready = ThumbnailOutcome::Ready(UVec2::ONE);
+        let ready = ThumbnailState::Ready(UVec2::ONE);
         assert_eq!(
             finished,
             vec![
-                ("a.png".to_owned(), ready.clone()),
+                ("a.png".to_owned(), ready),
                 ("b.png".to_owned(), ready),
-                ("panics.png".to_owned(), ThumbnailOutcome::Broken),
+                ("panics.png".to_owned(), ThumbnailState::Broken),
             ]
         );
         assert!(MARKED_WHEN_PANICKING.load(Ordering::SeqCst));

@@ -16,7 +16,7 @@ pub use scan::{Scan, ScanDiff, ScannedFile, scan_folder};
 pub use source::{LIBRARY_SOURCE, LibraryTable, register_library_source};
 pub use thumbnail::{
     ThumbnailCache, ThumbnailCompletion, ThumbnailGenerator, ThumbnailJob, ThumbnailKey,
-    ThumbnailLookup, ThumbnailOutcome, ThumbnailTable, register_thumbnail_source,
+    ThumbnailTable, register_thumbnail_source,
 };
 
 use bevy_app::{App, Plugin};
