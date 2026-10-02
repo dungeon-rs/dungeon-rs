@@ -1,5 +1,5 @@
 //! One sprite per Element drawn as an image, or of a kind this editor does not know, kept in step
-//! with the model through change detection.
+//! with the model through change detection: a Prop upright, a Portal turned and mirrored.
 
 use crate::drawn_as;
 use crate::stacking::Stacking;
@@ -12,13 +12,13 @@ use bevy_ecs::lifecycle::RemovedComponents;
 use bevy_ecs::query::{Changed, Or, With, Without};
 use bevy_ecs::system::{Commands, EntityCommands, Query, Res, SystemParam};
 use bevy_image::Image;
-use bevy_math::Vec3;
+use bevy_math::{Quat, Vec3, ops};
 use bevy_sprite::Sprite;
 use bevy_transform::components::Transform;
 use drs_library_access::asset_path;
 use drs_model::{
-    DrawnAs, Element, ElementKindRegistry, Layer, Level, Project, Prop, Resolution,
-    ResolutionTable, WallShape,
+    AssetReferenceRow, DrawnAs, Element, ElementKindRegistry, Layer, Level, Portal, Project, Prop,
+    Resolution, ResolutionTable, WallShape,
 };
 use std::collections::BTreeMap;
 
@@ -46,8 +46,16 @@ pub(crate) struct Model<'w, 's> {
     stacking: Stacking<'w, 's>,
     /// Each Project's resolution table.
     projects: Query<'w, 's, &'static ResolutionTable, With<Project>>,
-    /// What every Element has, and the Prop it is when it is one.
-    elements: Query<'w, 's, (&'static Element, Option<&'static Prop>)>,
+    /// What every Element has, and the Prop or the Portal it is when it is one.
+    elements: Query<
+        'w,
+        's,
+        (
+            &'static Element,
+            Option<&'static Prop>,
+            Option<&'static Portal>,
+        ),
+    >,
     /// How each known kind is drawn.
     kinds: Option<Res<'w, ElementKindRegistry>>,
 }
@@ -61,7 +69,13 @@ pub(crate) struct Model<'w, 's> {
     reason = "a Bevy query filter is spelled out by the components it watches"
 )]
 pub(crate) fn props_changed(
-    elements: Query<(), (Or<(Changed<Element>, Changed<Prop>)>, Without<WallShape>)>,
+    elements: Query<
+        (),
+        (
+            Or<(Changed<Element>, Changed<Prop>, Changed<Portal>)>,
+            Without<WallShape>,
+        ),
+    >,
     orders: Query<
         (),
         (
@@ -77,9 +91,11 @@ pub(crate) fn props_changed(
 }
 
 /// Brings the sprites in step with the model: one per Element whose kind is drawn as an image or
-/// is not known, at its position and size and at its depth in the stacking order; sprites of
-/// Elements that are gone are removed. A Prop shows the image its Asset Reference resolves to; a
-/// Missing Asset and an Element of a kind this editor does not know show the placeholder.
+/// is not known, at its position and size and at its depth in the stacking order, a Portal
+/// turned by its rotation and flipped across its length when mirrored; sprites of Elements that
+/// are gone are removed. A Prop or a Portal shows the image its Asset Reference resolves to; a
+/// Missing Asset and an Element of a kind this editor does not know show the placeholder, turned
+/// and flipped as the image would be.
 pub(crate) fn sync_props(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
@@ -92,7 +108,7 @@ pub(crate) fn sync_props(
         .collect();
     for stacked in model.stacking.in_order() {
         let element = stacked.element;
-        let (Ok(resolutions), Ok((shape, prop))) = (
+        let (Ok(resolutions), Ok((shape, prop, portal))) = (
             model.projects.get(stacked.project),
             model.elements.get(element),
         ) else {
@@ -103,7 +119,12 @@ pub(crate) fn sync_props(
             Some(DrawnAs::Image) | None => {}
         }
         let translation = Vec3::new(shape.position.x, shape.position.y, stacked.depth);
-        let image = image_of(resolutions, prop);
+        let rotation = portal.map_or(Quat::IDENTITY, |portal| turn(portal.rotation));
+        let mirrored = portal.is_some_and(|portal| portal.mirrored);
+        let row = prop
+            .map(|prop| prop.asset)
+            .or_else(|| portal.map(|portal| portal.asset));
+        let image = image_of(resolutions, row);
         if let Some(sprite_entity) = unseen.remove(&element) {
             let Ok((_, mut drawing, mut sprite, mut transform)) = sprites.get_mut(sprite_entity)
             else {
@@ -112,8 +133,14 @@ pub(crate) fn sync_props(
             if transform.translation != translation {
                 transform.translation = translation;
             }
+            if transform.rotation != rotation {
+                transform.rotation = rotation;
+            }
             if sprite.custom_size != Some(shape.size) {
                 sprite.custom_size = Some(shape.size);
+            }
+            if sprite.flip_y != mirrored {
+                sprite.flip_y = mirrored;
             }
             if drawing.image != image {
                 drawing.image.clone_from(&image);
@@ -127,13 +154,14 @@ pub(crate) fn sync_props(
         } else {
             let mut sprite = Sprite {
                 custom_size: Some(shape.size),
+                flip_y: mirrored,
                 ..Sprite::default()
             };
             let mut spawned = commands.spawn_empty();
             show(&mut spawned, &mut sprite, image.as_ref(), &asset_server);
             spawned.insert((
                 sprite,
-                Transform::from_translation(translation),
+                Transform::from_translation(translation).with_rotation(rotation),
                 Drawing { element, image },
             ));
         }
@@ -172,11 +200,21 @@ pub(crate) fn settle_loads(
     }
 }
 
-/// The `lib://` path of an Element's image: where the resolution table says its Prop's Asset
-/// Reference loads from on this device. `None` for a Missing Asset, for a row not yet resolved,
-/// and for an Element that is no Prop.
-fn image_of(resolutions: &ResolutionTable, prop: Option<&Prop>) -> Option<AssetPath<'static>> {
-    match resolutions.get(prop?.asset)? {
+/// A turn counter-clockwise by `angle` radians about the axis out of the Level, built through
+/// the deterministic maths functions so the Export is the same on every machine.
+fn turn(angle: f32) -> Quat {
+    let (sine, cosine) = ops::sin_cos(angle / 2.0);
+    Quat::from_xyzw(0.0, 0.0, sine, cosine)
+}
+
+/// The `lib://` path of an Element's image: where the resolution table says the Asset Reference
+/// in its row loads from on this device. `None` for a Missing Asset, for a row not yet resolved,
+/// and for an Element that shows no Asset.
+fn image_of(
+    resolutions: &ResolutionTable,
+    row: Option<AssetReferenceRow>,
+) -> Option<AssetPath<'static>> {
+    match resolutions.get(row?)? {
         Resolution::Resolved { folder, place } => Some(asset_path(folder, place)),
         Resolution::Missing(_) => None,
     }

@@ -8,15 +8,20 @@ descriptor in the Element kind registry says. They keep one sprite per Element
 drawn as an image: a Prop's image loaded through the `lib://` asset source from
 where the Project's resolution table says its Asset Reference loads on this
 device, at the Element's size in cells, positioned at the Element's centre, and
-stacked in the order of the Layer's children, each at its own depth. A Prop
-whose image cannot be loaded or whose Asset is Missing, and an Element of a kind
-this editor does not know, are drawn as the same flat coloured placeholder of
-their recorded size.
+stacked in the order of the Layer's children, each at its own depth. A Portal
+is drawn the same way, turned counter-clockwise by its rotation and flipped
+across its length when it is mirrored; the turn is built through the
+deterministic maths functions, so the Export is the same on every machine. A
+Prop or a Portal whose image cannot be loaded or whose Asset is Missing, and an
+Element of a kind this editor does not know, are drawn as the same flat coloured
+placeholder of their recorded size, a Portal's turned and flipped as its image
+would be.
 
 An Element drawn as a stroked path, a Wall, is drawn as one mesh with a
 flat-colour Material, built from the stroke mesh of its derived shape and
 replaced whenever that shape changes, at its depth in the same stacking order as
-the sprites. The Material blends, though the colour is opaque, so the mesh sorts
+the sprites; the derived stroke already leaves out the stretches the Wall's
+Portals cover. The Material blends, though the colour is opaque, so the mesh sorts
 with the sprites by depth, and Walls of one colour share it. A Wall whose shape
 has not been derived yet is not drawn that frame.
 

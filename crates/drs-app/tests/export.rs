@@ -30,8 +30,8 @@ use drs_model::{
     AddFolder, Apply, AssetAddress, CanonicalName, Colour, CommandFailed, EditElement,
     EditorDirectories, Element, ElementChange, ElementId, ExportLevel, ExportRefused, FolderAdded,
     FolderKey, FolderRefused, Gesture, Layer, Level, LevelExported, ModelPlugin, OpenProject,
-    PlaceElement, Placement, ProjectOpened, ProjectRefused, ProjectSaved, Prop, SaveProject,
-    SavedMark, Viewport,
+    PlaceElement, Placement, PortalAnchor, ProjectOpened, ProjectRefused, ProjectSaved, Prop,
+    SaveProject, SavedMark, Side, Viewport,
 };
 use drs_project_manager::ProjectManagerPlugin;
 use drs_render_engine::RenderEnginePlugin;
@@ -55,6 +55,16 @@ const MAGENTA: &str = "odd 'things' & more/caf\u{e9} #1? [v2].png";
 const MAGENTA: &str = "odd 'things' & more/caf\u{e9} #1 [v2].png";
 /// A solid grey image of one cell by one cell that a Project comes to miss.
 const GONE: &str = "gone.png";
+/// A solid cyan door of two cells by half a cell.
+const DOOR: &str = "door.png";
+/// A door of two cells by one cell, its top half orange and its bottom half purple.
+const TWO_TONE: &str = "two-tone.png";
+/// The colour of the door.
+const CYAN_PIXEL: [u8; 4] = [0, 255, 255, 255];
+/// The colour of the two-tone door's top half.
+const ORANGE_PIXEL: [u8; 4] = [255, 128, 0, 255];
+/// The colour of the two-tone door's bottom half.
+const PURPLE_PIXEL: [u8; 4] = [128, 0, 255, 255];
 /// The colour of the grey image, which a Missing Asset never shows.
 const GREY_PIXEL: [u8; 4] = [128, 128, 128, 255];
 /// The placeholder of a Missing Asset over the Export's black background.
@@ -256,6 +266,12 @@ impl Fixture {
         png(&folder, GREEN, UVec2::splat(256), GREEN_PIXEL);
         png(&folder, MAGENTA, UVec2::splat(256), MAGENTA_PIXEL);
         png(&folder, GONE, UVec2::splat(256), GREY_PIXEL);
+        png(&folder, DOOR, UVec2::new(512, 128), CYAN_PIXEL);
+        image::RgbaImage::from_fn(512, 256, |_, y| {
+            image::Rgba(if y < 128 { ORANGE_PIXEL } else { PURPLE_PIXEL })
+        })
+        .save(folder.join(TWO_TONE))
+        .expect("the two-tone image");
         let mut app = editor(root.path());
         let added = add_folder(&mut app, &folder, "Fixtures");
         Self {
@@ -355,6 +371,44 @@ impl Fixture {
                 }));
             }
         }
+    }
+
+    /// The identity of the last Element on the Layer.
+    fn last(&mut self) -> ElementId {
+        let layer = self.layer();
+        let world = self.app.world_mut();
+        let last = world
+            .get::<Children>(layer)
+            .and_then(|children| children.iter().last().copied())
+            .expect("the Layer has Elements");
+        *world.get::<ElementId>(last).expect("an Element")
+    }
+
+    /// Places a Portal of the Asset at `place`, set at `anchor` or freestanding on `position`,
+    /// returning its identity.
+    fn portal(&mut self, place: &str, position: Vec2, anchor: Option<PortalAnchor>) -> ElementId {
+        let layer = self.layer();
+        self.run(Apply::PlaceElement(PlaceElement {
+            layer,
+            placement: Placement::Portal {
+                position,
+                asset: AssetAddress {
+                    folder: self.key.clone(),
+                    place: place.to_owned(),
+                },
+                anchor,
+            },
+        }));
+        self.last()
+    }
+
+    /// Changes an Element on its own, failing the test if the change was refused.
+    fn edit(&mut self, element: ElementId, change: ElementChange) {
+        self.run(Apply::EditElement(EditElement {
+            element,
+            change,
+            gesture: Gesture::Single,
+        }));
     }
 
     /// Sends a Command and runs one update, failing the test if the Command was refused.
@@ -1071,4 +1125,206 @@ fn a_wall_is_clipped_at_the_edge() {
             assert_eq!(picture.pixel(x, y), BLACK_PIXEL, "({x}, {y})");
         }
     }
+}
+
+/// Where a Portal set into `host` at `segment` and `t` facing `side` is anchored.
+fn anchored(host: ElementId, segment: usize, t: f32, side: Side) -> PortalAnchor {
+    PortalAnchor {
+        host,
+        segment,
+        t,
+        side,
+    }
+}
+
+/// The Wall gives way: a Wall is not drawn along any stretch a Portal set into it covers; at each
+/// end of such a stretch the stroke ends squarely across the line. A Portal shorter than the
+/// Wall is thick stands in a gap with the background beside it.
+#[test]
+fn a_wall_gives_way_to_its_portal() {
+    let mut fixture = Fixture::new();
+    fixture.wall(
+        &[Vec2::new(5.0, 15.0), Vec2::new(25.0, 15.0)],
+        &[None],
+        2.0,
+        YELLOW,
+    );
+    let wall = fixture.last();
+    fixture.portal(DOOR, Vec2::ZERO, Some(anchored(wall, 0, 0.5, Side::Left)));
+
+    let exported = fixture
+        .export(WALL_PIXELS_PER_CELL, "gap.png", TILE)
+        .expect("the Export is written");
+    let picture = Picture::decode(&exported.path);
+    let at = |x: f32, y: f32| picture.at_point(Vec2::new(x, y), WALL_PIXELS_PER_CELL);
+
+    assert_eq!(at(15.0, 15.0), CYAN_PIXEL, "the Portal at its centre");
+    assert_eq!(at(15.0, 15.6), BLACK_PIXEL, "the gap beside the Portal");
+    assert_eq!(at(14.2, 14.2), BLACK_PIXEL, "the gap below the Portal");
+    assert_eq!(
+        at(16.1, 15.0),
+        YELLOW_PIXEL,
+        "the Wall just past the stretch"
+    );
+    assert_eq!(
+        at(16.1, 15.9),
+        YELLOW_PIXEL,
+        "a square end, not a round one"
+    );
+    assert_eq!(
+        at(13.9, 14.1),
+        YELLOW_PIXEL,
+        "the square end before the stretch"
+    );
+    assert_eq!(at(4.2, 15.0), YELLOW_PIXEL, "the Wall's own cap");
+}
+
+/// The Wall gives way across a point: a Portal across a point of a Wall leaves out both
+/// segments within its stretch, the join at the point included.
+#[test]
+fn a_gap_follows_the_corner() {
+    let mut fixture = Fixture::new();
+    fixture.wall(
+        &[
+            Vec2::new(5.0, 10.0),
+            Vec2::new(15.0, 10.0),
+            Vec2::new(15.0, 20.0),
+        ],
+        &[None, None],
+        2.0,
+        YELLOW,
+    );
+    let wall = fixture.last();
+    fixture.portal(DOOR, Vec2::ZERO, Some(anchored(wall, 0, 0.95, Side::Left)));
+
+    let exported = fixture
+        .export(WALL_PIXELS_PER_CELL, "corner-gap.png", TILE)
+        .expect("the Export is written");
+    let picture = Picture::decode(&exported.path);
+    let at = |x: f32, y: f32| picture.at_point(Vec2::new(x, y), WALL_PIXELS_PER_CELL);
+
+    assert_eq!(at(14.5, 10.0), CYAN_PIXEL, "the Portal");
+    assert_eq!(at(13.8, 9.4), BLACK_PIXEL, "the gap on the first segment");
+    assert_eq!(at(15.7, 10.3), BLACK_PIXEL, "the gap on the second segment");
+    assert_eq!(at(15.7, 9.3), BLACK_PIXEL, "no join at the point");
+    assert_eq!(
+        at(13.0, 10.0),
+        YELLOW_PIXEL,
+        "the first segment before the stretch"
+    );
+    assert_eq!(
+        at(15.0, 11.0),
+        YELLOW_PIXEL,
+        "the second segment past the stretch"
+    );
+}
+
+/// Set Portals stand on the line: a Portal set into a Wall is turned to the Wall's direction
+/// with its image's top facing its side, drawn as it is facing the left and mirrored across the
+/// line facing the right.
+#[test]
+fn a_portal_faces_its_side() {
+    let mut fixture = Fixture::new();
+    fixture.wall(
+        &[Vec2::new(15.0, 5.0), Vec2::new(15.0, 25.0)],
+        &[None],
+        0.5,
+        YELLOW,
+    );
+    let wall = fixture.last();
+    let door = fixture.portal(
+        TWO_TONE,
+        Vec2::ZERO,
+        Some(anchored(wall, 0, 0.5, Side::Left)),
+    );
+
+    let left = fixture
+        .export(WALL_PIXELS_PER_CELL, "left.png", TILE)
+        .expect("the Export is written");
+    let picture = Picture::decode(&left.path);
+    let at = |x: f32, y: f32| picture.at_point(Vec2::new(x, y), WALL_PIXELS_PER_CELL);
+    assert_eq!(
+        at(14.7, 15.0),
+        ORANGE_PIXEL,
+        "the top to the left of the Wall"
+    );
+    assert_eq!(at(15.3, 15.0), PURPLE_PIXEL, "the bottom to the right");
+    assert_eq!(at(14.7, 15.9), ORANGE_PIXEL, "the width along the Wall");
+    assert_eq!(at(14.7, 16.1), BLACK_PIXEL, "past the Portal's width");
+
+    fixture.edit(door, ElementChange::Side(Side::Right));
+    let right = fixture
+        .export(WALL_PIXELS_PER_CELL, "right.png", TILE)
+        .expect("the Export is written");
+    let picture = Picture::decode(&right.path);
+    let at = |x: f32, y: f32| picture.at_point(Vec2::new(x, y), WALL_PIXELS_PER_CELL);
+    assert_eq!(
+        at(15.3, 15.0),
+        ORANGE_PIXEL,
+        "the top to the right after a flip"
+    );
+    assert_eq!(at(14.7, 15.0), PURPLE_PIXEL, "the bottom to the left");
+}
+
+/// Freestanding like a Prop: a freestanding Portal is drawn centred on its position, turned
+/// counter-clockwise by its rotation.
+#[test]
+fn a_freestanding_portal_is_turned() {
+    let mut fixture = Fixture::new();
+    let door = fixture.portal(BLUE, Vec2::new(15.0, 15.0), None);
+    fixture.edit(door, ElementChange::Rotation(std::f32::consts::FRAC_PI_2));
+
+    let exported = fixture
+        .export(WALL_PIXELS_PER_CELL, "turned.png", TILE)
+        .expect("the Export is written");
+    let picture = Picture::decode(&exported.path);
+    let at = |x: f32, y: f32| picture.at_point(Vec2::new(x, y), WALL_PIXELS_PER_CELL);
+
+    assert_eq!(at(15.0, 15.0), BLUE_PIXEL, "its centre");
+    assert_eq!(at(15.0, 15.9), BLUE_PIXEL, "its width up the turn");
+    assert_eq!(at(15.0, 14.1), BLUE_PIXEL, "its width down the turn");
+    assert_eq!(at(15.9, 15.0), BLACK_PIXEL, "beside its height");
+    let cells = (WALL_PIXELS_PER_CELL * WALL_PIXELS_PER_CELL) as usize;
+    assert_eq!(
+        picture.count(BLUE_PIXEL),
+        2 * cells,
+        "a tall area of two cells"
+    );
+}
+
+/// Portals stack like Elements: every Portal is drawn at its place in the stacking order,
+/// Portals that overlap each other included, and the Wall is left out along what either covers.
+#[test]
+fn overlapping_portals_stack() {
+    let mut fixture = Fixture::new();
+    fixture.wall(
+        &[Vec2::new(5.0, 15.0), Vec2::new(25.0, 15.0)],
+        &[None],
+        2.0,
+        YELLOW,
+    );
+    let wall = fixture.last();
+    fixture.portal(RED, Vec2::ZERO, Some(anchored(wall, 0, 0.5, Side::Left)));
+    fixture.portal(
+        GREEN,
+        Vec2::ZERO,
+        Some(anchored(wall, 0, 0.525, Side::Left)),
+    );
+
+    let exported = fixture
+        .export(WALL_PIXELS_PER_CELL, "overlap.png", TILE)
+        .expect("the Export is written");
+    let picture = Picture::decode(&exported.path);
+    let at = |x: f32, y: f32| picture.at_point(Vec2::new(x, y), WALL_PIXELS_PER_CELL);
+
+    assert_eq!(at(14.6, 15.0), RED_PIXEL, "the first Portal alone");
+    assert_eq!(
+        at(15.3, 15.0),
+        GREEN_PIXEL,
+        "the later Portal where they overlap"
+    );
+    assert_eq!(at(15.9, 15.0), GREEN_PIXEL, "the later Portal alone");
+    assert_eq!(at(14.6, 15.8), BLACK_PIXEL, "the gap of the first");
+    assert_eq!(at(15.9, 15.8), BLACK_PIXEL, "the gap of the later");
+    assert_eq!(at(16.6, 15.0), YELLOW_PIXEL, "the Wall past both");
 }
