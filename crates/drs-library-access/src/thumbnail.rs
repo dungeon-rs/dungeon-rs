@@ -15,6 +15,7 @@ use pack::{Digest, Record, Writer};
 use std::any::Any;
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::mpsc::{Receiver, Sender, channel};
 use std::sync::{Arc, Condvar, Mutex, PoisonError, RwLock};
 use std::thread::JoinHandle;
@@ -59,6 +60,8 @@ struct Shared {
     writer: Mutex<Writer>,
     /// What the `thumb://` source serves.
     table: ThumbnailTable,
+    /// How many files were found broken since that was last logged.
+    broken: AtomicUsize,
 }
 
 impl Shared {
@@ -97,6 +100,18 @@ impl Shared {
             Err(error) => {
                 let _ = completions.send(ThumbnailCompletion::CacheFailed(error.to_string()));
                 None
+            }
+        }
+    }
+
+    /// Logs at `info` how many files were found broken since this was last logged, if any;
+    /// each is logged at `debug` as it is found.
+    fn log_broken(&self) {
+        match self.broken.swap(0, Ordering::Relaxed) {
+            0 => {}
+            1 => log::info!("1 file has no thumbnail: it could not be decoded as an image"),
+            count => {
+                log::info!("{count} files have no thumbnail: they could not be decoded as images");
             }
         }
     }
@@ -151,6 +166,7 @@ impl ThumbnailCache {
                 records: RwLock::new(opened.records),
                 writer: Mutex::new(opened.writer),
                 table: table.clone(),
+                broken: AtomicUsize::new(0),
             }),
         })
     }
@@ -423,6 +439,7 @@ impl Drop for ThumbnailGenerator {
             .unwrap_or_else(PoisonError::into_inner);
         let mut pending = self.pending.lock().unwrap_or_else(PoisonError::into_inner);
         let _ = self.shared.flush(&mut writer, &mut pending, &self.sender);
+        self.shared.log_broken();
     }
 }
 
@@ -472,7 +489,8 @@ impl Worker {
                     }
                 }
                 Ok(Made::Broken(reason)) => {
-                    log::info!("{} has no thumbnail: {reason}", job.file.display());
+                    log::debug!("{} has no thumbnail: {reason}", job.file.display());
+                    self.shared.broken.fetch_add(1, Ordering::Relaxed);
                     if let Some(record) = writer.append(digest, None) {
                         pending.push(Completed {
                             key: job.key,
@@ -507,6 +525,9 @@ impl Worker {
                     return;
                 };
                 self.work().queue.release(served);
+                if drained {
+                    self.shared.log_broken();
+                }
             }
         }
     }
