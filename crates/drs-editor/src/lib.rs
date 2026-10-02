@@ -55,11 +55,11 @@ impl Plugin for EditorPlugin {
             );
         #[cfg(feature = "dev")]
         {
-            crash_test::at_startup();
-            app.add_systems(
-                Update,
-                (screenshot::screenshot, crash_test::on_second_frame),
-            );
+            app.add_systems(Update, screenshot::screenshot);
+            if let Some(forced) = crash_test::ForcedCrash::from_environment() {
+                app.insert_resource(forced)
+                    .add_systems(Update, crash_test::on_second_frame);
+            }
             if let Some(script) = script::Script::from_environment() {
                 app.insert_resource(script).add_systems(
                     bevy::app::PreUpdate,
