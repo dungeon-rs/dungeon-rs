@@ -1,2 +1,12 @@
 [profile.default]
 fail-fast = { max-fail = 5 }
+
+# A test that bounds how long the code takes runs with no other test beside it, since tests
+# running at the same time take cores and caches from it.
+[test-groups]
+timed = { max-threads = 1 }
+
+[[profile.default.overrides]]
+filter = 'package(drs-catalog-engine) and test(=answered_within_a_keystroke)'
+test-group = 'timed'
+threads-required = 'num-test-threads'
