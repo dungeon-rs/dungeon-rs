@@ -5,6 +5,7 @@ mod load;
 mod manifest;
 mod scan;
 mod source;
+mod thumbnail;
 
 pub use directories::LibraryDirectories;
 pub use load::{LoadedAsset, asset_path, load_asset};
@@ -13,6 +14,10 @@ pub use manifest::{
 };
 pub use scan::{Scan, ScanDiff, ScannedFile, scan_folder};
 pub use source::{LIBRARY_SOURCE, LibraryTable, register_library_source};
+pub use thumbnail::{
+    ThumbnailCache, ThumbnailCompletion, ThumbnailGenerator, ThumbnailJob, ThumbnailKey,
+    ThumbnailLookup, ThumbnailOutcome, ThumbnailTable, register_thumbnail_source,
+};
 
 use bevy_app::{App, Plugin};
 use std::path::PathBuf;
@@ -74,12 +79,13 @@ pub enum LibraryError {
     },
 }
 
-/// Registers the [`LibraryTable`] when the Host has not already done so through
-/// [`register_library_source`].
+/// Registers the [`LibraryTable`] and the [`ThumbnailTable`] when the Host has not already done
+/// so through [`register_library_source`] and [`register_thumbnail_source`].
 pub struct LibraryAccessPlugin;
 
 impl Plugin for LibraryAccessPlugin {
     fn build(&self, app: &mut App) {
-        app.init_resource::<LibraryTable>();
+        app.init_resource::<LibraryTable>()
+            .init_resource::<ThumbnailTable>();
     }
 }
