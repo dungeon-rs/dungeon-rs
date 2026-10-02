@@ -99,7 +99,7 @@ Löwy's rules ([LOWY-RULES.md](../../.claude/skills/architect/LOWY-RULES.md)), p
 - Managers never call each other; they exchange queued messages whose types live in `model`. Domain event *Asset Folder Changed* is a message from LibraryManager to ProjectManager, which re-resolves the affected Asset References.
 - RenderEngine's viewport systems read the model through change detection; nothing calls them per frame.
 - Every component type in `model` is written only by the systems of the crate that owns it; everyone else reads. The one exception is the Project lifecycle: ProjectManager materialises every component when it opens a Project and serialises every component when it saves one, through the serialisation registry in `model`. _Why_: Open and Save must rebuild and record the whole World, and Managers never call each other.
-- Elements are addressed by `ElementId`, a stable identity that survives saving and loading, never by the ECS entity handle.
+- Elements are addressed by `ElementId`, a stable identity that survives saving and loading, never by the ECS entity handle. Layers are addressed the same way within a session, by a Layer identity that Commands and history steps hold, so a Layer removed and brought back by undo is still the one they mean; it is never saved, as a Project file orders Layers by their place in the Level.
 
 ## Technology
 
