@@ -59,8 +59,8 @@ pub(crate) fn library(
     Ok((directories, table))
 }
 
-/// Refresh: scans an added Asset Folder again, diffed against its index cache, and rewrites its
-/// index of Assets.
+/// Refresh: scans an added Asset Folder again, diffed against its index cache, rewrites its
+/// index of Assets, and looks up their thumbnails, enqueuing the missing ones.
 ///
 /// # Errors
 ///
@@ -77,5 +77,6 @@ pub fn refresh(world: &mut World, folder: Entity) -> Result<ScanDiff, LibraryMan
         added.assets = assets;
         added.skips = scan.skips;
     }
+    crate::thumbnails::track(world, folder);
     Ok(scan.diff)
 }

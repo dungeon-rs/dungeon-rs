@@ -2,12 +2,13 @@
 
 mod add_folder;
 mod index;
+mod thumbnails;
 
 pub use index::refresh;
 
 use add_folder::add_folder;
 
-use bevy_app::{App, Plugin, Startup, Update};
+use bevy_app::{App, Last, Plugin, Startup, Update};
 use bevy_ecs::entity::Entity;
 use bevy_ecs::message::MessageReader;
 use bevy_ecs::schedule::IntoScheduleConfigs;
@@ -30,14 +31,25 @@ pub enum LibraryManagerError {
     NotAFolder,
 }
 
-/// Handles [`AddFolder`] and restores the remembered Asset Folders at startup, announcing each
-/// folder that arrives or goes with [`AssetFolderChanged`].
+/// Handles [`AddFolder`] and [`drs_model::Browse`], restores the remembered Asset Folders at
+/// startup, announcing each folder that arrives or goes with [`AssetFolderChanged`], and keeps
+/// the thumbnails of every indexed folder generated in the background.
 pub struct LibraryManagerPlugin;
 
 impl Plugin for LibraryManagerPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(Startup, restore_folders)
-            .add_systems(Update, handle_add_folder.in_set(ManagerSystems::Commands));
+        app.add_systems(Startup, (thumbnails::open, restore_folders).chain())
+            .add_systems(
+                Update,
+                (
+                    thumbnails::drain,
+                    thumbnails::handle_browse,
+                    handle_add_folder,
+                )
+                    .chain()
+                    .in_set(ManagerSystems::Commands),
+            )
+            .add_systems(Last, thumbnails::stop_on_exit);
     }
 }
 
