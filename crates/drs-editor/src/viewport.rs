@@ -27,8 +27,9 @@ use bevy::time::{Real, Time};
 use bevy::window::{PrimaryWindow, Window};
 use bevy_egui::input::EguiWantsInput;
 use drs_model::{
-    Apply, EditElement, Element, ElementChange, ElementId, Gesture, Layer, Level, PlaceElement,
-    Placement, Portal, Redo, RemoveElement, Terrain, Undo, Viewport, Wall, WallShape,
+    Apply, DrawnAs, EditElement, Element, ElementChange, ElementId, ElementKindRegistry, Gesture,
+    Layer, Level, PlaceElement, Placement, Portal, Redo, RemoveElement, Terrain, Undo, Viewport,
+    Wall, WallShape,
 };
 
 /// How far the pointer travels, in pixels, before a press on an Element or a handle becomes a
@@ -70,8 +71,10 @@ pub(crate) struct LevelView<'w, 's> {
     /// Every Element's identity and box, its Wall and derived shape when it is a Wall, and its
     /// Portal when it is one.
     elements: Query<'w, 's, Picked>,
-    /// The Elements that are Terrain, which are never picked.
+    /// The Elements that are Terrain, for the Terrain a Paint adds to.
     terrains: Query<'w, 's, (), With<Terrain>>,
+    /// How each known kind is drawn, which says what is never picked.
+    kinds: Option<Res<'w, ElementKindRegistry>>,
 }
 
 /// What picking reads of an Element: its identity and box, its Wall and derived shape when it is
@@ -102,17 +105,17 @@ impl LevelView<'_, '_> {
     /// Portal set into a Wall: Layers from the top down, and each Layer's Elements from the last
     /// drawn back. A Wall is under the point when its line is near enough outside the stretches
     /// its Portals cover, a Portal when its turned rectangle holds the point, and any other
-    /// Element when its box does; a Terrain never is, so the ground never gets in the way of what
-    /// stands on it.
+    /// Element when its box does; an Element drawn as a painted surface, a Terrain, never is, so
+    /// the ground never gets in the way of what stands on it.
     fn topmost_at(&self, cells: Vec2, zoom: f32) -> Option<(ElementId, Vec2, bool)> {
         self.levels.iter().find_map(|layers| {
             layers.iter().rev().find_map(|&layer| {
                 let (_, elements) = self.layers.get(layer).ok()?;
                 elements.iter().rev().find_map(|&element| {
-                    if self.terrains.contains(element) {
+                    let (id, element, wall, shape, portal) = self.elements.get(element).ok()?;
+                    if self.painted(element) {
                         return None;
                     }
-                    let (id, element, wall, shape, portal) = self.elements.get(element).ok()?;
                     let hit = match (wall, shape, portal) {
                         (Some(wall), Some(shape), _) => walls::on_wall(wall, shape, cells, zoom),
                         (Some(_), None, _) => false,
@@ -126,6 +129,14 @@ impl LevelView<'_, '_> {
                 })
             })
         })
+    }
+
+    /// Whether an Element is drawn as a painted surface, by its kind.
+    fn painted(&self, element: &Element) -> bool {
+        self.kinds
+            .as_deref()
+            .and_then(|kinds| kinds.get(&element.kind))
+            .is_some_and(|kind| kind.drawn_as == DrawnAs::PaintedSurface)
     }
 
     /// The selected Element when it is a Wall, with its derived shape once it has one.
