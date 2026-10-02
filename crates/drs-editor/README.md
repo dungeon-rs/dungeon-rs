@@ -6,9 +6,12 @@ The [`EditorPlugin`](crate::EditorPlugin), built over what the diagnostics
 Utility set up and found at start, lays the window out with `egui_dock`:
 an Assets panel on the left that shows the Assets of every added Asset Folder
 as a grid of thumbnails with their names beneath, ordered by the Canonical Name
-of their folder and then by place, filtered by name, with one line per folder
-above the grid giving how many of its Assets are shown, and the viewport in the
-centre,
+of their folder and then by place, or, with text typed in its search field, the
+matches the library Manager answers for the text, in its order; above the grid
+a line says how many Assets the library holds or how many match, or that none
+matches the text, and one line per folder how many of its Assets are shown. Each
+change of the text is sent as it is typed and starts the grid at the top. The
+viewport sits in the centre,
 which is left transparent so the Level drawn by the render Engine shows
 through. A status line at the bottom reports what happened last and what the
 Author is doing, including a bundle directory that was not found and a crash
@@ -54,7 +57,7 @@ kept, the least recently shown dropped first.
 The panels read the World and send Commands and requests as messages; they
 never own domain state. The Editor writes only the model's `Viewport` (panning
 and zooming) and its own state: the chosen Asset, the thumbnails it holds, the
-selection, the filter, the prompt, question, report, or dialog in progress,
+selection, the search text, the prompt, question, report, or dialog in progress,
 whether an Export is being written, the tool, and the Wall being drawn.
 Clicking in the viewport places the chosen Asset or selects the topmost Element
 under the pointer, a Prop by its rectangle and a Wall by its line, dragging a

@@ -383,9 +383,11 @@ fn describe(state: &EditorState, window: &Window, ctx: Option<&mut egui::Context
     }
 }
 
-/// Logs the Assets panel's grid: how many thumbnails are kept and registered, then every cell
-/// laid out in the last frame with what it showed and its rectangle in logical pixels.
+/// Logs the Assets panel's grid: the line above it, how many thumbnails are kept and registered,
+/// then every cell laid out in the last frame with what it showed and its rectangle in logical
+/// pixels.
 fn describe_grid(browser: &Browser) {
+    bevy::log::info!("describe: browser says {:?}", browser.summary);
     let (kept, registered) = browser.textures();
     bevy::log::info!(
         "describe: grid of {} cells laid out, {kept} thumbnails kept, {registered} registered",

@@ -1,4 +1,4 @@
-//! What the Editor itself keeps: the chosen Asset, the selection, the filter, the status line,
+//! What the Editor itself keeps: the chosen Asset, the selection, the search, the status line,
 //! the prompts and dialogs in progress, the Export under way, the gesture under way, and the
 //! tool with the Wall being drawn. None of it is domain state.
 
@@ -15,8 +15,8 @@ pub(crate) struct EditorState {
     pub chosen: Option<Chosen>,
     /// The selected Element, if any. Selection is never a history step.
     pub selected: Option<ElementId>,
-    /// The text the Assets panel filters by.
-    pub filter: String,
+    /// The text typed in the Assets panel's search field.
+    pub search: String,
     /// What the status line reports.
     pub status: String,
     /// The Canonical Name prompt, while a folder is being added.

@@ -1,13 +1,13 @@
-//! The Assets panel: a grid of thumbnails of the Assets of every added Asset Folder, filtered by
-//! name, one click to choose.
+//! The Assets panel: a search field, a grid of thumbnails of the Assets of every added Asset
+//! Folder or of those the search text matches, one click to choose.
 //!
 //! Only the rows in view are laid out. Their thumbnails are loaded through the `thumb://` asset
 //! source, decoded off the main thread by the asset system, registered with egui while their row
-//! is laid out, and kept in a bounded set of the most recently shown.
+//! is laid out, and kept in a bounded set of the most recently shown. The library Manager answers
+//! the search text; the browser never matches names itself.
 
 use crate::state::{Chosen, EditorState};
 use bevy::asset::{AssetPath, AssetServer, Handle, LoadState, RenderAssetUsages};
-use bevy::ecs::change_detection::{DetectChanges, Ref};
 use bevy::ecs::entity::Entity;
 use bevy::ecs::message::MessageWriter;
 use bevy::ecs::resource::Resource;
@@ -16,8 +16,8 @@ use bevy::image::{Image, ImageFormatSetting, ImageLoaderSettings};
 use bevy::math::UVec2;
 use bevy_egui::{EguiContexts, EguiTextureHandle};
 use drs_model::{
-    AssetAddress, AssetFolder, Browse, FolderKey, IndexedAsset, THUMBNAIL_SOURCE, ThumbnailState,
-    Thumbnails,
+    AssetAddress, AssetFolder, Browse, FolderKey, IndexedAsset, SearchMatches, THUMBNAIL_SOURCE,
+    ThumbnailState, Thumbnails,
 };
 use std::collections::{BTreeMap, BTreeSet};
 use std::ops::Range;
@@ -30,22 +30,29 @@ const PREFETCH_ROWS: usize = 2;
 /// How many decoded thumbnails are kept at most.
 const KEPT: usize = 512;
 
-/// What the browser keeps between frames: no domain state, only what it has drawn and loaded.
+/// What the browser keeps between frames: no domain state, only what it has drawn, loaded, and
+/// sent.
 #[derive(Resource, Default)]
 pub(crate) struct Browser {
-    /// The Assets the filter matches, worked out again only when the filter or a folder changes.
-    matching: Matching,
     /// The thumbnails loaded, by Asset.
     loaded: BTreeMap<AssetAddress, Loaded>,
     /// The frames drawn, for the order thumbnails were last shown in.
     frame: u64,
+    /// The search text last sent to the library Manager.
+    searched: String,
     /// The Assets last named to the library Manager as wanted.
     wanted: Vec<AssetAddress>,
+    /// What the grid showed in the last frame: the answered text it showed the matches of, or
+    /// `None` for the whole library, so that a new text starts at the top.
+    shown: Option<String>,
     /// Whether the panel was drawn in this frame.
     drawn: bool,
     /// The cells laid out in the last frame, for the development script to describe.
     #[cfg(feature = "dev")]
     pub cells: Vec<Cell>,
+    /// The line above the grid in the last frame: the count, or that nothing matches.
+    #[cfg(feature = "dev")]
+    pub summary: String,
 }
 
 #[cfg(feature = "dev")]
@@ -95,34 +102,15 @@ struct Loaded {
     shown: u64,
 }
 
-/// The Assets the filter matches, in the grid's order.
-#[derive(Default)]
-struct Matching {
-    /// The filter they were matched against.
-    needle: String,
-    /// The folders, by Canonical Name, they were matched in.
-    folders: Vec<Entity>,
-    /// Each folder's count of matching Assets, in the same order.
-    counts: Vec<usize>,
-    /// Each matching Asset as the position of its folder in `folders` and its index there.
-    assets: Vec<(u32, u32)>,
-}
-
 /// What the browser reads and writes.
 #[derive(SystemParam)]
 pub(crate) struct Library<'w, 's> {
     /// What the browser keeps.
     browser: ResMut<'w, Browser>,
     /// The Asset Folders and their thumbnail states.
-    folders: Query<
-        'w,
-        's,
-        (
-            Entity,
-            Ref<'static, AssetFolder>,
-            Option<&'static Thumbnails>,
-        ),
-    >,
+    folders: Query<'w, 's, (Entity, &'static AssetFolder, Option<&'static Thumbnails>)>,
+    /// What the search text matches, as the library Manager last answered it.
+    matches: Res<'w, SearchMatches>,
     /// Where thumbnails are loaded.
     assets: Res<'w, AssetServer>,
     /// Browse, to the library Manager.
@@ -135,6 +123,95 @@ fn thumbnail_path(key: &FolderKey, place: &str) -> AssetPath<'static> {
     AssetPath::from_path_buf(Path::new(key.as_str()).join(place)).with_source(THUMBNAIL_SOURCE)
 }
 
+/// Whether `text` holds a word, that is, anything but whitespace.
+fn has_words(text: &str) -> bool {
+    text.split_whitespace().next().is_some()
+}
+
+/// `count` with its thousands grouped by commas, as `400,000`.
+fn grouped(count: usize) -> String {
+    let digits = count.to_string();
+    let mut grouped = String::with_capacity(digits.len() + digits.len() / 3);
+    for (index, digit) in digits.chars().enumerate() {
+        if index > 0 && (digits.len() - index).is_multiple_of(3) {
+            grouped.push(',');
+        }
+        grouped.push(digit);
+    }
+    grouped
+}
+
+/// The Assets the grid shows, in its order: every Asset of every folder by Canonical Name and
+/// then place, or the matches of a search text in the order the library Manager gave them.
+enum Grid<'a> {
+    /// Every Asset, folder by folder: each folder with the slot its first Asset takes.
+    Library(Vec<(Entity, usize)>, usize),
+    /// The matches of a text.
+    Matches(&'a SearchMatches),
+}
+
+impl Grid<'_> {
+    /// How many Assets the grid holds.
+    fn len(&self) -> usize {
+        match self {
+            Self::Library(_, total) => *total,
+            Self::Matches(matches) => matches.assets.len(),
+        }
+    }
+
+    /// The Asset in a slot of the grid, as its folder and its position in the folder's index.
+    fn get(&self, slot: usize) -> Option<(Entity, usize)> {
+        match self {
+            Self::Library(folders, total) => {
+                if slot >= *total {
+                    return None;
+                }
+                let folder = folders.partition_point(|(_, first)| *first <= slot) - 1;
+                let (entity, first) = folders[folder];
+                Some((entity, slot - first))
+            }
+            Self::Matches(matches) => matches
+                .assets
+                .get(slot)
+                .map(|found| (found.folder, found.position)),
+        }
+    }
+}
+
+/// The grid for this frame: the matches of the answered text while one is typed and answered,
+/// or else every Asset of `folders`, which are in Canonical Name order.
+fn grid_of<'a>(
+    folders: &[(Entity, &AssetFolder)],
+    matches: &'a SearchMatches,
+    searching: bool,
+) -> Grid<'a> {
+    if searching {
+        return Grid::Matches(matches);
+    }
+    let mut first = 0;
+    let starts = folders
+        .iter()
+        .map(|(entity, folder)| {
+            let start = (*entity, first);
+            first += folder.assets.len();
+            start
+        })
+        .collect();
+    Grid::Library(starts, first)
+}
+
+/// The line above the grid: how many Assets the library holds, how many match, or that none
+/// matches the `typed` text.
+fn summary(grid: &Grid, typed: &str) -> String {
+    match (grid, grid.len()) {
+        (Grid::Library(..), 1) => "1 Asset".to_owned(),
+        (Grid::Library(..), total) => format!("{} Assets", grouped(total)),
+        (Grid::Matches(_), 0) => format!("No Asset matches \u{201c}{}\u{201d}", typed.trim()),
+        (Grid::Matches(_), 1) => "1 Asset matches".to_owned(),
+        (Grid::Matches(_), total) => format!("{} Assets match", grouped(total)),
+    }
+}
+
 /// Draws the Assets panel.
 pub(crate) fn show(
     ui: &mut egui::Ui,
@@ -142,67 +219,97 @@ pub(crate) fn show(
     library: &mut Library,
     contexts: &mut EguiContexts,
 ) {
-    ui.horizontal(|ui| {
-        ui.label("Filter");
-        ui.add(
-            egui::TextEdit::singleline(&mut state.filter)
-                .hint_text("part of a name")
-                .desired_width(f32::INFINITY),
-        );
-    });
+    let typed = ui
+        .horizontal(|ui| {
+            ui.label("Search");
+            ui.add(
+                egui::TextEdit::singleline(&mut state.search)
+                    .hint_text("part of a name, or folder/name")
+                    .desired_width(f32::INFINITY),
+            )
+            .changed()
+        })
+        .inner;
     let Library {
         browser,
         folders,
+        matches,
         assets,
         browse,
     } = library;
     let browser = &mut **browser;
+    let matches: &SearchMatches = matches;
     browser.frame += 1;
     browser.drawn = true;
     #[cfg(feature = "dev")]
     browser.cells.clear();
-    rematch(browser, state.filter.trim(), folders);
-    if browser.matching.folders.is_empty() {
+
+    let mut sorted: Vec<(Entity, &AssetFolder)> = folders
+        .iter()
+        .map(|(entity, folder, _)| (entity, folder))
+        .collect();
+    sorted.sort_by(|a, b| a.1.name.cmp(&b.1.name).then(a.1.key.cmp(&b.1.key)));
+    if sorted.is_empty() {
         ui.weak("No Asset Folder is added yet. Use Add Asset Folder… in the Library menu.");
+        #[cfg(feature = "dev")]
+        "no Asset Folder".clone_into(&mut browser.summary);
         release(browser, contexts, &BTreeSet::new());
+        send(browser, browse, &state.search, Vec::new());
         return;
     }
-    folder_lines(ui, browser, folders);
+    // Until the answer to the text typed arrives, a frame later, the last answer stays shown;
+    // with nothing typed, the whole library is shown at once.
+    let searching = has_words(&state.search) && has_words(&matches.text);
+    let grid = grid_of(&sorted, matches, searching);
+    let shown = searching.then(|| matches.text.clone());
+    let to_top = typed || shown != browser.shown;
+    browser.shown = shown;
+
+    let summary = summary(&grid, &state.search);
+    ui.label(&summary);
+    #[cfg(feature = "dev")]
+    {
+        browser.summary = summary;
+    }
+    folder_lines(ui, &sorted, searching.then_some(matches));
     ui.separator();
 
     let spacing = ui.spacing().item_spacing;
     let name_height = ui.text_style_height(&egui::TextStyle::Body);
     let width = ui.available_width() - ui.spacing().scroll.allocated_width();
     let columns = columns_in(width, spacing.x);
-    let rows = browser.matching.assets.len().div_ceil(columns);
+    let rows = grid.len().div_ceil(columns);
     let mut laid_out = BTreeSet::new();
     let mut range = 0..0;
-    egui::ScrollArea::vertical()
+    let mut area = egui::ScrollArea::vertical()
         .id_salt("thumbnail-grid")
-        .auto_shrink(false)
-        .show_rows(ui, CELL + name_height, rows, |ui, rows| {
-            range = rows.clone();
-            for row in rows {
-                ui.horizontal(|ui| {
-                    for column in 0..columns {
-                        let Some(&slot) = browser.matching.assets.get(row * columns + column)
-                        else {
-                            break;
-                        };
-                        let Some(asset) = asset_at(browser, folders, slot) else {
-                            continue;
-                        };
-                        laid_out.insert(asset.address.clone());
-                        cell(ui, state, browser, assets, contexts, &asset, name_height);
-                    }
-                });
-            }
-        });
+        .auto_shrink(false);
+    if to_top {
+        area = area.vertical_scroll_offset(0.0);
+    }
+    area.show_rows(ui, CELL + name_height, rows, |ui, rows| {
+        range = rows.clone();
+        for row in rows {
+            ui.horizontal(|ui| {
+                for column in 0..columns {
+                    let Some(slot) = grid.get(row * columns + column) else {
+                        break;
+                    };
+                    let Some(asset) = asset_at(folders, slot) else {
+                        continue;
+                    };
+                    laid_out.insert(asset.address.clone());
+                    cell(ui, state, browser, assets, contexts, &asset, name_height);
+                }
+            });
+        }
+    });
 
     let ahead = range.start.saturating_sub(PREFETCH_ROWS)
         ..range.end.saturating_add(PREFETCH_ROWS).min(rows);
-    prefetch(browser, folders, assets, &ahead, &range, columns);
-    want(browser, folders, browse, &ahead, columns);
+    prefetch(browser, &grid, folders, assets, &ahead, &range, columns);
+    let wanted = wanted(&grid, folders, &ahead, columns);
+    send(browser, browse, &state.search, wanted);
     release(browser, contexts, &laid_out);
 }
 
@@ -227,72 +334,26 @@ fn columns_in(width: f32, spacing: f32) -> usize {
     ((width + spacing) / (CELL + spacing)).floor().max(1.0) as usize
 }
 
-/// Works the matching Assets out again when the filter, the set of folders, or any folder
-/// changed since they were last worked out.
-fn rematch(
-    browser: &mut Browser,
-    filter: &str,
-    folders: &Query<(Entity, Ref<AssetFolder>, Option<&Thumbnails>)>,
-) {
-    let needle = filter.to_lowercase();
-    let mut sorted: Vec<(Entity, &AssetFolder)> = folders
-        .iter()
-        .map(|(entity, folder, _)| (entity, folder.into_inner()))
-        .collect();
-    let changed = folders.iter().any(|(_, folder, _)| folder.is_changed());
-    sorted.sort_by(|a, b| a.1.name.cmp(&b.1.name).then(a.1.key.cmp(&b.1.key)));
-    let entities: Vec<Entity> = sorted.iter().map(|(entity, _)| *entity).collect();
-    if !changed && needle == browser.matching.needle && entities == browser.matching.folders {
-        return;
-    }
-    let mut matching = Matching {
-        needle,
-        folders: entities,
-        counts: Vec::with_capacity(sorted.len()),
-        assets: Vec::new(),
-    };
-    for (position, (_, folder)) in sorted.iter().enumerate() {
-        let before = matching.assets.len();
-        let position = u32::try_from(position).unwrap_or(u32::MAX);
-        for (index, asset) in folder.assets.iter().enumerate() {
-            if matching.needle.is_empty() || asset.name.to_lowercase().contains(&matching.needle) {
-                matching
-                    .assets
-                    .push((position, u32::try_from(index).unwrap_or(u32::MAX)));
-            }
-        }
-        matching.counts.push(matching.assets.len() - before);
-    }
-    browser.matching = matching;
-}
-
 /// One line per Asset Folder above the grid: its Canonical Name and how many of its Assets are
-/// shown.
+/// shown: all of them, or those the search text matches.
 fn folder_lines(
     ui: &mut egui::Ui,
-    browser: &Browser,
-    folders: &Query<(Entity, Ref<AssetFolder>, Option<&Thumbnails>)>,
+    folders: &[(Entity, &AssetFolder)],
+    matches: Option<&SearchMatches>,
 ) {
     egui::ScrollArea::vertical()
         .id_salt("folder-lines")
         .max_height(ui.available_height() / 4.0)
         .auto_shrink([false, true])
         .show(ui, |ui| {
-            for (entity, count) in browser
-                .matching
-                .folders
-                .iter()
-                .zip(&browser.matching.counts)
-            {
-                let Ok((_, folder, _)) = folders.get(*entity) else {
-                    continue;
-                };
+            for (entity, folder) in folders {
+                let count = matches.map_or(folder.assets.len(), |matches| matches.count(*entity));
                 ui.horizontal(|ui| {
-                    ui.label(format!("{} ({count})", folder.name));
+                    ui.label(format!("{} ({})", folder.name, grouped(count)));
                     if folder.assets.is_empty() {
                         ui.weak("No Assets");
-                    } else if *count == 0 {
-                        ui.weak("No Asset matches the filter");
+                    } else if count == 0 {
+                        ui.weak("No Asset matches");
                     }
                 });
             }
@@ -311,19 +372,15 @@ struct GridAsset<'a> {
     address: AssetAddress,
 }
 
-/// The Asset in a slot of the matching Assets.
+/// The Asset at `position` in the index of the folder on `entity`.
 fn asset_at<'a>(
-    browser: &Browser,
-    folders: &'a Query<(Entity, Ref<AssetFolder>, Option<&Thumbnails>)>,
-    (position, index): (u32, u32),
+    folders: &'a Query<(Entity, &AssetFolder, Option<&Thumbnails>)>,
+    (entity, position): (Entity, usize),
 ) -> Option<GridAsset<'a>> {
-    let entity = *browser.matching.folders.get(position as usize)?;
     let (_, folder, thumbnails) = folders.get(entity).ok()?;
-    let folder = folder.into_inner();
-    let index = index as usize;
-    let asset = folder.assets.get(index)?;
+    let asset = folder.assets.get(position)?;
     let state = thumbnails
-        .and_then(|thumbnails| thumbnails.states.get(index).copied())
+        .and_then(|thumbnails| thumbnails.states.get(position).copied())
         .unwrap_or_default();
     Some(GridAsset {
         folder,
@@ -482,7 +539,8 @@ fn broken(painter: &egui::Painter, square: egui::Rect, visuals: &egui::Visuals) 
 /// they are decoded before they scroll into view; nothing is registered for them.
 fn prefetch(
     browser: &mut Browser,
-    folders: &Query<(Entity, Ref<AssetFolder>, Option<&Thumbnails>)>,
+    grid: &Grid,
+    folders: &Query<(Entity, &AssetFolder, Option<&Thumbnails>)>,
     assets: &AssetServer,
     ahead: &Range<usize>,
     laid_out: &Range<usize>,
@@ -491,10 +549,10 @@ fn prefetch(
     let mut ready = Vec::new();
     for row in ahead.clone().filter(|row| !laid_out.contains(row)) {
         for column in 0..columns {
-            let Some(&slot) = browser.matching.assets.get(row * columns + column) else {
+            let Some(slot) = grid.get(row * columns + column) else {
                 break;
             };
-            if let Some(asset) = asset_at(browser, folders, slot)
+            if let Some(asset) = asset_at(folders, slot)
                 && matches!(asset.state, ThumbnailState::Ready(_))
             {
                 ready.push(asset.address);
@@ -506,28 +564,32 @@ fn prefetch(
     }
 }
 
-/// Names the Assets of the rows laid out and those either side as wanted, when they differ from
-/// those last named.
-fn want(
-    browser: &mut Browser,
-    folders: &Query<(Entity, Ref<AssetFolder>, Option<&Thumbnails>)>,
-    browse: &mut MessageWriter<Browse>,
+/// The Assets of the rows laid out and those either side, whose thumbnails are wanted first.
+fn wanted(
+    grid: &Grid,
+    folders: &Query<(Entity, &AssetFolder, Option<&Thumbnails>)>,
     ahead: &Range<usize>,
     columns: usize,
+) -> Vec<AssetAddress> {
+    (ahead.start * columns..ahead.end * columns)
+        .map_while(|slot| grid.get(slot))
+        .filter_map(|slot| asset_at(folders, slot).map(|asset| asset.address))
+        .collect()
+}
+
+/// Sends Browse with the text typed and the Assets wanted, when either differs from what was
+/// last sent, an empty text included.
+fn send(
+    browser: &mut Browser,
+    browse: &mut MessageWriter<Browse>,
+    typed: &str,
+    wanted: Vec<AssetAddress>,
 ) {
-    let mut wanted = Vec::new();
-    for slot in ahead.start * columns..ahead.end * columns {
-        let Some(&slot) = browser.matching.assets.get(slot) else {
-            break;
-        };
-        if let Some(asset) = asset_at(browser, folders, slot) {
-            wanted.push(asset.address);
-        }
-    }
-    if wanted != browser.wanted {
+    if typed != browser.searched || wanted != browser.wanted {
+        typed.clone_into(&mut browser.searched);
         browser.wanted.clone_from(&wanted);
         browse.write(Browse {
-            search: String::new(),
+            search: typed.to_owned(),
             wanted,
         });
     }
