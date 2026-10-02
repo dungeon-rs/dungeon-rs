@@ -666,11 +666,10 @@ fn export_changes_nothing() {
     );
 }
 
-/// When the Export cannot be written, the Author is told the reason and no partial file
-/// remains; a resolution below 1 or above 1024 pixels per cell is refused before anything is
-/// written, with the limits named.
+/// A resolution below 1 or above 1024 pixels per cell is refused before anything is written,
+/// with the limits named.
 #[test]
-fn a_failed_export_is_reported() {
+fn resolution_within_limits() {
     let mut fixture = Fixture::new();
     fixture.place(RED, Vec2::new(2.5, 3.5));
 
@@ -687,6 +686,21 @@ fn a_failed_export_is_reported() {
         assert!(!fixture.output("refused.png").exists());
         assert!(!fixture.output("refused.png.part").exists());
     }
+    assert_eq!(
+        fs::read_dir(fixture.root.path().join("exports"))
+            .expect("the exports folder")
+            .count(),
+        0,
+        "nothing was written"
+    );
+}
+
+/// When the Export cannot be written, the Author is told the reason and no partial file
+/// remains, and the editor goes on exporting afterwards.
+#[test]
+fn a_failed_export_is_reported() {
+    let mut fixture = Fixture::new();
+    fixture.place(RED, Vec2::new(2.5, 3.5));
 
     let vanished = fixture.root.path().join("vanished").join("map.png");
     let request = ExportLevel {
@@ -704,7 +718,6 @@ fn a_failed_export_is_reported() {
     assert!(!vanished.exists());
     assert!(!fixture.root.path().join("vanished").exists());
 
-    // The editor goes on exporting after a failure.
     let exported = fixture
         .export(PIXELS_PER_CELL, "after.png", TILE)
         .expect("the Export is written");
