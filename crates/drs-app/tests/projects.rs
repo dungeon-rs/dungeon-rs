@@ -2770,7 +2770,8 @@ fn rooms_are_saved_as_their_outline() {
 
 /// An editor that does not know the Room kind keeps every Room as a placeholder of its size and
 /// the Portals set into them standing where they were saved, writes both back unchanged, and
-/// the first editor reopens the Portals set into their Rooms again.
+/// can free such a Portal where it stands; the first editor reopens the Portals set into their
+/// Rooms again.
 #[test]
 fn unknown_rooms_round_trip() {
     let mut saved = SavedRooms::new();
@@ -2820,6 +2821,17 @@ fn unknown_rooms_round_trip() {
         fs::read(&copy).expect("the copy"),
         fs::read(&saved.file).expect("the file")
     );
+    unaware.apply(Apply::FreePortal(FreePortal {
+        portal: saved.portal,
+    }));
+    let freed = unaware
+        .portals()
+        .into_iter()
+        .find(|(id, ..)| *id == saved.portal)
+        .expect("the Portal");
+    assert_eq!(freed.2.anchor, None, "the lost Portal is freed");
+    assert_eq!(freed.1, standing.1, "where it stood");
+
     saved.device.opens(&copy);
     assert_eq!(saved.device.rooms().len(), 2);
     assert_eq!(saved.portal(), portal, "set into its Room again");
