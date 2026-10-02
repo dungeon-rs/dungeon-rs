@@ -2,14 +2,14 @@
 //! the Canonical Name prompt.
 
 use crate::state::{EditorState, NamePrompt};
-use crate::{bindings, browser};
+use crate::{bindings, browser, diagnostics};
 use bevy::ecs::message::MessageWriter;
 use bevy::ecs::resource::Resource;
 use bevy::ecs::system::{NonSendMarker, Query, Res, ResMut, SystemParam};
 use bevy::math::Rect;
 use bevy_egui::EguiContexts;
 use drs_history::History;
-use drs_model::{AddFolder, AssetFolder, CanonicalName, Redo, Undo, Viewport};
+use drs_model::{AddFolder, AssetFolder, CanonicalName, Diagnostics, Redo, Undo, Viewport};
 use egui_dock::{DockArea, DockState, NodeIndex, Style, TabViewer};
 
 /// The panels the window is split into.
@@ -59,6 +59,8 @@ pub(crate) struct Editor<'w, 's> {
     folders: Query<'w, 's, &'static AssetFolder>,
     /// Whether there is anything to undo or redo.
     history: Res<'w, History>,
+    /// Where the logs are, when the Host said.
+    diagnostics: Option<Res<'w, Diagnostics>>,
     /// The messages to send.
     outgoing: Outgoing<'w>,
 }
@@ -106,7 +108,7 @@ pub(crate) fn draw(_main_thread: NonSendMarker, mut contexts: EguiContexts, mut 
     name_prompt(&ctx, &mut editor);
 }
 
-/// The menu bar: Library and Edit.
+/// The menu bar: Library, Edit, and Help.
 fn menu_bar(ctx: &egui::Context, root: &mut egui::Ui, editor: &mut Editor) {
     egui::Panel::top("menu").show(root, |ui| {
         egui::MenuBar::new().ui(ui, |ui| {
@@ -134,6 +136,11 @@ fn menu_bar(ctx: &egui::Context, root: &mut egui::Ui, editor: &mut Editor) {
                     .clicked()
                 {
                     editor.outgoing.redo.write(Redo);
+                }
+            });
+            ui.menu_button("Help", |ui| {
+                if ui.button("Show Logs").clicked() {
+                    diagnostics::show_logs(&mut editor.state, editor.diagnostics.as_deref());
                 }
             });
         });

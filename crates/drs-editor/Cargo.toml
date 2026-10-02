@@ -12,6 +12,7 @@ authors.workspace = true
 [dependencies]
 bevy = { workspace = true }
 bevy_egui = { workspace = true }
+drs-diagnostics = { path = "../drs-diagnostics" }
 drs-history = { path = "../drs-history" }
 drs-model = { path = "../drs-model" }
 egui = { workspace = true }
@@ -20,7 +21,7 @@ rfd = { workspace = true }
 
 [features]
 default = []
-dev = ["drs-history/dev", "drs-model/dev"]
+dev = ["drs-diagnostics/dev", "drs-history/dev", "drs-model/dev"]
 
 [lints]
 workspace = true
