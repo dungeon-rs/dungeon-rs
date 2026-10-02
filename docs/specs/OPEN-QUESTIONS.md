@@ -15,7 +15,7 @@ Spec-level decisions parked during domain work. The spec skill picks these up; r
 - Dungeondraft compatibility and parity: import of existing `.dungeondraft_map` and `.dungeondraft_pack` libraries; recolouring of colourable Assets (red mask); tags and tag sets (merged by name) driving search; a Scatter brush (random rotation, scale, colour, spread; area scatter); alignment guides beyond snapping; map generation (Map Wizard); a maximum map size.
 - Embedded Assets and vendor licences (warn when embedding a vendor Asset?).
 - Export formats beyond a plain image: Universal VTT, separate roof images, etc.
-- Grid presentation (lines, dots, hidden).
+- Grid presentation beyond faint lines in the viewport: dots, hiding the Grid, a colour the Author chooses, and the Grid drawn into an Export.
 
 ## From the architecture
 
