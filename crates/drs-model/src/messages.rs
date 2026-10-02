@@ -339,7 +339,9 @@ pub struct ProjectRefused {
 /// image; the Editor passes [`ExportLevel::DEFAULT_TILE_SIZE`].
 #[derive(Message, Debug, Clone, PartialEq, Eq)]
 pub struct ExportLevel {
-    /// The entity carrying the Level.
+    /// The entity carrying the Level. Today the Export draws everything on every Level of the
+    /// Project, which has one Level, so the field selects nothing yet; once a Project has several
+    /// Levels, the Export is filtered to this one.
     pub level: Entity,
     /// How many image pixels one Grid cell spans, within
     /// [`ExportLevel::LEAST_PIXELS_PER_CELL`] and [`ExportLevel::MOST_PIXELS_PER_CELL`].
