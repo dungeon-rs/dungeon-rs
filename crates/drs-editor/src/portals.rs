@@ -314,7 +314,7 @@ pub(crate) fn options<'a>(
         apply.write(flip(element, portal));
     }
     let label = if portal.anchor.is_some() {
-        "Free"
+        "Free Portal"
     } else {
         "Set into Wall"
     };
