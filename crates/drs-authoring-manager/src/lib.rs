@@ -55,6 +55,14 @@ pub enum AuthoringError {
         /// How many points the Wall has.
         points: usize,
     },
+    /// The Wall has no segment of that number.
+    #[error("the Wall has no segment {segment}; it has {segments}")]
+    NoSegment {
+        /// The segment named.
+        segment: usize,
+        /// How many segments the Wall has.
+        segments: usize,
+    },
     /// The Wall would not be one: too few points, a thickness not above zero, or a coordinate
     /// that is not finite.
     #[error("{0}")]

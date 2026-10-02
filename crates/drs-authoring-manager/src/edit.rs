@@ -18,7 +18,8 @@ use drs_model::{EditElement, Element, ElementChange, ElementId, Gesture, Wall};
 ///
 /// [`AuthoringError::UnknownElement`] when no Element carries the identity,
 /// [`AuthoringError::NotAWall`] for a change only a Wall has, [`AuthoringError::NoPoint`] or
-/// [`AuthoringError::Shape`] for a point or segment the Wall does not have,
+/// [`AuthoringError::NoSegment`] for a point or segment the Wall does not have,
+/// [`AuthoringError::Shape`] for a point added where the Wall cannot be split,
 /// [`AuthoringError::MalformedWall`] for a thickness not above zero or a point that is not
 /// finite, or [`AuthoringError::History`] when the change could not be recorded.
 pub(crate) fn edit_element(world: &mut World, command: &EditElement) -> Result<(), AuthoringError> {
@@ -52,11 +53,10 @@ pub(crate) fn edit_element(world: &mut World, command: &EditElement) -> Result<(
         ElementChange::Control { segment, position } => {
             let segments = wall_of(world, id)?.segments.len();
             if *segment >= segments {
-                return Err(drs_shape_engine::ShapeError::NoSegment {
+                return Err(AuthoringError::NoSegment {
                     segment: *segment,
                     segments,
-                }
-                .into());
+                });
             }
             if let Some(position) = position {
                 finite(*position)?;
