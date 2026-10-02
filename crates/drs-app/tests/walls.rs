@@ -883,9 +883,10 @@ fn properties_stay_editable() {
 }
 
 /// A Place Element of a Wall with fewer than two points, a point that is not finite, or a
-/// thickness not above zero, and an Edit Element naming a point or segment the Wall does not have,
-/// moving a point to where no point can be, or setting a thickness not above zero, are answered
-/// with the reason, change nothing, and record no history step.
+/// thickness not above zero or not finite, and an Edit Element naming a point or segment the Wall
+/// does not have, adding a point not strictly inside its segment, putting the Wall or a point
+/// where it is not finite, or setting such a thickness, are answered with the reason, change
+/// nothing, and record no history step.
 #[test]
 fn malformed_walls_are_refused() {
     let mut fixture = Fixture::new();
@@ -945,6 +946,14 @@ fn malformed_walls_are_refused() {
             "no segment 5",
         ),
         (edit(ElementChange::RemovePoint { index: 7 }), "no point 7"),
+        (
+            edit(ElementChange::AddPoint { segment: 0, t: 1.0 }),
+            "strictly between",
+        ),
+        (
+            edit(ElementChange::Position(Vec2::splat(f32::NAN))),
+            "finite",
+        ),
         (
             edit(ElementChange::Point {
                 index: 1,
