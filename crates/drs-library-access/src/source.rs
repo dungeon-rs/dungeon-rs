@@ -10,6 +10,7 @@ use bevy_ecs::resource::Resource;
 use bevy_tasks::ConditionalSendFuture;
 use drs_model::FolderKey;
 use std::collections::BTreeMap;
+use std::ffi::OsStr;
 use std::future::ready;
 use std::path::{Component, Path, PathBuf};
 use std::sync::{Arc, PoisonError, RwLock};
@@ -48,13 +49,9 @@ impl LibraryTable {
     /// # Errors
     ///
     /// [`AssetReaderError::NotFound`] when the key is not registered or the path is not plain.
-    fn resolve(&self, path: &Path) -> Result<PathBuf, AssetReaderError> {
+    pub(crate) fn resolve(&self, path: &Path) -> Result<PathBuf, AssetReaderError> {
         let not_found = || AssetReaderError::NotFound(path.to_path_buf());
-        let mut components = path.components();
-        let Some(Component::Normal(key)) = components.next() else {
-            return Err(not_found());
-        };
-        let key = key.to_str().ok_or_else(not_found)?;
+        let (key, parts) = key_and_parts(path).ok_or_else(not_found)?;
         let mut file = self
             .folders
             .read()
@@ -62,24 +59,29 @@ impl LibraryTable {
             .get(key)
             .cloned()
             .ok_or_else(not_found)?;
-        let mut any = false;
-        for component in components {
-            match component {
-                Component::Normal(part) => {
-                    file.push(part);
-                    any = true;
-                }
-                Component::CurDir => {}
-                Component::ParentDir | Component::RootDir | Component::Prefix(_) => {
-                    return Err(not_found());
-                }
-            }
-        }
-        if !any {
-            return Err(not_found());
-        }
+        file.extend(parts);
         Ok(file)
     }
+}
+
+/// The folder key an asset path (the part after the source's `://`) starts with and the parts
+/// of the place that follow it, or `None` when the path is not a key followed by a plain
+/// relative path: one that is empty, absolute, or climbs with `..` is refused.
+pub(crate) fn key_and_parts(path: &Path) -> Option<(&str, Vec<&OsStr>)> {
+    let mut components = path.components();
+    let Some(Component::Normal(key)) = components.next() else {
+        return None;
+    };
+    let key = key.to_str()?;
+    let mut parts = Vec::new();
+    for component in components {
+        match component {
+            Component::Normal(part) => parts.push(part),
+            Component::CurDir => {}
+            Component::ParentDir | Component::RootDir | Component::Prefix(_) => return None,
+        }
+    }
+    (!parts.is_empty()).then_some((key, parts))
 }
 
 /// Reads Assets out of the registered folders.
