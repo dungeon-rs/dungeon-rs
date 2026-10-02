@@ -1555,8 +1555,9 @@ fn versions_do_not_block() {
     assert!(opened.report.unknown_kinds.is_empty());
 }
 
-/// An Asset Reference that does not resolve is a Missing Asset; every Element that uses it stays
-/// on its Layer at its position in the stacking order.
+/// An Asset Reference that does not resolve is a Missing Asset; every Element that uses it, a
+/// Prop or a Portal, stays on its Layer at its position in the stacking order and is counted
+/// among the Elements using it.
 #[test]
 fn missing_assets_stay() {
     let saved = Saved::new();
@@ -1583,6 +1584,27 @@ fn missing_assets_stay() {
     assert_eq!(barrel.element.position, Vec2::ONE);
     assert_eq!(barrel.element.size, Vec2::new(0.5, 0.5));
     assert_eq!(barrel.prop.map(|prop| prop.asset.0), Some(1));
+
+    let mut portals = SavedPortals::new();
+    let mut third = Device::new();
+    let without_barrel = library(third.root(), "library", &[(TABLE, TABLE_PIXELS)]);
+    third.add_folder(&without_barrel, FIXTURES);
+    let opened = third.opens(&portals.file);
+    let missing = opened
+        .report
+        .missing_assets
+        .iter()
+        .find(|missing| missing.name == "barrel")
+        .expect("the barrel is missing");
+    assert_eq!(
+        missing.elements, 2,
+        "the barrel Prop and the freestanding Portal of it"
+    );
+    assert_eq!(
+        third.portals(),
+        portals.device.portals(),
+        "the Portals stay where they were"
+    );
 }
 
 /// After opening, the Author is shown, for each Missing Asset, its name, the Canonical Name of its
