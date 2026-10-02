@@ -220,11 +220,7 @@ pub fn write_project(path: &Path, snapshot: &ProjectSnapshot) -> Result<(), Proj
             source,
         }
     };
-    let beside = path
-        .parent()
-        .filter(|parent| !parent.as_os_str().is_empty())
-        .unwrap_or(Path::new("."));
-    let mut temporary = file_beside(beside).map_err(io("create a file beside"))?;
+    let mut temporary = file_beside(path).map_err(io("create a file beside"))?;
     temporary.write_all(text.as_bytes()).map_err(io("write"))?;
     temporary.as_file().sync_all().map_err(io("flush"))?;
     temporary
@@ -233,7 +229,9 @@ pub fn write_project(path: &Path, snapshot: &ProjectSnapshot) -> Result<(), Proj
     Ok(())
 }
 
-/// A temporary file in `directory`, removed when dropped unless it is persisted.
+/// The temporary file a Project is written to until it is complete: the path's file name, a
+/// random infix, and a `.part` suffix, in the same directory so the final rename never crosses a
+/// file system; removed when dropped unless it is persisted.
 ///
 /// The file is created as readable as any file the Author makes: a temporary file is private by
 /// default, but a saved Project is for sharing, so it is created with the usual mode, which the
@@ -242,12 +240,23 @@ pub fn write_project(path: &Path, snapshot: &ProjectSnapshot) -> Result<(), Proj
 /// # Errors
 ///
 /// The error of creating the file.
-fn file_beside(directory: &Path) -> std::io::Result<NamedTempFile> {
+fn file_beside(path: &Path) -> std::io::Result<NamedTempFile> {
+    let name = path.file_name().map_or_else(
+        || std::ffi::OsString::from("project"),
+        std::ffi::OsStr::to_os_string,
+    );
+    let beside = path
+        .parent()
+        .filter(|parent| !parent.as_os_str().is_empty())
+        .unwrap_or(Path::new("."));
+    let mut prefix = name;
+    prefix.push(".");
     let mut builder = Builder::new();
+    builder.prefix(&prefix).suffix(".part");
     #[cfg(unix)]
     {
         use std::os::unix::fs::PermissionsExt;
         builder.permissions(std::fs::Permissions::from_mode(0o666));
     }
-    builder.tempfile_in(directory)
+    builder.tempfile_in(beside)
 }
