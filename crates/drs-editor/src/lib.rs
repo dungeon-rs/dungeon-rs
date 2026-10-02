@@ -24,6 +24,7 @@ use bevy::ecs::schedule::IntoScheduleConfigs;
 use bevy::window::{Window, WindowPlugin};
 use bevy_egui::{EguiPlugin, EguiPrimaryContextPass};
 use drs_diagnostics::Started;
+use drs_model::ManagerSystems;
 
 /// The window the Editor runs in, for the Host to `set` on Bevy's default plugins: it is not
 /// closed on request, because the Editor answers the window's close request itself, asking
@@ -72,15 +73,24 @@ impl Plugin for EditorPlugin {
             .add_systems(
                 Update,
                 (
-                    outcomes::report,
-                    diagnostics::announce_crash,
-                    window::close_requested,
-                    window::title,
-                    viewport::pointer,
-                    viewport::keys,
-                    viewport::outline_selection,
-                    walls::draw_overlays,
-                    portals::draw_marker,
+                    (
+                        outcomes::report,
+                        diagnostics::announce_crash,
+                        window::close_requested,
+                        window::title,
+                        viewport::pointer,
+                        viewport::keys,
+                    )
+                        .chain(),
+                    // The overlays are drawn from the Level as this frame's Commands, Undo, and
+                    // Redo leave it, so an outline or a marker never shows the frame before.
+                    (
+                        viewport::outline_selection,
+                        walls::draw_overlays,
+                        portals::draw_marker,
+                    )
+                        .chain()
+                        .after(ManagerSystems::Redo),
                 )
                     .chain(),
             );
