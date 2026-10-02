@@ -37,11 +37,11 @@ for the Canonical Name. Edit → Undo and Redo are offered while no drag or
 Export is under way. Help → Show Logs opens the log directory in the
 platform's file manager.
 
-The grid lays out only the rows in view, as many columns as the panel's width
-holds. Each cell shows a neutral square until its thumbnail is generated, a
-placeholder of the thumbnail's proportions until it is decoded, then the
-thumbnail at its own size, or a crossed-out square for a file that is not an
-image; hovering shows the Asset's name, its folder's Canonical Name, and its
+The grid lays out only the rows in view, as many 128-point cells as the
+panel's width holds. Each cell shows a neutral square until its thumbnail is
+generated, a placeholder of the thumbnail's proportions until it is decoded,
+then the thumbnail at one physical pixel of the display per pixel, never
+enlarged, or a crossed-out square for a file that is not an image; hovering shows the Asset's name, its folder's Canonical Name, and its
 place, and a click chooses it for placing. The Assets of the rows laid out and
 two rows either side are named to the library Manager with Browse whenever
 they change, so they are generated first; thumbnails are loaded through the

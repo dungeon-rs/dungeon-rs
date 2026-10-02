@@ -13,6 +13,7 @@ use bevy::ecs::message::MessageWriter;
 use bevy::ecs::resource::Resource;
 use bevy::ecs::system::{Query, Res, ResMut, SystemParam};
 use bevy::image::{Image, ImageFormatSetting, ImageLoaderSettings};
+use bevy::math::UVec2;
 use bevy_egui::{EguiContexts, EguiTextureHandle};
 use drs_model::{
     AssetAddress, AssetFolder, Browse, FolderKey, IndexedAsset, THUMBNAIL_SOURCE, ThumbnailState,
@@ -394,7 +395,7 @@ fn cell(
         ThumbnailState::Ready(size) => {
             let fitted = egui::Rect::from_center_size(
                 square.center(),
-                egui::vec2(points(size.x), points(size.y)).min(egui::vec2(CELL, CELL)),
+                fitted(size, ui.ctx().pixels_per_point()),
             );
             let loaded = load(browser, assets, &asset.address);
             match assets.get_load_state(loaded.handle.id()) {
@@ -449,9 +450,14 @@ fn cell(
     }
 }
 
-/// A thumbnail's side in points: one point per pixel, never more than a cell.
-fn points(pixels: u32) -> f32 {
-    f32::from(u16::try_from(pixels).unwrap_or(u16::MAX)).min(CELL)
+/// The size in points a thumbnail of `size` pixels is drawn at: one physical pixel of the
+/// display per pixel of the thumbnail, so that it is never enlarged however many pixels a point
+/// has, and scaled down, keeping its proportions, only when that would not fit in a cell.
+fn fitted(size: UVec2, pixels_per_point: f32) -> egui::Vec2 {
+    let pixels = |side: u32| f32::from(u16::try_from(side).unwrap_or(u16::MAX));
+    let size = egui::vec2(pixels(size.x), pixels(size.y));
+    let points_per_pixel = (1.0 / pixels_per_point).min(CELL / size.max_elem().max(1.0));
+    size * points_per_pixel
 }
 
 /// The broken placeholder: a square crossed out.
