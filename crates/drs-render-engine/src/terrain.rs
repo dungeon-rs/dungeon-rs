@@ -51,9 +51,13 @@ pub(crate) const EXPORT_LAYER: Layer = 2;
 /// when it failed to load, masked by the coverage as the image would be.
 const PLACEHOLDER: Color = Color::srgba(0.75, 0.3, 0.35, 0.8);
 
-/// Adds the masked tiled image Shader to the shader assets, when there are any.
+/// Adds the masked tiled image Shader to the shader assets, or says that Terrain is not drawn
+/// when there are none.
 pub(crate) fn add_shader(shaders: Option<&mut Assets<Shader>>) {
     let Some(shaders) = shaders else {
+        log::warn!(
+            "there are no shader assets to add the Terrain Shader to, so Terrain is not drawn"
+        );
         return;
     };
     if shaders

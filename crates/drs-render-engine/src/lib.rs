@@ -33,11 +33,6 @@ pub struct RenderEnginePlugin;
 
 impl Plugin for RenderEnginePlugin {
     fn build(&self, app: &mut App) {
-        terrain::add_shader(
-            app.world_mut()
-                .get_resource_mut::<Assets<Shader>>()
-                .as_deref_mut(),
-        );
         app.add_plugins(Material2dPlugin::<terrain::TerrainMaterial>::default())
             .init_resource::<walls::WallMaterials>()
             .init_resource::<terrain::TerrainDrawings>()
@@ -76,6 +71,16 @@ impl Plugin for RenderEnginePlugin {
                 );
             app.init_resource::<region::Offscreen>();
         }
+    }
+
+    /// Adds the Terrain Shader once every plugin is built, so the shader assets exist whichever
+    /// order the plugins were added in.
+    fn finish(&self, app: &mut App) {
+        terrain::add_shader(
+            app.world_mut()
+                .get_resource_mut::<Assets<Shader>>()
+                .as_deref_mut(),
+        );
     }
 }
 
