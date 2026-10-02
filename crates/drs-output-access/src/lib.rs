@@ -309,12 +309,15 @@ pub fn finish_image(mut writer: ImageWriter) -> Result<(), OutputError> {
     };
     // The encoder owned the file and closed it; the bytes are flushed to the disk through the
     // path before the file takes the target's place, so a crash right after leaves a whole image.
+    // The file is opened for writing because flushing needs write access on Windows.
     let io = |action: &'static str, source: std::io::Error| OutputError::Io {
         action,
         path: writer.path.clone(),
         source,
     };
-    File::open(&partial)
+    File::options()
+        .write(true)
+        .open(&partial)
         .and_then(|file| file.sync_all())
         .map_err(|source| io("flush", source))?;
     partial
