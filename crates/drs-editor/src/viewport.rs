@@ -250,8 +250,8 @@ fn drag_handle(
     }));
     // A straight segment's middle, once dragged, is the segment's control point.
     let handle = match handle {
-        walls::Handle::Middle(segment) => walls::Handle::Control(segment),
-        walls::Handle::Point(_) | walls::Handle::Control(_) => handle,
+        walls::WallHandle::Middle(segment) => walls::WallHandle::Control(segment),
+        walls::WallHandle::Point(_) | walls::WallHandle::Control(_) => handle,
     };
     state.walls.handle = Some((element, handle));
     state.interaction = Interaction::Handle {

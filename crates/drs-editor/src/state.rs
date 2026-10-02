@@ -2,7 +2,7 @@
 //! the prompts and dialogs in progress, the Export under way, the gesture under way, and the
 //! tool with the Wall being drawn. None of it is domain state.
 
-use crate::walls::{Handle, WallTool};
+use crate::walls::{WallHandle, WallTool};
 use bevy::ecs::resource::Resource;
 use bevy::math::Vec2;
 use drs_model::{AssetAddress, ElementId, ExportLevel, OpenReport};
@@ -173,7 +173,7 @@ pub(crate) enum Interaction {
         /// The Wall.
         element: ElementId,
         /// The handle under the pointer.
-        handle: Handle,
+        handle: WallHandle,
         /// Where the handle was, in cells, when the button went down.
         origin: Vec2,
         /// The pointer, on screen, when the button went down.

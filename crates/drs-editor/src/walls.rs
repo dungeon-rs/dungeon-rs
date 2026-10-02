@@ -43,7 +43,7 @@ const PICKED: Color = Color::srgb(1.0, 0.85, 0.2);
 
 /// A handle of the selected Wall.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) enum Handle {
+pub(crate) enum WallHandle {
     /// The point of that number.
     Point(usize),
     /// The control point of the curved segment of that number.
@@ -71,7 +71,7 @@ pub(crate) struct WallTool {
     /// The colour the next Wall is drawn with.
     pub colour: Colour,
     /// The selected handle and the Wall it belongs to.
-    pub handle: Option<(ElementId, Handle)>,
+    pub handle: Option<(ElementId, WallHandle)>,
     /// When and where the last click on the viewport went down, for double-clicks.
     last_click: Option<(f64, Vec2)>,
     /// The option being changed as a gesture, if one is.
@@ -109,7 +109,7 @@ impl WallTool {
     }
 
     /// The selected handle of `element`, if one is selected.
-    pub(crate) fn handle_of(&self, element: ElementId) -> Option<Handle> {
+    pub(crate) fn handle_of(&self, element: ElementId) -> Option<WallHandle> {
         self.handle
             .and_then(|(owner, handle)| (owner == element).then_some(handle))
     }
@@ -212,29 +212,29 @@ pub(crate) fn on_wall(wall: &Wall, shape: &WallShape, cells: Vec2, zoom: f32) ->
 
 /// The handles of a Wall in the order they are hit: its points, then its control points, then
 /// the middles of its straight segments.
-fn handles(wall: &Wall) -> Vec<(Handle, Vec2)> {
+fn handles(wall: &Wall) -> Vec<(WallHandle, Vec2)> {
     let points = wall
         .points
         .iter()
         .enumerate()
-        .map(|(index, point)| (Handle::Point(index), *point));
+        .map(|(index, point)| (WallHandle::Point(index), *point));
     let controls = wall
         .segments
         .iter()
         .enumerate()
-        .filter_map(|(index, segment)| Some((Handle::Control(index), segment.control?)));
+        .filter_map(|(index, segment)| Some((WallHandle::Control(index), segment.control?)));
     let middles = wall
         .segments
         .iter()
         .zip(wall.points.windows(2))
         .enumerate()
         .filter(|(_, (segment, _))| segment.control.is_none())
-        .map(|(index, (_, ends))| (Handle::Middle(index), ends[0].midpoint(ends[1])));
+        .map(|(index, (_, ends))| (WallHandle::Middle(index), ends[0].midpoint(ends[1])));
     points.chain(controls).chain(middles).collect()
 }
 
 /// The first handle of a Wall within a handle's reach of a point in cells.
-fn handle_at(wall: &Wall, cells: Vec2, zoom: f32) -> Option<(Handle, Vec2)> {
+fn handle_at(wall: &Wall, cells: Vec2, zoom: f32) -> Option<(WallHandle, Vec2)> {
     handles(wall)
         .into_iter()
         .find(|(_, at)| at.distance(cells) * zoom <= HANDLE_PIXELS)
@@ -257,7 +257,10 @@ pub(crate) fn press_selected(
     let cells = viewport.cells_at(cursor);
     let handle = handle_at(wall, cells, viewport.zoom);
     if double
-        && !matches!(handle, Some((Handle::Point(_) | Handle::Control(_), _)))
+        && !matches!(
+            handle,
+            Some((WallHandle::Point(_) | WallHandle::Control(_), _))
+        )
         && let Some(shape) = shape
         && on_wall(wall, shape, cells, viewport.zoom)
         && let Some((_, segment, t)) = nearest_on_line(shape, cells)
@@ -289,10 +292,10 @@ pub(crate) fn press_selected(
 
 /// The change that puts a handle at a position: a point moves, and a control point or a
 /// straight segment's middle becomes the segment's control point.
-pub(crate) fn handle_change(handle: Handle, position: Vec2) -> ElementChange {
+pub(crate) fn handle_change(handle: WallHandle, position: Vec2) -> ElementChange {
     match handle {
-        Handle::Point(index) => ElementChange::Point { index, position },
-        Handle::Control(segment) | Handle::Middle(segment) => ElementChange::Control {
+        WallHandle::Point(index) => ElementChange::Point { index, position },
+        WallHandle::Control(segment) | WallHandle::Middle(segment) => ElementChange::Control {
             segment,
             position: Some(position),
         },
@@ -301,12 +304,12 @@ pub(crate) fn handle_change(handle: Handle, position: Vec2) -> ElementChange {
 
 /// The Edit Element Delete sends for the selected handle of a Wall: the point is removed, or the
 /// curved segment of the control point is made straight; `None` when there is nothing to do.
-pub(crate) fn delete_handle(wall: &Wall, handle: Handle) -> Option<ElementChange> {
+pub(crate) fn delete_handle(wall: &Wall, handle: WallHandle) -> Option<ElementChange> {
     match handle {
-        Handle::Point(index) => {
+        WallHandle::Point(index) => {
             (index < wall.points.len()).then_some(ElementChange::RemovePoint { index })
         }
-        Handle::Control(segment) => wall
+        WallHandle::Control(segment) => wall
             .segments
             .get(segment)
             .and_then(|segment| segment.control)
@@ -314,20 +317,20 @@ pub(crate) fn delete_handle(wall: &Wall, handle: Handle) -> Option<ElementChange
                 segment,
                 position: None,
             }),
-        Handle::Middle(_) => None,
+        WallHandle::Middle(_) => None,
     }
 }
 
 /// Whether a handle still names a part of the Wall: a point it has, or a segment that is curved
 /// for a control point and straight for a middle.
-pub(crate) fn handle_exists(wall: &Wall, handle: Handle) -> bool {
+pub(crate) fn handle_exists(wall: &Wall, handle: WallHandle) -> bool {
     match handle {
-        Handle::Point(index) => index < wall.points.len(),
-        Handle::Control(segment) => wall
+        WallHandle::Point(index) => index < wall.points.len(),
+        WallHandle::Control(segment) => wall
             .segments
             .get(segment)
             .is_some_and(|segment| segment.control.is_some()),
-        Handle::Middle(segment) => wall
+        WallHandle::Middle(segment) => wall
             .segments
             .get(segment)
             .is_some_and(|segment| segment.control.is_none()),
@@ -525,7 +528,7 @@ pub(crate) fn draw_overlays(
         if let Some(control) = segment.control {
             gizmos.line_2d(ends[0], control, HANDLES.with_alpha(0.5));
             gizmos.line_2d(control, ends[1], HANDLES.with_alpha(0.5));
-            let colour = if picked == Some(Handle::Control(index)) {
+            let colour = if picked == Some(WallHandle::Control(index)) {
                 PICKED
             } else {
                 HANDLES
@@ -544,13 +547,13 @@ pub(crate) fn draw_overlays(
             HANDLES
         };
         match handle {
-            Handle::Point(_) => {
+            WallHandle::Point(_) => {
                 gizmos.circle_2d(Isometry2d::from_translation(at), radius, colour);
             }
-            Handle::Middle(_) => {
+            WallHandle::Middle(_) => {
                 gizmos.circle_2d(Isometry2d::from_translation(at), radius / 2.0, colour);
             }
-            Handle::Control(_) => {}
+            WallHandle::Control(_) => {}
         }
     }
 }
