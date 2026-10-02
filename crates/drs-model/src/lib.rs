@@ -4,6 +4,7 @@ mod assets;
 mod directories;
 mod element;
 mod file;
+mod matches;
 mod messages;
 mod panics;
 mod project;
@@ -25,6 +26,7 @@ pub use element::{
     Prop,
 };
 pub use file::{PROJECT_EXTENSION, SavedMark, project_name_of, with_extension_if_missing};
+pub use matches::{AssetMatch, SearchMatches};
 pub use messages::{
     AddFolder, Apply, AssetAddress, AssetFolderChanged, Browse, CommandFailed, EditElement,
     ElementChange, ExportLevel, ExportRefused, FolderAdded, FolderRefusal, FolderRefused,
@@ -74,6 +76,7 @@ impl Plugin for ModelPlugin {
             .register_type::<Viewport>()
             .insert_resource(serialisation)
             .init_resource::<EditorDirectories>()
+            .init_resource::<SearchMatches>()
             .init_resource::<Viewport>()
             .init_resource::<ElementKindRegistry>()
             .add_message::<AddFolder>()

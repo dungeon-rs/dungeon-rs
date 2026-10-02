@@ -526,7 +526,10 @@ fn want(
     }
     if wanted != browser.wanted {
         browser.wanted.clone_from(&wanted);
-        browse.write(Browse { wanted });
+        browse.write(Browse {
+            search: String::new(),
+            wanted,
+        });
     }
 }
 

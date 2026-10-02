@@ -71,8 +71,9 @@ fn check(world: &mut World, path: &Path, name: &CanonicalName) -> Result<(), Fol
 }
 
 /// The recorded step: writing the Manifest, indexing the folder, and writing it into the World
-/// with its thumbnails looked up; undoing it stops generating the folder's thumbnails, which stay
-/// kept, so a redo finds them again.
+/// with its thumbnails looked up and its search built; undoing it drops the folder and its
+/// search and stops generating the folder's thumbnails, which stay kept, so a redo finds them
+/// again.
 ///
 /// Applying and reverting both announce Asset Folder Changed for the Canonical Name, so that
 /// whatever refers to the folder's Assets by that name resolves them again.
@@ -112,6 +113,7 @@ impl ReversibleCommand for AddAssetFolder {
             .id();
         self.folder = Some(folder);
         crate::thumbnails::track(world, folder);
+        crate::search::build(world, folder);
         world.write_message(AssetFolderChanged {
             name: self.manifest.name.clone(),
         });
@@ -124,6 +126,7 @@ impl ReversibleCommand for AddAssetFolder {
         crate::thumbnails::withdraw(world, &self.manifest.key);
         if let Some(folder) = self.folder.take() {
             world.despawn(folder);
+            crate::search::dropped(world);
         }
         world.write_message(AssetFolderChanged {
             name: self.manifest.name.clone(),

@@ -48,8 +48,9 @@ Each added Asset Folder is an entity carrying
 [`Thumbnails`](crate::Thumbnails) with where each Asset's thumbnail stands:
 pending, ready at its pixel size, or broken. A thumbnail is read through the
 asset source [`THUMBNAIL_SOURCE`](crate::THUMBNAIL_SOURCE), as
-`thumb://<folder-key>/<place>`; the Editor names the Assets it shows with
-[`Browse`](crate::Browse), and
+`thumb://<folder-key>/<place>`; the Editor sends the text typed in its search
+field and names the Assets it shows with [`Browse`](crate::Browse), the library
+Manager answers the text in [`SearchMatches`](crate::SearchMatches), and
 [`ThumbnailsUnavailable`](crate::ThumbnailsUnavailable) says thumbnails cannot
 be kept. [`EditorDirectories`](crate::EditorDirectories) overrides where the
 editor keeps its own files, so tests point them at temporary directories, and

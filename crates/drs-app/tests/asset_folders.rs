@@ -15,8 +15,8 @@ use drs_history::{History, HistoryPlugin};
 use drs_library_access::LibraryAccessPlugin;
 use drs_library_manager::LibraryManagerPlugin;
 use drs_model::{
-    AddFolder, AssetFolder, CanonicalName, EditorDirectories, FolderAdded, FolderRefused,
-    ModelPlugin, Redo, Undo,
+    AddFolder, AssetFolder, Browse, CanonicalName, EditorDirectories, FolderAdded, FolderRefused,
+    ModelPlugin, Redo, SearchMatches, Undo,
 };
 use drs_project_manager::ProjectManagerPlugin;
 use std::fs;
@@ -117,4 +117,54 @@ fn add_asset_folder_is_undoable() {
             .is_none(),
         "redo asks nothing and refuses nothing"
     );
+}
+
+/// The places of the Assets the browser's search text matches, in order.
+fn matching(app: &mut App) -> Vec<String> {
+    let world = app.world_mut();
+    let matches = world.resource::<SearchMatches>().clone();
+    matches
+        .assets
+        .iter()
+        .map(|found| {
+            world
+                .get::<AssetFolder>(found.folder)
+                .expect("a match names an added folder")
+                .assets[found.position]
+                .place
+                .clone()
+        })
+        .collect()
+}
+
+/// The matches for the typed text lose a folder's matching Assets from the frame Add Asset
+/// Folder is undone, and include them again from the frame it is redone, without the text being
+/// typed again.
+#[test]
+fn matches_follow_undo_and_redo() {
+    let root = TempDir::new().expect("temporary root");
+    let props = root.path().join("props");
+    let vendor = root.path().join("vendor");
+    for (folder, place) in [(&props, "Table.png"), (&vendor, "Table_Oak.png")] {
+        fs::create_dir_all(folder).expect("fixture folder");
+        fs::write(folder.join(place), b"fixture").expect("fixture file");
+    }
+    let mut app = editor(root.path());
+    add(&mut app, &props, "Props");
+    add(&mut app, &vendor, "Vendor");
+    app.world_mut().write_message(Browse {
+        search: "table".to_owned(),
+        wanted: Vec::new(),
+    });
+    app.update();
+    assert_eq!(matching(&mut app), vec!["Table.png", "Table_Oak.png"]);
+
+    app.world_mut().write_message(Undo);
+    app.update();
+    assert_eq!(matching(&mut app), vec!["Table.png"]);
+    assert_eq!(app.world().resource::<SearchMatches>().total, 1);
+
+    app.world_mut().write_message(Redo);
+    app.update();
+    assert_eq!(matching(&mut app), vec!["Table.png", "Table_Oak.png"]);
 }

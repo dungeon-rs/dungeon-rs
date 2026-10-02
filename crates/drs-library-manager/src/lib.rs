@@ -2,6 +2,7 @@
 
 mod add_folder;
 mod index;
+mod search;
 mod thumbnails;
 
 pub use index::refresh;
@@ -32,8 +33,10 @@ pub enum LibraryManagerError {
 }
 
 /// Handles [`AddFolder`] and [`Browse`], restores the remembered Asset Folders at
-/// startup, announcing each folder that arrives or goes with [`AssetFolderChanged`], and keeps
-/// the thumbnails of every indexed folder generated in the background.
+/// startup, announcing each folder that arrives or goes with [`AssetFolderChanged`], keeps
+/// the thumbnails of every indexed folder generated in the background, and answers the
+/// browser's search text in [`drs_model::SearchMatches`] after Redo in every frame in which the
+/// text or a folder's search changed.
 pub struct LibraryManagerPlugin;
 
 impl Plugin for LibraryManagerPlugin {
@@ -45,6 +48,8 @@ impl Plugin for LibraryManagerPlugin {
                     .chain()
                     .in_set(ManagerSystems::Commands),
             )
+            .add_systems(Update, search::answer.after(ManagerSystems::Redo))
+            .init_resource::<search::Searching>()
             .add_systems(Last, thumbnails::stop_on_exit);
     }
 }
@@ -69,13 +74,15 @@ fn handle_add_folder(world: &mut World, requests: &mut SystemState<MessageReader
 }
 
 /// Carries out the latest [`Browse`] request of the frame; an earlier one names a set of Assets
-/// the browser no longer shows, so it is read and passed over. Nothing comes back.
+/// the browser no longer shows, so it is read and passed over. Its search text is answered after
+/// Redo, in [`drs_model::SearchMatches`].
 fn handle_browse(world: &mut World, requests: &mut SystemState<MessageReader<Browse>>) {
     let mut requests: Vec<Browse> = match requests.get_mut(world) {
         Ok(mut reader) => reader.read().cloned().collect(),
         Err(_) => return,
     };
-    if let Some(Browse { wanted }) = requests.pop() {
+    if let Some(Browse { search, wanted }) = requests.pop() {
+        search::ask(world, search);
         thumbnails::browse(world, wanted);
     }
 }
@@ -119,6 +126,7 @@ fn restore_folders(world: &mut World) {
             })
             .id();
         if let Err(error) = refresh(world, folder) {
+            search::build(world, folder);
             world.write_message(FolderUnavailable {
                 folder,
                 name: manifest.name.clone(),

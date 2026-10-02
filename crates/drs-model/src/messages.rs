@@ -441,12 +441,15 @@ pub struct ExportRefused {
     pub reason: String,
 }
 
-/// Browse: what the browser shows, so the library Manager serves it first. Sent by the Editor
-/// whenever the set changes.
+/// Browse: what the browser searches for and shows, so the library Manager answers the search
+/// and serves the thumbnails shown first. Sent by the Editor whenever either changes.
 ///
-/// Handled by the library Manager; nothing comes back but the thumbnail states it updates.
+/// Handled by the library Manager, which answers the search text in
+/// [`crate::SearchMatches`] and otherwise only updates the thumbnail states.
 #[derive(Message, Debug, Clone, Default, PartialEq, Eq)]
 pub struct Browse {
+    /// The text typed in the browser's search field, as typed.
+    pub search: String,
     /// The Assets whose thumbnails the browser wants first: those in its laid-out rows and the
     /// rows either side.
     pub wanted: Vec<AssetAddress>,
