@@ -35,6 +35,8 @@ pub(crate) fn derive_shapes(
     mut removed_portals: RemovedComponents<Portal>,
     mut walls: Walls,
     mut portals: Portals,
+    parents: Query<&ChildOf>,
+    levels: Query<(), With<Level>>,
 ) {
     let removed = removed_portals.read().count() > 0;
     // Looking at whether a Portal changed through the query that writes them marks nothing.
@@ -44,14 +46,36 @@ pub(crate) fn derive_shapes(
     if changed_walls.is_empty() && !portal_changed && !removed {
         return;
     }
-    for (entity, id, wall, mut element, shape, derived_from) in &mut walls {
+    let parent_of = |child: Entity| parents.get(child).ok().map(ChildOf::parent);
+    let level_of = |entity: Entity| ancestor(entity, parent_of, |parent| levels.contains(parent));
+    let set = set_by_host(&walls, &portals, level_of);
+    let standings = reshape_walls(&mut commands, &mut walls, &set);
+}
+
+/// Derives again the shape of every Wall whose points, segments, or thickness, or whose set
+/// Portals, differ from what its shape was last derived from, leaving out the stretches those
+/// Portals cover, and sets its Element's box around its points. Returns where each Portal set
+/// into those Walls stands.
+fn reshape_walls(
+    commands: &mut Commands,
+    walls: &mut Walls,
+    set: &BTreeMap<ElementId, Vec<Anchored>>,
+) -> BTreeMap<ElementId, Standing> {
+    let mut standings = BTreeMap::new();
+    for (entity, id, wall, mut element, wall_shape, derived_from) in walls {
         let into = set.get(id).map_or(&[][..], Vec::as_slice);
         let geometry = DerivedFrom::of(wall, into);
-        if shape.is_some() && derived_from == Some(&geometry) {
+        if wall_shape.is_some() && derived_from == Some(&geometry) {
             continue;
         }
-        match shape {
-            Some(mut shape) => *shape = generate_walls(wall, &stretches),
+        let placed = anchor_portals(wall, &geometry.portals);
+        let stretches: Vec<_> = placed
+            .iter()
+            .flatten()
+            .map(|standing| standing.stretch)
+            .collect();
+        match wall_shape {
+            Some(mut wall_shape) => *wall_shape = generate_walls(wall, &stretches),
             None => {
                 commands
                     .entity(entity)
@@ -67,6 +91,7 @@ pub(crate) fn derive_shapes(
             element.size = footprint.size();
         }
     }
+    standings
 }
 ```
 

@@ -4,9 +4,9 @@
 use crate::AuthoringError;
 use crate::ancestor;
 use crate::place::{spawn_on_top, take_off};
-use crate::portal::{Anchored, anchored_to, sets_into};
+use crate::portal::{Anchored, anchored_to, sets_into, stood};
 use crate::remove::Remove;
-use bevy_ecs::change_detection::DetectChanges;
+use bevy_ecs::change_detection::{DetectChanges, Mut};
 use bevy_ecs::component::Component;
 use bevy_ecs::entity::Entity;
 use bevy_ecs::error::BevyError;
@@ -22,7 +22,8 @@ use drs_model::{
     Segment, WALL, Wall, WallShape,
 };
 use drs_shape_engine::{
-    PointEdit, PortalSetting, anchor_portals, anchor_portals_through, generate_walls, split_wall,
+    PointEdit, PortalSetting, Standing, anchor_portals, anchor_portals_through, generate_walls,
+    split_wall,
 };
 use std::collections::BTreeMap;
 
@@ -460,17 +461,45 @@ pub(crate) fn derive_shapes(
     let parent_of = |child: Entity| parents.get(child).ok().map(ChildOf::parent);
     let level_of = |entity: Entity| ancestor(entity, parent_of, |parent| levels.contains(parent));
     let set = set_by_host(&walls, &portals, level_of);
-    let sides: BTreeMap<ElementId, bool> = set
+    let standings = reshape_walls(&mut commands, &mut walls, &set);
+    let anchors: BTreeMap<ElementId, PortalAnchor> = set
         .values()
         .flatten()
-        .map(|(id, anchor, _)| (*id, anchor.side.mirrors()))
+        .map(|(id, anchor, _)| (*id, *anchor))
         .collect();
 
+    for (entity, id, mut portal, mut element) in &mut portals {
+        let changed = portal.is_changed();
+        if let Some(anchor) = anchors.get(id) {
+            follow(&mut portal, &mut element, anchor, standings.get(id));
+        }
+        if changed {
+            let pixels = ancestor(entity, parent_of, |parent| references.contains(parent))
+                .and_then(|project| references.get(project).ok())
+                .and_then(|table| table.get(portal.asset))
+                .and_then(|reference| reference.pixel_size);
+            let size = natural_size(portal.width, pixels, element.size);
+            if element.size != size {
+                element.size = size;
+            }
+        }
+    }
+}
+
+/// Derives again the shape of every Wall whose points, segments, or thickness, or whose set
+/// Portals, differ from what its shape was last derived from, leaving out the stretches those
+/// Portals cover, and sets its Element's box around its points. Returns where each Portal set
+/// into those Walls stands.
+fn reshape_walls(
+    commands: &mut Commands,
+    walls: &mut Walls,
+    set: &BTreeMap<ElementId, Vec<Anchored>>,
+) -> BTreeMap<ElementId, Standing> {
     let mut standings = BTreeMap::new();
-    for (entity, id, wall, mut element, shape, derived_from) in &mut walls {
+    for (entity, id, wall, mut element, wall_shape, derived_from) in walls {
         let into = set.get(id).map_or(&[][..], Vec::as_slice);
         let geometry = DerivedFrom::of(wall, into);
-        if shape.is_some() && derived_from == Some(&geometry) {
+        if wall_shape.is_some() && derived_from == Some(&geometry) {
             continue;
         }
         let placed = anchor_portals(wall, &geometry.portals);
@@ -484,8 +513,8 @@ pub(crate) fn derive_shapes(
                 standings.insert(*portal, standing);
             }
         }
-        match shape {
-            Some(mut shape) => *shape = generate_walls(wall, &stretches),
+        match wall_shape {
+            Some(mut wall_shape) => *wall_shape = generate_walls(wall, &stretches),
             None => {
                 commands
                     .entity(entity)
@@ -501,36 +530,30 @@ pub(crate) fn derive_shapes(
             element.size = footprint.size();
         }
     }
+    standings
+}
 
-    for (entity, id, mut portal, mut element) in &mut portals {
-        let changed = portal.is_changed();
-        if let Some(standing) = standings.get(id) {
-            if element.position != standing.centre {
-                element.position = standing.centre;
-            }
-            if let Some(direction) = standing.direction
-                && portal.rotation.to_bits() != direction.to_bits()
-            {
-                portal.rotation = direction;
-            }
-        }
-        // The side changes nothing about the Wall's shape, so it is followed for every Portal set
-        // into a Wall, whether or not the Wall was derived again.
-        if let Some(mirrored) = sides.get(id)
-            && portal.mirrored != *mirrored
-        {
-            portal.mirrored = *mirrored;
-        }
-        if changed {
-            let pixels = ancestor(entity, parent_of, |parent| references.contains(parent))
-                .and_then(|project| references.get(project).ok())
-                .and_then(|table| table.get(portal.asset))
-                .and_then(|reference| reference.pixel_size);
-            let size = natural_size(portal.width, pixels, element.size);
-            if element.size != size {
-                element.size = size;
-            }
-        }
+/// Keeps a Portal set into a Wall where its anchor puts it: at `standing`, turned to the Wall's
+/// direction there, when its Wall was derived again, and facing its side in any case, since the
+/// side changes nothing about the Wall's shape. Writes only what differs.
+fn follow(
+    portal: &mut Mut<Portal>,
+    element: &mut Mut<Element>,
+    anchor: &PortalAnchor,
+    standing: Option<&Standing>,
+) {
+    let (centre, rotation, mirrored) = standing.map_or(
+        (element.position, portal.rotation, anchor.side.mirrors()),
+        |standing| stood(standing, anchor, portal.rotation),
+    );
+    if element.position != centre {
+        element.position = centre;
+    }
+    if portal.rotation.to_bits() != rotation.to_bits() {
+        portal.rotation = rotation;
+    }
+    if portal.mirrored != mirrored {
+        portal.mirrored = mirrored;
     }
 }
 

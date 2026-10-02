@@ -13,7 +13,7 @@ use drs_model::{
     AssetAddress, AssetReferenceRow, Element, ElementChange, ElementId, FreePortal, Level, Portal,
     PortalAnchor, SetPortalIntoWall, Wall,
 };
-use drs_shape_engine::{PortalSetting, anchor_portals};
+use drs_shape_engine::{PortalSetting, Standing, anchor_portals};
 
 /// The Level an Element lies on: its nearest ancestor carrying [`Level`].
 pub(crate) fn level_of(world: &World, entity: Entity) -> Option<Entity> {
@@ -79,30 +79,38 @@ pub(crate) fn well_formed(portal: &Portal) -> Result<(), AuthoringError> {
     })
 }
 
-/// Where a Portal of `width` set at `anchor` into `wall` stands: its centre, its rotation, which
-/// is `rotation` where the segment has no direction, and its mirroring.
+/// Where a Portal set at `anchor` stands where `AnchorPortals` places it: its centre, its
+/// rotation, which stays `rotation` where the segment has no direction, and its mirroring, by the
+/// side it faces.
+pub(crate) fn stood(
+    standing: &Standing,
+    anchor: &PortalAnchor,
+    rotation: f32,
+) -> (Vec2, f32, bool) {
+    (
+        standing.centre,
+        standing.direction.unwrap_or(rotation),
+        anchor.side.mirrors(),
+    )
+}
+
+/// Where a Portal of `width` set at `anchor` into `wall` stands, as [`stood`] says.
 fn standing_in(
     wall: &Wall,
     anchor: &PortalAnchor,
     width: f32,
     rotation: f32,
 ) -> Option<(Vec2, f32, bool)> {
-    let standing = anchor_portals(
-        wall,
-        &[PortalSetting {
-            segment: anchor.index,
-            t: anchor.t,
-            width,
-        }],
-    )
-    .into_iter()
-    .next()
-    .flatten()?;
-    Some((
-        standing.centre,
-        standing.direction.unwrap_or(rotation),
-        anchor.side.mirrors(),
-    ))
+    let setting = PortalSetting {
+        segment: anchor.index,
+        t: anchor.t,
+        width,
+    };
+    let standing = anchor_portals(wall, &[setting])
+        .into_iter()
+        .next()
+        .flatten()?;
+    Some(stood(&standing, anchor, rotation))
 }
 
 /// Places a Portal of the chosen Asset at its image's natural size on top of the Layer, set
