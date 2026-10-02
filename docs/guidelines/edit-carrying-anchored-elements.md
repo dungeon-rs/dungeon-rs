@@ -35,7 +35,11 @@ pub(crate) fn remove_point(
     let mut wall = before.clone();
     wall.points.remove(index);
     let (portals, _) = anchored_to(world, element);
-    let places = anchor_portals_through(&before, PointEdit::Removed { index }, &settings(&portals));
+    let places = anchor_portals_through(
+        &Path::of_wall(&before),
+        PointEdit::Removed { index },
+        &settings(&portals),
+    );
     let mut gone = Vec::new();
     let mut moves = Vec::new();
     for ((portal, anchor, _), place) in portals.iter().zip(places) {

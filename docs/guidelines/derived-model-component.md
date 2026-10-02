@@ -70,18 +70,18 @@ fn reshape_walls(
         if wall_shape.is_some() && derived_from == Some(&geometry) {
             continue;
         }
-        let placed = anchor_portals(wall, &geometry.portals);
+        let path = Path::of_wall(wall);
+        let placed = anchor_portals(&path, &geometry.portals);
         let stretches: Vec<_> = placed
             .iter()
             .flatten()
             .map(|standing| standing.stretch)
             .collect();
+        let shape = generate_walls(&combine_outlines(&path), wall.thickness, &stretches);
         match wall_shape {
-            Some(mut wall_shape) => *wall_shape = generate_walls(wall, &stretches),
+            Some(mut wall_shape) => *wall_shape = shape,
             None => {
-                commands
-                    .entity(entity)
-                    .insert(generate_walls(wall, &stretches));
+                commands.entity(entity).insert(shape);
             }
         }
         commands.entity(entity).insert(geometry);

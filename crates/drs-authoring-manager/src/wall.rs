@@ -5,7 +5,7 @@
 use crate::AuthoringError;
 use crate::ancestor;
 use crate::place::{spawn_on_top, take_off};
-use crate::portal::{Anchored, Host, anchored_to, sets_into, stood};
+use crate::portal::{Anchored, anchored_to, sets_into, stood};
 use crate::remove::Remove;
 use crate::room::{Rooms, reshape_rooms};
 use bevy_ecs::change_detection::{DetectChanges, Mut};
@@ -24,8 +24,8 @@ use drs_model::{
     Room, Segment, WALL, Wall, WallShape,
 };
 use drs_shape_engine::{
-    PointEdit, PortalSetting, Standing, anchor_portals, anchor_portals_through, generate_walls,
-    split_wall,
+    Path, PointEdit, PortalSetting, Standing, anchor_portals, anchor_portals_through,
+    combine_outlines, generate_walls, split_wall,
 };
 use std::collections::BTreeMap;
 
@@ -185,8 +185,18 @@ pub(crate) fn add_point(
     t: f32,
 ) -> Result<(), AuthoringError> {
     let before = wall_of(world, element)?;
-    let wall = split_wall(&before, segment, t)?;
-    let moves = carried_past(world, element, &Host::Wall(before), segment, t)?;
+    let path = Path::of_wall(&before);
+    let split = split_wall(&path, segment, t)?;
+    let wall = Wall {
+        points: split.points,
+        segments: split
+            .controls
+            .into_iter()
+            .map(|control| Segment { control })
+            .collect(),
+        ..before
+    };
+    let moves = carried_past(world, element, &path, segment, t)?;
     record_together(
         world,
         Vec::new(),
@@ -200,7 +210,7 @@ pub(crate) fn add_point(
 }
 
 /// The anchor moves that keep every Portal anchored to `host` where it was when a point is added
-/// on `part` at `t`, `before` being the host as it was.
+/// on `part` at `t`, `before` being the host's outline as it was.
 ///
 /// # Errors
 ///
@@ -208,7 +218,7 @@ pub(crate) fn add_point(
 pub(crate) fn carried_past(
     world: &mut World,
     host: ElementId,
-    before: &Host,
+    before: &Path,
     part: usize,
     t: f32,
 ) -> Result<Vec<SetField<ElementId>>, AuthoringError> {
@@ -217,7 +227,11 @@ pub(crate) fn carried_past(
     // saved.
     let (set, lost) = anchored_to(world, host);
     let anchored: Vec<Anchored> = set.into_iter().chain(lost).collect();
-    let places = before.anchor_through(PointEdit::Added { segment: part, t }, &settings(&anchored));
+    let places = anchor_portals_through(
+        before,
+        PointEdit::Added { segment: part, t },
+        &settings(&anchored),
+    );
     let mut moves = Vec::new();
     for ((portal, anchor, _), place) in anchored.iter().zip(places) {
         if let Some(place) = place
@@ -269,7 +283,11 @@ pub(crate) fn remove_point(
         wall.segments[index - 1].control = None;
     }
     let (portals, _) = anchored_to(world, element);
-    let places = anchor_portals_through(&before, PointEdit::Removed { index }, &settings(&portals));
+    let places = anchor_portals_through(
+        &Path::of_wall(&before),
+        PointEdit::Removed { index },
+        &settings(&portals),
+    );
     let mut gone = Vec::new();
     let mut moves = Vec::new();
     for ((portal, anchor, _), place) in portals.iter().zip(places) {
@@ -524,7 +542,8 @@ fn reshape_walls(
         if wall_shape.is_some() && derived_from == Some(&geometry) {
             continue;
         }
-        let placed = anchor_portals(wall, &geometry.portals);
+        let path = Path::of_wall(wall);
+        let placed = anchor_portals(&path, &geometry.portals);
         let stretches: Vec<_> = placed
             .iter()
             .flatten()
@@ -535,12 +554,11 @@ fn reshape_walls(
                 standings.insert(*portal, standing);
             }
         }
+        let shape = generate_walls(&combine_outlines(&path), wall.thickness, &stretches);
         match wall_shape {
-            Some(mut wall_shape) => *wall_shape = generate_walls(wall, &stretches),
+            Some(mut wall_shape) => *wall_shape = shape,
             None => {
-                commands
-                    .entity(entity)
-                    .insert(generate_walls(wall, &stretches));
+                commands.entity(entity).insert(shape);
             }
         }
         commands.entity(entity).insert(geometry);

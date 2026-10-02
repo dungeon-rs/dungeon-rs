@@ -1,5 +1,5 @@
-//! `GenerateWalls` and `SplitWall` for drawn Walls: the flattened line, the stroke mesh, and the
-//! exact split of a segment.
+//! `GenerateWalls` and `SplitWall`: the stroke of a combined outline's line, open or closed, and
+//! the exact split of a part.
 //!
 //! Everything is computed in double precision and handed to the model in single precision. No
 //! trigonometric function is called anywhere: the flattening counts come from square roots, and
@@ -7,25 +7,11 @@
 //! step, so the only operation beyond arithmetic is the correctly rounded square root and the
 //! mesh is the same on every machine.
 
+use crate::path::{Path, TOLERANCE};
+use crate::room::CombinedOutline;
 use bevy_math::Vec2;
-use drs_model::{LinePlace, LinePoint, Segment, Stretch, StrokeMesh, Wall, WallShape};
+use drs_model::{LinePlace, LinePoint, Stretch, StrokeMesh, WallShape};
 use kurbo::{Line, ParamCurve, Point, QuadBez};
-
-/// How far, in Grid cells, a chord of the flattened line or an arc of the stroke may stray from
-/// the curve it stands for: a pixel at the highest Export resolution.
-///
-/// A curved segment so strongly bent that it would take more than [`MOST_CHORDS`] chords is
-/// flattened into that many, and its chords then stray farther; that takes a control point more
-/// than thirty thousand cells from the middle of its segment.
-pub(crate) const TOLERANCE: f64 = 0.001;
-
-/// The fewest chords a curved segment is flattened into, so that its middle is always a point of
-/// the line.
-const FEWEST_CHORDS: f64 = 2.0;
-
-/// The most chords one curved segment is flattened into, whatever its size; past it the
-/// [`TOLERANCE`] no longer holds.
-const MOST_CHORDS: f64 = 4096.0;
 
 /// The most times an arc of a join or cap is halved: 2¹⁶ pieces is far finer than any Wall needs.
 const MOST_HALVINGS: u32 = 16;
@@ -34,7 +20,7 @@ const MOST_HALVINGS: u32 = 16;
 /// stroke, which has no direction to give them.
 const COINCIDENT: f64 = 1e-9;
 
-/// Why a Wall could not be split.
+/// Why an outline could not be split.
 #[derive(Debug, Clone, PartialEq, thiserror::Error)]
 pub enum ShapeError {
     /// The Wall has no segment of that number.
@@ -61,24 +47,44 @@ pub enum ShapeError {
     OutsideEdge(f32),
 }
 
-/// `GenerateWalls`: the shape a drawn Wall is drawn and picked by, left out along `stretches`.
+impl ShapeError {
+    /// That `path` has no part `part`: a segment of an open outline, an edge of a closed one.
+    #[must_use]
+    pub fn no_part(path: &Path, part: usize) -> Self {
+        if path.closed {
+            Self::NoEdge {
+                edge: part,
+                edges: path.parts(),
+            }
+        } else {
+            Self::NoSegment {
+                segment: part,
+                segments: path.parts(),
+            }
+        }
+    }
+}
+
+/// `GenerateWalls`: the shape a drawn Wall or a Room's Walls are drawn and picked by, from the
+/// line `CombineOutlines` flattened, `thickness` thick, left out along `stretches`.
 ///
-/// The line runs from the first point to the last. A straight segment is one chord; a curved
-/// one is cut at evenly spaced parameters, an even number of them so that its middle is a point
-/// of the line, as many as keep every chord within a thousandth of a cell of the curve. Each
-/// point is tagged with the segment it lies on and the parameter along it; a point shared by two
-/// segments belongs to the later one, at parameter zero, and the last point to the last segment
-/// at one. The stroke covers everything within half the thickness of the line, with round joins
-/// at its points and round caps at its ends, and records the arc length of the line at each
-/// vertex.
+/// The stroke covers everything within half the thickness of the line, with a round join on the
+/// outer side of every bend. An open line has a round cap at each end; a closed one joins its
+/// last chord to its first round the first point and has no caps. The stroke records the arc
+/// length of the line at each vertex.
 ///
-/// The stroke leaves out every stretch, measured along the flattened line: it ends squarely
-/// across the line at each end of a stretch, and an end of the Wall that a stretch reaches has
-/// no cap. Overlapping stretches leave out what either covers. The stretches are kept on the
-/// shape as given.
+/// The stroke leaves out every stretch, measured along the line: it ends squarely across the
+/// line at each end of a stretch, and an end of an open line that a stretch reaches has no cap.
+/// On a closed line a stretch whose start lies after its end runs on past the first point.
+/// Overlapping stretches leave out what either covers. The stretches are kept on the shape as
+/// given.
 #[must_use]
-pub fn generate_walls(wall: &Wall, stretches: &[Stretch]) -> WallShape {
-    let line = flatten(wall);
+pub fn generate_walls(
+    outline: &CombinedOutline,
+    thickness: f32,
+    stretches: &[Stretch],
+) -> WallShape {
+    let line = outline.line.clone();
     let measured = Measured::of(&line);
     let gaps: Vec<(f64, f64)> = stretches
         .iter()
@@ -89,7 +95,12 @@ pub fn generate_walls(wall: &Wall, stretches: &[Stretch]) -> WallShape {
             )
         })
         .collect();
-    let mesh = stroke(&line, f64::from(wall.thickness) / 2.0, &gaps);
+    let radius = f64::from(thickness) / 2.0;
+    let mesh = if outline.closed {
+        stroke_closed(&line, radius, &gaps)
+    } else {
+        stroke(&line, radius, &gaps)
+    };
     WallShape {
         line,
         stretches: stretches.to_vec(),
@@ -196,54 +207,45 @@ impl<'a> Measured<'a> {
     }
 }
 
-/// `SplitWall`: the Wall with a point added on `segment` at parameter `t`, splitting the segment
-/// into two whose joined curve is the one it had, to single precision.
+/// `SplitWall`: the outline with a point added on part `part` at parameter `t`, splitting the
+/// part into two whose joined curve is the one it had, to single precision.
 ///
-/// A straight segment becomes two straight segments; a curved one becomes the two pieces of its
-/// curve on either side of `t`, each with its own control point. The new point sits after the segment's first point,
-/// so the segments after it are numbered one higher.
+/// A straight part becomes two straight parts; a curved one becomes the two pieces of its curve
+/// on either side of `t`, each with its own control point. The new point comes after the part's
+/// first point, so the parts after it are numbered one higher, and a point added on a closed
+/// outline's last part becomes its last point.
 ///
 /// # Errors
 ///
-/// [`ShapeError::NoSegment`] when the Wall has no such segment, or
-/// [`ShapeError::OutsideSegment`] when `t` is not strictly between zero and one.
-pub fn split_wall(wall: &Wall, segment: usize, t: f32) -> Result<Wall, ShapeError> {
-    let Some(split) = wall.segments.get(segment) else {
-        return Err(ShapeError::NoSegment {
-            segment,
-            segments: wall.segments.len(),
-        });
+/// [`ShapeError::NoSegment`] or [`ShapeError::NoEdge`] when the outline has no such part, or
+/// [`ShapeError::OutsideSegment`] or [`ShapeError::OutsideEdge`] when `t` is not strictly
+/// between zero and one.
+pub fn split_wall(path: &Path, part: usize, t: f32) -> Result<Path, ShapeError> {
+    let (Some(control), Some((start, end))) = (path.controls.get(part), path.ends(part)) else {
+        return Err(ShapeError::no_part(path, part));
     };
     if !(t > 0.0 && t < 1.0) {
-        return Err(ShapeError::OutsideSegment(t));
-    }
-    let (Some(&start), Some(&end)) = (wall.points.get(segment), wall.points.get(segment + 1))
-    else {
-        return Err(ShapeError::NoSegment {
-            segment,
-            segments: wall.points.len().saturating_sub(1),
+        return Err(if path.closed {
+            ShapeError::OutsideEdge(t)
+        } else {
+            ShapeError::OutsideSegment(t)
         });
-    };
+    }
     let t = f64::from(t);
-    let (middle, first, second) = match split.control {
-        None => {
-            let middle = Line::new(point(start), point(end)).eval(t);
-            (middle, None, None)
-        }
+    let (middle, first, second) = match control {
+        None => (Line::new(point(start), point(end)).eval(t), None, None),
         Some(control) => {
-            let curve = QuadBez::new(point(start), point(control), point(end));
+            let curve = QuadBez::new(point(start), point(*control), point(end));
             let first = curve.subsegment(0.0..t);
             let second = curve.subsegment(t..1.0);
             (first.p2, Some(vector(first.p1)), Some(vector(second.p1)))
         }
     };
-    let mut split_wall = wall.clone();
-    split_wall.points.insert(segment + 1, vector(middle));
-    split_wall.segments[segment] = Segment { control: first };
-    split_wall
-        .segments
-        .insert(segment + 1, Segment { control: second });
-    Ok(split_wall)
+    let mut split = path.clone();
+    split.points.insert(part + 1, vector(middle));
+    split.controls[part] = first;
+    split.controls.insert(part + 1, second);
+    Ok(split)
 }
 
 /// A model position as a kurbo point.
@@ -263,62 +265,6 @@ pub(crate) fn vector(point: Point) -> Vec2 {
 /// The length of a vector, through the correctly rounded square root only.
 pub(crate) fn length(vector: kurbo::Vec2) -> f64 {
     (vector.x * vector.x + vector.y * vector.y).sqrt()
-}
-
-/// How many chords keep a quadratic segment within the tolerance: a chord over a parameter
-/// interval `h` strays at most `|p0 - 2c + p1| h² / 4` from the curve, as its second derivative
-/// is constant. The count is even, so the segment's middle is one of the cuts.
-#[expect(
-    clippy::cast_possible_truncation,
-    clippy::cast_sign_loss,
-    reason = "the count is a positive whole number of at most `MOST_CHORDS`"
-)]
-fn chords_of(start: Point, control: Point, end: Point) -> usize {
-    let bend = length(start.to_vec2() - control.to_vec2() * 2.0 + end.to_vec2());
-    let chords = (bend / (4.0 * TOLERANCE))
-        .sqrt()
-        .ceil()
-        .clamp(FEWEST_CHORDS, MOST_CHORDS) as usize;
-    chords + chords % 2
-}
-
-/// The Wall's line flattened into points tagged with their segment and parameter.
-#[expect(
-    clippy::cast_precision_loss,
-    clippy::cast_possible_truncation,
-    reason = "chord counts are far below where f64 loses whole numbers; parameters are kept in \
-              single precision"
-)]
-pub(crate) fn flatten(wall: &Wall) -> Vec<LinePoint> {
-    let mut line = Vec::new();
-    let last = wall.segments.len().saturating_sub(1);
-    for (index, (segment, ends)) in wall.segments.iter().zip(wall.points.windows(2)).enumerate() {
-        let (start, end) = (point(ends[0]), point(ends[1]));
-        let (chords, curve) = match segment.control {
-            None => (1, None),
-            Some(control) => {
-                let control = point(control);
-                (
-                    chords_of(start, control, end),
-                    Some(QuadBez::new(start, control, end)),
-                )
-            }
-        };
-        let cuts = if index == last { chords + 1 } else { chords };
-        for cut in 0..cuts {
-            let t = cut as f64 / chords as f64;
-            let at = match curve {
-                Some(curve) => curve.eval(t),
-                None => Line::new(start, end).eval(t),
-            };
-            line.push(LinePoint {
-                position: vector(at),
-                segment: index,
-                t: t as f32,
-            });
-        }
-    }
-    line
 }
 
 /// The stroke being built.
@@ -477,7 +423,7 @@ fn dot(builder: &mut Builder, centre: (Point, f64), radius: f64) {
 /// ends, a gap that starts after it ends running on past the first point: a band per chord and a
 /// round join on the outer side of every bend, the first point's included, with no caps; the
 /// stroke ends squarely across the line at each end of a gap.
-pub(crate) fn stroke_closed(line: &[LinePoint], radius: f64, gaps: &[(f64, f64)]) -> StrokeMesh {
+fn stroke_closed(line: &[LinePoint], radius: f64, gaps: &[(f64, f64)]) -> StrokeMesh {
     let (points, total) = distinct(line);
     let mut builder = Builder::default();
     // The ring of distinct points: the closing point is the first again, so it is left out.
@@ -697,19 +643,20 @@ mod tests {
     )]
 
     use super::*;
-    use drs_model::Colour;
+    use crate::combine_outlines;
 
-    /// A grey Wall a quarter of a cell thick through `points`, curved where a control is given.
-    fn wall(points: &[Vec2], controls: &[Option<Vec2>]) -> Wall {
-        Wall {
+    /// A Wall's open line through `points`, curved where a control is given.
+    fn wall(points: &[Vec2], controls: &[Option<Vec2>]) -> Path {
+        Path {
             points: points.to_vec(),
-            segments: controls
-                .iter()
-                .map(|control| Segment { control: *control })
-                .collect(),
-            thickness: 0.25,
-            colour: Colour::rgb(60, 60, 60),
+            controls: controls.to_vec(),
+            closed: false,
         }
+    }
+
+    /// The shape of the Wall along `path`, a quarter of a cell thick, left out along `stretches`.
+    fn walls(path: &Path, stretches: &[Stretch]) -> WallShape {
+        generate_walls(&combine_outlines(path), 0.25, stretches)
     }
 
     /// The distance from `p` to the chord from `a` to `b`.
@@ -744,7 +691,7 @@ mod tests {
     #[test]
     fn a_straight_segment_flattens_to_its_ends() {
         let points = [Vec2::ZERO, Vec2::new(4.0, 0.0), Vec2::new(4.0, 3.0)];
-        let shape = generate_walls(&wall(&points, &[None, None]), &[]);
+        let shape = walls(&wall(&points, &[None, None]), &[]);
 
         let tags: Vec<(Vec2, usize, f32)> = shape
             .line
@@ -765,7 +712,7 @@ mod tests {
     #[test]
     fn the_chord_stays_within_tolerance() {
         let (start, control, end) = (Vec2::ZERO, Vec2::new(3.0, 7.0), Vec2::new(9.0, -1.0));
-        let shape = generate_walls(&wall(&[start, end], &[Some(control)]), &[]);
+        let shape = walls(&wall(&[start, end], &[Some(control)]), &[]);
         let curve = QuadBez::new(point(start), point(control), point(end));
 
         assert!(shape.line.len() > 10, "a strong curve takes many chords");
@@ -790,7 +737,7 @@ mod tests {
     /// and the ends, and nothing beyond.
     #[test]
     fn the_mesh_covers_the_thickness() {
-        let shape = generate_walls(
+        let shape = walls(
             &wall(
                 &[
                     Vec2::ZERO,
@@ -847,10 +794,10 @@ mod tests {
 
         let straight = split_wall(&before, 0, 0.25).expect("a straight split");
         assert_eq!(straight.points[1], Vec2::new(1.0, 0.0));
-        assert_eq!(straight.segments.len(), 3);
-        assert_eq!(straight.segments[0].control, None);
-        assert_eq!(straight.segments[1].control, None);
-        assert_eq!(straight.segments[2].control, Some(control));
+        assert_eq!(straight.controls.len(), 3);
+        assert_eq!(straight.controls[0], None);
+        assert_eq!(straight.controls[1], None);
+        assert_eq!(straight.controls[2], Some(control));
 
         let t = 0.3;
         let curved = split_wall(&before, 1, t).expect("a curved split");
@@ -859,7 +806,7 @@ mod tests {
         let halves = [1, 2].map(|segment| {
             QuadBez::new(
                 point(curved.points[segment]),
-                point(curved.segments[segment].control.expect("both halves curve")),
+                point(curved.controls[segment].expect("both halves curve")),
                 point(curved.points[segment + 1]),
             )
         });
@@ -901,7 +848,7 @@ mod tests {
             start: LinePlace { segment: 0, t: 0.4 },
             end: LinePlace { segment: 0, t: 0.6 },
         };
-        let shape = generate_walls(&straight, &[gap]);
+        let shape = walls(&straight, &[gap]);
         assert_eq!(shape.stretches, vec![gap]);
         let mesh = &shape.mesh;
 
@@ -935,7 +882,7 @@ mod tests {
             start: LinePlace { segment: 0, t: 0.9 },
             end: LinePlace { segment: 0, t: 1.0 },
         };
-        let shape = generate_walls(&straight, &[gap, to_the_end]);
+        let shape = walls(&straight, &[gap, to_the_end]);
         assert!(
             !covered(Vec2::new(10.05, 0.0), &shape.mesh),
             "no cap at the end"

@@ -10,62 +10,19 @@ use bevy_ecs::world::World;
 use bevy_math::Vec2;
 use drs_history::{ReversibleCommand, SetField, Target};
 use drs_model::{
-    AssetAddress, AssetReferenceRow, Element, ElementChange, ElementId, FreePortal, Level,
-    LinePlace, Portal, PortalAnchor, Room, SetPortalIntoWall, Wall,
+    AssetAddress, AssetReferenceRow, Element, ElementChange, ElementId, FreePortal, Level, Portal,
+    PortalAnchor, Room, SetPortalIntoWall, Wall,
 };
-use drs_shape_engine::{
-    PointEdit, PortalSetting, Standing, anchor_portals, anchor_portals_through,
-    anchor_room_portals, anchor_room_portals_through,
-};
+use drs_shape_engine::{Path, PortalSetting, Standing, anchor_portals};
 
-/// What a Portal is set into, as it is: a Wall, whose parts are its segments, or a Room, whose
-/// parts are its edges. The kind of the Element an anchor names says how its `index` is read.
-#[derive(Debug, Clone, PartialEq)]
-pub(crate) enum Host {
-    /// A drawn Wall.
-    Wall(Wall),
-    /// A Room.
-    Room(Room),
-}
-
-impl Host {
-    /// The Wall or the Room an entity carries, if it carries either.
-    pub(crate) fn of(world: &World, entity: Entity) -> Option<Self> {
-        world
-            .get::<Wall>(entity)
-            .cloned()
-            .map(Self::Wall)
-            .or_else(|| world.get::<Room>(entity).cloned().map(Self::Room))
-    }
-
-    /// How many parts it has: a Wall's segments or a Room's edges.
-    pub(crate) fn parts(&self) -> usize {
-        match self {
-            Self::Wall(wall) => wall.segments.len(),
-            Self::Room(room) => room.edges.len(),
-        }
-    }
-
-    /// `AnchorPortals`: where each Portal set at `settings` stands.
-    pub(crate) fn anchor(&self, settings: &[PortalSetting]) -> Vec<Option<Standing>> {
-        match self {
-            Self::Wall(wall) => anchor_portals(wall, settings),
-            Self::Room(room) => anchor_room_portals(room, settings),
-        }
-    }
-
-    /// `AnchorPortals` through a point edit: where each anchor at `settings` goes, as the host
-    /// is before the edit.
-    pub(crate) fn anchor_through(
-        &self,
-        edit: PointEdit,
-        settings: &[PortalSetting],
-    ) -> Vec<Option<LinePlace>> {
-        match self {
-            Self::Wall(wall) => anchor_portals_through(wall, edit, settings),
-            Self::Room(room) => anchor_room_portals_through(room, edit, settings),
-        }
-    }
+/// The outline of the Wall or the Room an entity carries, if it carries either: what a Portal is
+/// set into, its parts being the Wall's segments or the Room's edges. The kind of the Element an
+/// anchor names says how its `index` is read.
+pub(crate) fn host_path(world: &World, entity: Entity) -> Option<Path> {
+    world
+        .get::<Wall>(entity)
+        .map(Path::of_wall)
+        .or_else(|| world.get::<Room>(entity).map(Path::of_room))
 }
 
 /// The Level an Element lies on: its nearest ancestor carrying [`Level`].
@@ -101,26 +58,27 @@ pub(crate) fn host_of(
     world: &mut World,
     anchor: &PortalAnchor,
     level: Option<Entity>,
-) -> Result<Host, AuthoringError> {
+) -> Result<Path, AuthoringError> {
     let entity = anchor
         .host
         .entity(world)
         .map_err(|_| AuthoringError::UnknownElement(anchor.host))?;
-    let host = Host::of(world, entity).ok_or(AuthoringError::NotAHost(anchor.host))?;
+    let host = host_path(world, entity).ok_or(AuthoringError::NotAHost(anchor.host))?;
     if level_of(world, entity) != level {
         return Err(AuthoringError::OnAnotherLevel(anchor.host));
     }
     let parts = host.parts();
     if anchor.index >= parts {
-        return Err(match host {
-            Host::Wall(_) => AuthoringError::NoSegment {
-                segment: anchor.index,
-                segments: parts,
-            },
-            Host::Room(_) => AuthoringError::NoEdge {
+        return Err(if host.closed {
+            AuthoringError::NoEdge {
                 edge: anchor.index,
                 edges: parts,
-            },
+            }
+        } else {
+            AuthoringError::NoSegment {
+                segment: anchor.index,
+                segments: parts,
+            }
         });
     }
     Ok(host)
@@ -172,9 +130,9 @@ pub(crate) fn stood(
     )
 }
 
-/// Where a Portal of `width` set at `anchor` into `host` stands, as [`stood`] says.
+/// Where a Portal of `width` set at `anchor` into the outline `host` stands, as [`stood`] says.
 fn standing_in(
-    host: &Host,
+    host: &Path,
     anchor: &PortalAnchor,
     width: f32,
     rotation: f32,
@@ -184,7 +142,10 @@ fn standing_in(
         t: anchor.t,
         width,
     };
-    let standing = host.anchor(&[setting]).into_iter().next().flatten()?;
+    let standing = anchor_portals(host, &[setting])
+        .into_iter()
+        .next()
+        .flatten()?;
     Some(stood(&standing, anchor, rotation))
 }
 
@@ -470,7 +431,7 @@ pub(crate) fn anchored_to(world: &mut World, host: ElementId) -> (Vec<Anchored>,
     let Ok(host_entity) = host.entity(world) else {
         return (Vec::new(), Vec::new());
     };
-    let parts = Host::of(world, host_entity).map_or(0, |host| host.parts());
+    let parts = host_path(world, host_entity).map_or(0, |host| host.parts());
     let level = level_of(world, host_entity);
     let mut portals: Vec<(Entity, ElementId, PortalAnchor, f32)> = world
         .query::<(Entity, &ElementId, &Portal)>()

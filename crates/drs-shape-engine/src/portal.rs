@@ -1,52 +1,52 @@
-//! `AnchorPortals` for drawn Walls and Rooms: where each Portal set into a Wall or a Room's Walls
-//! stands and the stretch of the line it covers, and where each anchor goes when a point is
-//! added or removed. A Room's line is closed, so lengths along it wrap past its first point.
+//! `AnchorPortals`: where each Portal set into a Wall or a Room's Walls stands and the stretch of
+//! the line it covers, and where each anchor goes when a point is added or removed. A Room's
+//! outline is closed, so lengths along it wrap past its first point.
 //!
 //! A Portal is anchored by a segment and a parameter along it, never by arc length, so a point
 //! dragged elsewhere on the Wall never moves it. The centre and the direction are evaluated on
 //! the exact curve; lengths along the line are measured over the flattened line, summing its
 //! chords with square roots and arithmetic alone, so they come out the same on every machine.
 
-use crate::room::{closed_line, path_of};
-use crate::wall::{Measured, flatten, length, point, vector};
+use crate::path::{Curve, Path, flatten};
+use crate::wall::{Measured, length, vector};
 use bevy_math::{Vec2, ops};
-use drs_model::{LinePlace, LinePoint, Room, Stretch, Wall};
-use kurbo::{Line, ParamCurve, ParamCurveDeriv, Point, QuadBez};
+use drs_model::{LinePlace, LinePoint, Stretch};
+use kurbo::{ParamCurve, ParamCurveDeriv};
 
 /// Shorter than this, in Grid cells per unit of parameter, a segment has no direction.
 const NO_DIRECTION: f64 = 1e-9;
 
-/// A Portal set into a Wall as `AnchorPortals` sees it: where along the Wall it is set, and how
-/// wide it is.
+/// A Portal set into a Wall or a Room's Walls as `AnchorPortals` sees it: where along the
+/// outline it is set, and how wide it is.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct PortalSetting {
-    /// The segment, counted from zero.
+    /// The segment of a Wall or the edge of a Room, counted from zero.
     pub segment: usize,
-    /// The parameter along the segment, from zero to one.
+    /// The parameter along it, from zero to one.
     pub t: f32,
     /// The Portal's width in Grid cells.
     pub width: f32,
 }
 
-/// Where a Portal set into a Wall stands.
+/// Where a Portal set into a Wall or a Room's Walls stands.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Standing {
-    /// Its centre: the point of its segment at its parameter.
+    /// Its centre: the point of its segment or edge at its parameter.
     pub centre: Vec2,
-    /// The angle of the segment's direction there, in radians counter-clockwise from the x
-    /// axis, or `None` where the segment has no direction.
+    /// The angle of the outline's direction there, in radians counter-clockwise from the x
+    /// axis, or `None` where its part has no direction.
     pub direction: Option<f32>,
     /// The stretch of the line it covers: half its width either way from its centre along the
-    /// line, stopping at the Wall's ends.
+    /// line, stopping at a Wall's ends and running round a Room past its first point.
     pub stretch: Stretch,
 }
 
-/// An edit that renumbers a Wall's segments.
+/// An edit that renumbers a Wall's segments or a Room's edges.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum PointEdit {
-    /// A point added on a segment at a parameter strictly between zero and one.
+    /// A point added on a part at a parameter strictly between zero and one.
     Added {
-        /// The segment split.
+        /// The segment or edge split.
         segment: usize,
         /// Where along it.
         t: f32,
@@ -58,42 +58,32 @@ pub enum PointEdit {
     },
 }
 
-/// `AnchorPortals`: where each Portal set into `wall` stands, or `None` for one set on a segment
-/// the Wall does not have or at a parameter outside zero to one.
+/// `AnchorPortals`: where each Portal set into the outline `path` stands, its segment being the
+/// Wall's segment or the Room's edge, or `None` for one set on a part the outline does not have
+/// or at a parameter outside zero to one.
+///
+/// The centre lies on the exact curve and the direction is the curve's there. The stretch
+/// reaches half the Portal's width either way along the line, across the outline's points: on an
+/// open line it stops at the ends, and on a closed one it runs round past the first point, a
+/// Portal at least as wide as the whole line covering all of it.
 #[must_use]
-pub fn anchor_portals(wall: &Wall, portals: &[PortalSetting]) -> Vec<Option<Standing>> {
-    let line = flatten(wall);
-    standings(wall, &line, false, portals)
+pub fn anchor_portals(path: &Path, portals: &[PortalSetting]) -> Vec<Option<Standing>> {
+    let line = flatten(path);
+    standings(path, &line, portals)
 }
 
-/// `AnchorPortals` for a Room: where each Portal set into `room`'s Walls stands, its segment
-/// being the Room's edge, or `None` for one set on an edge the Room does not have or at a
-/// parameter outside zero to one. A stretch runs round the closed line, across the first point,
-/// and a Portal at least as wide as the whole line covers all of it.
-#[must_use]
-pub fn anchor_room_portals(room: &Room, portals: &[PortalSetting]) -> Vec<Option<Standing>> {
-    let line = closed_line(room);
-    standings(&path_of(room), &line, true, portals)
-}
-
-/// Where each Portal set into the path of segments `path`, flattened into `line`, stands; a
-/// `closed` line's stretches wrap past its first point.
-fn standings(
-    path: &Wall,
-    line: &[LinePoint],
-    closed: bool,
-    portals: &[PortalSetting],
-) -> Vec<Option<Standing>> {
+/// Where each Portal set into `path`, flattened into `line`, stands.
+fn standings(path: &Path, line: &[LinePoint], portals: &[PortalSetting]) -> Vec<Option<Standing>> {
     let measured = Measured::of(line);
     portals
         .iter()
         .map(|portal| {
-            let curve = curve(path, portal.segment)?;
+            let curve = path.curve(portal.segment)?;
             if !(0.0..=1.0).contains(&portal.t) {
                 return None;
             }
             let t = f64::from(portal.t);
-            let (centre, direction) = match curve {
+            let (centre, direction) = match &curve {
                 Curve::Straight(line) => (line.eval(t), line.p1 - line.p0),
                 Curve::Bent(quad) => (quad.eval(t), quad.deriv().eval(t).to_vec2()),
             };
@@ -103,7 +93,7 @@ fn standings(
             )]
             let direction = (length(direction) > NO_DIRECTION)
                 .then(|| ops::atan2(direction.y as f32, direction.x as f32));
-            let stretch = if closed {
+            let stretch = if path.closed {
                 stretch_round(&measured, portal)
             } else {
                 stretch_of(&measured, portal)
@@ -117,22 +107,25 @@ fn standings(
         .collect()
 }
 
-/// `AnchorPortals` through a point edit: where each Portal set into `wall`, as the Wall is
+/// `AnchorPortals` through a point edit: where each Portal set into `path`, as the outline is
 /// before the edit, is set once the edit is made, or `None` for a Portal the edit removes.
 ///
-/// Adding a point on segment `k` at parameter `s` moves a Portal on segment `k` at a parameter
-/// `t` below `s` to `t / s` on segment `k`, one at or above `s` to `(t - s) / (1 - s)` on segment
-/// `k + 1`, and a Portal on a later segment one segment on, so no Portal moves on the Level.
+/// Adding a point on part `k` at parameter `s` moves a Portal on part `k` at a parameter `t`
+/// below `s` to `t / s` on part `k`, one at or above `s` to `(t - s) / (1 - s)` on part `k + 1`,
+/// and a Portal on a later part one part on, so no Portal moves on the Level; a point added on a
+/// closed outline's last edge carries the Portals beyond it onto the new last edge.
 ///
-/// Removing an inner point removes every Portal whose stretch covers it; each other Portal on
-/// the two segments it joins goes onto the joined segment at the share of their combined length
-/// that lay before its centre, and each Portal on a later segment one segment back. Removing the
-/// first or the last point removes the Portals on the segment it takes away and moves every
-/// Portal on a later segment one segment back; removing a point of a Wall of two points removes
-/// every Portal, and naming a point the Wall does not have leaves every Portal where it is.
+/// Removing a point removes every Portal whose stretch covers it; each other Portal on the two
+/// parts it joins goes onto the joined part at the share of their combined length that lay
+/// before its centre, and each Portal on a later part one part back. On an open line, removing
+/// the first or the last point removes the Portals on the segment it takes away instead, and
+/// removing a point of a Wall of two points removes every Portal. On a closed outline the joined
+/// edge of a removed first point runs from the last point to the second and is the last edge,
+/// and removing a point of a Room of three points removes every Portal. Naming a point the
+/// outline does not have leaves every Portal where it is.
 #[must_use]
 pub fn anchor_portals_through(
-    wall: &Wall,
+    path: &Path,
     edit: PointEdit,
     portals: &[PortalSetting],
 ) -> Vec<Option<LinePlace>> {
@@ -141,44 +134,18 @@ pub fn anchor_portals_through(
             .iter()
             .map(|portal| Some(added(portal, segment, t)))
             .collect(),
-        PointEdit::Removed { index } => removed(wall, index, portals),
+        PointEdit::Removed { index } if path.closed => removed_round(path, index, portals),
+        PointEdit::Removed { index } => removed(path, index, portals),
     }
 }
 
-/// `AnchorPortals` for a Room through a point edit: where each Portal set into `room`'s Walls, as
-/// the Room is before the edit, is set once the edit is made, or `None` for a Portal the edit
-/// removes.
-///
-/// Adding a point moves the Portals as on a Wall, a point added on the last edge carrying the
-/// Portals beyond it onto the new last edge. Removing a point removes every Portal whose stretch
-/// covers it; each other Portal on the edge ending at the point or the edge starting there goes
-/// onto the joined edge at the share of their combined length that lay before its centre, and
-/// each Portal on a later edge one edge back. The joined edge of a removed first point runs from
-/// the last point to the second and is the last edge. Removing a point of a Room of three
-/// points removes every Portal, and naming a point the Room does not have leaves every Portal
-/// where it is.
-#[must_use]
-pub fn anchor_room_portals_through(
-    room: &Room,
-    edit: PointEdit,
-    portals: &[PortalSetting],
-) -> Vec<Option<LinePlace>> {
-    match edit {
-        PointEdit::Added { segment, t } => portals
-            .iter()
-            .map(|portal| Some(added(portal, segment, t)))
-            .collect(),
-        PointEdit::Removed { index } => removed_round(room, index, portals),
-    }
-}
-
-/// Where each Portal goes when the point `index` of a Room is removed.
+/// Where each Portal goes when the point `index` of a closed outline is removed.
 #[expect(
     clippy::cast_possible_truncation,
     reason = "the model keeps parameters in single precision"
 )]
-fn removed_round(room: &Room, index: usize, portals: &[PortalSetting]) -> Vec<Option<LinePlace>> {
-    let points = room.points.len();
+fn removed_round(path: &Path, index: usize, portals: &[PortalSetting]) -> Vec<Option<LinePlace>> {
+    let points = path.points.len();
     let kept = |portal: &PortalSetting| LinePlace {
         segment: portal.segment,
         t: portal.t,
@@ -189,7 +156,7 @@ fn removed_round(room: &Room, index: usize, portals: &[PortalSetting]) -> Vec<Op
     if points <= 3 {
         return vec![None; portals.len()];
     }
-    let line = closed_line(room);
+    let line = flatten(path);
     let measured = Measured::of(&line);
     let total = measured.total();
     // The edge that ends at the point and the edge that starts there, and what they join into.
@@ -291,13 +258,13 @@ fn added(portal: &PortalSetting, split: usize, s: f32) -> LinePlace {
     }
 }
 
-/// Where each Portal goes when the point `index` is removed.
+/// Where each Portal goes when the point `index` of an open line is removed.
 #[expect(
     clippy::cast_possible_truncation,
     reason = "the model keeps parameters in single precision"
 )]
-fn removed(wall: &Wall, index: usize, portals: &[PortalSetting]) -> Vec<Option<LinePlace>> {
-    let points = wall.points.len();
+fn removed(path: &Path, index: usize, portals: &[PortalSetting]) -> Vec<Option<LinePlace>> {
+    let points = path.points.len();
     let back = |portal: &PortalSetting| LinePlace {
         segment: portal.segment - 1,
         t: portal.t,
@@ -325,7 +292,7 @@ fn removed(wall: &Wall, index: usize, portals: &[PortalSetting]) -> Vec<Option<L
             .map(|portal| (portal.segment < last).then(|| kept(portal)))
             .collect();
     }
-    let line = flatten(wall);
+    let line = flatten(path);
     let measured = Measured::of(&line);
     let at = |segment: usize| measured.length_at(LinePlace { segment, t: 0.0 });
     let (before, removed_at, after) = (
@@ -404,27 +371,6 @@ fn stretch_round(measured: &Measured, portal: &PortalSetting) -> Stretch {
     }
 }
 
-/// One segment of a Wall as a curve.
-enum Curve {
-    /// A straight segment.
-    Straight(Line),
-    /// A curved segment.
-    Bent(QuadBez),
-}
-
-/// The segment `segment` of a Wall, if it has one.
-fn curve(wall: &Wall, segment: usize) -> Option<Curve> {
-    let shape = wall.segments.get(segment)?;
-    let (start, end): (Point, Point) = (
-        point(*wall.points.get(segment)?),
-        point(*wall.points.get(segment + 1)?),
-    );
-    Some(match shape.control {
-        None => Curve::Straight(Line::new(start, end)),
-        Some(control) => Curve::Bent(QuadBez::new(start, point(control), end)),
-    })
-}
-
 #[cfg(test)]
 mod tests {
     #![expect(
@@ -434,19 +380,13 @@ mod tests {
 
     use super::*;
     use crate::split_wall;
-    use drs_model::Room;
-    use drs_model::{Colour, Segment};
 
-    /// A grey Wall a quarter of a cell thick through `points`, curved where a control is given.
-    fn wall(points: &[Vec2], controls: &[Option<Vec2>]) -> Wall {
-        Wall {
+    /// A Wall's open line through `points`, curved where a control is given.
+    fn wall(points: &[Vec2], controls: &[Option<Vec2>]) -> Path {
+        Path {
             points: points.to_vec(),
-            segments: controls
-                .iter()
-                .map(|control| Segment { control: *control })
-                .collect(),
-            thickness: 0.25,
-            colour: Colour::rgb(60, 60, 60),
+            controls: controls.to_vec(),
+            closed: false,
         }
     }
 
@@ -457,16 +397,16 @@ mod tests {
     }
 
     /// The point of a Wall at a place of its line, on its exact curve.
-    fn on_wall(wall: &Wall, place: LinePlace) -> Vec2 {
+    fn on_wall(wall: &Path, place: LinePlace) -> Vec2 {
         let (start, end) = (wall.points[place.segment], wall.points[place.segment + 1]);
-        match wall.segments[place.segment].control {
+        match wall.controls[place.segment] {
             None => start.lerp(end, place.t),
             Some(control) => quadratic(start, control, end, place.t),
         }
     }
 
     /// One Portal's standing, which it must have.
-    fn standing(wall: &Wall, segment: usize, t: f32, width: f32) -> Standing {
+    fn standing(wall: &Path, segment: usize, t: f32, width: f32) -> Standing {
         anchor_portals(wall, &[PortalSetting { segment, t, width }])[0]
             .expect("the Portal is set into the Wall")
     }
@@ -575,19 +515,23 @@ mod tests {
         }
     }
 
+    /// A Room's closed outline through `points`, every edge straight.
+    fn room(points: &[Vec2]) -> Path {
+        Path {
+            points: points.to_vec(),
+            controls: vec![None; points.len()],
+            closed: true,
+        }
+    }
+
     /// A square Room four cells a side, every edge straight, from the origin counter-clockwise.
-    fn square() -> Room {
-        Room::straight(
-            vec![
-                Vec2::ZERO,
-                Vec2::new(4.0, 0.0),
-                Vec2::new(4.0, 4.0),
-                Vec2::new(0.0, 4.0),
-            ],
-            0.25,
-            Colour::rgb(60, 60, 60),
-            Colour::rgb(200, 200, 200),
-        )
+    fn square() -> Path {
+        room(&[
+            Vec2::ZERO,
+            Vec2::new(4.0, 0.0),
+            Vec2::new(4.0, 4.0),
+            Vec2::new(0.0, 4.0),
+        ])
     }
 
     /// A stretch of a Room's Walls runs on past the first point, starting on the last edge and
@@ -595,7 +539,7 @@ mod tests {
     #[test]
     fn a_stretch_wraps_past_the_first_point() {
         let room = square();
-        let across = anchor_room_portals(
+        let across = anchor_portals(
             &room,
             &[PortalSetting {
                 segment: 0,
@@ -612,7 +556,7 @@ mod tests {
         assert!(across.stretch.covers(LinePlace { segment: 3, t: 1.0 }));
         assert!(!across.stretch.covers(LinePlace { segment: 1, t: 0.5 }));
 
-        let wide = anchor_room_portals(
+        let wide = anchor_portals(
             &room,
             &[PortalSetting {
                 segment: 2,
@@ -635,7 +579,7 @@ mod tests {
     /// point goes.
     #[test]
     fn removing_the_first_point_remaps_round_the_outline() {
-        let room = square();
+        let square = square();
         let portals = [
             PortalSetting {
                 segment: 3,
@@ -658,7 +602,7 @@ mod tests {
                 width: 1.0,
             },
         ];
-        let places = anchor_room_portals_through(&room, PointEdit::Removed { index: 0 }, &portals);
+        let places = anchor_portals_through(&square, PointEdit::Removed { index: 0 }, &portals);
 
         let joined = places[0].expect("the Portal on the last edge stays");
         assert_eq!(joined.segment, 2);
@@ -675,14 +619,9 @@ mod tests {
         );
         assert_eq!(places[3], None, "the Portal over the first point goes");
 
-        let three = Room::straight(
-            vec![Vec2::ZERO, Vec2::X, Vec2::Y],
-            0.25,
-            Colour::rgb(60, 60, 60),
-            Colour::rgb(200, 200, 200),
-        );
+        let three = room(&[Vec2::ZERO, Vec2::X, Vec2::Y]);
         assert_eq!(
-            anchor_room_portals_through(&three, PointEdit::Removed { index: 1 }, &portals[..1]),
+            anchor_portals_through(&three, PointEdit::Removed { index: 1 }, &portals[..1]),
             vec![None]
         );
     }

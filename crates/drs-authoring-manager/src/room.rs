@@ -3,7 +3,7 @@
 
 use crate::AuthoringError;
 use crate::place::{spawn_on_top, take_off};
-use crate::portal::{Anchored, Host, anchored_to};
+use crate::portal::{Anchored, anchored_to};
 use crate::wall::{
     Reshape, carried_past, moved, record_together, remove_with_portals, removed, settings,
 };
@@ -18,7 +18,10 @@ use drs_history::{ReversibleCommand, SetField, Target};
 use drs_model::{
     Edge, Element, ElementChange, ElementId, Portal, PortalsRemoved, ROOM, Room, RoomShape, Wall,
 };
-use drs_shape_engine::{PointEdit, PortalSetting, Standing, generate_room_walls, split_room};
+use drs_shape_engine::{
+    Path, PointEdit, PortalSetting, Standing, anchor_portals, anchor_portals_through,
+    combine_outlines, generate_walls, split_wall,
+};
 use std::collections::BTreeMap;
 
 /// The recorded step of placing a Room: the Element spawned on top of its Layer, keeping its
@@ -222,8 +225,18 @@ fn add_point(
     edge: usize,
     t: f32,
 ) -> Result<(), AuthoringError> {
-    let room = split_room(&before, edge, t)?;
-    let moves = carried_past(world, element, &Host::Room(before), edge, t)?;
+    let path = Path::of_room(&before);
+    let split = split_wall(&path, edge, t)?;
+    let room = Room {
+        points: split.points,
+        edges: split
+            .controls
+            .into_iter()
+            .map(|control| Edge { control })
+            .collect(),
+        ..before
+    };
+    let moves = carried_past(world, element, &path, edge, t)?;
     record_together(
         world,
         Vec::new(),
@@ -270,8 +283,11 @@ fn remove_point(
     let joined = if index == 0 { points - 2 } else { index - 1 };
     room.edges[joined] = Edge::default();
     let (portals, _) = anchored_to(world, element);
-    let host = Host::Room(before.clone());
-    let places = host.anchor_through(PointEdit::Removed { index }, &settings(&portals));
+    let places = anchor_portals_through(
+        &Path::of_room(before),
+        PointEdit::Removed { index },
+        &settings(&portals),
+    );
     let mut gone = Vec::new();
     let mut moves = Vec::new();
     for ((portal, anchor, _), place) in portals.iter().zip(places) {
@@ -351,7 +367,8 @@ pub(crate) fn reshape_rooms(
         if room_shape.is_some() && derived_from == Some(&geometry) {
             continue;
         }
-        let placed = Host::Room(room.clone()).anchor(&geometry.portals);
+        let path = Path::of_room(room);
+        let placed = anchor_portals(&path, &geometry.portals);
         let stretches: Vec<_> = placed
             .iter()
             .flatten()
@@ -362,12 +379,15 @@ pub(crate) fn reshape_rooms(
                 standings.insert(*portal, standing);
             }
         }
+        let combined = combine_outlines(&path);
+        let shape = RoomShape {
+            walls: generate_walls(&combined, room.thickness, &stretches),
+            floor: combined.floor,
+        };
         match room_shape {
-            Some(mut room_shape) => *room_shape = generate_room_walls(room, &stretches),
+            Some(mut room_shape) => *room_shape = shape,
             None => {
-                commands
-                    .entity(entity)
-                    .insert(generate_room_walls(room, &stretches));
+                commands.entity(entity).insert(shape);
             }
         }
         commands.entity(entity).insert(geometry);
