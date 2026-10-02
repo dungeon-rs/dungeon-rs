@@ -27,8 +27,8 @@ pub(crate) struct ProjectView<'w, 's> {
     mark: Res<'w, SavedMark>,
     /// Where the history stands now.
     history: Res<'w, History>,
-    /// The Project, its Bounds, and where its Asset References load from.
-    projects: Query<'w, 's, (&'static Project, &'static Bounds, &'static ResolutionTable)>,
+    /// The Project's Bounds and where its Asset References load from.
+    projects: Query<'w, 's, (&'static Bounds, &'static ResolutionTable), With<Project>>,
     /// Every Level with its Layers.
     levels: Query<'w, 's, (Entity, &'static Level, Option<&'static Children>)>,
     /// Every Layer's Elements in stacking order.
@@ -52,10 +52,7 @@ impl ProjectView<'_, '_> {
 
     /// The name the Author knows the Project by: its file's name, or `Untitled`.
     pub fn name(&self) -> String {
-        self.projects.iter().next().map_or_else(
-            || "Untitled".to_owned(),
-            |(project, _, _)| project.name.clone(),
-        )
+        self.mark.name()
     }
 
     /// The Level an Export is of: the Project's only one for now.
@@ -68,13 +65,13 @@ impl ProjectView<'_, '_> {
 
     /// The Bounds every Export covers.
     pub fn bounds(&self) -> Option<Bounds> {
-        self.projects.iter().next().map(|(_, bounds, _)| *bounds)
+        self.projects.iter().next().map(|(bounds, _)| *bounds)
     }
 
     /// How many Elements of a Level are drawn as placeholders: those whose Asset is Missing and
     /// those of a kind this editor does not know.
     pub fn placeholders(&self, level: Entity) -> usize {
-        let resolutions = self.projects.iter().next().map(|(_, _, table)| table);
+        let resolutions = self.projects.iter().next().map(|(_, table)| table);
         let Ok((_, _, Some(layers))) = self.levels.get(level) else {
             return 0;
         };

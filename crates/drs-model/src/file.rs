@@ -43,3 +43,14 @@ pub struct SavedMark {
     /// The history's position at the last save or open.
     pub position: Position,
 }
+
+impl SavedMark {
+    /// The name the Author knows the Project by: its file's name without the extension, or
+    /// `Untitled` while it has no file.
+    #[must_use]
+    pub fn name(&self) -> String {
+        self.file
+            .as_deref()
+            .map_or_else(|| "Untitled".to_owned(), project_name_of)
+    }
+}

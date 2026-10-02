@@ -20,7 +20,7 @@ pub(crate) fn history_position(world: &World) -> Position {
 /// Save: writes the Project to `path` with the Project extension added when it lacks it, or to
 /// the file the Project was last saved to or opened from, and records that file and the
 /// history's position as the saved mark. Nothing in the World changes but the Project's name,
-/// which is its file's; a refusal leaves even that as it was.
+/// which becomes its file's once the file is written; a refusal changes nothing.
 ///
 /// # Errors
 ///
@@ -44,16 +44,10 @@ pub(crate) fn save_project(
     };
     let project = *project;
 
-    let previous_name = world
-        .get_mut::<Project>(project)
-        .map(|mut current| std::mem::replace(&mut current.name, project_name_of(&path)))
-        .ok_or(ProjectManagerError::NoProject)?;
-    let written = gather(world, project).and_then(|snapshot| Ok(write_project(&path, &snapshot)?));
-    if let Err(error) = written {
-        if let Some(mut current) = world.get_mut::<Project>(project) {
-            current.name = previous_name;
-        }
-        return Err(error);
+    let snapshot = gather(world, project)?;
+    write_project(&path, &snapshot)?;
+    if let Some(mut current) = world.get_mut::<Project>(project) {
+        current.name = project_name_of(&path);
     }
 
     let position = history_position(world);

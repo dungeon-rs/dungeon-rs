@@ -8,7 +8,7 @@ use bevy::ecs::query::With;
 use bevy::ecs::system::{Res, ResMut, Single};
 use bevy::window::{PrimaryWindow, Window, WindowCloseRequested};
 use drs_history::History;
-use drs_model::{SavedMark, project_name_of};
+use drs_model::SavedMark;
 
 /// The editor's name, after the Project's in the title.
 const EDITOR: &str = "DungeonRS";
@@ -22,10 +22,7 @@ pub(crate) fn title(
     mark: Res<SavedMark>,
     mut window: Single<&mut Window, With<PrimaryWindow>>,
 ) {
-    let name = mark
-        .file
-        .as_deref()
-        .map_or_else(|| "Untitled".to_owned(), project_name_of);
+    let name = mark.name();
     let marker = if history.position() == mark.position {
         ""
     } else {
