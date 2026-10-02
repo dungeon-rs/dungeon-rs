@@ -1,5 +1,6 @@
-//! The Export dialog: the resolution in pixels per Grid cell, the size of the image it makes,
-//! a warning about placeholders, then the platform's save dialog and the Export request.
+//! The Export dialog: the resolution in pixels per Grid cell, typed as it is and refused in
+//! words while it is outside the limits, the size of the image it makes, a warning about
+//! placeholders, then the platform's save dialog and the Export request.
 
 use crate::files::{ProjectView, choose_save_file};
 use crate::outcomes::counted;
@@ -45,20 +46,28 @@ pub(crate) fn dialog(
             for preset in PRESETS {
                 ui.selectable_value(&mut dialog.pixels_per_cell, preset, preset.to_string());
             }
-            ui.add(
-                egui::DragValue::new(&mut dialog.pixels_per_cell)
-                    .range(ExportLevel::LEAST_PIXELS_PER_CELL..=ExportLevel::MOST_PIXELS_PER_CELL)
-                    .clamp_existing_to_range(true)
-                    .suffix(" px per cell"),
-            );
+            ui.add(egui::DragValue::new(&mut dialog.pixels_per_cell).suffix(" px per cell"));
         });
-        ui.weak(format!(
-            "Any whole number from {} to {} pixels per cell.",
-            ExportLevel::LEAST_PIXELS_PER_CELL,
-            ExportLevel::MOST_PIXELS_PER_CELL
-        ));
         let within = (ExportLevel::LEAST_PIXELS_PER_CELL..=ExportLevel::MOST_PIXELS_PER_CELL)
             .contains(&dialog.pixels_per_cell);
+        if within {
+            ui.weak(format!(
+                "Any whole number from {} to {} pixels per cell.",
+                ExportLevel::LEAST_PIXELS_PER_CELL,
+                ExportLevel::MOST_PIXELS_PER_CELL
+            ));
+        } else {
+            ui.colored_label(
+                egui::Color32::LIGHT_RED,
+                format!(
+                    "A resolution of {} pixels per cell is outside the limits: the Export \
+                     supports {} to {} pixels per cell.",
+                    dialog.pixels_per_cell,
+                    ExportLevel::LEAST_PIXELS_PER_CELL,
+                    ExportLevel::MOST_PIXELS_PER_CELL
+                ),
+            );
+        }
         let width = u64::from(bounds.size.x) * u64::from(dialog.pixels_per_cell);
         let height = u64::from(bounds.size.y) * u64::from(dialog.pixels_per_cell);
         ui.label(format!("Image size: {width} × {height} px"));
