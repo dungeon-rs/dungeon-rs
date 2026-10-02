@@ -374,3 +374,31 @@ pub(crate) fn set_into(world: &mut World, host: ElementId) -> Vec<(ElementId, Po
         .map(|(_, id, anchor, width)| (id, anchor, width))
         .collect()
 }
+
+/// The Portals whose anchor names the Wall `host`, on its Level, at a segment it does not have,
+/// in the order of their identities, with their anchors and widths: those an editor that does
+/// not know Portals left behind when it removed the segment they were set into.
+pub(crate) fn lost_in(world: &mut World, host: ElementId) -> Vec<(ElementId, PortalAnchor, f32)> {
+    let Ok(wall_entity) = host.entity(world) else {
+        return Vec::new();
+    };
+    let segments = world
+        .get::<Wall>(wall_entity)
+        .map_or(0, |wall| wall.segments.len());
+    let level = level_of(world, wall_entity);
+    let mut portals: Vec<(Entity, ElementId, PortalAnchor, f32)> = world
+        .query::<(Entity, &ElementId, &Portal)>()
+        .iter(world)
+        .filter_map(|(entity, id, portal)| {
+            let anchor = portal.anchor?;
+            (anchor.host == host && anchor.index >= segments)
+                .then_some((entity, *id, anchor, portal.width))
+        })
+        .collect();
+    portals.retain(|(entity, ..)| level_of(world, *entity) == level);
+    portals.sort_by_key(|(_, id, ..)| *id);
+    portals
+        .into_iter()
+        .map(|(_, id, anchor, width)| (id, anchor, width))
+        .collect()
+}

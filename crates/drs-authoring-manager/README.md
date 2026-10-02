@@ -24,7 +24,8 @@ shape Engine, leaving out the stretches its Portals cover, and sets the Element'
 points; a new colour keeps the shape. It moves each Portal set into such a Wall to where its
 anchor puts it, turned to the Wall and mirrored when it faces the right, and sets every changed
 Portal's size from its width and its image's proportions. A Portal whose anchor names no Wall of
-its Level, or a segment its Wall lacks, stands where it was saved.
+its Level, or a segment its Wall lacks, stands where it was saved, and a point added to its Wall
+moves its anchor past the new segment, so it goes on standing there.
 
 The Editor sends it `Apply`, `Undo`, and `Redo` messages; a Command that cannot be carried out is
 answered with a `CommandFailed` message that says why, and an undo or redo that cannot be with a

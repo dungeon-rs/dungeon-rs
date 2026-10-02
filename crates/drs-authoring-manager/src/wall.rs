@@ -3,7 +3,7 @@
 
 use crate::AuthoringError;
 use crate::place::{spawn_on_top, take_off};
-use crate::portal::set_into;
+use crate::portal::{lost_in, set_into};
 use crate::remove::Remove;
 use bevy_ecs::change_detection::DetectChanges;
 use bevy_ecs::component::Component;
@@ -165,7 +165,8 @@ pub(crate) fn translated(wall: &Wall, position: Vec2) -> Wall {
 
 /// Adds a point on a segment of a Wall, splitting it into two segments of the shape it had, as
 /// one history step that also moves each Portal set into the Wall to the segment and parameter
-/// that keep it where it was.
+/// that keep it where it was, and each Portal anchored at a segment the Wall lacks one segment
+/// on, so it still names none.
 ///
 /// # Errors
 ///
@@ -188,6 +189,20 @@ pub(crate) fn add_point(
     );
     let mut moves = Vec::new();
     for ((portal, anchor, _), place) in portals.iter().zip(places) {
+        if let Some(place) = place {
+            moves.push(moved(*portal, *anchor, place.segment, place.t)?);
+        }
+    }
+    // A Portal anchored at a segment the Wall lacks lies past every segment, so it moves one on
+    // like a Portal on a later segment, and the new segment never becomes its own: it keeps
+    // standing where it was saved.
+    let lost = lost_in(world, element);
+    let renumbered = anchor_portals_through(
+        &before,
+        PointEdit::Added { segment, t },
+        &settings(&lost),
+    );
+    for ((portal, anchor, _), place) in lost.iter().zip(renumbered) {
         if let Some(place) = place {
             moves.push(moved(*portal, *anchor, place.segment, place.t)?);
         }

@@ -1978,18 +1978,12 @@ fn portals_are_saved_with_their_anchor() {
 fn a_lost_wall_leaves_the_portal_standing() {
     let mut saved = SavedPortals::new();
     let portals = saved.device.portals();
-    let mut unaware = Device::new();
-    unaware.forget_portals();
-    unaware.opens(&saved.file);
-    assert!(unaware.portals().is_empty(), "no Portal is known");
-    unaware.apply(Apply::EditElement(EditElement {
+    let copy = saved.lost_by(Apply::EditElement(EditElement {
         element: saved.wall,
         change: ElementChange::RemovePoint { index: 2 },
         gesture: Gesture::Single,
     }));
-    let copy = unaware.save_as(&unaware.root().join("copy.dungeon"));
 
-    saved.device.opens(&copy);
     assert_eq!(
         saved.device.portals(),
         portals,
@@ -2022,12 +2016,75 @@ fn a_lost_wall_leaves_the_portal_standing() {
     saved.device.apply(Apply::FreePortal(FreePortal {
         portal: saved.portals[0],
     }));
-    let (_, element, portal) = saved
-        .device
-        .portals()
-        .into_iter()
-        .find(|(id, ..)| *id == saved.portals[0])
-        .expect("the Portal");
+    let (_, element, portal) = saved.set_portal();
     assert_eq!(portal.anchor, None, "freed");
     assert_eq!(element, portals[0].1, "where it stood");
+}
+
+impl SavedPortals {
+    /// The file as an editor that does not know Portals leaves it after `edit`, saved beside the
+    /// first on the device that saved it and opened there again.
+    fn lost_by(&mut self, edit: Apply) -> PathBuf {
+        let mut unaware = Device::new();
+        unaware.forget_portals();
+        unaware.opens(&self.file);
+        assert!(unaware.portals().is_empty(), "no Portal is known");
+        unaware.apply(edit);
+        let copy = unaware.save_as(&self.device.root().join("copy.dungeon"));
+        self.device.opens(&copy);
+        copy
+    }
+
+    /// The Portal set into the Wall as the device holds it now.
+    fn set_portal(&mut self) -> (ElementId, Element, Portal) {
+        let set = self.portals[0];
+        self.device
+            .portals()
+            .into_iter()
+            .find(|(id, ..)| *id == set)
+            .expect("the Portal")
+    }
+}
+
+/// A Wall edit leaves a Portal whose anchor names a segment the Wall lacks where it stands: a
+/// point added to the Wall moves the anchor past the new segment too, so the Portal stays where
+/// it was saved and makes no Wall give way, and undoing the point leaves it there.
+#[test]
+fn a_wall_edit_leaves_a_lost_portal_standing() {
+    let mut saved = SavedPortals::new();
+    let (_, standing, before) = saved.set_portal();
+    let _copy = saved.lost_by(Apply::EditElement(EditElement {
+        element: saved.wall,
+        change: ElementChange::RemovePoint { index: 2 },
+        gesture: Gesture::Single,
+    }));
+
+    saved.device.apply(Apply::EditElement(EditElement {
+        element: saved.wall,
+        change: ElementChange::AddPoint {
+            segment: 0,
+            t: 0.5,
+        },
+        gesture: Gesture::Single,
+    }));
+    let (_, element, portal) = saved.set_portal();
+    assert_eq!(element, standing, "where it was saved");
+    assert_eq!(
+        portal.anchor.map(|anchor| anchor.index),
+        Some(2),
+        "still past the Wall's two segments"
+    );
+    let gives_way = |device: &mut Device| {
+        device
+            .walls()
+            .into_iter()
+            .any(|(.., shape)| shape.is_some_and(|shape| !shape.stretches.is_empty()))
+    };
+    assert!(!gives_way(&mut saved.device), "no Wall gives way");
+
+    saved.device.undo();
+    let (_, element, portal) = saved.set_portal();
+    assert_eq!(element, standing, "still where it was saved");
+    assert_eq!(portal, before, "anchored as it was saved");
+    assert!(!gives_way(&mut saved.device), "no Wall gives way");
 }
