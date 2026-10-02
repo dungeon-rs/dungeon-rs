@@ -8,7 +8,7 @@
     reason = "a test and its fixtures stop at the first thing that is not as expected"
 )]
 
-use bevy_app::App;
+use bevy_app::{App, AppExit};
 use bevy_ecs::message::Messages;
 use drs_history::HistoryPlugin;
 use drs_library_access::{LibraryAccessPlugin, ThumbnailTable};
@@ -657,7 +657,7 @@ fn quitting_stops_generation() {
     let first = maps.join("tile_0000.png");
     noise.save(&first).expect("fixture image");
     // Links to one file are as many Assets as there are places, at no cost in disk space.
-    for index in 1..1000 {
+    for index in 1..100 {
         fs::hard_link(&first, maps.join(format!("tile_{index:04}.png"))).expect("fixture link");
     }
     let mut app = editor(root.path());
@@ -671,8 +671,20 @@ fn quitting_stops_generation() {
         app.update();
         std::thread::sleep(Duration::from_millis(2));
     }
+    let one_thumbnail = start.elapsed();
 
+    app.world_mut().write_message(AppExit::Success);
+    let quitting = Instant::now();
+    app.update();
+    let stopped = quitting.elapsed();
     drop(app);
+
+    // Stopping waits for the thumbnails in flight, each about as long as the first one took,
+    // never for the queue; the margin is for a loaded machine.
+    assert!(
+        stopped < one_thumbnail * 4 + Duration::from_secs(2),
+        "stopping took {stopped:?}, one thumbnail {one_thumbnail:?}"
+    );
 
     let mut again = editor(root.path());
     let states = states(&mut again);
