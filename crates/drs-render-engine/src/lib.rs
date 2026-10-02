@@ -49,12 +49,9 @@ impl Plugin for RenderEnginePlugin {
                 .add_systems(ExtractSchedule, region::extract_regions)
                 .add_systems(
                     Render,
-                    (
-                        region::prepare_regions.in_set(RenderSystems::PrepareResources),
-                        region::copy_regions
-                            .in_set(RenderSystems::Render)
-                            .after(render_system),
-                    ),
+                    region::copy_regions
+                        .in_set(RenderSystems::Render)
+                        .after(render_system),
                 );
             app.init_resource::<region::Offscreen>();
         }

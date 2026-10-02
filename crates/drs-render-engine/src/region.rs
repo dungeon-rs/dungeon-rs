@@ -9,9 +9,10 @@
 //! loaded or failed, and never in the frame the camera was spawned in, whose render is not yet
 //! the camera's own. [`release_regions`] removes the camera when the Export is done.
 //!
-//! The readback is the Engine's own: the render world copies the target into a staging buffer
-//! after the frame is drawn, maps it, and hands the bytes to the main world at the next
-//! extraction. No event or observer is involved, so the Engine is called and never notified.
+//! The readback is the Engine's own: the render world takes the region at extraction, once its
+//! target exists on the GPU, copies the target into a staging buffer after the frame is drawn,
+//! maps it, and hands the bytes to the main world at the next extraction. No event or observer
+//! is involved, so the Engine is called and never notified.
 //!
 //! The sprites keep the sampler they are drawn with in the viewport, the editor's default of
 //! linear filtering, so an image scales between the Grid's pixels per cell and the region's by
@@ -352,17 +353,7 @@ fn padded_row_bytes(size: u32) -> u32 {
 
 // --- The render world's half ---------------------------------------------------------------------
 
-/// A region whose frame is being drawn; its texture is copied once drawn.
-struct Captured {
-    /// The request it answers.
-    request: RegionRequest,
-    /// The target to copy.
-    target: Handle<Image>,
-    /// The side of the target in pixels.
-    size: u32,
-}
-
-/// A region with a staging buffer ready for the copy.
+/// A region whose frame is being drawn, with a staging buffer ready for the copy once it is.
 struct Staged {
     /// The request it answers.
     request: RegionRequest,
@@ -390,20 +381,23 @@ struct Mapped {
 /// The render world's side of the offscreen rendering.
 #[derive(Resource, Default)]
 pub(crate) struct Readbacks {
-    /// Regions taken from the main world this frame, waiting for their texture to exist.
-    captured: Vec<Captured>,
-    /// Regions with a staging buffer, copied once the frame is drawn.
+    /// Regions taken from the main world this frame, copied once the frame is drawn.
     staged: Vec<Staged>,
     /// Regions whose buffers are being mapped.
     mapped: Vec<Mapped>,
 }
 
 /// Hands back the regions that have arrived and takes the region the main world lets be
-/// captured this frame.
+/// captured this frame, giving it a staging buffer.
+///
+/// A region is taken only once its target exists on the GPU; until then the camera has drawn
+/// nothing into it, so the region stays pending, the camera stays where it is, and no later
+/// request can move it before this one is captured.
 pub(crate) fn extract_regions(
     mut main_world: ResMut<MainWorld>,
     mut readbacks: ResMut<Readbacks>,
     device: Res<RenderDevice>,
+    images: Res<RenderAssets<GpuImage>>,
 ) {
     // Mapping callbacks fire when the device is polled; a non-waiting poll costs nothing.
     let _ = device.poll(PollType::Poll);
@@ -432,45 +426,29 @@ pub(crate) fn extract_regions(
             offscreen.completed.insert(request, completed);
         }
     }
-    if offscreen.capture
-        && let Some(pending) = offscreen.pending.take()
-    {
-        offscreen.capture = false;
-        readbacks.captured.push(Captured {
-            request: pending.request,
-            target: pending.target,
-            size: pending.size,
-        });
+    if !offscreen.capture {
+        return;
     }
-}
-
-/// Gives each captured region a staging buffer once its texture exists on the GPU.
-pub(crate) fn prepare_regions(
-    device: Res<RenderDevice>,
-    images: Res<RenderAssets<GpuImage>>,
-    mut readbacks: ResMut<Readbacks>,
-) {
-    let captured = std::mem::take(&mut readbacks.captured);
-    for region in captured {
-        let Some(image) = images.get(&region.target) else {
-            // Not uploaded yet; the camera keeps drawing the same region, so the next frame
-            // serves as well.
-            readbacks.captured.push(region);
-            continue;
-        };
-        let buffer = device.create_buffer(&BufferDescriptor {
-            label: Some("export region readback"),
-            size: u64::from(padded_row_bytes(region.size)) * u64::from(region.size),
-            usage: BufferUsages::COPY_DST | BufferUsages::MAP_READ,
-            mapped_at_creation: false,
-        });
-        readbacks.staged.push(Staged {
-            request: region.request,
-            texture: image.texture.clone(),
-            buffer,
-            size: region.size,
-        });
-    }
+    offscreen.capture = false;
+    let Some(pending) = offscreen.pending.as_ref() else {
+        return;
+    };
+    let Some(image) = images.get(&pending.target) else {
+        return;
+    };
+    let buffer = device.create_buffer(&BufferDescriptor {
+        label: Some("export region readback"),
+        size: u64::from(padded_row_bytes(pending.size)) * u64::from(pending.size),
+        usage: BufferUsages::COPY_DST | BufferUsages::MAP_READ,
+        mapped_at_creation: false,
+    });
+    readbacks.staged.push(Staged {
+        request: pending.request,
+        texture: image.texture.clone(),
+        buffer,
+        size: pending.size,
+    });
+    offscreen.pending = None;
 }
 
 /// Copies each staged region's texture into its buffer after the frame has been drawn, and
