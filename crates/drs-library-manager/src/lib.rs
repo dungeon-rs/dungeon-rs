@@ -16,7 +16,7 @@ use bevy_ecs::system::SystemState;
 use bevy_ecs::world::World;
 use drs_library_access::LibraryError;
 use drs_model::{
-    AddFolder, AssetFolder, AssetFolderChanged, EditorDirectories, FolderRefused,
+    AddFolder, AssetFolder, AssetFolderChanged, Browse, EditorDirectories, FolderRefused,
     FolderUnavailable, ManagerSystems,
 };
 
@@ -31,7 +31,7 @@ pub enum LibraryManagerError {
     NotAFolder,
 }
 
-/// Handles [`AddFolder`] and [`drs_model::Browse`], restores the remembered Asset Folders at
+/// Handles [`AddFolder`] and [`Browse`], restores the remembered Asset Folders at
 /// startup, announcing each folder that arrives or goes with [`AssetFolderChanged`], and keeps
 /// the thumbnails of every indexed folder generated in the background.
 pub struct LibraryManagerPlugin;
@@ -41,11 +41,7 @@ impl Plugin for LibraryManagerPlugin {
         app.add_systems(Startup, (thumbnails::open, restore_folders).chain())
             .add_systems(
                 Update,
-                (
-                    thumbnails::drain,
-                    thumbnails::handle_browse,
-                    handle_add_folder,
-                )
+                (thumbnails::drain, handle_browse, handle_add_folder)
                     .chain()
                     .in_set(ManagerSystems::Commands),
             )
@@ -69,6 +65,18 @@ fn handle_add_folder(world: &mut World, requests: &mut SystemState<MessageReader
                 world.write_message(FolderRefused { path, name, reason });
             }
         }
+    }
+}
+
+/// Carries out the latest [`Browse`] request of the frame; an earlier one names a set of Assets
+/// the browser no longer shows, so it is read and passed over. Nothing comes back.
+fn handle_browse(world: &mut World, requests: &mut SystemState<MessageReader<Browse>>) {
+    let mut requests: Vec<Browse> = match requests.get_mut(world) {
+        Ok(mut reader) => reader.read().cloned().collect(),
+        Err(_) => return,
+    };
+    if let Some(Browse { wanted }) = requests.pop() {
+        thumbnails::browse(world, wanted);
     }
 }
 

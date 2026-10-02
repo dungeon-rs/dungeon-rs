@@ -8,6 +8,7 @@
 - The handler is an exclusive system, `fn handle_<request>(world: &mut World, requests: &mut SystemState<MessageReader<T>>)`, added to `Update` in the `ManagerSystems` set its message belongs to (`Commands`, `Undo`, or `Redo`) with `.in_set(..)` in the plugin's `build`.
 - Read first, then act: collect the messages into a `Vec` with `reader.read().cloned().collect()` (`.count()` for a message with no fields), returning on `Err(_)`, and only then take the `World` for each. _Why_: the reader borrows the World for as long as it reads.
 - The work is a `pub(crate) fn(world: &mut World, ..) -> Result<Report, Error>` in a module of its own (`add_folder.rs`, `place.rs`); the handler only turns each outcome into a message with `world.write_message(..)`: the report on `Ok` where the request has one, the failure with `reason: error.to_string()` on `Err`. It never logs, panics, or stops at a failed request.
+- A request where only the latest of a frame counts, because each one replaces the last (`Browse` names what the browser shows now), is still read whole; the handler applies only `requests.pop()` and passes over the rest, and its work (`thumbnails::browse`) returns nothing when nothing answers it.
 - The error is the Manager's own `thiserror` enum, wrapping the ResourceAccess errors with `#[from]`; the failure message echoes the request's fields (`path`, `name`, the `command`), so the Editor can tell which request it answers.
 - The request and its answers are `Message` types in `drs-model`, next to each other; the handler's doc comment names them.
 
@@ -16,8 +17,14 @@
 ```rust
 impl Plugin for LibraryManagerPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(Startup, restore_folders)
-            .add_systems(Update, handle_add_folder.in_set(ManagerSystems::Commands));
+        app.add_systems(Startup, (thumbnails::open, restore_folders).chain())
+            .add_systems(
+                Update,
+                (thumbnails::drain, handle_browse, handle_add_folder)
+                    .chain()
+                    .in_set(ManagerSystems::Commands),
+            )
+            .add_systems(Last, thumbnails::stop_on_exit);
     }
 }
 
@@ -37,6 +44,18 @@ fn handle_add_folder(world: &mut World, requests: &mut SystemState<MessageReader
                 world.write_message(FolderRefused { path, name, reason });
             }
         }
+    }
+}
+
+/// Carries out the latest [`Browse`] request of the frame; an earlier one names a set of Assets
+/// the browser no longer shows, so it is read and passed over. Nothing comes back.
+fn handle_browse(world: &mut World, requests: &mut SystemState<MessageReader<Browse>>) {
+    let mut requests: Vec<Browse> = match requests.get_mut(world) {
+        Ok(mut reader) => reader.read().cloned().collect(),
+        Err(_) => return,
+    };
+    if let Some(Browse { wanted }) = requests.pop() {
+        thumbnails::browse(world, wanted);
     }
 }
 ```

@@ -12,7 +12,7 @@ use drs_library_access::{
     ThumbnailKey, ThumbnailTable,
 };
 use drs_model::{
-    AssetAddress, AssetFolder, Browse, CaughtPanics, EditorDirectories, FolderKey, IndexedAsset,
+    AssetAddress, AssetFolder, CaughtPanics, EditorDirectories, FolderKey, IndexedAsset,
     ThumbnailState, Thumbnails, ThumbnailsUnavailable,
 };
 use std::collections::BTreeMap;
@@ -173,16 +173,9 @@ fn settle(world: &mut World, folder: Entity, key: &ThumbnailKey, state: Thumbnai
     }
 }
 
-/// Browse: puts the Assets the browser last named as wanted, those still pending, at the front
-/// of the generator's queue.
-pub(crate) fn handle_browse(world: &mut World, requests: &mut SystemState<MessageReader<Browse>>) {
-    let latest: Option<Browse> = match requests.get_mut(world) {
-        Ok(mut reader) => reader.read().last().cloned(),
-        Err(_) => return,
-    };
-    let Some(Browse { wanted }) = latest else {
-        return;
-    };
+/// Browse: puts the `wanted` Assets that are still pending at the front of the generator's
+/// queue, in place of those named before.
+pub(crate) fn browse(world: &mut World, wanted: Vec<AssetAddress>) {
     let folders = folders_by_key(world);
     let mut jobs = Vec::new();
     for AssetAddress { folder: key, place } in wanted {
