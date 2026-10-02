@@ -31,6 +31,9 @@ pub enum ProjectManagerError {
     /// The World holds no Project, or more than one.
     #[error("there is not exactly one Project to save")]
     NoProject,
+    /// An entity of the Project vanished while it was being gathered.
+    #[error("an entity of the Project is gone")]
+    Gone,
     /// The World holds no serialisation registry, so nothing can be written or read.
     #[error("the World has no serialisation registry")]
     NoRegistry,
@@ -48,6 +51,9 @@ pub enum ProjectManagerError {
         /// What does not fit.
         reason: String,
     },
+    /// An Export could not be made.
+    #[error(transparent)]
+    Export(#[from] ExportError),
 }
 
 /// Creates the new Project the editor opens on, and handles [`SaveProject`], [`OpenProject`],

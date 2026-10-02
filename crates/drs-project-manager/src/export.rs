@@ -8,6 +8,7 @@
 //! the image writer, which removes the partial file, and is answered with its reason. Nothing
 //! is recorded in the history: an Export changes nothing in the Project.
 
+use crate::ProjectManagerError;
 use bevy_ecs::entity::Entity;
 use bevy_ecs::hierarchy::ChildOf;
 use bevy_ecs::message::MessageReader;
@@ -23,7 +24,7 @@ use drs_render_engine::{
 use std::collections::VecDeque;
 use std::path::{Path, PathBuf};
 
-/// Why an Export could not be made.
+/// Why an Export could not be made; answered through [`ProjectManagerError::Export`].
 #[derive(Debug, thiserror::Error)]
 pub enum ExportError {
     /// The resolution is below the least or above the most the Export supports.
@@ -119,7 +120,7 @@ struct Failure {
     /// The file as the request named it.
     path: PathBuf,
     /// Why.
-    error: ExportError,
+    error: ProjectManagerError,
 }
 
 /// Starts an Export for every [`ExportLevel`] request and advances the Export in progress by
@@ -160,7 +161,7 @@ pub(crate) fn handle_export_level(
 ///
 /// The refusal, before any file is created, or the output's error when the image cannot be
 /// opened.
-fn begin(world: &mut World, request: &ExportLevel) -> Result<Export, ExportError> {
+fn begin(world: &mut World, request: &ExportLevel) -> Result<Export, ProjectManagerError> {
     let pixels_per_cell = request.pixels_per_cell;
     if !(ExportLevel::LEAST_PIXELS_PER_CELL..=ExportLevel::MOST_PIXELS_PER_CELL)
         .contains(&pixels_per_cell)
@@ -169,14 +170,15 @@ fn begin(world: &mut World, request: &ExportLevel) -> Result<Export, ExportError
             pixels_per_cell,
             least: ExportLevel::LEAST_PIXELS_PER_CELL,
             most: ExportLevel::MOST_PIXELS_PER_CELL,
-        });
+        }
+        .into());
     }
     let tile_size = request.tile_size;
     if tile_size == 0 || tile_size > MOST_TILE_PIXELS {
-        return Err(RenderError::BadTileSize(tile_size).into());
+        return Err(ExportError::from(RenderError::BadTileSize(tile_size)).into());
     }
     if world.get::<Level>(request.level).is_none() {
-        return Err(ExportError::NotALevel);
+        return Err(ExportError::NotALevel.into());
     }
     let bounds = world
         .get::<ChildOf>(request.level)
@@ -204,7 +206,7 @@ fn begin(world: &mut World, request: &ExportLevel) -> Result<Export, ExportError
         .checked_mul(height.div_ceil(tile_size))
         .ok_or_else(too_large)?;
     let path = png_path(&request.path);
-    let writer = begin_image(&path, width, height)?;
+    let writer = begin_image(&path, width, height).map_err(ExportError::from)?;
     Ok(Export {
         level: request.level,
         asked: request.path.clone(),
@@ -281,7 +283,7 @@ impl Export {
                     Err(error) => Err(Failure {
                         level,
                         path: asked,
-                        error: error.into(),
+                        error: ExportError::from(error).into(),
                     }),
                 }
             }
@@ -289,7 +291,7 @@ impl Export {
             Err(error) => Err(Failure {
                 level: self.level,
                 path: self.asked,
-                error,
+                error: error.into(),
             }),
         }
     }

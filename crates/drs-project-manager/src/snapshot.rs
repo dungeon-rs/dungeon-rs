@@ -42,7 +42,7 @@ fn children_with<C: bevy_ecs::component::Component>(world: &World, entity: Entit
 ///
 /// # Errors
 ///
-/// [`ProjectManagerError::NoProject`] when the entity is gone, or the registry's error.
+/// [`ProjectManagerError::Gone`] when the entity is gone, or the registry's error.
 fn envelopes_of(
     world: &World,
     registry: &SerialisationRegistry,
@@ -50,7 +50,7 @@ fn envelopes_of(
 ) -> Result<Envelopes, ProjectManagerError> {
     let entity = world
         .get_entity(entity)
-        .map_err(|_| ProjectManagerError::NoProject)?;
+        .map_err(|_| ProjectManagerError::Gone)?;
     Ok(registry.write_all(entity)?)
 }
 
