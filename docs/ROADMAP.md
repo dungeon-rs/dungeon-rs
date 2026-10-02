@@ -1,9 +1,5 @@
 # Roadmap
 
-## I have a working editor: I can place Props from my own Asset Folder, undo, save, reopen, and export an image
-
-- **[Walking skeleton: save, reopen, export](changes/walking-skeleton-save-reopen-export.md)**: the Author saves the Project, reopens it with its Asset References resolved (Missing Assets kept as placeholders and reported), and exports the Level as a PNG at a chosen resolution within fixed Bounds. Commands: Export Level.
-
 ## I can build and export a simple dungeon: Walls, doors, Rooms, painted Terrain, and Layers, from a library I can actually browse
 
 - **Browse the library at scale**: thumbnails appear as they are generated in the background, and search finds any of hundreds of thousands of Assets instantly. Commands: none.
