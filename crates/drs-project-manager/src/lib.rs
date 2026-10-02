@@ -64,11 +64,19 @@ impl Plugin for ProjectManagerPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<SavedMark>()
             .add_systems(Startup, create_new_project)
-            .add_systems(Update, handle_save.in_set(ManagerSystems::Commands))
-            .add_systems(Update, handle_open.in_set(ManagerSystems::Commands))
+            // Open comes before the Exports, so an Export of a Project that is being replaced
+            // is abandoned before it asks for another tile, and a new Export is of the Project
+            // that stands.
             .add_systems(
                 Update,
-                export::handle_export_level.in_set(ManagerSystems::Commands),
+                (
+                    handle_save,
+                    handle_open,
+                    export::handle_export_level,
+                    export::advance_exports,
+                )
+                    .chain()
+                    .in_set(ManagerSystems::Commands),
             )
             // Resolution runs after the last Manager set of the frame, because every set can
             // change what it depends on: a Command adds a row to the Asset Reference table, an

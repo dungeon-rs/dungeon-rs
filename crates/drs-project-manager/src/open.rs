@@ -19,7 +19,8 @@ use std::path::PathBuf;
 
 /// Open: reads the file at `path` and, once the whole Project in it stands in the World,
 /// despawns the current Project, clears the history, records the file and the history's
-/// position as the saved mark, and resolves every Asset Reference.
+/// position as the saved mark, resolves every Asset Reference, and abandons any Export of the
+/// Project that was replaced.
 ///
 /// # Errors
 ///
@@ -44,6 +45,7 @@ pub(crate) fn open_project(
         position,
     });
     resolve_project(world, project);
+    crate::export::abandon_exports(world);
     let report = report(world, project);
     Ok(ProjectOpened { path, report })
 }

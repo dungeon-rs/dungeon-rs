@@ -29,7 +29,8 @@ use drs_library_manager::LibraryManagerPlugin;
 use drs_model::{
     AddFolder, Apply, CanonicalName, ChosenAsset, CommandFailed, EditorDirectories, Element,
     ElementId, ExportLevel, ExportRefused, FolderAdded, FolderKey, FolderRefused, Layer, Level,
-    LevelExported, ModelPlugin, PlaceElement, Prop, SavedMark, Viewport,
+    LevelExported, ModelPlugin, OpenProject, PlaceElement, ProjectOpened, ProjectRefused,
+    ProjectSaved, Prop, SaveProject, SavedMark, Viewport,
 };
 use drs_project_manager::ProjectManagerPlugin;
 use drs_render_engine::RenderEnginePlugin;
@@ -350,6 +351,45 @@ impl Fixture {
             request.pixels_per_cell,
             request.tile_size
         );
+    }
+
+    /// Saves the Project as `name` under the root, failing the test on a refusal.
+    fn save(&mut self, name: &str) -> PathBuf {
+        self.app.world_mut().write_message(SaveProject {
+            path: Some(self.root.path().join(name)),
+        });
+        self.app.update();
+        let world = self.app.world_mut();
+        let refused: Vec<ProjectRefused> = world
+            .resource_mut::<Messages<ProjectRefused>>()
+            .drain()
+            .collect();
+        assert!(refused.is_empty(), "the save was refused: {refused:?}");
+        world
+            .resource_mut::<Messages<ProjectSaved>>()
+            .drain()
+            .next()
+            .expect("the Project is saved")
+            .path
+    }
+
+    /// Opens the Project file at `path` and runs one update, failing the test on a refusal.
+    fn open(&mut self, path: &Path) {
+        self.app.world_mut().write_message(OpenProject {
+            path: path.to_path_buf(),
+        });
+        self.app.update();
+        let world = self.app.world_mut();
+        let refused: Vec<ProjectRefused> = world
+            .resource_mut::<Messages<ProjectRefused>>()
+            .drain()
+            .collect();
+        assert!(refused.is_empty(), "the file was refused: {refused:?}");
+        world
+            .resource_mut::<Messages<ProjectOpened>>()
+            .drain()
+            .next()
+            .expect("the file is opened");
     }
 
     /// Exports at [`PIXELS_PER_CELL`] with tiles of [`TILE`] and decodes the image.
@@ -724,6 +764,62 @@ fn a_failed_export_is_reported() {
     assert!(!refused.reason.is_empty());
     assert!(!vanished.exists());
     assert!(!fixture.root.path().join("vanished").exists());
+
+    let exported = fixture
+        .export(PIXELS_PER_CELL, "after.png", TILE)
+        .expect("the Export is written");
+    assert!(is_png(&exported.path));
+}
+
+/// Opening another Project while an Export runs abandons the Export: it is answered as refused
+/// because the Project was replaced, nothing of it is left on disk, and the Project opened
+/// exports afterwards.
+#[test]
+fn an_open_refuses_a_running_export() {
+    let mut fixture = Fixture::new();
+    fixture.place(RED, Vec2::new(2.5, 3.5));
+    let file = fixture.save("map.dungeon");
+    let exports = fixture.root.path().join("exports");
+    fs::create_dir_all(&exports).expect("the exports folder");
+    let request = ExportLevel {
+        level: fixture.level(),
+        pixels_per_cell: 50,
+        path: fixture.output("abandoned.png"),
+        tile_size: TILE,
+    };
+    fixture.app.world_mut().write_message(request.clone());
+    fixture.app.update();
+    assert!(
+        fixture
+            .app
+            .world_mut()
+            .resource_mut::<Messages<LevelExported>>()
+            .drain()
+            .next()
+            .is_none(),
+        "an Export of 144 tiles takes more than one frame"
+    );
+
+    fixture.open(&file);
+
+    let refused: Vec<ExportRefused> = fixture
+        .app
+        .world_mut()
+        .resource_mut::<Messages<ExportRefused>>()
+        .drain()
+        .collect();
+    assert_eq!(
+        refused.len(),
+        1,
+        "the running Export is answered once: {refused:?}"
+    );
+    assert_eq!(refused[0].path, request.path);
+    assert_eq!(refused[0].reason, "the Project was replaced");
+    assert_eq!(
+        fs::read_dir(&exports).expect("the exports folder").count(),
+        0,
+        "nothing is left of the abandoned Export"
+    );
 
     let exported = fixture
         .export(PIXELS_PER_CELL, "after.png", TILE)

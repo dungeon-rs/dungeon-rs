@@ -2,11 +2,12 @@
 //!
 //! An Export takes frames: the render Engine draws a tile offscreen and hands its pixels back a
 //! few frames later. So an Export is a job that [`handle_export_level`] starts on request and
-//! advances every frame: it asks the Engine for the next tile as soon as the Engine takes a
-//! request, writes each tile as its pixels arrive, in row-major order from the top-left corner
-//! of the image, and finishes the image once the last tile is written. A failure anywhere drops
-//! the image writer, which removes the partial file, and is answered with its reason. Nothing
-//! is recorded in the history: an Export changes nothing in the Project.
+//! [`advance_exports`] advances every frame: it asks the Engine for the next tile as soon as the
+//! Engine takes a request, writes each tile as its pixels arrive, in row-major order from the
+//! top-left corner of the image, and finishes the image once the last tile is written. A failure
+//! anywhere drops the image writer, which removes the partial file, and is answered with its
+//! reason; so is an Export abandoned because the Project it was of has been replaced. Nothing is
+//! recorded in the history: an Export changes nothing in the Project.
 
 use crate::ProjectManagerError;
 use bevy_ecs::entity::Entity;
@@ -48,6 +49,9 @@ pub enum ExportError {
     /// The Level belongs to no Project, so there are no Bounds to export.
     #[error("the Level belongs to no Project")]
     LevelWithoutProject,
+    /// Another Project was opened while the Export ran, so the Level it was of is gone.
+    #[error("the Project was replaced")]
+    ProjectReplaced,
     /// The Bounds at the resolution make an image whose pixel size cannot be counted.
     #[error(
         "the Bounds of {width} by {height} cells at {pixels_per_cell} pixels per cell are too large to export"
@@ -125,8 +129,8 @@ struct Failure {
     error: ProjectManagerError,
 }
 
-/// Starts an Export for every [`ExportLevel`] request and advances the Export in progress by
-/// a frame, answering each with [`LevelExported`] or [`ExportRefused`].
+/// Starts an Export for every [`ExportLevel`] request, answering one that cannot start with
+/// [`ExportRefused`]; [`advance_exports`] carries the started ones on.
 pub(crate) fn handle_export_level(
     world: &mut World,
     requests: &mut SystemState<MessageReader<ExportLevel>>,
@@ -152,7 +156,6 @@ pub(crate) fn handle_export_level(
             }
         }
     }
-    advance(world);
 }
 
 /// Checks a request and opens its image: the resolution within its limits, the tile size one
@@ -227,8 +230,9 @@ fn begin(world: &mut World, request: &ExportLevel) -> Result<Export, ProjectMana
     })
 }
 
-/// Advances the Export at the front of the queue by a frame and answers it when it ends.
-fn advance(world: &mut World) {
+/// Advances the Export at the front of the queue by a frame and answers it with
+/// [`LevelExported`] or [`ExportRefused`] when it ends.
+pub(crate) fn advance_exports(world: &mut World) {
     let Some(export) = world.get_resource_or_init::<Exports>().queue.pop_front() else {
         return;
     };
@@ -251,6 +255,26 @@ fn advance(world: &mut World) {
                 reason: error.to_string(),
             });
         }
+    }
+}
+
+/// Abandons every Export in progress because the Project has been replaced, answering each with
+/// [`ExportRefused`]; the partial files go with the writers.
+pub(crate) fn abandon_exports(world: &mut World) {
+    let abandoned: Vec<Box<Export>> = world
+        .get_resource_mut::<Exports>()
+        .map(|mut exports| exports.queue.drain(..).collect())
+        .unwrap_or_default();
+    if abandoned.is_empty() {
+        return;
+    }
+    release_regions(world);
+    for export in abandoned {
+        world.write_message(ExportRefused {
+            level: export.level,
+            path: export.asked.clone(),
+            reason: ExportError::ProjectReplaced.to_string(),
+        });
     }
 }
 
