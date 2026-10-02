@@ -23,6 +23,7 @@ The architecture decomposes the editor into components, each its own crate, with
 13. As a contributor, I can count on the supply-chain check running weekly, so that a newly published advisory is noticed without a pull request.
 14. As a contributor, I can receive Dependabot proposals for the workspace, the check tooling, and the CI workflows, so that dependencies do not rot.
 15. As a contributor, I can read which crate broke which rule when a check fails, so that I can fix it without reading the checker.
+16. As a contributor, I can rely on the gate failing when the workspace's bundle marker names a version other than the crates', so that an editor built from the workspace never warns about its own Bundled Files.
 
 ## Rules
 
@@ -59,7 +60,7 @@ The architecture decomposes the editor into components, each its own crate, with
 ## Implementation Decisions
 
 - The workspace rules are checked by the `ci` tool: its own crate outside the workspace, with its own lockfile, run through the `workspace` recipe of the `justfile`. It has one subcommand per check and an `all` subcommand that runs every check, so one run reports everything that is wrong.
-- Every check runs against `cargo metadata` of the workspace, which the tool locates from its own position rather than from the directory it is run in, so it reads manifests, not source.
+- Every check runs against `cargo metadata` of the workspace, which the tool locates from its own position rather than from the directory it is run in, so it reads manifests, not source; the Engine-events check, which reads the Engine crates' sources, and the bundle marker check, which reads the marker file, are the exceptions.
 - The architecture check reads the Dependencies and Restricted external dependencies tables from the architecture document itself, so the documentation and its enforcement cannot drift. The Type column resolves rows such as Client and Host in the restricted table. A malformed table is an error, never a weaker check.
 - Same-kind isolation is checked on its own, in addition to the allowed dependencies, so a table that wrongly allowed an Engine to depend on an Engine is still caught.
 - The Engine-events check is the one check that reads source rather than manifests: every Rust file of every Engine crate, with comments stripped, is searched for the derives that define a message or an event and the names that read, write, or observe one, and each hit is reported with its file and line. It is the Rule translation row marked `enforced`.
