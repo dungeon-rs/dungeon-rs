@@ -152,7 +152,7 @@ fn matched_by_part_of_a_name() {
     assert_eq!(places("barrel", &props), vec!["Old_BARREL.png"]);
     assert_eq!(places("RRE", &props), vec!["Old_BARREL.png"]);
     assert_eq!(places("STRASSE", &props), vec!["Straße.png"]);
-    assert_eq!(places("skull", &props), vec!["Straße.png"]);
+    assert_eq!(places("straße", &props), vec!["Straße.png"]);
     // `ΐ` is written composed; it folds to a small iota and two combining marks.
     assert_eq!(places("ΐ", &props), vec!["Ϊ\u{301}_Rune.png"]);
     assert_eq!(places("ι\u{308}\u{301}", &props), vec!["Ϊ\u{301}_Rune.png"]);
@@ -174,7 +174,7 @@ fn accents_however_stored() {
 
     let accented = vec!["Café_Sign.png", "Cafe\u{301}_Table.png"];
     assert_eq!(places("café", &props), accented);
-    assert_eq!(places("well", &props), accented);
+    assert_eq!(places("cafe\u{301}", &props), accented);
     assert_eq!(places("CAFÉ", &props), accented);
     assert_eq!(places("cafe", &props), vec!["Cafeteria.png"]);
 
@@ -355,7 +355,8 @@ fn a_deterministic_order() {
     assert_eq!(counts, vec![2, 4]);
 }
 
-/// The words vendor-shaped names are made of.
+/// The words vendor-shaped names are made of, a few of them accented, composed and decomposed,
+/// so that folding is timed as well.
 const WORDS: [&str; 24] = [
     "table",
     "oak",
@@ -370,16 +371,16 @@ const WORDS: [&str; 24] = [
     "torch",
     "rug",
     "chest",
-    "shelf",
+    "épée",
     "bench",
     "pine",
-    "round",
+    "crâne",
     "iron",
     "rope",
     "lamp",
-    "skull",
+    "straße",
     "cart",
-    "well",
+    "cafe\u{301}",
     "tree",
 ];
 
@@ -462,7 +463,8 @@ fn answered_within_a_keystroke() {
         narrow.as_str(),
         "a",
         "oak table",
-        "adventures/well_pack chair",
+        "ÉPÉE",
+        "adventures/crâne_pack chair",
     ] {
         let (answered, found) = fastest(5, || answer(&mut search, text, &folders));
         eprintln!(

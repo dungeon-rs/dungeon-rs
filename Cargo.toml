@@ -163,10 +163,17 @@ incremental = true
 [profile.fast.package."*"]
 opt-level = 0
 
-# The search of the Asset library is timed by its tests, which mean the speed of a build the
-# Author runs, not of unoptimised code.
+# The search of the Asset library is timed by its tests against bounds meant for the dev build
+# (our crates at opt-level 1, dependencies at 3), not for unoptimised code, so the search and the
+# crates it scans and folds with are built as the dev build builds them.
 [profile.fast.package.drs-catalog-engine]
 opt-level = 1
 
 [profile.fast.package.memchr]
+opt-level = 3
+
+[profile.fast.package.caseless]
+opt-level = 3
+
+[profile.fast.package.unicode-normalization]
 opt-level = 3
