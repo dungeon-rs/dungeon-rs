@@ -732,16 +732,47 @@ fn a_torn_record_is_skipped() {
         &index,
     )
     .expect("tear the index");
+    for index in 3..5 {
+        image_file(
+            &maps,
+            &format!("tile_{index}.png"),
+            40,
+            40,
+            [160, 90, 40, 255],
+        );
+    }
 
-    let mut again = editor(root.path());
+    {
+        let mut again = editor(root.path());
 
-    let first = states(&mut again);
-    let pending = first
-        .iter()
-        .filter(|(_, state)| *state == ThumbnailState::Pending)
-        .count();
-    assert_eq!(pending, 2, "the two torn records are skipped: {first:?}");
-    assert!(all_ready(&settle(&mut again)));
+        let first = states(&mut again);
+        let pending = first
+            .iter()
+            .filter(|(_, state)| *state == ThumbnailState::Pending)
+            .count();
+        assert_eq!(pending, 4, "the two torn records are skipped: {first:?}");
+        assert!(all_ready(&settle(&mut again)));
+    }
+    let (_, index) = pack_and_index(root.path());
+
+    // What was appended after the torn records lines up: a third start serves every thumbnail.
+    let mut third = editor(root.path());
+    assert!(all_ready(&states(&mut third)), "ready at the first frame");
+    for index in 0..5 {
+        let decoded = thumbnail(&mut third, &format!("tile_{index}.png")).to_rgb8();
+        assert_eq!(decoded.dimensions(), (40, 40));
+        let expected = if index < 3 { 160 } else { 40 };
+        let blue = decoded.get_pixel(20, 20).0[2];
+        assert!(blue.abs_diff(expected) < 16, "tile_{index}: {blue}");
+    }
+    for _ in 0..20 {
+        third.update();
+    }
+    assert_eq!(
+        pack_and_index(root.path()).1,
+        index,
+        "nothing generated again"
+    );
 }
 
 /// A pack or index the editor cannot make sense of is replaced by an empty one, every thumbnail
