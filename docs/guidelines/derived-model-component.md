@@ -61,13 +61,13 @@ pub(crate) fn derive_shapes(
         match shape {
             Some(_) if derived_from == Some(&geometry) => continue,
             Some(mut shape) => {
-                *shape = generate_walls(wall);
+                *shape = generate_walls(wall, &[]);
                 commands.entity(entity).insert(geometry);
             }
             None => {
                 commands
                     .entity(entity)
-                    .insert((generate_walls(wall), geometry));
+                    .insert((generate_walls(wall, &[]), geometry));
             }
         }
         let footprint = wall.element_box();

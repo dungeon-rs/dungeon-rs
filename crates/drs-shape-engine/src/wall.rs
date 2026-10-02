@@ -8,7 +8,7 @@
 //! mesh is the same on every machine.
 
 use bevy_math::Vec2;
-use drs_model::{LinePoint, Segment, StrokeMesh, Wall, WallShape};
+use drs_model::{LinePlace, LinePoint, Segment, Stretch, StrokeMesh, Wall, WallShape};
 use kurbo::{Line, ParamCurve, Point, QuadBez};
 
 /// How far, in Grid cells, a chord of the flattened line or an arc of the stroke may stray from
@@ -50,7 +50,7 @@ pub enum ShapeError {
     OutsideSegment(f32),
 }
 
-/// `GenerateWalls`: the shape a drawn Wall is drawn and picked by.
+/// `GenerateWalls`: the shape a drawn Wall is drawn and picked by, left out along `stretches`.
 ///
 /// The line runs from the first point to the last. A straight segment is one chord; a curved
 /// one is cut at evenly spaced parameters, an even number of them so that its middle is a point
@@ -60,11 +60,129 @@ pub enum ShapeError {
 /// at one. The stroke covers everything within half the thickness of the line, with round joins
 /// at its points and round caps at its ends, and records the arc length of the line at each
 /// vertex.
+///
+/// The stroke leaves out every stretch, measured along the flattened line: it ends squarely
+/// across the line at each end of a stretch, and an end of the Wall that a stretch reaches has
+/// no cap. Overlapping stretches leave out what either covers. The stretches are kept on the
+/// shape as given.
 #[must_use]
-pub fn generate_walls(wall: &Wall) -> WallShape {
+pub fn generate_walls(wall: &Wall, stretches: &[Stretch]) -> WallShape {
     let line = flatten(wall);
-    let mesh = stroke(&line, f64::from(wall.thickness) / 2.0);
-    WallShape { line, mesh }
+    let measured = Measured::of(&line);
+    let gaps: Vec<(f64, f64)> = stretches
+        .iter()
+        .map(|stretch| {
+            (
+                measured.length_at(stretch.start),
+                measured.length_at(stretch.end),
+            )
+        })
+        .collect();
+    let mesh = stroke(&line, f64::from(wall.thickness) / 2.0, &gaps);
+    WallShape {
+        line,
+        stretches: stretches.to_vec(),
+        mesh,
+    }
+}
+
+/// A flattened line with the arc length at each of its points, for measuring along it.
+pub(crate) struct Measured<'a> {
+    /// The line.
+    line: &'a [LinePoint],
+    /// The arc length at each point of the line, from its start, summing its chords.
+    lengths: Vec<f64>,
+}
+
+impl<'a> Measured<'a> {
+    /// Measures `line`.
+    pub(crate) fn of(line: &'a [LinePoint]) -> Self {
+        let mut lengths = Vec::with_capacity(line.len());
+        let mut travelled = 0.0;
+        let mut previous: Option<Point> = None;
+        for line_point in line {
+            let at = point(line_point.position);
+            if let Some(previous) = previous {
+                travelled += length(at - previous);
+            }
+            lengths.push(travelled);
+            previous = Some(at);
+        }
+        Self { line, lengths }
+    }
+
+    /// The length of the whole line.
+    pub(crate) fn total(&self) -> f64 {
+        self.lengths.last().copied().unwrap_or(0.0)
+    }
+
+    /// The chords of the line: for each, the index of its first point, the segment it lies on,
+    /// and the parameters its two ends have along that segment.
+    fn chords(&self) -> impl Iterator<Item = (usize, usize, f32, f32)> + '_ {
+        self.line.windows(2).enumerate().map(|(index, pair)| {
+            let (from, to) = (pair[0], pair[1]);
+            let end = if to.segment == from.segment {
+                to.t
+            } else {
+                1.0
+            };
+            (index, from.segment, from.t, end)
+        })
+    }
+
+    /// The arc length at a place of the line, interpolated along the chord the place lies on; a
+    /// place past the line's segments is at its end.
+    pub(crate) fn length_at(&self, place: LinePlace) -> f64 {
+        let found = self.chords().find(|(_, segment, from, to)| {
+            *segment == place.segment && *from <= place.t && place.t <= *to
+        });
+        let Some((index, _, from, to)) = found else {
+            let before = self
+                .line
+                .first()
+                .is_some_and(|first| place.segment < first.segment);
+            return if before { 0.0 } else { self.total() };
+        };
+        let span = f64::from(to) - f64::from(from);
+        let share = if span > 0.0 {
+            (f64::from(place.t) - f64::from(from)) / span
+        } else {
+            0.0
+        };
+        self.lengths[index] + share * (self.lengths[index + 1] - self.lengths[index])
+    }
+
+    /// The place at an arc length, clamped to the line, its parameter interpolated along the
+    /// chord the length falls in.
+    #[expect(
+        clippy::cast_possible_truncation,
+        reason = "the model keeps parameters in single precision"
+    )]
+    pub(crate) fn place_at(&self, along: f64) -> LinePlace {
+        let along = along.clamp(0.0, self.total());
+        let found = self
+            .chords()
+            .find(|(index, ..)| along <= self.lengths[index + 1]);
+        let Some((index, segment, from, to)) = found else {
+            return self
+                .line
+                .last()
+                .map_or(LinePlace { segment: 0, t: 0.0 }, |last| LinePlace {
+                    segment: last.segment,
+                    t: last.t,
+                });
+        };
+        let span = self.lengths[index + 1] - self.lengths[index];
+        let share = if span > 0.0 {
+            (along - self.lengths[index]) / span
+        } else {
+            0.0
+        };
+        LinePlace {
+            segment,
+            t: (f64::from(from) + share * (f64::from(to) - f64::from(from))) as f32,
+        }
+    }
 }
 
 /// `SplitWall`: the Wall with a point added on `segment` at parameter `t`, splitting the segment
@@ -118,7 +236,7 @@ pub fn split_wall(wall: &Wall, segment: usize, t: f32) -> Result<Wall, ShapeErro
 }
 
 /// A model position as a kurbo point.
-fn point(position: Vec2) -> Point {
+pub(crate) fn point(position: Vec2) -> Point {
     Point::new(f64::from(position.x), f64::from(position.y))
 }
 
@@ -127,12 +245,12 @@ fn point(position: Vec2) -> Point {
     clippy::cast_possible_truncation,
     reason = "the model keeps positions in single precision"
 )]
-fn vector(point: Point) -> Vec2 {
+pub(crate) fn vector(point: Point) -> Vec2 {
     Vec2::new(point.x as f32, point.y as f32)
 }
 
 /// The length of a vector, through the correctly rounded square root only.
-fn length(vector: kurbo::Vec2) -> f64 {
+pub(crate) fn length(vector: kurbo::Vec2) -> f64 {
     (vector.x * vector.x + vector.y * vector.y).sqrt()
 }
 
@@ -160,7 +278,7 @@ fn chords_of(start: Point, control: Point, end: Point) -> usize {
     reason = "chord counts are far below where f64 loses whole numbers; parameters are kept in \
               single precision"
 )]
-fn flatten(wall: &Wall) -> Vec<LinePoint> {
+pub(crate) fn flatten(wall: &Wall) -> Vec<LinePoint> {
     let mut line = Vec::new();
     let last = wall.segments.len().saturating_sub(1);
     for (index, (segment, ends)) in wall.segments.iter().zip(wall.points.windows(2)).enumerate() {
@@ -289,9 +407,10 @@ fn half_turn(from: kurbo::Vec2, through: kurbo::Vec2, radius: f64) -> Vec<kurbo:
     rim
 }
 
-/// The stroke of a flattened line at half-thickness `radius`: a band per chord, a round join on
-/// the outer side of each bend, and a round cap at each end.
-fn stroke(line: &[LinePoint], radius: f64) -> StrokeMesh {
+/// The stroke of a flattened line at half-thickness `radius`, left out along `gaps`, each a
+/// range of arc length: a band per chord, a round join on the outer side of each bend, a round
+/// cap at each end of the line that no gap reaches, and a square end at each end of a gap.
+fn stroke(line: &[LinePoint], radius: f64, gaps: &[(f64, f64)]) -> StrokeMesh {
     // The line's points with their arc lengths, coincident points merged.
     let mut points: Vec<(Point, f64)> = Vec::with_capacity(line.len());
     let mut travelled = 0.0;
@@ -312,7 +431,7 @@ fn stroke(line: &[LinePoint], radius: f64) -> StrokeMesh {
     let Some(&first) = points.first() else {
         return builder.mesh;
     };
-    if points.len() == 1 {
+    if gaps.is_empty() && points.len() == 1 {
         // A Wall whose points all coincide is drawn as a dot of its thickness.
         let east = kurbo::Vec2::new(1.0, 0.0);
         let north = kurbo::Vec2::new(0.0, 1.0);
@@ -320,6 +439,74 @@ fn stroke(line: &[LinePoint], radius: f64) -> StrokeMesh {
         builder.fan(first, radius, &half_turn(-north, east, radius));
         return builder.mesh;
     }
+    for (start, end) in runs(gaps, travelled) {
+        if end - start <= COINCIDENT {
+            continue;
+        }
+        let run = cut(&points, start, end);
+        stroke_run(&mut builder, &run, radius, start <= 0.0, end >= travelled);
+    }
+    builder.mesh
+}
+
+/// The ranges of arc length from zero to `total` that no gap covers, in order.
+fn runs(gaps: &[(f64, f64)], total: f64) -> Vec<(f64, f64)> {
+    let mut covered: Vec<(f64, f64)> = gaps
+        .iter()
+        .map(|&(from, to)| (from.min(to).max(0.0), from.max(to).min(total)))
+        .collect();
+    covered.sort_by(|a, b| a.0.total_cmp(&b.0));
+    let mut runs = Vec::new();
+    let mut start = 0.0;
+    for (from, to) in covered {
+        if from > start {
+            runs.push((start, from));
+        }
+        start = f64::max(start, to);
+    }
+    if start < total {
+        runs.push((start, total));
+    }
+    runs
+}
+
+/// The points of the line between two arc lengths, the ends interpolated along their chords.
+fn cut(points: &[(Point, f64)], start: f64, end: f64) -> Vec<(Point, f64)> {
+    let at = |along: f64| -> (Point, f64) {
+        let index = points
+            .windows(2)
+            .position(|pair| along <= pair[1].1)
+            .unwrap_or(points.len().saturating_sub(2));
+        let (from, to) = (points[index], points[(index + 1).min(points.len() - 1)]);
+        let span = to.1 - from.1;
+        let share = if span > 0.0 {
+            ((along - from.1) / span).clamp(0.0, 1.0)
+        } else {
+            0.0
+        };
+        (from.0 + (to.0 - from.0) * share, along)
+    };
+    let mut run = vec![at(start)];
+    run.extend(
+        points
+            .iter()
+            .copied()
+            .filter(|&(_, along)| along > start + COINCIDENT && along < end - COINCIDENT),
+    );
+    run.push(at(end));
+    run
+}
+
+/// Adds the stroke of one run of two or more distinct points: a band per chord, a round join
+/// on the outer side of each bend, and a round cap at the start or the end where asked; an end
+/// without a cap is square.
+fn stroke_run(
+    builder: &mut Builder,
+    points: &[(Point, f64)],
+    radius: f64,
+    cap_start: bool,
+    cap_end: bool,
+) {
     let directions: Vec<kurbo::Vec2> = points
         .windows(2)
         .map(|pair| {
@@ -353,13 +540,16 @@ fn stroke(line: &[LinePoint], radius: f64) -> StrokeMesh {
             builder.fan(centre, radius, &rim);
         }
     }
-    if let (Some(&start), Some(&end), Some(&last)) =
-        (directions.first(), directions.last(), points.last())
+    if let (Some(&first), Some(&start)) = (points.first(), directions.first())
+        && cap_start
     {
         builder.fan(first, radius, &half_turn(left(start), -start, radius));
+    }
+    if let (Some(&last), Some(&end)) = (points.last(), directions.last())
+        && cap_end
+    {
         builder.fan(last, radius, &half_turn(-left(end), end, radius));
     }
-    builder.mesh
 }
 
 #[cfg(test)]
@@ -419,7 +609,7 @@ mod tests {
     #[test]
     fn a_straight_segment_flattens_to_its_ends() {
         let points = [Vec2::ZERO, Vec2::new(4.0, 0.0), Vec2::new(4.0, 3.0)];
-        let shape = generate_walls(&wall(&points, &[None, None]));
+        let shape = generate_walls(&wall(&points, &[None, None]), &[]);
 
         let tags: Vec<(Vec2, usize, f32)> = shape
             .line
@@ -440,7 +630,7 @@ mod tests {
     #[test]
     fn the_chord_stays_within_tolerance() {
         let (start, control, end) = (Vec2::ZERO, Vec2::new(3.0, 7.0), Vec2::new(9.0, -1.0));
-        let shape = generate_walls(&wall(&[start, end], &[Some(control)]));
+        let shape = generate_walls(&wall(&[start, end], &[Some(control)]), &[]);
         let curve = QuadBez::new(point(start), point(control), point(end));
 
         assert!(shape.line.len() > 10, "a strong curve takes many chords");
@@ -465,15 +655,18 @@ mod tests {
     /// and the ends, and nothing beyond.
     #[test]
     fn the_mesh_covers_the_thickness() {
-        let shape = generate_walls(&wall(
-            &[
-                Vec2::ZERO,
-                Vec2::new(3.0, 0.0),
-                Vec2::new(3.0, 3.0),
-                Vec2::new(0.5, 1.0),
-            ],
-            &[None, Some(Vec2::new(5.0, 1.5)), None],
-        ));
+        let shape = generate_walls(
+            &wall(
+                &[
+                    Vec2::ZERO,
+                    Vec2::new(3.0, 0.0),
+                    Vec2::new(3.0, 3.0),
+                    Vec2::new(0.5, 1.0),
+                ],
+                &[None, Some(Vec2::new(5.0, 1.5)), None],
+            ),
+            &[],
+        );
         let half = 0.125;
         let margin = 2.0 * 0.001;
         let mut inside = 0;
@@ -560,5 +753,58 @@ mod tests {
             split_wall(&before, 0, 1.0),
             Err(ShapeError::OutsideSegment(1.0))
         );
+    }
+
+    /// A stretch leaves its part of the line out of the stroke, which ends squarely across the
+    /// line at either side of it and keeps its round caps at the Wall's own ends; a stretch that
+    /// reaches an end leaves that end without a cap.
+    #[test]
+    fn a_stretch_ends_the_stroke_squarely() {
+        let straight = wall(&[Vec2::ZERO, Vec2::new(10.0, 0.0)], &[None]);
+        let half = 0.125;
+        let gap = Stretch {
+            start: LinePlace { segment: 0, t: 0.4 },
+            end: LinePlace { segment: 0, t: 0.6 },
+        };
+        let shape = generate_walls(&straight, &[gap]);
+        assert_eq!(shape.stretches, vec![gap]);
+        let mesh = &shape.mesh;
+
+        assert!(
+            covered(Vec2::new(2.0, 0.0), mesh),
+            "the stroke before the gap"
+        );
+        assert!(
+            covered(Vec2::new(8.0, 0.0), mesh),
+            "the stroke after the gap"
+        );
+        assert!(!covered(Vec2::new(5.0, 0.0), mesh), "the gap");
+        assert!(
+            covered(Vec2::new(3.99, half - 0.01), mesh),
+            "the square corner before the gap"
+        );
+        assert!(
+            !covered(Vec2::new(4.05, 0.0), mesh),
+            "no cap reaching into the gap"
+        );
+        assert!(
+            covered(Vec2::new(6.01, -(half - 0.01)), mesh),
+            "the square corner after the gap"
+        );
+        assert!(
+            covered(Vec2::new(-0.1, 0.0), mesh),
+            "the round cap at the start"
+        );
+
+        let to_the_end = Stretch {
+            start: LinePlace { segment: 0, t: 0.9 },
+            end: LinePlace { segment: 0, t: 1.0 },
+        };
+        let shape = generate_walls(&straight, &[gap, to_the_end]);
+        assert!(
+            !covered(Vec2::new(10.05, 0.0), &shape.mesh),
+            "no cap at the end"
+        );
+        assert!(covered(Vec2::new(8.99, half - 0.01), &shape.mesh));
     }
 }

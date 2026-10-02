@@ -20,8 +20,10 @@ by a control point, its thickness, and its [`Colour`](crate::Colour). The
 segments are numbered from the first point on, and only adding or removing a
 point renumbers them. A Wall's [`WallShape`](crate::WallShape) is derived from
 it and never saved: its line flattened into chords, each point tagged with its
-segment and the parameter along it, and the stroke it is drawn with. The
-authoring Manager writes it; whoever draws or picks a Wall reads it.
+segment and the parameter along it, the [`Stretch`](crate::Stretch) of it each
+Portal set into it covers, and the stroke it is drawn with, left out along those
+stretches. The authoring Manager writes it; whoever draws or picks a Wall reads
+it.
 
 A Portal carries [`Portal`](crate::Portal): the Asset Reference row of its image,
 its width in Grid cells, its rotation, whether it is mirrored, and, when it is

@@ -157,6 +157,51 @@ pub struct LinePoint {
     pub t: f32,
 }
 
+/// A place along a Wall's line: a segment and the parameter along it.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct LinePlace {
+    /// The number of the segment, counted from zero.
+    pub segment: usize,
+    /// The parameter along that segment, from zero at its first point to one at its second.
+    pub t: f32,
+}
+
+impl LinePlace {
+    /// The place as a key that orders places from the Wall's start to its end, the end of one
+    /// segment and the start of the next being the same place.
+    fn key(self) -> (usize, f32) {
+        if self.t >= 1.0 {
+            (self.segment + 1, 0.0)
+        } else {
+            (self.segment, self.t)
+        }
+    }
+}
+
+/// A stretch of a Wall's line that a Portal set into it covers, from the place nearer the Wall's
+/// start to the place nearer its end.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Stretch {
+    /// Where the stretch starts.
+    pub start: LinePlace,
+    /// Where the stretch ends.
+    pub end: LinePlace,
+}
+
+impl Stretch {
+    /// Whether a place of the line lies in the stretch, its ends included.
+    #[must_use]
+    pub fn covers(&self, place: LinePlace) -> bool {
+        let (start, end, place) = (self.start.key(), self.end.key(), place.key());
+        start
+            .0
+            .cmp(&place.0)
+            .then(start.1.total_cmp(&place.1))
+            .is_le()
+            && place.0.cmp(&end.0).then(place.1.total_cmp(&end.1)).is_le()
+    }
+}
+
 /// The triangles a Wall is drawn with, in Grid cells.
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct StrokeMesh {
@@ -168,14 +213,19 @@ pub struct StrokeMesh {
     pub indices: Vec<u32>,
 }
 
-/// The shape derived from a [`Wall`]: its line flattened into chords, and the stroke it is drawn
-/// with. It is never saved; the authoring Manager derives it whenever the Wall changes, and
-/// whoever draws or picks a Wall reads it.
+/// The shape derived from a [`Wall`]: its line flattened into chords, the stretches of it the
+/// Portals set into it cover, and the stroke it is drawn with. It is never saved; the authoring
+/// Manager derives it whenever the Wall or a Portal set into it changes, and whoever draws or
+/// picks a Wall reads it.
 #[derive(Component, Debug, Clone, Default, PartialEq)]
 pub struct WallShape {
     /// The flattened line, from the first point to the last; each chord is no farther than the
     /// flattening tolerance from the curve it stands for.
     pub line: Vec<LinePoint>,
-    /// The stroke: the line at the Wall's thickness, with round joins and caps.
+    /// The stretches the Portals set into the Wall cover, one per Portal, which the stroke
+    /// leaves out and picking the Wall by its line ignores.
+    pub stretches: Vec<Stretch>,
+    /// The stroke: the line at the Wall's thickness, with round joins and caps, left out along
+    /// the stretches and ending squarely at each.
     pub mesh: StrokeMesh,
 }

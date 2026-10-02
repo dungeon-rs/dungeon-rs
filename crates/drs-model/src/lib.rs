@@ -47,7 +47,7 @@ pub use serialisation::{
 pub use snapshot::{LayerSnapshot, LevelSnapshot, ProjectSnapshot};
 pub use thumbnails::{THUMBNAIL_SOURCE, ThumbnailState, Thumbnails};
 pub use viewport::Viewport;
-pub use wall::{Colour, LinePoint, Segment, StrokeMesh, WALL, Wall, WallShape};
+pub use wall::{Colour, LinePlace, LinePoint, Segment, Stretch, StrokeMesh, WALL, Wall, WallShape};
 
 use bevy_app::{App, Plugin, Update};
 use bevy_ecs::schedule::IntoScheduleConfigs;
