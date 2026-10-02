@@ -127,19 +127,16 @@ fn matched_by_part_of_a_name() {
 /// reverse; an unaccented letter does not match an accented one.
 #[test]
 fn accents_however_stored() {
+    // `é` and `É` are written composed here; `e\u{301}` is an `e` and a combining acute.
     let props = folder(
         "Props",
-        &[
-            "Caf\u{e9}_Sign.png",
-            "Cafe\u{301}_Table.png",
-            "Cafeteria.png",
-        ],
+        &["Café_Sign.png", "Cafe\u{301}_Table.png", "Cafeteria.png"],
     );
 
-    let accented = vec!["Caf\u{e9}_Sign.png", "Cafe\u{301}_Table.png"];
-    assert_eq!(places("caf\u{e9}", &props), accented);
+    let accented = vec!["Café_Sign.png", "Cafe\u{301}_Table.png"];
+    assert_eq!(places("café", &props), accented);
     assert_eq!(places("cafe\u{301}", &props), accented);
-    assert_eq!(places("CAF\u{c9}", &props), accented);
+    assert_eq!(places("CAFÉ", &props), accented);
     assert_eq!(places("cafe", &props), vec!["Cafeteria.png"]);
 }
 

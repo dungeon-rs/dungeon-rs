@@ -1382,7 +1382,7 @@ fn spelling_differences_resolve() {
 /// spelling only in their normalisation are never chosen between.
 #[test]
 fn two_normalisations_are_never_chosen_between() {
-    let composed = "caf\u{e9}.png";
+    let composed = "café.png";
     // `ẹ́`: the dot below and the acute in canonical order and in the other; neither is NFC.
     let canonical = "e\u{323}\u{301}.png";
     let reordered = "e\u{301}\u{323}.png";
