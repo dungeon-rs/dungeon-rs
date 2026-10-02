@@ -882,9 +882,10 @@ fn properties_stay_editable() {
     assert_eq!((wall.thickness, wall.colour), (0.125, GREY));
 }
 
-/// A Place Element of a Wall with fewer than two points or a thickness not above zero, and an
-/// Edit Element naming a point or segment the Wall does not have or setting a thickness not above
-/// zero, are answered with the reason, change nothing, and record no history step.
+/// A Place Element of a Wall with fewer than two points, a point that is not finite, or a
+/// thickness not above zero, and an Edit Element naming a point or segment the Wall does not have,
+/// moving a point to where no point can be, or setting a thickness not above zero, are answered
+/// with the reason, change nothing, and record no history step.
 #[test]
 fn malformed_walls_are_refused() {
     let mut fixture = Fixture::new();
@@ -918,6 +919,14 @@ fn malformed_walls_are_refused() {
             "above zero",
         ),
         (
+            fixture.wall_placement(&[Vec2::ZERO, Vec2::NAN], 0.125, GREY),
+            "finite",
+        ),
+        (
+            fixture.wall_placement(&[Vec2::ZERO, Vec2::ONE], f32::INFINITY, GREY),
+            "above zero",
+        ),
+        (
             edit(ElementChange::Point {
                 index: 3,
                 position: Vec2::ONE,
@@ -936,6 +945,20 @@ fn malformed_walls_are_refused() {
             "no segment 5",
         ),
         (edit(ElementChange::RemovePoint { index: 7 }), "no point 7"),
+        (
+            edit(ElementChange::Point {
+                index: 1,
+                position: Vec2::splat(f32::INFINITY),
+            }),
+            "finite",
+        ),
+        (
+            edit(ElementChange::Control {
+                segment: 0,
+                position: Some(Vec2::NAN),
+            }),
+            "finite",
+        ),
         (edit(ElementChange::Thickness(0.0)), "above zero"),
         (edit(ElementChange::Thickness(-0.5)), "above zero"),
         (

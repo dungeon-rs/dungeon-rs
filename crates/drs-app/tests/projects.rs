@@ -1084,6 +1084,24 @@ fn a_bad_file_is_refused() {
         refused.reason
     );
 
+    malformed["elements"][&id]["wall"]["data"] = json!({
+        "points": [[1.0, 1.0], [3.0, 1.0], [3.0, 3.0]],
+        "segments": [{ "control": null }],
+        "thickness": 0.125,
+        "colour": { "red": 64, "green": 64, "blue": 64 }
+    });
+    let short = root.join("short.dungeon");
+    write_json(&short, &malformed);
+    let refused = saved
+        .device
+        .open(&short)
+        .expect_err("a Wall of three points and one segment");
+    assert!(
+        refused.reason.contains("wall") && refused.reason.contains("needs 2 segments"),
+        "{}",
+        refused.reason
+    );
+
     assert_eq!(saved.device.elements(), elements);
     assert_eq!(saved.device.history().undo_depth(), depth);
     assert!(saved.device.history().can_redo());
