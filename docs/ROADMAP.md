@@ -2,7 +2,7 @@
 
 ## I can build and export a simple dungeon: Walls, doors, Rooms, painted Terrain, and Layers, from a library I can actually browse
 
-- **Thumbnails**: every Asset in the browser shows a thumbnail, generated in the background with the visible rows first and kept in a pack in the editor's cache directory, so that an Asset is recognised by sight. Commands: none.
+- **[Thumbnails](changes/thumbnails.md)**: every Asset in the browser shows a thumbnail, generated in the background with the visible rows first and kept in a pack in the editor's cache directory, so that an Asset is recognised by sight. Commands: none.
 - **Search at scale**: typing in the browser finds any of hundreds of thousands of Assets by name within a keystroke, whatever the letter case. Commands: none.
 - **Walls**: the Author draws straight or curved Walls and edits their points at any time. Commands: none.
 - **Portals**: doors and windows set into Walls stay anchored through every Wall edit, or stand free. Commands: Set Portal into Wall, Free Portal.

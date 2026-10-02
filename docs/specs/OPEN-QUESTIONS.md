@@ -25,7 +25,6 @@ Spec-level decisions parked during domain work. The spec skill picks these up; r
 - Lighting under tiled export (single camera per config; per-tile light maps).
 - Export: screen-space effects (soft shadows, light maps, blur) need tile gutters or seams appear; JPEG at that size needs a scanline or streaming encoder; lossy WebP needs libwebp.
 - Label crispness across zoom and export (atlas per size, memory at high export scales).
-- Thumbnails: bevy_egui logs "bindless textures not yet supported on metal"; measure when the thumbnail cache is built. Scroll offsets: `f32` layout holds whole-pixel precision only to about 16.7 M px, fine for 400k items but not multi-million libraries.
 - Project format: Embedded Assets need a container (for example a zip with `project.json` and `assets/<blake3>.<ext>`, stored once).
 - Memory: dropping the last `Handle` frees an asset, but RSS stays at its high-water mark because the allocator keeps freed pages; consider mimalloc or jemalloc with purging, and `RenderAssetUsages::RENDER_WORLD` to drop the CPU copy (GPU free on drop unmeasured).
 - Release and packaging: build for Linux, Windows, and macOS with Bundled Files, locales, and licences; macOS `.app` with icon and dmg; Windows icon and no console window in release; release notes from git-cliff. Undecided: universal macOS binary, notarisation, Windows signing, a Linux package, cargo-dist or cargo-packager.
