@@ -13,9 +13,10 @@ bottom edge is clipped to the image.
 
 The PNG is 8-bit RGBA with fixed compression and filter settings, so the same
 tiles always produce the same bytes. Until `finish_image` returns, the image is
-written to a temporary file beside the chosen path and renamed over it at the
-end; a failure before that, or dropping the writer without finishing, removes
-the temporary file and leaves whatever was at the path untouched.
+written to a temporary `.part` file beside the chosen path, flushed to the disk,
+and renamed over the path at the end; a failure before that, or dropping the
+writer without finishing, removes the temporary file and leaves whatever was at
+the path untouched.
 
 This crate uses no Bevy.
 

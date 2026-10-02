@@ -1,8 +1,9 @@
 #![doc = include_str!("../README.md")]
 
-use std::fs::{self, File};
+use std::fs::File;
 use std::io::{BufWriter, Write};
 use std::path::{Path, PathBuf};
+use tempfile::TempPath;
 
 /// Bytes per RGBA8 pixel.
 const BYTES_PER_PIXEL: usize = 4;
@@ -114,8 +115,9 @@ pub struct Tile<'a> {
 pub struct ImageWriter {
     /// Where the image ends up.
     path: PathBuf,
-    /// Where the image is written until it is complete.
-    partial: PathBuf,
+    /// Where the image is written until it is complete; removed when dropped, `None` once the
+    /// file has taken the path's place or been removed.
+    partial: Option<TempPath>,
     /// The encoder, `None` once finished or failed.
     encoder: Option<png::StreamWriter<'static, BufWriter<File>>>,
     /// The image's width in pixels.
@@ -134,8 +136,8 @@ pub struct ImageWriter {
 
 /// `BeginImage`: starts a PNG of `width` by `height` pixels at `path`.
 ///
-/// The file is created beside `path` under a temporary name and takes the path's place when
-/// [`finish_image`] completes.
+/// The file is created beside `path` under a temporary name ending in `.part` and takes the
+/// path's place when [`finish_image`] completes.
 ///
 /// # Errors
 ///
@@ -145,12 +147,13 @@ pub fn begin_image(path: &Path, width: u32, height: u32) -> Result<ImageWriter, 
     if width == 0 || height == 0 {
         return Err(OutputError::EmptyImage { width, height });
     }
-    let partial = partial_path(path);
-    let file = File::create(&partial).map_err(|source| OutputError::Io {
-        action: "create",
-        path: partial.clone(),
-        source,
-    })?;
+    let (file, partial) = partial_file(path)
+        .map_err(|source| OutputError::Io {
+            action: "create a file beside",
+            path: path.to_path_buf(),
+            source,
+        })?
+        .into_parts();
     let mut encoder = png::Encoder::new(BufWriter::new(file), width, height);
     encoder.set_color(png::ColorType::Rgba);
     encoder.set_depth(png::BitDepth::Eight);
@@ -162,19 +165,14 @@ pub fn begin_image(path: &Path, width: u32, height: u32) -> Result<ImageWriter, 
     let encoder = encoder
         .write_header()
         .and_then(|writer| writer.into_stream_writer_with_size(row_bytes * ROWS_PER_CHUNK));
-    let encoder = match encoder {
-        Ok(encoder) => encoder,
-        Err(error) => {
-            let _ = fs::remove_file(&partial);
-            return Err(OutputError::Encoding {
-                path: path.to_path_buf(),
-                reason: error.to_string(),
-            });
-        }
-    };
+    // A failure here drops `partial`, which removes the file.
+    let encoder = encoder.map_err(|error| OutputError::Encoding {
+        path: path.to_path_buf(),
+        reason: error.to_string(),
+    })?;
     Ok(ImageWriter {
         path: path.to_path_buf(),
-        partial,
+        partial: Some(partial),
         encoder: Some(encoder),
         width,
         height,
@@ -274,13 +272,13 @@ pub fn write_tile(writer: &mut ImageWriter, tile: Tile<'_>) -> Result<(), Output
     Ok(())
 }
 
-/// `FinishImage`: closes the PNG and moves it to its path.
+/// `FinishImage`: closes the PNG, flushes it to the disk, and moves it to its path.
 ///
 /// # Errors
 ///
 /// [`OutputError::Incomplete`] when rows are still missing, [`OutputError::Encoding`] when the
-/// encoder could not close the file, or [`OutputError::Io`] when the finished file could not
-/// take the path's place. In every case the partial file is removed.
+/// encoder could not close the file, or [`OutputError::Io`] when the finished file could not be
+/// flushed or take the path's place. In every case the partial file is removed.
 pub fn finish_image(mut writer: ImageWriter) -> Result<(), OutputError> {
     let Some(encoder) = writer.encoder.take() else {
         writer.spend();
@@ -303,27 +301,32 @@ pub fn finish_image(mut writer: ImageWriter) -> Result<(), OutputError> {
             reason: error.to_string(),
         });
     }
-    if let Err(source) = fs::rename(&writer.partial, &writer.path) {
-        writer.spend();
-        return Err(OutputError::Io {
-            action: "rename",
+    let Some(partial) = writer.partial.take() else {
+        return Err(OutputError::Encoding {
             path: writer.path.clone(),
-            source,
+            reason: "the writer is spent".to_owned(),
         });
-    }
-    // The file has moved; nothing is left to remove.
-    writer.partial = PathBuf::new();
-    Ok(())
+    };
+    // The encoder owned the file and closed it; the bytes are flushed to the disk through the
+    // path before the file takes the target's place, so a crash right after leaves a whole image.
+    let io = |action: &'static str, source: std::io::Error| OutputError::Io {
+        action,
+        path: writer.path.clone(),
+        source,
+    };
+    File::open(&partial)
+        .and_then(|file| file.sync_all())
+        .map_err(|source| io("flush", source))?;
+    partial
+        .persist(&writer.path)
+        .map_err(|error| io("rename", error.error))
 }
 
 impl ImageWriter {
     /// Drops the encoder and removes the partial file, if any.
     fn spend(&mut self) {
         self.encoder = None;
-        if !self.partial.as_os_str().is_empty() {
-            let _ = fs::remove_file(&self.partial);
-            self.partial = PathBuf::new();
-        }
+        self.partial = None;
     }
 }
 
@@ -344,15 +347,28 @@ impl std::fmt::Debug for ImageWriter {
     }
 }
 
-/// The temporary file an image is written to until it is complete: the path's file name with a
-/// `.part` suffix, in the same directory so the final rename never crosses a file system.
-fn partial_path(path: &Path) -> PathBuf {
-    let mut name = path.file_name().map_or_else(
+/// The temporary file an image is written to until it is complete: the path's file name, a
+/// random infix, and a `.part` suffix, in the same directory so the final rename never crosses a
+/// file system.
+///
+/// # Errors
+///
+/// The error of creating the file.
+fn partial_file(path: &Path) -> std::io::Result<tempfile::NamedTempFile> {
+    let name = path.file_name().map_or_else(
         || std::ffi::OsString::from("image"),
         std::ffi::OsStr::to_os_string,
     );
-    name.push(".part");
-    path.with_file_name(name)
+    let beside = path
+        .parent()
+        .filter(|parent| !parent.as_os_str().is_empty())
+        .unwrap_or(Path::new("."));
+    let mut prefix = name;
+    prefix.push(".");
+    tempfile::Builder::new()
+        .prefix(&prefix)
+        .suffix(".part")
+        .tempfile_in(beside)
 }
 
 #[cfg(test)]
@@ -362,6 +378,17 @@ mod tests {
         reason = "a test stops at the first thing that is not as expected"
     )]
     use super::*;
+    use std::fs;
+
+    /// The files in `dir`, by name.
+    fn files_in(dir: &Path) -> Vec<String> {
+        let mut names: Vec<String> = fs::read_dir(dir)
+            .unwrap()
+            .map(|entry| entry.unwrap().file_name().to_string_lossy().into_owned())
+            .collect();
+        names.sort();
+        names
+    }
 
     /// A tile filled with one colour.
     fn solid(width: u32, height: u32, colour: [u8; 4]) -> Vec<u8> {
@@ -409,7 +436,7 @@ mod tests {
         assert_eq!(pixel(4, 0), blue);
         assert_eq!(pixel(0, 2), blue);
         assert_eq!(pixel(4, 2), red);
-        assert!(!dir.path().join("image.png.part").exists());
+        assert_eq!(files_in(dir.path()), vec!["image.png"]);
     }
 
     #[test]
@@ -417,10 +444,13 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join("image.png");
         let writer = begin_image(&path, 4, 4).unwrap();
-        assert!(dir.path().join("image.png.part").exists());
+        let partial = files_in(dir.path());
+        assert_eq!(partial.len(), 1);
+        assert!(partial[0].starts_with("image.png."));
+        assert_eq!(Path::new(&partial[0]).extension(), Some("part".as_ref()));
         drop(writer);
         assert!(!path.exists());
-        assert!(!dir.path().join("image.png.part").exists());
+        assert!(files_in(dir.path()).is_empty());
     }
 
     #[test]
@@ -448,7 +478,7 @@ mod tests {
             })
         ));
         assert!(!path.exists());
-        assert!(!dir.path().join("image.png.part").exists());
+        assert!(files_in(dir.path()).is_empty());
     }
 
     #[test]

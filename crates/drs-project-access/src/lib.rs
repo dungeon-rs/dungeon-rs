@@ -6,7 +6,9 @@ use drs_model::{
 };
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
+use std::io::Write;
 use std::path::{Path, PathBuf};
+use tempfile::NamedTempFile;
 
 /// The version of the file's own shape; the components inside carry versions of their own.
 pub const FORMAT_VERSION: u32 = 1;
@@ -193,15 +195,16 @@ pub fn read_project(
 /// `WriteProject`: writes `snapshot` to `path` in the current shape, pretty-printed in a fixed
 /// key order.
 ///
-/// The text goes into a temporary file beside the target first and is renamed over it once
-/// complete, so a write that fails leaves whatever was at `path` as it was and never a partial
-/// file.
+/// The text goes into a temporary file beside the target first, is flushed to the disk, and is
+/// renamed over the target once complete, so a write that fails, or a crash during it, leaves
+/// whatever was at `path` as it was and never a partial file; the temporary file is removed
+/// when the write fails.
 ///
 /// # Errors
 ///
 /// [`ProjectAccessError::NotAProject`] when the snapshot cannot be encoded, or
-/// [`ProjectAccessError::Io`] when the temporary file cannot be written or renamed; the
-/// temporary file is removed either way.
+/// [`ProjectAccessError::Io`] when the temporary file cannot be created, written, flushed, or
+/// renamed.
 pub fn write_project(path: &Path, snapshot: &ProjectSnapshot) -> Result<(), ProjectAccessError> {
     let file = ProjectFile::from(snapshot);
     let mut text =
@@ -210,27 +213,22 @@ pub fn write_project(path: &Path, snapshot: &ProjectSnapshot) -> Result<(), Proj
             reason: error.to_string(),
         })?;
     text.push('\n');
-    let temporary = temporary_beside(path);
-    std::fs::write(&temporary, text.as_bytes()).map_err(|source| ProjectAccessError::Io {
-        action: "write",
-        path: temporary.clone(),
-        source,
-    })?;
-    std::fs::rename(&temporary, path).map_err(|source| {
-        // Whether or not the half-written file can be removed, the error that matters is the
-        // rename that failed.
-        drop(std::fs::remove_file(&temporary));
-        ProjectAccessError::Io {
-            action: "replace",
+    let io = |action: &'static str| {
+        move |source: std::io::Error| ProjectAccessError::Io {
+            action,
             path: path.to_path_buf(),
             source,
         }
-    })
-}
-
-/// A file beside `path` that is replaced over it once written.
-fn temporary_beside(path: &Path) -> PathBuf {
-    let mut name = path.file_name().map(ToOwned::to_owned).unwrap_or_default();
-    name.push(".tmp");
-    path.with_file_name(name)
+    };
+    let beside = path
+        .parent()
+        .filter(|parent| !parent.as_os_str().is_empty())
+        .unwrap_or(Path::new("."));
+    let mut temporary = NamedTempFile::new_in(beside).map_err(io("create a file beside"))?;
+    temporary.write_all(text.as_bytes()).map_err(io("write"))?;
+    temporary.as_file().sync_all().map_err(io("flush"))?;
+    temporary
+        .persist(path)
+        .map_err(|error| io("rename")(error.error))?;
+    Ok(())
 }
