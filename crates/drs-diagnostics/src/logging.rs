@@ -12,10 +12,10 @@ use tracing_subscriber::registry::Registry;
 pub type BoxedLayer = Box<dyn Layer<Registry> + Send + Sync + 'static>;
 
 /// The part of a log file's name before its date.
-pub const LOG_FILE_PREFIX: &str = "dungeon-rs";
+const LOG_FILE_PREFIX: &str = "dungeon-rs";
 
 /// The extension of a log file.
-pub const LOG_FILE_SUFFIX: &str = "log";
+const LOG_FILE_SUFFIX: &str = "log";
 
 /// How many daily log files are kept.
 pub const KEPT_LOG_FILES: usize = 7;

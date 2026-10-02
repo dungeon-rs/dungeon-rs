@@ -22,24 +22,17 @@ pub(crate) fn show_logs(state: &mut EditorState, diagnostics: &Diagnostics) {
 /// naming every location tried.
 pub(crate) fn report_bundled_files(mut state: ResMut<EditorState>, diagnostics: Res<Diagnostics>) {
     if let Err(missing) = &diagnostics.0.bundled_files {
-        let tried = missing
-            .tried
-            .iter()
-            .map(|location| location.display().to_string())
-            .collect::<Vec<_>>()
-            .join(", ");
-        state.status = format!("The editor's Bundled Files were not found; tried {tried}");
+        state.status = format!("The editor's Bundled Files were not found: {missing}");
     }
 }
 
 /// Announces, on the main thread, a crash report another thread left: in the status line and
 /// in the crash dialog.
 pub(crate) fn announce_crash(_main_thread: NonSendMarker, mut state: ResMut<EditorState>) {
-    if let Some(report) = drs_diagnostics::take_pending_report() {
+    if let Some(report) = drs_diagnostics::announce_pending() {
         state.status = format!(
             "The editor crashed on another thread; the report is at {}",
             report.path.display()
         );
-        drs_diagnostics::announce(&report);
     }
 }

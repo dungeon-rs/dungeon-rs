@@ -10,12 +10,12 @@ pub use bundle::{
     locate_bundled_files_of_this_executable,
 };
 pub use crash::{
-    CrashHandler, CrashReport, announce, dialogs_possible, install_crash_handler, run_guarded,
-    take_pending_report,
+    CrashHandler, CrashReport, announce_pending, dialogs_possible, install_crash_handler,
+    run_guarded,
 };
 pub use logging::{
-    BoxedLayer, DEFAULT_LEVEL, KEPT_LOG_FILES, LOG_FILE_PREFIX, LOG_FILE_SUFFIX, LogDirectives,
-    Logging, LoggingError, log_directives, log_directory, start_logging, take_layer,
+    BoxedLayer, DEFAULT_LEVEL, KEPT_LOG_FILES, LogDirectives, Logging, LoggingError,
+    log_directives, log_directory, start_logging, take_layer,
 };
 pub use reveal::{RevealError, reveal_logs};
 

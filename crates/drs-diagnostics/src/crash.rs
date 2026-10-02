@@ -33,6 +33,9 @@ pub struct CrashReport {
     pub log_file: Option<PathBuf>,
 }
 
+/// What the dialog and the report say for the log file when logging went to the terminal only.
+const NO_LOG_FILE: &str = "none: logging went to the terminal only";
+
 /// The handler installed, and the main thread's identity.
 static INSTALLED: Mutex<Option<Installed>> = Mutex::new(None);
 
@@ -84,7 +87,7 @@ pub fn dialogs_possible() -> bool {
 /// any thread then writes a report named `crash-<UTC timestamp>.txt` in the log directory, or
 /// in the platform's temporary directory when the log directory cannot be written; prints its
 /// path to the terminal; logs it at `error`; and, when dialogs are on, shows the dialog at once
-/// on the main thread, or otherwise leaves the report pending for [`take_pending_report`]. A
+/// on the main thread, or otherwise leaves the report pending for [`announce_pending`]. A
 /// panic inside the hook itself, as from a closed terminal or a dialog that cannot open, is
 /// caught and changes nothing else. Installing again replaces the set-up; the hook itself is
 /// installed once per process.
@@ -107,20 +110,21 @@ pub fn install_crash_handler(handler: CrashHandler) {
     });
 }
 
-/// A report written on another thread that has not been announced yet, if any.
-///
-/// The Editor asks each frame on the main thread and announces what it gets.
-#[must_use]
-pub fn take_pending_report() -> Option<CrashReport> {
-    PENDING
+/// Announces a report written on another thread that has not been announced yet, if any: shows
+/// the dialog that says the editor crashed and names the report and the log file, when dialogs
+/// are on, and hands the report back for the status line. Called on the main thread; the
+/// Editor asks each frame.
+pub fn announce_pending() -> Option<CrashReport> {
+    let report = PENDING
         .lock()
         .unwrap_or_else(PoisonError::into_inner)
-        .pop_front()
+        .pop_front()?;
+    show_dialog(&report);
+    Some(report)
 }
 
-/// Shows the dialog that says the editor crashed and names the report and the log file, when
-/// dialogs are on; shows nothing otherwise. Called on the main thread.
-pub fn announce(report: &CrashReport) {
+/// Shows the dialog for `report` when dialogs are on; shows nothing otherwise.
+fn show_dialog(report: &CrashReport) {
     let Some(product) = INSTALLED
         .lock()
         .unwrap_or_else(PoisonError::into_inner)
@@ -131,10 +135,10 @@ pub fn announce(report: &CrashReport) {
         return;
     };
     let name = product.name;
-    let log_file = report.log_file.as_ref().map_or_else(
-        || "none: logging went to the terminal only".to_owned(),
-        |file| file.display().to_string(),
-    );
+    let log_file = report
+        .log_file
+        .as_ref()
+        .map_or_else(|| NO_LOG_FILE.to_owned(), |file| file.display().to_string());
     let dialog = rfd::MessageDialog::new()
         .set_level(rfd::MessageLevel::Error)
         .set_title(format!("{name} crashed"))
@@ -155,9 +159,7 @@ pub fn announce(report: &CrashReport) {
 /// panic does.
 pub fn run_guarded<R>(run: impl FnOnce() -> R) -> R {
     let outcome = std::panic::catch_unwind(AssertUnwindSafe(run));
-    if let Some(report) = take_pending_report() {
-        announce(&report);
-    }
+    announce_pending();
     match outcome {
         Ok(result) => result,
         Err(payload) => std::panic::resume_unwind(payload),
@@ -210,11 +212,8 @@ fn announce_at_once() {
         .unwrap_or_else(PoisonError::into_inner)
         .as_ref()
         .is_some_and(|installed| installed.main_thread == std::thread::current().id());
-    if !on_main_thread {
-        return;
-    }
-    if let Some(report) = take_pending_report() {
-        announce(&report);
+    if on_main_thread {
+        announce_pending();
     }
 }
 
@@ -269,10 +268,8 @@ fn report_text(
         "\n## Backtrace\n{}",
         std::backtrace::Backtrace::force_capture()
     );
-    let log_file = log_file.map_or_else(
-        || "none: logging went to the terminal only".to_owned(),
-        |file| file.display().to_string(),
-    );
+    let log_file =
+        log_file.map_or_else(|| NO_LOG_FILE.to_owned(), |file| file.display().to_string());
     let _ = writeln!(text, "\n## Log file\n{log_file}");
     text
 }

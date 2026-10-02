@@ -6,7 +6,7 @@
     reason = "a test and its fixtures stop at the first thing that is not as expected"
 )]
 
-use drs_diagnostics::{CrashHandler, Product, install_crash_handler, take_pending_report};
+use drs_diagnostics::{CrashHandler, Product, announce_pending, install_crash_handler};
 use std::fs;
 use std::os::unix::fs::PermissionsExt as _;
 use tempfile::TempDir;
@@ -42,7 +42,7 @@ fn an_unwritable_log_directory_sends_the_report_to_the_temporary_directory() {
     });
     assert!(worker.join().is_err());
 
-    let report = take_pending_report().expect("the report left pending");
+    let report = announce_pending().expect("the report left pending");
     let temporary = std::env::temp_dir()
         .canonicalize()
         .expect("the temporary directory");

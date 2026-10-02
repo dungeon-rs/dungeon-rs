@@ -34,10 +34,10 @@ and to announce a pending crash report.
   backtrace, and the current log file, and nothing else about the Author.
   The path is printed to the terminal and logged at `error` before any
   dialog. On the main thread the dialog is shown at once; on another thread
-  the report waits for [`take_pending_report`](crate::take_pending_report),
-  which the Editor asks each frame and answers with [`announce`](crate::announce),
-  and [`run_guarded`](crate::run_guarded) announces what is still pending
-  when the editor ends. With `dialogs` off nothing is shown, for tests and
+  the report waits for [`announce_pending`](crate::announce_pending), which
+  the Editor calls each frame to show the dialog and get the report for the
+  status line, and [`run_guarded`](crate::run_guarded) announces what is
+  still pending when the editor ends. With `dialogs` off nothing is shown, for tests and
   headless runs; [`dialogs_possible`](crate::dialogs_possible) tells the Host
   when that is: never on a continuous-integration run (`CI` set), when
   `DRS_NO_DIALOGS` is set, on Linux without a display, or, in development,

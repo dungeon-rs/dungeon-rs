@@ -8,8 +8,8 @@
 )]
 
 use drs_diagnostics::{
-    CrashHandler, Product, install_crash_handler, log_directives, start_logging, take_layer,
-    take_pending_report,
+    CrashHandler, Product, announce_pending, install_crash_handler, log_directives, start_logging,
+    take_layer,
 };
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -199,14 +199,14 @@ fn the_report_comes_first() {
     crash_on_a_thread(message.clone());
 
     let (path, _) = report_holding(&fixture.logs, &message);
-    let pending = take_pending_report().expect("the report left pending");
+    let pending = announce_pending().expect("the report left pending");
     assert_eq!(pending.path, path);
     assert_eq!(pending.message, message);
     assert_eq!(
         pending.log_file.as_deref(),
         Some(fixture.log_file.as_path())
     );
-    assert!(take_pending_report().is_none());
+    assert!(announce_pending().is_none());
 }
 
 /// Installed without dialogs, the handler writes and logs the report and shows nothing: the
