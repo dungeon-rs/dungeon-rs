@@ -15,7 +15,9 @@ use serde::{Deserialize, Serialize};
 #[reflect(Component)]
 #[require(Grid, Bounds, AssetReferences, ResolutionTable)]
 pub struct Project {
-    /// The name the Author knows the Project by: the name of its file, or `Untitled`.
+    /// The name the Author knows the Project by: the name of its file, or `Untitled`. It is the
+    /// file's, so it is not written into the file; a Project read from a file is named after it.
+    #[serde(skip)]
     pub name: String,
 }
 
