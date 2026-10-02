@@ -243,9 +243,9 @@ fn menu_bar(ctx: &egui::Context, root: &mut egui::Ui, editor: &mut Editor) {
                     pick_folder(&mut editor.state);
                 }
             });
-            // Neither is offered while an Element or a handle is being dragged or a Wall drawn,
-            // as each is one step still being made, nor while an Export runs, so the image is of
-            // one Level.
+            // Neither is offered while an Element or a handle is being dragged, a Wall drawn, or
+            // an option held while it changes, as each is one step still being made, nor while an
+            // Export runs, so the image is of one Level.
             let settled = !editor.state.step_under_way() && !editor.state.exporting;
             ui.menu_button("Edit", |ui| {
                 let undo = egui::Button::new("Undo")

@@ -118,6 +118,12 @@ impl WallTool {
         double
     }
 
+    /// Whether an option is being changed as a gesture: the thickness is being dragged, or a
+    /// colour was picked while the picker is open.
+    pub(crate) fn option_in_progress(&self) -> bool {
+        self.option.is_some()
+    }
+
     /// The selected handle of `element`, if one is selected.
     pub(crate) fn handle_of(&self, element: ElementId) -> Option<WallHandle> {
         self.handle

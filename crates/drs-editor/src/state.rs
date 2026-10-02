@@ -62,10 +62,10 @@ impl EditorState {
         )
     }
 
-    /// Whether a step is still being made, by a drag or by a Wall being drawn, so undo and redo
-    /// wait.
+    /// Whether a step is still being made, by a drag, by a Wall being drawn, or by an option
+    /// held while it changes, so undo and redo wait.
     pub fn step_under_way(&self) -> bool {
-        self.dragging() || self.walls.drawing_in_progress()
+        self.dragging() || self.walls.drawing_in_progress() || self.walls.option_in_progress()
     }
 }
 

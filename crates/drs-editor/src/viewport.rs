@@ -415,8 +415,8 @@ fn zoom_and_scroll(input: &mut Input, viewport: &mut Viewport, cursor: Vec2) {
 /// straightens the selected control point's segment, or removes the selected Element, and the
 /// platform's usual shortcuts undo and redo. Nothing happens while egui has the keyboard, so a
 /// text field keeps its own editing keys, nor while an Export runs, and undo and redo wait while
-/// an Element or a handle is being dragged or a Wall is being drawn, since each is one step that
-/// is still being made.
+/// an Element or a handle is being dragged, a Wall is being drawn, or an option is held while it
+/// changes, since each is one step that is still being made.
 pub(crate) fn keys(
     keys: Res<ButtonInput<KeyCode>>,
     egui: Res<EguiWantsInput>,
