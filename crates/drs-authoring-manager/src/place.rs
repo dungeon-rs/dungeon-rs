@@ -12,7 +12,7 @@ use drs_library_access::load_asset;
 use drs_model::{
     AssetAddress, AssetFolder, AssetFolderReference, AssetReference, AssetReferences, Element,
     ElementId, Grid, IndexedAsset, Layer, PORTAL, PROP, PlaceElement, Placement, Portal, Project,
-    Prop, Wall,
+    Prop, Room, Wall,
 };
 use std::path::PathBuf;
 use unicode_normalization::UnicodeNormalization;
@@ -169,13 +169,13 @@ pub(crate) fn take_off(world: &mut World, element: ElementId) -> Result<(), Bevy
     Ok(())
 }
 
-/// Place Element: places a Prop or a Portal of the chosen Asset or a Wall through the given
-/// points on top of the Layer, as one history step.
+/// Place Element: places a Prop or a Portal of the chosen Asset, or a Wall or a Room through the
+/// given points, on top of the Layer, as one history step.
 ///
 /// # Errors
 ///
 /// [`AuthoringError::NotALayer`] when the Layer is not one, and whatever placing the Prop, the
-/// Portal, or the Wall reports.
+/// Portal, the Wall, or the Room reports.
 pub(crate) fn place_element(
     world: &mut World,
     command: &PlaceElement,
@@ -198,6 +198,16 @@ pub(crate) fn place_element(
             world,
             command.layer,
             Wall::straight(points.clone(), *thickness, *colour),
+        ),
+        Placement::Room {
+            points,
+            thickness,
+            wall_colour,
+            floor_colour,
+        } => crate::room::place_room(
+            world,
+            command.layer,
+            Room::straight(points.clone(), *thickness, *wall_colour, *floor_colour),
         ),
     }
 }

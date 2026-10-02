@@ -23,7 +23,11 @@ pub(crate) fn remove_point(
     let before = wall_of(world, element)?;
     let points = before.points.len();
     if index >= points {
-        return Err(AuthoringError::NoPoint { index, points });
+        return Err(AuthoringError::NoPoint {
+            outline: "Wall",
+            index,
+            points,
+        });
     }
     if points <= 2 {
         return remove_with_portals(world, element);
@@ -45,7 +49,7 @@ pub(crate) fn remove_point(
         gone.clone(),
         Reshape {
             element,
-            wall,
+            outline: wall,
             previous: None,
         },
         moves,
@@ -53,10 +57,10 @@ pub(crate) fn remove_point(
     Ok(removed(element, gone))
 }
 
-fn record_together(
+pub(crate) fn record_together(
     world: &mut World,
     gone: Vec<ElementId>,
-    reshape: Reshape,
+    reshape: impl ReversibleCommand,
     moves: Vec<SetField<ElementId>>,
 ) -> Result<(), AuthoringError> {
     if gone.is_empty() && moves.is_empty() {
@@ -75,7 +79,7 @@ fn record_together(
 }
 
 /// The answer naming the Portals set into `host` that a Command removed, when it removed any.
-fn removed(host: ElementId, portals: Vec<ElementId>) -> Option<PortalsRemoved> {
+pub(crate) fn removed(host: ElementId, portals: Vec<ElementId>) -> Option<PortalsRemoved> {
     (!portals.is_empty()).then_some(PortalsRemoved { host, portals })
 }
 ```

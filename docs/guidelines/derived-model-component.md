@@ -31,9 +31,10 @@ pub(crate) struct DerivedFrom {
 
 pub(crate) fn derive_shapes(
     mut commands: Commands,
-    changed_walls: Query<(), Changed<Wall>>,
+    changed_outlines: Query<(), Or<(Changed<Wall>, Changed<Room>)>>,
     mut removed_portals: RemovedComponents<Portal>,
     mut walls: Walls,
+    mut rooms: Rooms,
     mut portals: Portals,
     parents: Query<&ChildOf>,
     levels: Query<(), With<Level>>,
@@ -43,13 +44,14 @@ pub(crate) fn derive_shapes(
     let portal_changed = portals
         .iter_mut()
         .any(|(_, _, portal, _)| portal.is_changed());
-    if changed_walls.is_empty() && !portal_changed && !removed {
+    if changed_outlines.is_empty() && !portal_changed && !removed {
         return;
     }
     let parent_of = |child: Entity| parents.get(child).ok().map(ChildOf::parent);
     let level_of = |entity: Entity| ancestor(entity, parent_of, |parent| levels.contains(parent));
-    let set = set_by_host(&walls, &portals, level_of);
-    let standings = reshape_walls(&mut commands, &mut walls, &set);
+    let set = set_by_host(&walls, &rooms, &portals, level_of);
+    let mut standings = reshape_walls(&mut commands, &mut walls, &set);
+    standings.append(&mut reshape_rooms(&mut commands, &mut rooms, &set));
 }
 
 /// Derives again the shape of every Wall whose points, segments, or thickness, or whose set

@@ -4,29 +4,35 @@ The Manager that applies the Author's Commands to the Level: Place Element, Edit
 Remove Element, Set Portal into Wall, Free Portal, and Paint, each recorded in the history so
 that it can be undone and redone.
 
-A Place Element puts a Prop or a Portal of a chosen Asset, or a Wall through given points, on top
-of its Layer; a Portal comes at its image's natural size, set into a Wall when the placement
-anchors it and freestanding otherwise. An Edit Element moves an Element, and on a Wall also moves
+A Place Element puts a Prop or a Portal of a chosen Asset, or a Wall or a Room through given
+points, on top of its Layer; a Portal comes at its image's natural size, set into a Wall or a
+Room when the placement anchors it and freestanding otherwise. An Edit Element moves an Element, and on a Wall also moves
 a point, bends or straightens a segment, adds or removes a point, or sets the thickness or the
 colour; a drag sent as a gesture is one step. Moving a point, bending, and the properties go
 through the history's generic field command; adding and removing a point, the only edits that
 renumber a Wall's segments, are a step of their own, and removing a point from a Wall of two
-points removes the Wall. An Edit Element also changes a Portal's width, a freestanding Portal's
+points removes the Wall. A Room is edited as a Wall is, its edges in place of the segments, the
+edge from its last point back to its first included, and its floor colour besides; removing a
+point joins the two edges at it into one straight edge, and removing a point from a Room of three
+points removes the Room. An Edit Element also changes a Portal's width, a freestanding Portal's
 position, rotation, and mirroring, and a set Portal's side and place along its Wall. Set Portal
-into Wall anchors a Portal to a place along a Wall, and Free Portal clears the anchor, leaving it
-where it stands. Adding or removing a Wall's point moves the anchors of the Portals set into it in
-the same step, so none moves on the Level, and removes those whose part of the Wall goes; removing
-a Wall removes its Portals with it, and either removal is answered with a `PortalsRemoved` message
-naming them.
+into Wall anchors a Portal to a place along a Wall or a Room's Walls, and Free Portal clears the
+anchor, leaving it where it stands. Adding or removing a point of a Wall or a Room moves the
+anchors of the Portals set into it in the same step, so none moves on the Level, and removes
+those whose part of it goes; removing a Wall or a Room removes its Portals with it, and either
+removal is answered with a `PortalsRemoved` message naming them. A Command recorded as several
+steps that fails halfway is taken back whole.
 
 Once every Manager has handled the frame's Commands, Undo, and Redo, the Manager derives the shape
-of every Wall whose points, segments, or thickness changed, or whose Portals changed, through the
-shape Engine, leaving out the stretches its Portals cover, and sets the Element's box around its
-points; a new colour keeps the shape. It moves each Portal set into such a Wall to where its
-anchor puts it, turned to the Wall and mirrored when it faces the right, and sets every changed
-Portal's size from its width and its image's proportions. A Portal whose anchor names no Wall of
-its Level, or a segment its Wall lacks, stands where it was saved, and a point added to its Wall
-moves its anchor past the new segment, so it goes on standing there.
+of every Wall and every Room whose points, segments or edges, or thickness changed, or whose
+Portals changed, through the shape Engine, a Room's floor with its Walls, leaving out the
+stretches its Portals cover, and sets the Element's box around its points; a new colour keeps
+the shape. It moves each Portal set into such a Wall or Room to where its anchor puts it, turned
+to the line and mirrored when it faces the right, and sets every changed Portal's size from its
+width and its image's proportions. A Portal whose anchor names no Wall or Room of its Level, or a
+part its host lacks, stands where it was saved and is moved, turned, and mirrored as a
+freestanding one, and a point added to its host moves its anchor past the new part, so it goes
+on standing there.
 
 A Paint lays one stroke on the topmost Terrain of its Layer as one step that undo takes off the
 end again; on a Layer with no Terrain it places one of the chosen Asset's image under every

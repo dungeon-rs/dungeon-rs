@@ -203,45 +203,61 @@ pub enum Placement {
         /// The colour it is drawn in.
         colour: Colour,
     },
+    /// A Room through points, closed from the last back to the first, every edge straight.
+    Room {
+        /// The points in Grid cells, in order; three or more.
+        points: Vec<Vec2>,
+        /// How wide its Walls are drawn, in Grid cells; above zero.
+        thickness: f32,
+        /// The colour its Walls are drawn in.
+        wall_colour: Colour,
+        /// The colour its floor is drawn in.
+        floor_colour: Colour,
+    },
 }
 
 /// A property change of an Element.
 #[derive(Debug, Clone, PartialEq)]
 pub enum ElementChange {
-    /// Move the Element's centre to a position in Grid cells; a Wall moves every point and
-    /// control point by the same amount.
+    /// Move the Element's centre to a position in Grid cells; a Wall or a Room moves every point
+    /// and control point by the same amount.
     Position(Vec2),
-    /// Move one point of a Wall, leaving every other point and every control point where it is.
+    /// Move one point of a Wall or a Room, leaving every other point and every control point
+    /// where it is.
     Point {
         /// Which point, counted from zero.
         index: usize,
         /// Where it goes, in Grid cells.
         position: Vec2,
     },
-    /// Bend a segment of a Wall through a control point, or make it straight.
+    /// Bend a segment of a Wall or an edge of a Room through a control point, or make it
+    /// straight.
     Control {
-        /// Which segment, counted from zero.
+        /// Which segment or edge, counted from zero.
         segment: usize,
         /// The control point in Grid cells, or `None` to make the segment straight.
         position: Option<Vec2>,
     },
-    /// Add a point on a segment of a Wall, splitting it into two segments of the same shape.
+    /// Add a point on a segment of a Wall or an edge of a Room, splitting it into two of the
+    /// same shape.
     AddPoint {
-        /// Which segment, counted from zero.
+        /// Which segment or edge, counted from zero.
         segment: usize,
         /// Where along it, between zero at its first point and one at its second.
         t: f32,
     },
-    /// Remove a point of a Wall, joining the segments at it into one straight segment; a Wall of
-    /// two points is removed whole.
+    /// Remove a point of a Wall or a Room, joining the segments or edges at it into one straight
+    /// one; a Wall of two points and a Room of three are removed whole.
     RemovePoint {
         /// Which point, counted from zero.
         index: usize,
     },
-    /// Set a Wall's thickness in Grid cells; above zero.
+    /// Set a Wall's or a Room's wall thickness in Grid cells; above zero.
     Thickness(f32),
-    /// Set a Wall's colour.
+    /// Set a Wall's colour, or a Room's wall colour.
     Colour(Colour),
+    /// Set a Room's floor colour.
+    FloorColour(Colour),
     /// Set a Portal's width in Grid cells, its height following its image's proportions; above
     /// zero.
     Width(f32),
@@ -249,11 +265,11 @@ pub enum ElementChange {
     Rotation(f32),
     /// Mirror a freestanding Portal across its length, or not.
     Mirrored(bool),
-    /// Turn a Portal set into a Wall to face a side.
+    /// Turn a Portal set into a Wall or a Room to face a side.
     Side(Side),
-    /// Slide a Portal set into a Wall to another place along it.
+    /// Slide a Portal set into a Wall or a Room to another place along it.
     Along {
-        /// Which segment, counted from zero.
+        /// Which segment of the Wall or edge of the Room, counted from zero.
         segment: usize,
         /// Where along it, from zero at its first point to one at its second.
         t: f32,
@@ -293,12 +309,13 @@ pub struct RemoveElement {
     pub element: ElementId,
 }
 
-/// Anchor a Portal, freestanding or set into any Wall, to a place along a Wall.
+/// Anchor a Portal, freestanding or set into any Wall or Room, to a place along a Wall or a
+/// Room's Walls.
 #[derive(Debug, Clone, PartialEq)]
 pub struct SetPortalIntoWall {
     /// Which Portal.
     pub portal: ElementId,
-    /// Where it is set: the Wall, the segment, the parameter, and the side.
+    /// Where it is set: the Wall or the Room, the segment or edge, the parameter, and the side.
     pub anchor: PortalAnchor,
 }
 
@@ -309,13 +326,14 @@ pub struct FreePortal {
     pub portal: ElementId,
 }
 
-/// A Command removed the Portals set into a part of a Wall that it removed, in the same step.
+/// A Command removed the Portals set into a part of a Wall or a Room that it removed, in the same
+/// step.
 ///
 /// Sent by the authoring Manager after the Command, for the Editor to tell the Author how many
 /// went.
 #[derive(Message, Debug, Clone, PartialEq, Eq)]
 pub struct PortalsRemoved {
-    /// The Wall the Portals were set into.
+    /// The Wall or the Room the Portals were set into.
     pub host: ElementId,
     /// The Portals removed.
     pub portals: Vec<ElementId>,

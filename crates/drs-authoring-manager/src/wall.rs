@@ -1,25 +1,27 @@
 //! Walls: placing one, the edits that add and remove its points and carry the Portals set into
-//! it, and the shape derived from it and from those Portals.
+//! it, the steps those edits share with a Room's, and the shape derived from every Wall and Room
+//! and from the Portals set into them.
 
 use crate::AuthoringError;
 use crate::ancestor;
 use crate::place::{spawn_on_top, take_off};
-use crate::portal::{Anchored, anchored_to, sets_into, stood};
+use crate::portal::{Anchored, Host, anchored_to, sets_into, stood};
 use crate::remove::Remove;
+use crate::room::{Rooms, reshape_rooms};
 use bevy_ecs::change_detection::{DetectChanges, Mut};
-use bevy_ecs::component::Component;
+use bevy_ecs::component::{Component, Mutable};
 use bevy_ecs::entity::Entity;
 use bevy_ecs::error::BevyError;
 use bevy_ecs::hierarchy::ChildOf;
 use bevy_ecs::lifecycle::RemovedComponents;
-use bevy_ecs::query::{Changed, With, Without};
+use bevy_ecs::query::{Changed, Or, With, Without};
 use bevy_ecs::system::{Commands, Query};
 use bevy_ecs::world::World;
 use bevy_math::Vec2;
 use drs_history::{ReversibleCommand, SetField, Target};
 use drs_model::{
     AssetReferences, Element, ElementId, Level, LinePlace, Portal, PortalAnchor, PortalsRemoved,
-    Segment, WALL, Wall, WallShape,
+    Room, Segment, WALL, Wall, WallShape,
 };
 use drs_shape_engine::{
     PointEdit, PortalSetting, Standing, anchor_portals, anchor_portals_through, generate_walls,
@@ -83,26 +85,27 @@ pub(crate) fn place_wall(
     )
 }
 
-/// The recorded step of adding or removing a point: the Wall as it becomes and as it was, the
-/// control points of the segments it joins or splits included, so that undo restores it exactly.
+/// The recorded step of adding or removing a point: the Wall or the Room as it becomes and as it
+/// was, the control points of the segments or edges it joins or splits included, so that undo
+/// restores it exactly.
 ///
-/// These are the only steps that renumber a Wall's segments.
-struct Reshape {
-    /// The identity of the Wall.
-    element: ElementId,
-    /// The Wall after the step.
-    wall: Wall,
-    /// The Wall before the step, once applied.
-    previous: Option<Wall>,
+/// These are the only steps that renumber a Wall's segments or a Room's edges.
+pub(crate) struct Reshape<C> {
+    /// The identity of the Wall or the Room.
+    pub(crate) element: ElementId,
+    /// The Wall or the Room after the step.
+    pub(crate) outline: C,
+    /// The Wall or the Room before the step, once applied.
+    pub(crate) previous: Option<C>,
 }
 
-impl ReversibleCommand for Reshape {
+impl<C: Component<Mutability = Mutable> + Clone> ReversibleCommand for Reshape<C> {
     fn apply(&mut self, world: &mut World) -> Result<(), BevyError> {
         let entity = self.element.entity(world)?;
-        let mut wall = world
-            .get_mut::<Wall>(entity)
+        let mut outline = world
+            .get_mut::<C>(entity)
             .ok_or(AuthoringError::NotAWall(self.element))?;
-        let previous = std::mem::replace(&mut *wall, self.wall.clone());
+        let previous = std::mem::replace(&mut *outline, self.outline.clone());
         if self.previous.is_none() {
             self.previous = Some(previous);
         }
@@ -115,7 +118,7 @@ impl ReversibleCommand for Reshape {
         };
         let entity = self.element.entity(world)?;
         *world
-            .get_mut::<Wall>(entity)
+            .get_mut::<C>(entity)
             .ok_or(AuthoringError::NotAWall(self.element))? = previous.clone();
         Ok(())
     }
@@ -183,16 +186,38 @@ pub(crate) fn add_point(
 ) -> Result<(), AuthoringError> {
     let before = wall_of(world, element)?;
     let wall = split_wall(&before, segment, t)?;
-    // A Portal anchored at a segment the Wall lacks lies past every segment, so it moves one on
-    // like a Portal on a later segment and never comes to name the new one: it keeps standing
-    // where it was saved.
-    let (set, lost) = anchored_to(world, element);
+    let moves = carried_past(world, element, &Host::Wall(before), segment, t)?;
+    record_together(
+        world,
+        Vec::new(),
+        Reshape {
+            element,
+            outline: wall,
+            previous: None,
+        },
+        moves,
+    )
+}
+
+/// The anchor moves that keep every Portal anchored to `host` where it was when a point is added
+/// on `part` at `t`, `before` being the host as it was.
+///
+/// # Errors
+///
+/// [`AuthoringError::History`] when an anchor cannot be addressed.
+pub(crate) fn carried_past(
+    world: &mut World,
+    host: ElementId,
+    before: &Host,
+    part: usize,
+    t: f32,
+) -> Result<Vec<SetField<ElementId>>, AuthoringError> {
+    // A Portal anchored at a part the host lacks lies past every part, so it moves one on like a
+    // Portal on a later part and never comes to name the new one: it keeps standing where it was
+    // saved.
+    let (set, lost) = anchored_to(world, host);
     let anchored: Vec<Anchored> = set.into_iter().chain(lost).collect();
-    let places = anchor_portals_through(
-        &before,
-        PointEdit::Added { segment, t },
-        &settings(&anchored),
-    );
+    let places = before.anchor_through(PointEdit::Added { segment: part, t }, &settings(&anchored));
     let mut moves = Vec::new();
     for ((portal, anchor, _), place) in anchored.iter().zip(places) {
         if let Some(place) = place
@@ -201,16 +226,7 @@ pub(crate) fn add_point(
             moves.push(field);
         }
     }
-    record_together(
-        world,
-        Vec::new(),
-        Reshape {
-            element,
-            wall,
-            previous: None,
-        },
-        moves,
-    )
+    Ok(moves)
 }
 
 /// Removes a point of a Wall as one history step: the two segments at an inner point join into
@@ -233,7 +249,11 @@ pub(crate) fn remove_point(
     let before = wall_of(world, element)?;
     let points = before.points.len();
     if index >= points {
-        return Err(AuthoringError::NoPoint { index, points });
+        return Err(AuthoringError::NoPoint {
+            outline: "Wall",
+            index,
+            points,
+        });
     }
     if points <= 2 {
         return remove_with_portals(world, element);
@@ -263,7 +283,7 @@ pub(crate) fn remove_point(
         gone.clone(),
         Reshape {
             element,
-            wall,
+            outline: wall,
             previous: None,
         },
         moves,
@@ -271,8 +291,8 @@ pub(crate) fn remove_point(
     Ok(removed(element, gone))
 }
 
-/// Removes a Wall and every Portal set into it as one history step, the Portals first, so undo
-/// restores the Wall and then its Portals. Returns the answer naming the Portals that went, when
+/// Removes a Wall or a Room and every Portal set into it as one history step, the Portals first,
+/// so undo restores the host and then its Portals. Returns the answer naming the Portals that went, when
 /// any did.
 ///
 /// # Errors
@@ -297,8 +317,8 @@ pub(crate) fn remove_with_portals(
     Ok(removed(element, gone))
 }
 
-/// What `AnchorPortals` is told about the Portals set into a Wall.
-fn settings(portals: &[Anchored]) -> Vec<PortalSetting> {
+/// What `AnchorPortals` is told about the Portals set into a Wall or a Room.
+pub(crate) fn settings(portals: &[Anchored]) -> Vec<PortalSetting> {
     portals
         .iter()
         .map(|(_, anchor, width)| PortalSetting {
@@ -309,13 +329,14 @@ fn settings(portals: &[Anchored]) -> Vec<PortalSetting> {
         .collect()
 }
 
-/// The field command that moves a Portal's anchor to another place along its Wall, its side
-/// kept, or `None` when the place is the one it has, so a step records no change that is none.
+/// The field command that moves a Portal's anchor to another place along its Wall or Room, its
+/// side kept, or `None` when the place is the one it has, so a step records no change that is
+/// none.
 ///
 /// # Errors
 ///
 /// [`AuthoringError::History`] when the anchor cannot be addressed.
-fn moved(
+pub(crate) fn moved(
     portal: ElementId,
     anchor: PortalAnchor,
     place: LinePlace,
@@ -336,18 +357,18 @@ fn moved(
     .map_err(|error| AuthoringError::History(error.to_string()))
 }
 
-/// Records the removal of the Portals `gone`, a reshape of their Wall, and the moves of the
-/// Portals that stay as one history step, in that order, so undo restores the Wall's points
+/// Records the removal of the Portals `gone`, a reshape of their Wall or Room, and the moves of
+/// the Portals that stay as one history step, in that order, so undo restores the host's points
 /// before its Portals. With no Portal involved the reshape is a step of its own.
 ///
 /// # Errors
 ///
 /// [`AuthoringError::History`] when a command could not be applied; what was applied before it
 /// is taken back, so nothing of the step is left.
-fn record_together(
+pub(crate) fn record_together(
     world: &mut World,
     gone: Vec<ElementId>,
-    reshape: Reshape,
+    reshape: impl ReversibleCommand,
     moves: Vec<SetField<ElementId>>,
 ) -> Result<(), AuthoringError> {
     if gone.is_empty() && moves.is_empty() {
@@ -366,7 +387,7 @@ fn record_together(
 }
 
 /// The answer naming the Portals set into `host` that a Command removed, when it removed any.
-fn removed(host: ElementId, portals: Vec<ElementId>) -> Option<PortalsRemoved> {
+pub(crate) fn removed(host: ElementId, portals: Vec<ElementId>) -> Option<PortalsRemoved> {
     (!portals.is_empty()).then_some(PortalsRemoved { host, portals })
 }
 
@@ -409,7 +430,7 @@ type Walls<'w, 's> = Query<
         Option<&'static mut WallShape>,
         Option<&'static DerivedFrom>,
     ),
-    Without<Portal>,
+    (Without<Portal>, Without<Room>),
 >;
 
 /// The Portals as deriving reads and writes them.
@@ -422,27 +443,29 @@ type Portals<'w, 's> = Query<
         &'static mut Portal,
         &'static mut Element,
     ),
-    Without<Wall>,
+    (Without<Wall>, Without<Room>),
 >;
 
-/// Derives the shape of every Wall whose points, segments, or thickness changed since the last
-/// frame, or whose Portals were placed, edited, set, freed, or removed, through the shape
-/// Engine, and sets its Element's box around its points; moves each Portal set into such a Wall
-/// to where its anchor puts it, turned to the Wall's direction there and mirrored when it faces
-/// the right; and sets every changed Portal's size from its width and its image's recorded pixel
-/// size.
+/// Derives the shape of every Wall and every Room whose points, segments or edges, or thickness
+/// changed since the last frame, or whose Portals were placed, edited, set, freed, or removed,
+/// through the shape Engine, and sets its Element's box around its points; moves each Portal set
+/// into such a Wall or Room to where its anchor puts it, turned to the line's direction there and
+/// mirrored when it faces the right; and sets every changed Portal's size from its width and its
+/// image's recorded pixel size.
 ///
-/// A Portal whose anchor names no Wall of its Level, or a segment its Wall lacks, is left as it
-/// is and leaves no gap.
+/// A Portal whose anchor names no Wall or Room of its Level, or a part its host lacks, is left as
+/// it is and leaves no gap.
 #[expect(
     clippy::too_many_arguments,
+    clippy::type_complexity,
     reason = "a Bevy system is spelled out by the components it reads and writes"
 )]
 pub(crate) fn derive_shapes(
     mut commands: Commands,
-    changed_walls: Query<(), Changed<Wall>>,
+    changed_outlines: Query<(), Or<(Changed<Wall>, Changed<Room>)>>,
     mut removed_portals: RemovedComponents<Portal>,
     mut walls: Walls,
+    mut rooms: Rooms,
     mut portals: Portals,
     parents: Query<&ChildOf>,
     levels: Query<(), With<Level>>,
@@ -453,13 +476,14 @@ pub(crate) fn derive_shapes(
     let portal_changed = portals
         .iter_mut()
         .any(|(_, _, portal, _)| portal.is_changed());
-    if changed_walls.is_empty() && !portal_changed && !removed {
+    if changed_outlines.is_empty() && !portal_changed && !removed {
         return;
     }
     let parent_of = |child: Entity| parents.get(child).ok().map(ChildOf::parent);
     let level_of = |entity: Entity| ancestor(entity, parent_of, |parent| levels.contains(parent));
-    let set = set_by_host(&walls, &portals, level_of);
-    let standings = reshape_walls(&mut commands, &mut walls, &set);
+    let set = set_by_host(&walls, &rooms, &portals, level_of);
+    let mut standings = reshape_walls(&mut commands, &mut walls, &set);
+    standings.append(&mut reshape_rooms(&mut commands, &mut rooms, &set));
     let anchors: BTreeMap<ElementId, PortalAnchor> = set
         .values()
         .flatten()
@@ -531,9 +555,9 @@ fn reshape_walls(
     standings
 }
 
-/// Keeps a Portal set into a Wall where its anchor puts it: at `standing`, turned to the Wall's
-/// direction there, when its Wall was derived again, and facing its side in any case, since the
-/// side changes nothing about the Wall's shape. Writes only what differs.
+/// Keeps a Portal set into a Wall or a Room where its anchor puts it: at `standing`, turned to
+/// the line's direction there, when its host was derived again, and facing its side in any case,
+/// since the side changes nothing about the host's shape. Writes only what differs.
 fn follow(
     portal: &mut Mut<Portal>,
     element: &mut Mut<Element>,
@@ -555,27 +579,33 @@ fn follow(
     }
 }
 
-/// The Portals set into each Wall, by the Wall's identity and in the order of their own, with
-/// their anchors and widths: those whose anchor names a Wall on their Level and a segment it
-/// has.
+/// The Portals set into each Wall and each Room, by the host's identity and in the order of
+/// their own, with their anchors and widths: those whose anchor names a Wall or a Room on their
+/// Level and a segment or edge it has.
 fn set_by_host(
     walls: &Walls,
+    rooms: &Rooms,
     portals: &Portals,
     level_of: impl Fn(Entity) -> Option<Entity>,
 ) -> BTreeMap<ElementId, Vec<Anchored>> {
     let hosts: BTreeMap<ElementId, (Entity, usize)> = walls
         .iter()
         .map(|(entity, id, wall, ..)| (*id, (entity, wall.segments.len())))
+        .chain(
+            rooms
+                .iter()
+                .map(|(entity, id, room, ..)| (*id, (entity, room.edges.len()))),
+        )
         .collect();
     let mut set: BTreeMap<ElementId, Vec<Anchored>> = BTreeMap::new();
     for (entity, id, portal, _) in portals {
         let Some(anchor) = portal.anchor else {
             continue;
         };
-        let Some(&(host, segments)) = hosts.get(&anchor.host) else {
+        let Some(&(host, parts)) = hosts.get(&anchor.host) else {
             continue;
         };
-        if sets_into(&anchor, segments, (level_of(entity), level_of(host))) {
+        if sets_into(&anchor, parts, (level_of(entity), level_of(host))) {
             set.entry(anchor.host)
                 .or_default()
                 .push((*id, anchor, portal.width));

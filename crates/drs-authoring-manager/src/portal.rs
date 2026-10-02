@@ -1,5 +1,5 @@
-//! Portals: placing one set into a Wall or freestanding, Set Portal into Wall and Free Portal,
-//! the edits only a Portal has, and finding the Portals set into a Wall.
+//! Portals: placing one set into a Wall or a Room or freestanding, Set Portal into Wall and Free
+//! Portal, the edits only a Portal has, and finding the Portals set into a Wall or a Room.
 
 use crate::AuthoringError;
 use crate::place::{Place, Spawned, resolve};
@@ -10,10 +10,63 @@ use bevy_ecs::world::World;
 use bevy_math::Vec2;
 use drs_history::{ReversibleCommand, SetField, Target};
 use drs_model::{
-    AssetAddress, AssetReferenceRow, Element, ElementChange, ElementId, FreePortal, Level, Portal,
-    PortalAnchor, SetPortalIntoWall, Wall,
+    AssetAddress, AssetReferenceRow, Element, ElementChange, ElementId, FreePortal, Level,
+    LinePlace, Portal, PortalAnchor, Room, SetPortalIntoWall, Wall,
 };
-use drs_shape_engine::{PortalSetting, Standing, anchor_portals};
+use drs_shape_engine::{
+    PointEdit, PortalSetting, Standing, anchor_portals, anchor_portals_through,
+    anchor_room_portals, anchor_room_portals_through,
+};
+
+/// What a Portal is set into, as it is: a Wall, whose parts are its segments, or a Room, whose
+/// parts are its edges. The kind of the Element an anchor names says how its `index` is read.
+#[derive(Debug, Clone, PartialEq)]
+pub(crate) enum Host {
+    /// A drawn Wall.
+    Wall(Wall),
+    /// A Room.
+    Room(Room),
+}
+
+impl Host {
+    /// The Wall or the Room an entity carries, if it carries either.
+    pub(crate) fn of(world: &World, entity: Entity) -> Option<Self> {
+        world
+            .get::<Wall>(entity)
+            .cloned()
+            .map(Self::Wall)
+            .or_else(|| world.get::<Room>(entity).cloned().map(Self::Room))
+    }
+
+    /// How many parts it has: a Wall's segments or a Room's edges.
+    pub(crate) fn parts(&self) -> usize {
+        match self {
+            Self::Wall(wall) => wall.segments.len(),
+            Self::Room(room) => room.edges.len(),
+        }
+    }
+
+    /// `AnchorPortals`: where each Portal set at `settings` stands.
+    pub(crate) fn anchor(&self, settings: &[PortalSetting]) -> Vec<Option<Standing>> {
+        match self {
+            Self::Wall(wall) => anchor_portals(wall, settings),
+            Self::Room(room) => anchor_room_portals(room, settings),
+        }
+    }
+
+    /// `AnchorPortals` through a point edit: where each anchor at `settings` goes, as the host
+    /// is before the edit.
+    pub(crate) fn anchor_through(
+        &self,
+        edit: PointEdit,
+        settings: &[PortalSetting],
+    ) -> Vec<Option<LinePlace>> {
+        match self {
+            Self::Wall(wall) => anchor_portals_through(wall, edit, settings),
+            Self::Room(room) => anchor_room_portals_through(room, edit, settings),
+        }
+    }
+}
 
 /// The Level an Element lies on: its nearest ancestor carrying [`Level`].
 pub(crate) fn level_of(world: &World, entity: Entity) -> Option<Entity> {
@@ -24,52 +77,57 @@ pub(crate) fn level_of(world: &World, entity: Entity) -> Option<Entity> {
     )
 }
 
-/// Whether a Portal anchored at `anchor` is set into the Wall it names, a Wall of `segments`
-/// segments: the anchor names a segment the Wall has and a parameter from zero to one, and the
-/// Portal lies on the Wall's Level, `levels` being the Portal's and the Wall's.
+/// Whether a Portal anchored at `anchor` is set into the Wall or the Room it names, of `parts`
+/// segments or edges: the anchor names a part the host has and a parameter from zero to one, and
+/// the Portal lies on the host's Level, `levels` being the Portal's and the host's.
 pub(crate) fn sets_into(
     anchor: &PortalAnchor,
-    segments: usize,
+    parts: usize,
     levels: (Option<Entity>, Option<Entity>),
 ) -> bool {
-    anchor.index < segments && (0.0..=1.0).contains(&anchor.t) && levels.0 == levels.1
+    anchor.index < parts && (0.0..=1.0).contains(&anchor.t) && levels.0 == levels.1
 }
 
-/// The Wall an anchor names, checked for a Portal on `level`: the host must be a Wall on that
-/// Level with the segment named. Whether the parameter is one is the Portal's own check.
+/// The Wall or the Room an anchor names, checked for a Portal on `level`: the host must be a
+/// Wall or a Room on that Level with the segment or edge named. Whether the parameter is one is
+/// the Portal's own check.
 ///
 /// # Errors
 ///
-/// [`AuthoringError::UnknownElement`] or [`AuthoringError::NotAWall`] when the host is no Wall,
-/// [`AuthoringError::OnAnotherLevel`] when it lies on another Level, or
-/// [`AuthoringError::NoSegment`] when it has no such segment.
+/// [`AuthoringError::UnknownElement`] or [`AuthoringError::NotAHost`] when the host is neither a
+/// Wall nor a Room, [`AuthoringError::OnAnotherLevel`] when it lies on another Level, or
+/// [`AuthoringError::NoSegment`] or [`AuthoringError::NoEdge`] when it has no such part.
 pub(crate) fn host_of(
     world: &mut World,
     anchor: &PortalAnchor,
     level: Option<Entity>,
-) -> Result<Wall, AuthoringError> {
+) -> Result<Host, AuthoringError> {
     let entity = anchor
         .host
         .entity(world)
         .map_err(|_| AuthoringError::UnknownElement(anchor.host))?;
-    let wall = world
-        .get::<Wall>(entity)
-        .cloned()
-        .ok_or(AuthoringError::NotAWall(anchor.host))?;
+    let host = Host::of(world, entity).ok_or(AuthoringError::NotAHost(anchor.host))?;
     if level_of(world, entity) != level {
         return Err(AuthoringError::OnAnotherLevel(anchor.host));
     }
-    if anchor.index >= wall.segments.len() {
-        return Err(AuthoringError::NoSegment {
-            segment: anchor.index,
-            segments: wall.segments.len(),
+    let parts = host.parts();
+    if anchor.index >= parts {
+        return Err(match host {
+            Host::Wall(_) => AuthoringError::NoSegment {
+                segment: anchor.index,
+                segments: parts,
+            },
+            Host::Room(_) => AuthoringError::NoEdge {
+                edge: anchor.index,
+                edges: parts,
+            },
         });
     }
-    Ok(wall)
+    Ok(host)
 }
 
-/// Whether the Portal `id` follows a host: it is anchored, and its anchor names a Wall on the
-/// Portal's Level and a segment that Wall has. A Portal whose anchor names none, as an editor
+/// Whether the Portal `id` follows a host: it is anchored, and its anchor names a Wall or a Room
+/// on the Portal's Level and a segment or edge it has. A Portal whose anchor names none, as an editor
 /// that does not know Portals may leave it, is lost: it keeps its anchor but stands, turns, and
 /// mirrors as a freestanding one.
 ///
@@ -114,9 +172,9 @@ pub(crate) fn stood(
     )
 }
 
-/// Where a Portal of `width` set at `anchor` into `wall` stands, as [`stood`] says.
+/// Where a Portal of `width` set at `anchor` into `host` stands, as [`stood`] says.
 fn standing_in(
-    wall: &Wall,
+    host: &Host,
     anchor: &PortalAnchor,
     width: f32,
     rotation: f32,
@@ -126,15 +184,12 @@ fn standing_in(
         t: anchor.t,
         width,
     };
-    let standing = anchor_portals(wall, &[setting])
-        .into_iter()
-        .next()
-        .flatten()?;
+    let standing = host.anchor(&[setting]).into_iter().next().flatten()?;
     Some(stood(&standing, anchor, rotation))
 }
 
 /// Places a Portal of the chosen Asset at its image's natural size on top of the Layer, set
-/// into the Wall the anchor names or freestanding, unturned, and centred on `position`, as one
+/// into the Wall or the Room the anchor names or freestanding, unturned, and centred on `position`, as one
 /// history step.
 ///
 /// # Errors
@@ -173,9 +228,9 @@ pub(crate) fn place_portal(
     };
     well_formed(&portal)?;
     let mut position = position;
-    if let (Some(wall), Some(anchor)) = (&host, &anchor)
+    if let (Some(host), Some(anchor)) = (&host, &anchor)
         && let Some((centre, rotation, mirrored)) =
-            standing_in(wall, anchor, portal.width, portal.rotation)
+            standing_in(host, anchor, portal.width, portal.rotation)
     {
         position = centre;
         portal.rotation = rotation;
@@ -399,25 +454,24 @@ pub(crate) fn portal_change(
         | ElementChange::RemovePoint { .. }
         | ElementChange::Thickness(_)
         | ElementChange::Colour(_)
+        | ElementChange::FloorColour(_)
         | ElementChange::Material(_) => return Ok(None),
     };
     field.map(Some).map_err(history)
 }
 
-/// A Portal anchored to a Wall, with its anchor and its width.
+/// A Portal anchored to a Wall or a Room, with its anchor and its width.
 pub(crate) type Anchored = (ElementId, PortalAnchor, f32);
 
-/// The Portals whose anchor names the Wall `host`, in the order of their identities with their
-/// anchors and widths: first those set into it, then those on its Level it does not hold, whose
-/// anchor names a segment it lacks, as an editor that does not know Portals leaves them.
+/// The Portals whose anchor names the Wall or the Room `host`, in the order of their identities
+/// with their anchors and widths: first those set into it, then those on its Level it does not
+/// hold, whose anchor names a part it lacks, as an editor that does not know Portals leaves them.
 pub(crate) fn anchored_to(world: &mut World, host: ElementId) -> (Vec<Anchored>, Vec<Anchored>) {
-    let Ok(wall_entity) = host.entity(world) else {
+    let Ok(host_entity) = host.entity(world) else {
         return (Vec::new(), Vec::new());
     };
-    let segments = world
-        .get::<Wall>(wall_entity)
-        .map_or(0, |wall| wall.segments.len());
-    let level = level_of(world, wall_entity);
+    let parts = Host::of(world, host_entity).map_or(0, |host| host.parts());
+    let level = level_of(world, host_entity);
     let mut portals: Vec<(Entity, ElementId, PortalAnchor, f32)> = world
         .query::<(Entity, &ElementId, &Portal)>()
         .iter(world)
@@ -431,7 +485,7 @@ pub(crate) fn anchored_to(world: &mut World, host: ElementId) -> (Vec<Anchored>,
     let mut lost = Vec::new();
     for (entity, id, anchor, width) in portals {
         let levels = (level_of(world, entity), level);
-        if sets_into(&anchor, segments, levels) {
+        if sets_into(&anchor, parts, levels) {
             set.push((id, anchor, width));
         } else if levels.0 == levels.1 {
             lost.push((id, anchor, width));

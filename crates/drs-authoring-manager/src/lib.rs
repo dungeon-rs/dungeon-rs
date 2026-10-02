@@ -4,6 +4,7 @@ mod edit;
 mod place;
 mod portal;
 mod remove;
+mod room;
 mod terrain;
 mod wall;
 
@@ -47,15 +48,23 @@ pub enum AuthoringError {
     /// The Element sits on no Layer.
     #[error("the Element {0:?} sits on no Layer")]
     NotOnALayer(ElementId),
-    /// The change is one only a Wall has, and the Element is no Wall.
-    #[error("the Element {0:?} is not a Wall")]
+    /// The change is one only a Wall or a Room has, and the Element is neither.
+    #[error("the Element {0:?} is not a Wall or a Room")]
     NotAWall(ElementId),
-    /// The Wall has no point of that number.
-    #[error("the Wall has no point {index}; it has {points}")]
+    /// The change is one only a Room has, and the Element is no Room.
+    #[error("the Element {0:?} is not a Room")]
+    NotARoom(ElementId),
+    /// A Portal is to be set into an Element that is neither a Wall nor a Room.
+    #[error("the Element {0:?} is neither a Wall nor a Room to set a Portal into")]
+    NotAHost(ElementId),
+    /// The Wall or the Room has no point of that number.
+    #[error("the {outline} has no point {index}; it has {points}")]
     NoPoint {
+        /// What has no such point: a Wall or a Room.
+        outline: &'static str,
         /// The point named.
         index: usize,
-        /// How many points the Wall has.
+        /// How many points it has.
         points: usize,
     },
     /// The Wall has no segment of that number.
@@ -66,10 +75,22 @@ pub enum AuthoringError {
         /// How many segments the Wall has.
         segments: usize,
     },
+    /// The Room has no edge of that number.
+    #[error("the Room has no edge {edge}; it has {edges}")]
+    NoEdge {
+        /// The edge named.
+        edge: usize,
+        /// How many edges the Room has.
+        edges: usize,
+    },
     /// The Wall would not be one: too few points, a thickness not above zero, or a coordinate
     /// that is not finite.
     #[error("{0}")]
     MalformedWall(String),
+    /// The Room would not be one: too few points, a thickness not above zero, or a coordinate
+    /// that is not finite.
+    #[error("{0}")]
+    MalformedRoom(String),
     /// The change or Command is one only a Portal has, and the Element is no Portal.
     #[error("the Element {0:?} is not a Portal")]
     NotAPortal(ElementId),
@@ -78,8 +99,8 @@ pub enum AuthoringError {
     /// would stand at a position that is not finite.
     #[error("{0}")]
     MalformedPortal(String),
-    /// A Portal is to be set into a Wall on another Level than its own.
-    #[error("the Wall {0:?} is on another Level than the Portal")]
+    /// A Portal is to be set into a Wall or a Room on another Level than its own.
+    #[error("the Wall or Room {0:?} is on another Level than the Portal")]
     OnAnotherLevel(ElementId),
     /// The position, rotation, or mirroring of a Portal set into a Wall is to change, which
     /// follow its Wall.
@@ -112,7 +133,7 @@ pub enum AuthoringError {
     /// The change is not one a Terrain has: only its image can be changed.
     #[error("only the image a Terrain shows can be changed, not its strokes or its place")]
     TerrainChangesOnlyItsMaterial(ElementId),
-    /// The shape Engine could not reshape the Wall.
+    /// The shape Engine could not reshape the Wall or the Room.
     #[error(transparent)]
     Shape(#[from] ShapeError),
     /// The Asset's file could not be read or is not an image.
@@ -135,9 +156,9 @@ impl Plugin for AuthoringManagerPlugin {
                 handle_apply.in_set(ManagerSystems::Commands),
                 handle_undo.in_set(ManagerSystems::Undo),
                 handle_redo.in_set(ManagerSystems::Redo),
-                // Every Manager has handled its Commands, Undo, and Redo by then, so a Wall or a
-                // Portal placed, edited, undone, redone, or opened has its shape and its place
-                // before anything draws or picks it.
+                // Every Manager has handled its Commands, Undo, and Redo by then, so a Wall, a
+                // Room, or a Portal placed, edited, undone, redone, or opened has its shape and
+                // its place before anything draws or picks it.
                 wall::derive_shapes.after(ManagerSystems::Redo),
                 // Likewise a Terrain painted, undone, redone, or opened has its coverage before
                 // anything draws it.
@@ -148,8 +169,8 @@ impl Plugin for AuthoringManagerPlugin {
 }
 
 /// Apply: carries an authoring Command out and records it in the history. Returns the answer
-/// naming the Portals the Command removed with the part of a Wall they were set into, when it
-/// removed any.
+/// naming the Portals the Command removed with the part of a Wall or a Room they were set into,
+/// when it removed any.
 ///
 /// # Errors
 ///
