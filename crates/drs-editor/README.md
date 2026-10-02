@@ -6,7 +6,8 @@ The [`EditorPlugin`](crate::EditorPlugin), built over what the diagnostics
 Utility set up and found at start, lays the window out with `egui_dock`:
 an Assets panel on the left that shows the Assets of every added Asset Folder
 as a grid of thumbnails with their names beneath, ordered by the Canonical Name
-of their folder and then by place, or, with text typed in its search field, the
+of their folder, compared as the library Manager's search compares it, and then
+by place, or, with text typed in its search field, the
 matches the library Manager answers for the text, in its order; above the grid
 a line says how many Assets the library holds or how many match, or that none
 matches the text, and one line per folder how many of its Assets are shown. Each

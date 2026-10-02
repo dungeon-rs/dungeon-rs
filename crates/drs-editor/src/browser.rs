@@ -250,7 +250,21 @@ pub(crate) fn show(
         .iter()
         .map(|(entity, folder, _)| (entity, folder))
         .collect();
-    sorted.sort_by(|a, b| a.1.name.cmp(&b.1.name).then(a.1.key.cmp(&b.1.key)));
+    // The library Manager counts the folders in the order its search gives Canonical Names,
+    // folded and then as spelled; a folder it has not counted yet comes last.
+    let counted = |folder: Entity| {
+        matches
+            .counts
+            .iter()
+            .position(|(counted, _)| *counted == folder)
+            .unwrap_or(usize::MAX)
+    };
+    sorted.sort_by(|a, b| {
+        counted(a.0)
+            .cmp(&counted(b.0))
+            .then_with(|| a.1.name.cmp(&b.1.name))
+            .then_with(|| a.1.key.cmp(&b.1.key))
+    });
     if sorted.is_empty() {
         ui.weak("No Asset Folder is added yet. Use Add Asset Folder… in the Library menu.");
         #[cfg(feature = "dev")]
