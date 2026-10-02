@@ -11,7 +11,7 @@ pub use bundle::{
 };
 pub use crash::{
     CrashHandler, CrashReport, announce_pending, dialogs_possible, install_crash_handler,
-    run_guarded,
+    mark_panics_caught, run_guarded,
 };
 pub use logging::{
     BoxedLayer, DEFAULT_FILTER, DEFAULT_LEVEL, KEPT_LOG_FILES, LogDirectives, Logging,

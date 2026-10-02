@@ -49,6 +49,8 @@ thread_local! {
     /// Whether the hook is already running on this thread, so a panic inside it is not handled
     /// again.
     static HANDLING: Cell<bool> = const { Cell::new(false) };
+    /// Whether this thread catches its own panics, so the hook only logs them.
+    static CAUGHT: Cell<bool> = const { Cell::new(false) };
 }
 
 /// What the hook knows.
@@ -80,6 +82,15 @@ pub fn dialogs_possible() -> bool {
     true
 }
 
+/// Marks whether the calling thread catches its own panics from now on, as a thread does that
+/// runs each job of a queue under `std::panic::catch_unwind` and turns a panic into the failure
+/// of that one job. While it is marked, a panic on it is logged at `warn` with its message,
+/// location, and thread, and leaves no crash report and nothing to announce; the thread marks
+/// itself before the job and unmarks itself after.
+pub fn mark_panics_caught(caught: bool) {
+    CAUGHT.set(caught);
+}
+
 /// Installs the crash handler on the calling thread, which is taken to be the main thread.
 ///
 /// Installed before Bevy's plugins; a plugin that sets a hook of its own afterwards is expected
@@ -89,8 +100,9 @@ pub fn dialogs_possible() -> bool {
 /// path to the terminal; logs it at `error`; and, when dialogs are on, shows the dialog at once
 /// on the main thread, or otherwise leaves the report pending for [`announce_pending`]. A
 /// panic inside the hook itself, as from a closed terminal or a dialog that cannot open, is
-/// caught and changes nothing else. Installing again replaces the set-up; the hook itself is
-/// installed once per process.
+/// caught and changes nothing else, and a panic on a thread that [`mark_panics_caught`] marked is
+/// only logged. Installing again replaces the set-up; the hook itself is installed once per
+/// process.
 pub fn install_crash_handler(handler: CrashHandler) {
     *INSTALLED.lock().unwrap_or_else(PoisonError::into_inner) = Some(Installed {
         handler,
@@ -102,9 +114,13 @@ pub fn install_crash_handler(handler: CrashHandler) {
             if HANDLING.replace(true) {
                 return;
             }
-            let _ = std::panic::catch_unwind(AssertUnwindSafe(|| on_panic(info)));
-            let _ = std::panic::catch_unwind(AssertUnwindSafe(|| previous(info)));
-            let _ = std::panic::catch_unwind(AssertUnwindSafe(announce_at_once));
+            if CAUGHT.get() {
+                let _ = std::panic::catch_unwind(AssertUnwindSafe(|| log_caught(info)));
+            } else {
+                let _ = std::panic::catch_unwind(AssertUnwindSafe(|| on_panic(info)));
+                let _ = std::panic::catch_unwind(AssertUnwindSafe(|| previous(info)));
+                let _ = std::panic::catch_unwind(AssertUnwindSafe(announce_at_once));
+            }
             HANDLING.set(false);
         }));
     });
@@ -164,6 +180,17 @@ pub fn run_guarded<R>(run: impl FnOnce() -> R) -> R {
         Ok(result) => result,
         Err(payload) => std::panic::resume_unwind(payload),
     }
+}
+
+/// Logs a panic its thread catches itself.
+fn log_caught(info: &PanicHookInfo<'_>) {
+    let thread = std::thread::current();
+    tracing::warn!(
+        "a panic on the thread {} was caught there: {} at {}",
+        thread.name().unwrap_or("unnamed"),
+        panic_message(info),
+        location(info)
+    );
 }
 
 /// Writes the report, prints its path, logs it, and leaves it for the announcement.
@@ -229,6 +256,21 @@ fn panic_message(info: &PanicHookInfo<'_>) -> String {
     }
 }
 
+/// Where the panic happened, as `file:line:column`.
+fn location(info: &PanicHookInfo<'_>) -> String {
+    info.location().map_or_else(
+        || "unknown".to_owned(),
+        |location| {
+            format!(
+                "{}:{}:{}",
+                location.file(),
+                location.line(),
+                location.column()
+            )
+        },
+    )
+}
+
 /// The report: each field under its own heading, nothing about the Author beyond paths.
 fn report_text(
     handler: &CrashHandler,
@@ -249,18 +291,7 @@ fn report_text(
         std::env::consts::ARCH
     );
     let _ = writeln!(text, "\n## Message\n{message}");
-    let location = info.location().map_or_else(
-        || "unknown".to_owned(),
-        |location| {
-            format!(
-                "{}:{}:{}",
-                location.file(),
-                location.line(),
-                location.column()
-            )
-        },
-    );
-    let _ = writeln!(text, "\n## Location\n{location}");
+    let _ = writeln!(text, "\n## Location\n{}", location(info));
     let thread = std::thread::current();
     let _ = writeln!(text, "\n## Thread\n{}", thread.name().unwrap_or("unnamed"));
     let _ = writeln!(

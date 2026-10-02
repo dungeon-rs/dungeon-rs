@@ -39,7 +39,11 @@ and to announce a pending crash report.
   the report waits for [`announce_pending`](crate::announce_pending), which
   the Editor calls each frame to show the dialog and get the report for the
   status line, and [`run_guarded`](crate::run_guarded) announces what is
-  still pending when the editor ends. With `dialogs` off nothing is shown, for tests and
+  still pending when the editor ends. A thread that catches its own panics,
+  as a background worker does around each job, marks itself with
+  [`mark_panics_caught`](crate::mark_panics_caught): a panic on it is then
+  logged at `warn` and leaves no report and no dialog. With `dialogs` off
+  nothing is shown, for tests and
   headless runs; [`dialogs_possible`](crate::dialogs_possible) tells the Host
   when that is: never on a continuous-integration run (`CI` set), when
   `DRS_NO_DIALOGS` is set, on Linux without a display, or, in development,

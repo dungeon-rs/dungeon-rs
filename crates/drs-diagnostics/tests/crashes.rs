@@ -8,8 +8,8 @@
 )]
 
 use drs_diagnostics::{
-    CrashHandler, Product, announce_pending, install_crash_handler, log_directives, start_logging,
-    take_layer,
+    CrashHandler, Product, announce_pending, install_crash_handler, log_directives,
+    mark_panics_caught, start_logging, take_layer,
 };
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -87,9 +87,9 @@ fn crash_on_a_thread(message: String) {
     assert!(worker.join().is_err(), "the worker should have panicked");
 }
 
-/// The crash report in `logs` that holds `message`.
-fn report_holding(logs: &Path, message: &str) -> (PathBuf, String) {
-    let mut found = fs::read_dir(logs)
+/// Every crash report in `logs` that holds `message`.
+fn reports_holding(logs: &Path, message: &str) -> Vec<(PathBuf, String)> {
+    fs::read_dir(logs)
         .expect("the log directory")
         .map(|entry| entry.expect("an entry").path())
         .filter(|path| {
@@ -99,7 +99,13 @@ fn report_holding(logs: &Path, message: &str) -> (PathBuf, String) {
         .filter_map(|path| {
             let text = fs::read_to_string(&path).ok()?;
             text.contains(message).then_some((path, text))
-        });
+        })
+        .collect()
+}
+
+/// The crash report in `logs` that holds `message`.
+fn report_holding(logs: &Path, message: &str) -> (PathBuf, String) {
+    let mut found = reports_holding(logs, message).into_iter();
     let report = found.next().expect("a report holding the message");
     assert!(found.next().is_none(), "one report per crash");
     report
@@ -231,4 +237,39 @@ fn dialogs_can_be_off() {
 
     let (path, _) = report_holding(&fixture.logs, &message);
     assert!(path.is_file());
+}
+
+/// A panic on a thread that marked its panics as caught, and caught it, is logged at `warn` and
+/// leaves no report and nothing to announce.
+#[test]
+fn a_caught_panic_is_only_logged() {
+    let (fixture, _turn) = setup();
+    while announce_pending().is_some() {}
+    let message = "a worker caught this one itself".to_owned();
+    let thrown = message.clone();
+
+    let worker = std::thread::Builder::new()
+        .name("worker".to_owned())
+        .spawn(move || {
+            mark_panics_caught(true);
+            let caught = std::panic::catch_unwind(move || std::panic::panic_any(thrown)).is_err();
+            mark_panics_caught(false);
+            caught
+        })
+        .expect("the worker thread");
+
+    assert!(worker.join().expect("the worker ends normally"));
+    assert!(reports_holding(&fixture.logs, &message).is_empty());
+    assert!(announce_pending().is_none());
+    if time::OffsetDateTime::now_utc().date() == fixture.day {
+        let log = fs::read_to_string(&fixture.log_file).expect("the log file");
+        let entry = log
+            .lines()
+            .find(|line| line.contains(&message))
+            .expect("the caught panic is logged");
+        assert!(
+            entry.contains("WARN") && entry.contains("worker"),
+            "{entry}"
+        );
+    }
 }
