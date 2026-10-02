@@ -1376,3 +1376,30 @@ fn a_missing_portal_keeps_its_gap() {
     assert_eq!(at(15.6, 15.0), BLACK_PIXEL, "the gap beside it");
     assert_eq!(at(15.6, 16.1), YELLOW_PIXEL, "the Wall past the stretch");
 }
+
+/// A freestanding Portal that is mirrored is drawn flipped across its length: its image's top
+/// half below and its bottom half above, at the same width.
+#[test]
+fn a_mirrored_portal_is_flipped() {
+    let mut fixture = Fixture::new();
+    let door = fixture.portal(TWO_TONE, Vec2::new(15.0, 15.0), None);
+
+    let upright = fixture
+        .export(WALL_PIXELS_PER_CELL, "upright.png", TILE)
+        .expect("the Export is written");
+    let picture = Picture::decode(&upright.path);
+    let at = |x: f32, y: f32| picture.at_point(Vec2::new(x, y), WALL_PIXELS_PER_CELL);
+    assert_eq!(at(15.0, 15.3), ORANGE_PIXEL, "the top above");
+    assert_eq!(at(15.0, 14.7), PURPLE_PIXEL, "the bottom below");
+
+    fixture.edit(door, ElementChange::Mirrored(true));
+    let mirrored = fixture
+        .export(WALL_PIXELS_PER_CELL, "mirrored.png", TILE)
+        .expect("the Export is written");
+    let picture = Picture::decode(&mirrored.path);
+    let at = |x: f32, y: f32| picture.at_point(Vec2::new(x, y), WALL_PIXELS_PER_CELL);
+    assert_eq!(at(15.0, 14.7), ORANGE_PIXEL, "the top below");
+    assert_eq!(at(15.0, 15.3), PURPLE_PIXEL, "the bottom above");
+    assert_eq!(at(15.9, 14.7), ORANGE_PIXEL, "the same width");
+    assert_eq!(at(16.1, 14.7), BLACK_PIXEL, "past its width");
+}
