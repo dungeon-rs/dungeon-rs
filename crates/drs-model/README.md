@@ -40,10 +40,14 @@ its width in Grid cells, its rotation, whether it is mirrored, and, when it is
 set into a Wall or a Room, its [`PortalAnchor`](crate::PortalAnchor): the
 identity of the Element it is set into, the `index` of a part of it (a Wall's
 segment, a Room's edge), a parameter along that part, and the
-[`Side`](crate::Side) it faces. The
-anchor names what the Portal is set into as `host` and its part as `index`,
-never by kind. A set Portal's position, rotation, and mirroring are kept
-equal to what its anchor gives, so freeing it is clearing the anchor. Whoever
+[`Side`](crate::Side) it faces. The anchor names what the Portal is set into as
+`host` and its part as `index`, never by kind. A set Portal's position,
+rotation, and mirroring are kept equal to what its anchor gives, so freeing it
+is clearing the anchor. Its [`Anchoring`](crate::Anchoring) is derived and
+never saved: whether it is freestanding, set into a Wall or a Room of its
+Level that has the part its anchor names, or lost, its anchor naming none, so
+that it stands as a freestanding one. The authoring Manager writes it, and
+[`Portal::follows`](crate::Portal::follows) is how everyone reads it. Whoever
 needs the Asset an Element shows, a Prop's, a Portal's, or a Terrain's, queries
 [`ShownAsset`](crate::ShownAsset) and reads its row.
 

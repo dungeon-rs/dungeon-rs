@@ -1,6 +1,6 @@
 //! The shapes derived from every Wall and Room and from the Portals set into them: the line, the
 //! stroke, and a Room's floor through the shape Engine, the Element's box around its points, and
-//! where each Portal stands and how large it is.
+//! where each Portal stands, whether it follows its host, and how large it is.
 
 use crate::ancestor;
 use crate::outline::{OutlineHost, settings};
@@ -13,7 +13,9 @@ use bevy_ecs::lifecycle::RemovedComponents;
 use bevy_ecs::query::{Changed, Or, With, Without};
 use bevy_ecs::system::{Commands, Query};
 use bevy_math::Vec2;
-use drs_model::{AssetReferences, Element, ElementId, Level, Portal, PortalAnchor, Room, Wall};
+use drs_model::{
+    Anchoring, AssetReferences, Element, ElementId, Level, Portal, PortalAnchor, Room, Wall,
+};
 use drs_shape_engine::{
     Path, PortalSetting, Standing, anchor_portals, combine_outlines, generate_walls,
 };
@@ -69,6 +71,7 @@ type Portals<'w, 's> = Query<
         &'static ElementId,
         &'static mut Portal,
         &'static mut Element,
+        Option<&'static mut Anchoring>,
     ),
 >;
 
@@ -76,8 +79,9 @@ type Portals<'w, 's> = Query<
 /// last frame, or whose Portals were placed, edited, set, freed, or removed: the shape Engine
 /// combines its outline into its line and floor and strokes the line, and its Element's box is
 /// set around its points. Moves each Portal set into such a Wall or Room to where its anchor puts
-/// it, turned to the line's direction there and mirrored when it faces the right; and sets every
-/// changed Portal's size from its width and its image's recorded pixel size.
+/// it, turned to the line's direction there and mirrored when it faces the right; says of every
+/// Portal whether it follows its host; and sets every changed Portal's size from its width and
+/// its image's recorded pixel size.
 ///
 /// A Portal whose anchor names no Wall or Room of its Level, or a part its host lacks, is lost:
 /// it is left standing as it is and leaves no gap.
@@ -119,10 +123,23 @@ pub(crate) fn derive_shapes(
         .map(|(id, anchor, _)| (*id, *anchor))
         .collect();
 
-    for (entity, id, mut portal, mut element) in &mut portals {
+    for (entity, id, mut portal, mut element, anchoring) in &mut portals {
         let changed = portal.is_changed();
-        if let Some(anchor) = anchors.get(id) {
+        let anchor = anchors.get(id);
+        if let Some(anchor) = anchor {
             follow(&mut portal, &mut element, anchor, standings.get(id));
+        }
+        let derived = match (anchor, portal.anchor) {
+            (Some(_), _) => Anchoring::Set,
+            (None, Some(_)) => Anchoring::Lost,
+            (None, None) => Anchoring::Freestanding,
+        };
+        match anchoring {
+            Some(mut anchoring) if *anchoring != derived => *anchoring = derived,
+            Some(_) => {}
+            None => {
+                commands.entity(entity).insert(derived);
+            }
         }
         if changed {
             let pixels = ancestor(entity, parent_of, |parent| references.contains(parent))

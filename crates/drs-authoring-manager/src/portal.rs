@@ -11,8 +11,8 @@ use bevy_ecs::world::World;
 use bevy_math::Vec2;
 use drs_history::{ReversibleCommand, SetField, Target};
 use drs_model::{
-    AssetAddress, AssetReferenceRow, Element, ElementChange, ElementId, FreePortal, Level, Portal,
-    PortalAnchor, Room, SetPortalIntoWall, Wall,
+    Anchoring, AssetAddress, AssetReferenceRow, Element, ElementChange, ElementId, FreePortal,
+    Level, Portal, PortalAnchor, Room, SetPortalIntoWall, Wall,
 };
 use drs_shape_engine::{Path, PortalSetting, Standing, anchor_portals};
 
@@ -80,24 +80,19 @@ pub(crate) fn host_of(
     Ok(host)
 }
 
-/// Whether the Portal `id` follows a host: it is anchored, and its anchor names a Wall or a Room
-/// on the Portal's Level and a segment or edge it has. A Portal whose anchor names none, as an
-/// editor that does not know Portals may leave it, is lost: it keeps its anchor but stands,
-/// turns, and mirrors as a freestanding one.
+/// Whether the Portal `id` follows the Wall or the Room its anchor names, as deriving last found:
+/// a lost Portal, whose anchor names none, stands, turns, and mirrors as a freestanding one.
 ///
 /// # Errors
 ///
 /// [`AuthoringError::UnknownElement`] or [`AuthoringError::NotAPortal`] when the Element is no
 /// Portal.
 pub(crate) fn follows_host(world: &mut World, id: ElementId) -> Result<bool, AuthoringError> {
-    let Some(anchor) = portal_of(world, id)?.anchor else {
-        return Ok(false);
-    };
+    let portal = portal_of(world, id)?;
     let entity = id
         .entity(world)
         .map_err(|_| AuthoringError::UnknownElement(id))?;
-    let level = level_of(world, entity);
-    Ok(host_of(world, &anchor, level).is_ok())
+    Ok(portal.follows(world.get::<Anchoring>(entity)))
 }
 
 /// Refuses a Portal that would not be one, for the reason [`Portal::malformation`] gives.

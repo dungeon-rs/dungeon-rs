@@ -39,7 +39,7 @@ pub use messages::{
     SetPortalIntoWall, ThumbnailsUnavailable, Undo, UnknownKind,
 };
 pub use panics::CaughtPanics;
-pub use portal::{PORTAL, Portal, PortalAnchor, Side};
+pub use portal::{Anchoring, PORTAL, Portal, PortalAnchor, Side};
 pub use project::{Bounds, Grid, Layer, Level, Project};
 pub use resolution::{MissingReason, Resolution, ResolutionTable};
 pub use room::{Edge, FillMesh, ROOM, Room, RoomShape};

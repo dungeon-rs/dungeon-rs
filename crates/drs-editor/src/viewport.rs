@@ -29,9 +29,9 @@ use bevy::time::{Real, Time};
 use bevy::window::{PrimaryWindow, Window};
 use bevy_egui::input::EguiWantsInput;
 use drs_model::{
-    Apply, DrawnAs, EditElement, Element, ElementChange, ElementId, ElementKindRegistry, Gesture,
-    Layer, Level, PlaceElement, Placement, Portal, Redo, RemoveElement, Room, RoomShape, Terrain,
-    Undo, Viewport, Wall, WallShape,
+    Anchoring, Apply, DrawnAs, EditElement, Element, ElementChange, ElementId, ElementKindRegistry,
+    Gesture, Layer, Level, PlaceElement, Placement, Portal, Redo, RemoveElement, Room, RoomShape,
+    Terrain, Undo, Viewport, Wall, WallShape,
 };
 
 /// How far the pointer travels, in pixels, before a press on an Element or a handle becomes a
@@ -80,13 +80,15 @@ pub(crate) struct LevelView<'w, 's> {
 }
 
 /// What picking reads of an Element: its identity and box, its Wall and derived shape when it is
-/// a Wall, its Portal when it is one, and its Room and derived shape when it is a Room.
+/// a Wall, its Portal and whether it follows its host when it is one, and its Room and derived
+/// shape when it is a Room.
 type Picked = (
     &'static ElementId,
     &'static Element,
     Option<&'static Wall>,
     Option<&'static WallShape>,
     Option<&'static Portal>,
+    Option<&'static Anchoring>,
     Option<&'static Room>,
     Option<&'static RoomShape>,
 );
@@ -115,7 +117,7 @@ impl LevelView<'_, '_> {
             layers.iter().rev().find_map(|&layer| {
                 let (_, elements) = self.layers.get(layer).ok()?;
                 elements.iter().rev().find_map(|&element| {
-                    let (id, element, wall, shape, portal, room, room_shape) =
+                    let (id, element, wall, shape, portal, anchoring, room, room_shape) =
                         self.elements.get(element).ok()?;
                     if self.painted(element) {
                         return None;
@@ -135,9 +137,7 @@ impl LevelView<'_, '_> {
                             Rect::from_center_size(element.position, element.size).contains(cells)
                         }
                     };
-                    let set = hit
-                        && portal.is_some_and(|portal| portal.anchor.is_some())
-                        && self.follows_host(*id);
+                    let set = hit && portal.is_some_and(|portal| portal.follows(anchoring));
                     hit.then_some((*id, element.position, set))
                 })
             })
@@ -180,7 +180,7 @@ impl LevelView<'_, '_> {
         selected: Option<ElementId>,
     ) -> Option<(ElementId, Outline<'_>, Option<&WallShape>)> {
         let selected = selected?;
-        let (id, _, wall, shape, _, room, room_shape) =
+        let (id, _, wall, shape, _, _, room, room_shape) =
             self.elements.iter().find(|(id, ..)| **id == selected)?;
         match (wall, room) {
             (Some(wall), _) => Some((*id, Outline::of_wall(wall), shape)),
@@ -205,48 +205,23 @@ impl LevelView<'_, '_> {
             .and_then(|(id, element, _, _, portal, ..)| Some((*id, element, portal?)))
     }
 
-    /// Whether the Portal `portal` follows a host: its anchor names a Wall or a Room on the
-    /// Portal's own Level and a segment or edge it has. A Portal anchored to none, as an editor that does not
-    /// know Portals may leave it, is lost: it is dragged, flipped, and turned as a freestanding
-    /// one, and never set again by a drag.
+    /// Whether the Portal `portal` follows the Wall or the Room its anchor names, as deriving
+    /// found. A lost Portal, anchored to none as an editor that does not know Portals or Rooms
+    /// may leave it, is dragged, flipped, and turned as a freestanding one, and never set again
+    /// by a drag.
     pub(crate) fn follows_host(&self, portal: ElementId) -> bool {
-        let Some(anchor) = self
-            .elements
+        self.elements
             .iter()
             .find(|(id, ..)| **id == portal)
-            .and_then(|(.., portal, _, _)| portal?.anchor)
-        else {
-            return false;
-        };
-        self.levels.iter().any(|layers| {
-            let on_level = |wanted: ElementId| {
-                layers.iter().any(|&layer| {
-                    self.layers.get(layer).is_ok_and(|(_, elements)| {
-                        elements.iter().any(|&element| {
-                            self.elements
-                                .get(element)
-                                .is_ok_and(|(id, ..)| *id == wanted)
-                        })
-                    })
-                })
-            };
-            let has_part = self
-                .elements
-                .iter()
-                .find(|(id, ..)| **id == anchor.host)
-                .and_then(|(_, _, wall, _, _, room, _)| {
-                    wall.map(|wall| wall.segments.len())
-                        .or_else(|| room.map(|room| room.edges.len()))
-                })
-                .is_some_and(|parts| anchor.index < parts);
-            has_part && on_level(portal) && on_level(anchor.host)
-        })
+            .is_some_and(|(_, _, _, _, portal, anchoring, ..)| {
+                portal.is_some_and(|portal| portal.follows(anchoring))
+            })
     }
 
     /// The derived shape of the line of the Wall or the Room with an identity, once it has one.
     fn shape_of(&self, host: ElementId) -> Option<&WallShape> {
         self.elements.iter().find(|(id, ..)| **id == host).and_then(
-            |(_, _, _, shape, _, _, room_shape)| {
+            |(_, _, _, shape, _, _, _, room_shape)| {
                 shape.or_else(|| room_shape.map(|shape| &shape.walls))
             },
         )
@@ -262,7 +237,8 @@ impl LevelView<'_, '_> {
             .filter_map(|&layer| self.layers.get(layer).ok())
             .flat_map(|(_, elements)| elements.iter())
             .filter_map(|&element| {
-                let (id, _, wall, shape, _, room, room_shape) = self.elements.get(element).ok()?;
+                let (id, _, wall, shape, _, _, room, room_shape) =
+                    self.elements.get(element).ok()?;
                 match (wall, shape, room, room_shape) {
                     (Some(wall), Some(shape), ..) => Some((*id, wall.thickness, shape)),
                     (_, _, Some(room), Some(room_shape)) => {

@@ -1,4 +1,5 @@
-//! Portals: images with a width, freestanding or set into a Wall.
+//! Portals: images with a width, freestanding or set into a Wall or a Room's Walls, and whether
+//! each follows the host its anchor names.
 
 use crate::{
     AssetReferenceRow, ElementId, ElementKindName, Serialisable, SerialisationError, Tier,
@@ -90,6 +91,16 @@ pub struct Portal {
 }
 
 impl Portal {
+    /// Whether the Portal follows the Wall or the Room its anchor names, as `anchoring` says:
+    /// a Portal whose anchoring is not derived yet follows its anchor if it has one, as it will
+    /// once it is derived.
+    #[must_use]
+    pub fn follows(&self, anchoring: Option<&Anchoring>) -> bool {
+        anchoring.map_or(self.anchor.is_some(), |anchoring| {
+            *anchoring == Anchoring::Set
+        })
+    }
+
     /// Why the Portal is not one, if it is not: a width not above zero, a rotation that is not
     /// finite, or an anchor whose parameter is not between zero and one.
     #[must_use]
@@ -133,4 +144,22 @@ impl Serialisable for Portal {
             None => Ok(portal),
         }
     }
+}
+
+/// Whether a Portal stands where its anchor puts it, derived from its anchor and the Wall or the
+/// Room it names. It is never saved; the authoring Manager derives it whenever a Portal or a Wall
+/// or Room changes, and whoever must tell a Portal that follows its host from one that stands on
+/// its own reads it.
+#[derive(Component, Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub enum Anchoring {
+    /// The Portal has no anchor: it stands, turns, and mirrors where it is put.
+    #[default]
+    Freestanding,
+    /// Its anchor names a Wall or a Room on the Portal's Level and a segment or edge it has: the
+    /// Portal stands on that part at its parameter, turned to the line, and faces its side.
+    Set,
+    /// Its anchor names no Wall or Room of its Level, or a part its host lacks, as an editor that
+    /// does not know Portals or Rooms may leave it: the Portal keeps its anchor but stands, turns,
+    /// and mirrors as a freestanding one.
+    Lost,
 }
