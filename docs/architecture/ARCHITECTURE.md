@@ -16,7 +16,7 @@ A Bevy 0.20 application whose ECS World is the domain model, decomposed by volat
 - **Composing sequence** ⏳: how authoring Commands are carried out, grouped for undo, and propagated to Prefab Instances. Encapsulated by: AuthoringManager.
 - **Intake sequence** ⏳: how Asset Folders and Asset Packs are brought in and kept current. Encapsulated by: LibraryManager.
 - **Project lifecycle** ⏳: how Projects are opened, resolved, relinked, saved, and exported. Encapsulated by: ProjectManager.
-- **Geometry rules** ⏳: Walls generated from Rooms and Caves, Portal anchoring, outline operations, snapping. Encapsulated by: ShapeEngine.
+- **Geometry rules** ⏳: Walls generated from Rooms and Caves, Portal anchoring, outline operations, snapping a placed point to the Grid or into alignment (finding what lies under the pointer is the Editor's hit-testing). Encapsulated by: ShapeEngine.
 - **Painting** ⏳👥: how Brushes lay down, erase, and blend paint. Encapsulated by: PaintEngine.
 - **Cataloguing** ⏳👥: which files are Assets and of what kind (Indexing Rules, vendor layouts), and which Asset an Asset Reference means. Encapsulated by: CatalogEngine.
 - **Look** 👥⏳: Materials, Shaders, compositing, lighting. Encapsulated by: RenderEngine.
@@ -76,7 +76,7 @@ Volatility: extension mechanism.
 Contract: InstallPlugin, LoadContributions, RunScript.
 
 ### Editor (Client)
-Volatility: presentation. The only crate that faces the Author: panels read the World and emit Commands; they never own domain state. It owns the presentation state in `model` (the Viewport): panning and zooming write it, nothing else does.
+Volatility: presentation. The only crate that faces the Author: panels read the World and emit Commands; they never own domain state. It owns the presentation state in `model` (the Viewport): panning and zooming write it, nothing else does. Hit-testing is its own: the Element under the pointer and the nearest point of a Wall's line to it, for picking and for the Portal tool, while snapping a placed point to the Grid or into alignment is ShapeEngine's Snap.
 
 ### history (Utility)
 A domain-agnostic stack of reversible commands over a World: Record, Group, Undo, Redo. Every Manager records into it.
