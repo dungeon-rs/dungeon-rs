@@ -32,7 +32,7 @@ pub use project::{Bounds, Grid, Layer, Level, Project};
 pub use resolution::{MissingReason, Resolution, ResolutionTable};
 pub use serialisation::{
     Envelope, Envelopes, Serialisable, SerialisableComponent, SerialisationError,
-    SerialisationRegistry, UnknownComponents, read_only_version,
+    SerialisationRegistry, Tier, UnknownComponents, read_only_version,
 };
 pub use snapshot::{LayerSnapshot, LevelSnapshot, ProjectSnapshot};
 pub use viewport::Viewport;

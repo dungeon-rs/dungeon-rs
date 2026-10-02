@@ -973,6 +973,44 @@ fn a_bad_file_is_refused() {
     assert_eq!(saved.device.mark().file, Some(saved.file.clone()));
 }
 
+/// A file that holds a known component under another entity than its own, a Level's component
+/// on the Project or a Prop's on a Layer, is refused naming the component, and the current
+/// Project is untouched.
+#[test]
+fn a_misplaced_envelope_is_refused() {
+    let mut saved = Saved::new();
+    let elements = saved.device.elements();
+    let root = saved.device.root().to_path_buf();
+    let file = json(&saved.file);
+
+    let mut misplaced = file.clone();
+    misplaced["project"]["level"] = file["levels"][0]["components"]["level"].clone();
+    let on_project = root.join("level-on-project.dungeon");
+    write_json(&on_project, &misplaced);
+    let refused = saved
+        .device
+        .open(&on_project)
+        .expect_err("a Level's component on the Project");
+    assert_eq!(refused.request, ProjectRequest::Open { path: on_project });
+    assert!(refused.reason.contains("level"), "{}", refused.reason);
+
+    let mut misplaced = file.clone();
+    let id = saved.ids[1].as_raw().to_string();
+    misplaced["levels"][0]["layers"][0]["components"]["prop"] =
+        file["elements"][&id]["prop"].clone();
+    let on_layer = root.join("prop-on-layer.dungeon");
+    write_json(&on_layer, &misplaced);
+    let refused = saved
+        .device
+        .open(&on_layer)
+        .expect_err("a Prop's component on a Layer");
+    assert!(refused.reason.contains("prop"), "{}", refused.reason);
+
+    assert_eq!(saved.device.elements(), elements);
+    assert_eq!(saved.device.counts(), (1, 1, 1));
+    assert_eq!(saved.device.mark().file, Some(saved.file.clone()));
+}
+
 /// A file whose format version, or any component version in it, is newer than this editor knows
 /// is refused, naming the version, and the current Project is untouched.
 #[test]

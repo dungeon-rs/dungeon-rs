@@ -19,8 +19,9 @@ in no file's shape: how a snapshot is laid out in a Project file is
 `ProjectAccess`'s business. The
 [`SerialisationRegistry`](crate::SerialisationRegistry) knows, for each
 [`Serialisable`](crate::Serialisable) component, how to write the current version
-and read every version it has had; each crate registers the components it owns
-when its plugin is built. An envelope no entry knows stays on its entity in
+and read every version it has had, and the [`Tier`](crate::Tier) of entity it
+belongs on, so an envelope under another tier is refused as malformed; each
+crate registers the components it owns when its plugin is built. An envelope no entry knows stays on its entity in
 [`UnknownComponents`](crate::UnknownComponents) and is written back unchanged.
 [`SavedMark`](crate::SavedMark) remembers the Project's file and where the
 history stood at the last save or open, and

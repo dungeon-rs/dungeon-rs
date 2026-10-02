@@ -7,7 +7,7 @@ use bevy_ecs::hierarchy::{ChildOf, Children};
 use bevy_ecs::world::World;
 use drs_model::{
     Element, ElementId, Envelopes, Layer, LayerSnapshot, Level, LevelSnapshot, Project,
-    ProjectSnapshot, SerialisationRegistry,
+    ProjectSnapshot, SerialisationRegistry, Tier,
 };
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::Path;
@@ -105,10 +105,10 @@ pub(crate) fn gather(
 /// # Errors
 ///
 /// [`ProjectManagerError::NoRegistry`] without a registry, the registry's error when a
-/// component cannot be read, or [`ProjectManagerError::Malformed`] when the snapshot's parts do
-/// not fit together: a Level or Layer without its component, an Element without its common
-/// component, an Element listed on no Layer or on more than one, or a listed identity the
-/// snapshot does not hold.
+/// component cannot be read or sits on an entity of another tier than its own, or
+/// [`ProjectManagerError::Malformed`] when the snapshot's parts do not fit together: a Level or
+/// Layer without its component, an Element without its common component, an Element listed on
+/// no Layer or on more than one, or a listed identity the snapshot does not hold.
 pub(crate) fn materialise(
     world: &mut World,
     path: &Path,
@@ -145,13 +145,13 @@ fn build(
     };
     {
         let mut entity = world.entity_mut(project);
-        registry.read_all(&mut entity, &snapshot.project)?;
+        registry.read_all(&mut entity, &snapshot.project, Tier::Project)?;
         entity.insert(Project { name });
     }
     let mut placed: BTreeSet<ElementId> = BTreeSet::new();
     for (level_index, level_snapshot) in snapshot.levels.iter().enumerate() {
         let mut level = world.spawn(ChildOf(project));
-        registry.read_all(&mut level, &level_snapshot.components)?;
+        registry.read_all(&mut level, &level_snapshot.components, Tier::Level)?;
         if !level.contains::<Level>() {
             return Err(malformed(format!(
                 "Level {level_index} has no `level` component"
@@ -160,7 +160,7 @@ fn build(
         let level = level.id();
         for (layer_index, layer_snapshot) in level_snapshot.layers.iter().enumerate() {
             let mut layer = world.spawn(ChildOf(level));
-            registry.read_all(&mut layer, &layer_snapshot.components)?;
+            registry.read_all(&mut layer, &layer_snapshot.components, Tier::Layer)?;
             if !layer.contains::<Layer>() {
                 return Err(malformed(format!(
                     "Layer {layer_index} of Level {level_index} has no `layer` component"
@@ -183,7 +183,7 @@ fn build(
                 // The identity goes in before the envelopes, so the common component's
                 // required identity is the recorded one and not a fresh one.
                 let mut element = world.spawn((*id, ChildOf(layer)));
-                registry.read_all(&mut element, envelopes)?;
+                registry.read_all(&mut element, envelopes, Tier::Element)?;
                 if !element.contains::<Element>() {
                     return Err(malformed(format!(
                         "the Element {} has no `element` component",

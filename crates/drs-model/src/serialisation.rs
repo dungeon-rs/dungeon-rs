@@ -71,16 +71,46 @@ impl Envelope {
 /// The envelopes of one entity, by stable component name.
 pub type Envelopes = BTreeMap<String, Box<RawValue>>;
 
+/// The entity of a Project a component belongs on.
+///
+/// A Project file keeps each entity's envelopes under its tier, and an envelope under another
+/// tier than its component's is malformed: a Level's name on the Project entity would otherwise
+/// read as a second Level.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Tier {
+    /// The Project entity.
+    Project,
+    /// A Level entity.
+    Level,
+    /// A Layer entity.
+    Layer,
+    /// An Element entity.
+    Element,
+}
+
+impl std::fmt::Display for Tier {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(match self {
+            Self::Project => "Project",
+            Self::Level => "Level",
+            Self::Layer => "Layer",
+            Self::Element => "Element",
+        })
+    }
+}
+
 /// A component that a Project file can hold.
 ///
 /// Each implementing crate chooses a stable name that never changes once a file has been written
-/// with it, and bumps the version whenever the data's shape changes; `read` then accepts every
-/// version the component has had.
+/// with it, names the tier of entity the component belongs on, and bumps the version whenever
+/// the data's shape changes; `read` then accepts every version the component has had.
 pub trait Serialisable: Component + Serialize + Sized {
     /// The stable name the component is written under.
     const NAME: &'static str;
     /// The version `Serialize` produces.
     const VERSION: u32;
+    /// The entity the component belongs on.
+    const TIER: Tier;
 
     /// The component as its data at `version` describes it.
     ///
@@ -138,6 +168,8 @@ pub struct SerialisableComponent {
     pub name: &'static str,
     /// The version written.
     pub version: u32,
+    /// The entity the component belongs on.
+    pub tier: Tier,
     /// Writes the component of an entity as an envelope, or `None` when the entity has none.
     write: fn(EntityRef) -> Result<Option<Box<RawValue>>, SerialisationError>,
     /// Reads an envelope into the component on an entity.
@@ -150,6 +182,7 @@ impl SerialisableComponent {
         Self {
             name: C::NAME,
             version: C::VERSION,
+            tier: C::TIER,
             write: |entity| {
                 let Some(component) = entity.get::<C>() else {
                     return Ok(None);
@@ -287,20 +320,32 @@ impl SerialisationRegistry {
         Ok(envelopes)
     }
 
-    /// Reads every envelope into `entity`: a registered name becomes its component, and the rest
-    /// are kept verbatim in [`UnknownComponents`].
+    /// Reads every envelope into `entity`, an entity of `tier`: a registered name becomes its
+    /// component, and the rest are kept verbatim in [`UnknownComponents`].
     ///
     /// # Errors
     ///
-    /// As [`Serialisable::read`]; the entity then holds what was read before the failure.
+    /// As [`Serialisable::read`], or [`SerialisationError::Malformed`] for a registered
+    /// component that belongs on another tier; the entity then holds what was read before the
+    /// failure.
     pub fn read_all(
         &self,
         entity: &mut EntityWorldMut,
         envelopes: &Envelopes,
+        tier: Tier,
     ) -> Result<(), SerialisationError> {
         let mut unknown = UnknownComponents::default();
         for (name, raw) in envelopes {
             match self.get(name) {
+                Some(entry) if entry.tier != tier => {
+                    return Err(SerialisationError::Malformed {
+                        component: name.clone(),
+                        reason: format!(
+                            "it belongs on a {} entity, not on a {tier} entity",
+                            entry.tier
+                        ),
+                    });
+                }
                 Some(entry) => entry.read(entity, raw)?,
                 None => {
                     unknown.envelopes.insert(name.clone(), raw.get().to_owned());
@@ -315,12 +360,13 @@ impl SerialisationRegistry {
 }
 
 /// Implements [`Serialisable`] for components that have had one version only, each under its
-/// stable name.
+/// stable name and on its tier.
 macro_rules! serialisable_at_version_one {
-    ($($component:ty => $name:literal),* $(,)?) => {$(
+    ($($component:ty => $name:literal on $tier:expr),* $(,)?) => {$(
         impl Serialisable for $component {
             const NAME: &'static str = $name;
             const VERSION: u32 = 1;
+            const TIER: Tier = $tier;
 
             fn read(version: u32, data: &RawValue) -> Result<Self, SerialisationError> {
                 read_only_version(version, data)
@@ -330,12 +376,12 @@ macro_rules! serialisable_at_version_one {
 }
 
 serialisable_at_version_one! {
-    Project => "project",
-    Grid => "grid",
-    Bounds => "bounds",
-    AssetReferences => "asset_references",
-    Level => "level",
-    Layer => "layer",
-    Element => "element",
-    Prop => "prop",
+    Project => "project" on Tier::Project,
+    Grid => "grid" on Tier::Project,
+    Bounds => "bounds" on Tier::Project,
+    AssetReferences => "asset_references" on Tier::Project,
+    Level => "level" on Tier::Level,
+    Layer => "layer" on Tier::Layer,
+    Element => "element" on Tier::Element,
+    Prop => "prop" on Tier::Element,
 }
