@@ -13,3 +13,4 @@
 - [Reversible command](./reversible-command.md): use when a Manager records a new undoable step.
 - [Serialisable component](./serialisable-component.md): use when a crate adds a component a Project file must hold.
 - [Timed budget test](./timed-budget-test.md): use when a test bounds how long the code takes.
+- [Tool-strip option as a gesture](./tool-strip-option-gesture.md): use when the tool strip shows a property of the selected Element in a widget the Author holds while it changes.
