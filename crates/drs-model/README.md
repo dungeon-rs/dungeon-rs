@@ -36,6 +36,17 @@ equal to what its anchor gives, so freeing it is clearing the anchor. Whoever
 needs the Asset an Element shows, a Prop's or a Portal's, queries
 [`ShownAsset`](crate::ShownAsset) and reads its row.
 
+A Terrain carries [`Terrain`](crate::Terrain): its Material, the Asset Reference
+row of the image its built-in tiled-image Shader shows, and its strokes in the
+order they were laid, each a [`Stroke`](crate::Stroke): a path of one or more
+points in Grid cells with the [`Brush`](crate::Brush) settings it was laid with,
+a size, a hardness, and a strength. A Terrain's
+[`TerrainCoverage`](crate::TerrainCoverage), how much of its Material shows
+where, is derived from its strokes and never saved: tiles of 512 by 512 pixels at
+32 pixels per cell, keyed by their [`TileKey`](crate::TileKey) in the Level's
+pixel plane, negative keys included, each with a revision that changes only when
+its pixels do. The authoring Manager writes it; the render Engine draws it.
+
 A [`ProjectSnapshot`](crate::ProjectSnapshot) holds every component of every
 entity of the Project as an envelope of a version and data under a stable name,
 in no file's shape: how a snapshot is laid out in a Project file is
@@ -75,7 +86,7 @@ its own panics tells the crash handler so, which the Host puts in.
 Every component type here is written only by the systems of the crate that owns
 it; everyone else reads. The [`ModelPlugin`](crate::ModelPlugin) registers the
 types for reflection, the messages, and the Element kind registry with Prop,
-Wall, and Portal as its kinds, and orders the Managers' handling through
+Wall, Portal, and Terrain as its kinds, and orders the Managers' handling through
 [`ManagerSystems`](crate::ManagerSystems): Commands before Undo before Redo.
 
 ## Features

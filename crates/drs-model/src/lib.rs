@@ -12,6 +12,7 @@ mod project;
 mod resolution;
 mod serialisation;
 mod snapshot;
+mod terrain;
 mod thumbnails;
 mod viewport;
 mod wall;
@@ -45,6 +46,10 @@ pub use serialisation::{
     SerialisationRegistry, Tier, UnknownComponents, read_only_version,
 };
 pub use snapshot::{LayerSnapshot, LevelSnapshot, ProjectSnapshot};
+pub use terrain::{
+    Brush, COVERAGE_PIXELS_PER_CELL, COVERAGE_TILE_CELLS, COVERAGE_TILE_PIXELS, CoverageTile,
+    Stroke, TERRAIN, Terrain, TerrainCoverage, TileKey,
+};
 pub use thumbnails::{THUMBNAIL_SOURCE, ThumbnailState, Thumbnails};
 pub use viewport::Viewport;
 pub use wall::{Colour, LinePlace, LinePoint, Segment, Stretch, StrokeMesh, WALL, Wall, WallShape};
@@ -70,6 +75,7 @@ impl Plugin for ModelPlugin {
             .register_type::<Prop>()
             .register_type::<Wall>()
             .register_type::<Portal>()
+            .register_type::<Terrain>()
             .register_type::<AssetReferences>()
             .register_type::<ResolutionTable>()
             .register_type::<UnknownComponents>()

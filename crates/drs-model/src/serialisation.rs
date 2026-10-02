@@ -1,7 +1,9 @@
 //! The serialisation registry: how each component is written into a Project file and read back
 //! from every version it has had, and the component that keeps what no entry knows.
 
-use crate::{AssetReferences, Bounds, Element, Grid, Layer, Level, Portal, Project, Prop, Wall};
+use crate::{
+    AssetReferences, Bounds, Element, Grid, Layer, Level, Portal, Project, Prop, Terrain, Wall,
+};
 use bevy_ecs::component::Component;
 use bevy_ecs::reflect::ReflectComponent;
 use bevy_ecs::resource::Resource;
@@ -405,5 +407,5 @@ serialisable_at_version_one! {
     Layer => "layer" on Tier::Layer,
     Element => "element" on Tier::Element,
     Prop => "prop" on Tier::Element;
-    checked: Wall, Portal,
+    checked: Wall, Portal, Terrain,
 }

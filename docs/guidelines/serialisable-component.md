@@ -46,7 +46,7 @@ serialisable_at_version_one! {
     Layer => "layer" on Tier::Layer,
     Element => "element" on Tier::Element,
     Prop => "prop" on Tier::Element;
-    checked: Wall, Portal,
+    checked: Wall, Portal, Terrain,
 }
 ```
 

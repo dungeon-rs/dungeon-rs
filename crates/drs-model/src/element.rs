@@ -1,6 +1,6 @@
 //! Elements, their stable identity, and the registry of Element kinds.
 
-use crate::{AssetReferenceRow, PORTAL, Portal, WALL};
+use crate::{AssetReferenceRow, PORTAL, Portal, TERRAIN, WALL};
 use bevy_ecs::component::Component;
 use bevy_ecs::entity::Entity;
 use bevy_ecs::error::BevyError;
@@ -146,6 +146,8 @@ pub enum DrawnAs {
     Image,
     /// As a path stroked at a thickness.
     StrokedPath,
+    /// As a surface painted with a Material, showing it as far as its coverage reaches.
+    PaintedSurface,
 }
 
 /// What the editor knows about an Element kind.
@@ -169,7 +171,7 @@ pub struct ElementKindRegistry {
 }
 
 impl Default for ElementKindRegistry {
-    /// A registry with the built-in kinds: Prop, Wall, and Portal.
+    /// A registry with the built-in kinds: Prop, Wall, Portal, and Terrain.
     fn default() -> Self {
         let mut registry = Self {
             kinds: BTreeMap::new(),
@@ -188,6 +190,11 @@ impl Default for ElementKindRegistry {
             name: PORTAL,
             label: "Portal".to_owned(),
             drawn_as: DrawnAs::Image,
+        });
+        registry.register(ElementKindDescriptor {
+            name: TERRAIN,
+            label: "Terrain".to_owned(),
+            drawn_as: DrawnAs::PaintedSurface,
         });
         registry
     }
