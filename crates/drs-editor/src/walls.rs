@@ -462,10 +462,12 @@ fn options(
         });
     ui.label("Thickness");
     // The range has no lower end, as egui clamps typed values into it too: a drag is kept above
-    // zero here instead.
+    // zero here instead. A Wall already thicker than the range shows as it is, since clamping
+    // what is shown would send a change nobody made.
     let drag = ui.add(
         egui::DragValue::new(&mut thickness)
             .range(f32::NEG_INFINITY..=THICKEST)
+            .clamp_existing_to_range(false)
             .speed(0.005)
             .max_decimals(3)
             .suffix(" cells")
