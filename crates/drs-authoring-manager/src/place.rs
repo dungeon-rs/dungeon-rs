@@ -11,8 +11,10 @@ use drs_history::{ReversibleCommand, Target};
 use drs_library_access::load_asset;
 use drs_model::{
     AssetAddress, AssetFolder, AssetFolderReference, AssetReference, AssetReferences, Element,
-    ElementId, Grid, Layer, PORTAL, PROP, PlaceElement, Placement, Portal, Project, Prop, Wall,
+    ElementId, Grid, IndexedAsset, Layer, PORTAL, PROP, PlaceElement, Placement, Portal, Project,
+    Prop, Wall,
 };
+use std::path::PathBuf;
 use unicode_normalization::UnicodeNormalization;
 
 /// The Project a Layer belongs to: the nearest ancestor carrying [`Project`].
@@ -214,6 +216,50 @@ pub(crate) struct Resolved {
     pub(crate) folder: AssetFolderReference,
 }
 
+/// A chosen Asset as its Asset Folder indexes it, with where the folder lies and what the Project
+/// records about the folder.
+pub(crate) struct Indexed {
+    /// The folder's path on this device.
+    path: PathBuf,
+    /// What the Project records about the folder.
+    pub(crate) folder: AssetFolderReference,
+    /// The Asset's entry in the folder's index.
+    pub(crate) asset: IndexedAsset,
+}
+
+/// Finds a chosen Asset in its Asset Folder's index.
+///
+/// # Errors
+///
+/// [`AuthoringError::UnknownFolder`] or [`AuthoringError::UnknownAsset`] when the chosen Asset is
+/// not indexed.
+pub(crate) fn indexed_asset(
+    world: &mut World,
+    asset: &AssetAddress,
+) -> Result<Indexed, AuthoringError> {
+    let folder = world
+        .query::<&AssetFolder>()
+        .iter(world)
+        .find(|folder| folder.key == asset.folder)
+        .ok_or_else(|| AuthoringError::UnknownFolder(asset.folder.clone()))?;
+    let indexed = folder
+        .assets
+        .iter()
+        .find(|indexed| indexed.place == asset.place)
+        .ok_or_else(|| AuthoringError::UnknownAsset {
+            folder: folder.name.clone(),
+            place: asset.place.clone(),
+        })?;
+    Ok(Indexed {
+        path: folder.path.clone(),
+        folder: AssetFolderReference {
+            name: folder.name.clone(),
+            version: folder.version.clone(),
+        },
+        asset: indexed.clone(),
+    })
+}
+
 /// Resolves the chosen Asset for an Element placed on `layer`: finds it in its Asset Folder,
 /// reads its file, and works out what the Project must record about it and its natural size.
 ///
@@ -232,22 +278,12 @@ pub(crate) fn resolve(
         || Grid::default().pixels_per_cell,
         |grid| grid.pixels_per_cell,
     );
-
-    let folder = world
-        .query::<&AssetFolder>()
-        .iter(world)
-        .find(|folder| folder.key == asset.folder)
-        .cloned()
-        .ok_or_else(|| AuthoringError::UnknownFolder(asset.folder.clone()))?;
-    let indexed = folder
-        .assets
-        .iter()
-        .find(|indexed| indexed.place == asset.place)
-        .ok_or_else(|| AuthoringError::UnknownAsset {
-            folder: folder.name.clone(),
-            place: asset.place.clone(),
-        })?;
-    let loaded = load_asset(&folder.path, &indexed.place)?;
+    let Indexed {
+        path,
+        folder,
+        asset: indexed,
+    } = indexed_asset(world, asset)?;
+    let loaded = load_asset(&path, &indexed.place)?;
 
     #[expect(
         clippy::cast_precision_loss,
@@ -257,8 +293,8 @@ pub(crate) fn resolve(
     let reference = AssetReference {
         folder: folder.name.clone(),
         places: vec![indexed.place.nfc().collect()],
-        name: indexed.name.clone(),
-        kind: indexed.kind.clone(),
+        name: indexed.name,
+        kind: indexed.kind,
         fingerprint: loaded.fingerprint,
         byte_size: loaded.byte_size,
         pixel_size: Some(loaded.pixel_size),
@@ -267,10 +303,7 @@ pub(crate) fn resolve(
         project,
         size,
         reference,
-        folder: AssetFolderReference {
-            name: folder.name,
-            version: folder.version,
-        },
+        folder,
     })
 }
 

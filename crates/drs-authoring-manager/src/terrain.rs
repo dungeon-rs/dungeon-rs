@@ -3,7 +3,7 @@
 //! its strokes.
 
 use crate::AuthoringError;
-use crate::place::{Resolved, project_of, resolve, spawn_beneath, take_off};
+use crate::place::{Resolved, indexed_asset, project_of, resolve, spawn_beneath, take_off};
 use bevy_ecs::component::Component;
 use bevy_ecs::entity::Entity;
 use bevy_ecs::error::BevyError;
@@ -13,8 +13,8 @@ use bevy_ecs::system::{Commands, Query};
 use bevy_ecs::world::World;
 use drs_history::{ReversibleCommand, Target};
 use drs_model::{
-    AssetAddress, AssetFolder, AssetFolderReference, AssetReference, AssetReferenceRow,
-    AssetReferences, Element, ElementId, Paint, Stroke, TERRAIN, Terrain, TerrainCoverage,
+    AssetAddress, AssetFolderReference, AssetReference, AssetReferenceRow, AssetReferences,
+    Element, ElementId, Paint, Stroke, TERRAIN, Terrain, TerrainCoverage,
 };
 use drs_paint_engine::{PaintCache, apply_stroke};
 use unicode_normalization::UnicodeNormalization;
@@ -181,27 +181,12 @@ fn recorded_row(
     project: Entity,
     asset: &AssetAddress,
 ) -> Result<(String, Option<AssetReferenceRow>), AuthoringError> {
-    let (folder, name) = {
-        let folder = world
-            .query::<&AssetFolder>()
-            .iter(world)
-            .find(|folder| folder.key == asset.folder)
-            .ok_or_else(|| AuthoringError::UnknownFolder(asset.folder.clone()))?;
-        let indexed = folder
-            .assets
-            .iter()
-            .find(|indexed| indexed.place == asset.place)
-            .ok_or_else(|| AuthoringError::UnknownAsset {
-                folder: folder.name.clone(),
-                place: asset.place.clone(),
-            })?;
-        (folder.name.clone(), indexed.name.clone())
-    };
+    let indexed = indexed_asset(world, asset)?;
     let place: String = asset.place.nfc().collect();
     let row = world
         .get::<AssetReferences>(project)
-        .and_then(|references| references.row_of(&folder, &place));
-    Ok((name, row))
+        .and_then(|references| references.row_of(&indexed.folder.name, &place));
+    Ok((indexed.asset.name, row))
 }
 
 /// The name a row of the Project's Asset Reference table records.
