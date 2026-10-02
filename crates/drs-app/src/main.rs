@@ -8,7 +8,7 @@ use drs_authoring_manager::AuthoringManagerPlugin;
 use drs_diagnostics::{CrashHandler, LogDirectives, Product};
 use drs_editor::{EditorPlugin, window_plugin};
 use drs_history::HistoryPlugin;
-use drs_library_access::{LibraryAccessPlugin, register_library_source};
+use drs_library_access::{LibraryAccessPlugin, register_library_source, register_thumbnail_source};
 use drs_library_manager::LibraryManagerPlugin;
 use drs_model::{EditorDirectories, ModelPlugin};
 use drs_project_manager::ProjectManagerPlugin;
@@ -27,9 +27,10 @@ const PRODUCT: Product = Product {
 /// the first entry names the log file before any other plugin logs, and with the Utility's
 /// default filter, so the terminal and the file start from the same directives before
 /// `RUST_LOG` is laid over both; then the Bundled Files, which the default asset source is
-/// rooted at. The `lib://` asset source is registered before Bevy's `AssetPlugin` builds, since
-/// sources freeze then, and `.meta` lookups are off because Asset Folders never hold them. The
-/// window is the one the Editor describes, so what the Editor needs of it holds by construction.
+/// rooted at. The `lib://` and `thumb://` asset sources are registered before Bevy's
+/// `AssetPlugin` builds, since sources freeze then, and `.meta` lookups are off because Asset
+/// Folders never hold them. The window is the one the Editor describes, so what the Editor needs
+/// of it holds by construction.
 fn main() -> AppExit {
     let directories = directories();
     let logs = drs_diagnostics::log_directory(directories.resolve().ok().map(|found| found.logs));
@@ -43,6 +44,7 @@ fn main() -> AppExit {
 
     let mut app = App::new();
     register_library_source(&mut app);
+    register_thumbnail_source(&mut app);
     app.add_plugins(LogPlugin {
         custom_layer: |_| drs_diagnostics::take_layer(),
         filter: drs_diagnostics::DEFAULT_FILTER.to_owned(),
