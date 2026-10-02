@@ -44,12 +44,21 @@ const RED: &str = "red.png";
 const BLUE: &str = "blue.png";
 /// A solid green image of one cell by one cell.
 const GREEN: &str = "green.png";
+/// A solid magenta image of one cell by one cell at a place full of symbols, among them the `#`
+/// and `?` an asset path would otherwise read as a label and a query.
+#[cfg(not(windows))]
+const MAGENTA: &str = "odd 'things' & more/caf\u{e9} #1? [v2].png";
+/// A solid magenta image of one cell by one cell; Windows forbids `?` in file names.
+#[cfg(windows)]
+const MAGENTA: &str = "odd 'things' & more/caf\u{e9} #1 [v2].png";
 /// The colour of the red image.
 const RED_PIXEL: [u8; 4] = [255, 0, 0, 255];
 /// The colour of the blue image.
 const BLUE_PIXEL: [u8; 4] = [0, 0, 255, 255];
 /// The colour of the green image.
 const GREEN_PIXEL: [u8; 4] = [0, 255, 0, 255];
+/// The colour of the magenta image.
+const MAGENTA_PIXEL: [u8; 4] = [255, 0, 255, 255];
 /// The background of an Export.
 const BLACK_PIXEL: [u8; 4] = [0, 0, 0, 255];
 /// The resolution most tests export at, which makes the default Bounds 240 pixels a side.
@@ -208,6 +217,7 @@ impl Fixture {
         png(&folder, RED, UVec2::splat(256), RED_PIXEL);
         png(&folder, BLUE, UVec2::new(512, 256), BLUE_PIXEL);
         png(&folder, GREEN, UVec2::splat(256), GREEN_PIXEL);
+        png(&folder, MAGENTA, UVec2::splat(256), MAGENTA_PIXEL);
         let mut app = editor(root.path());
         let added = add_folder(&mut app, &folder, "Fixtures");
         Self {
@@ -479,6 +489,22 @@ fn drawn_as_in_the_editor() {
     assert_eq!(picture.pixel(left, top - 1), BLACK_PIXEL);
     assert_eq!(picture.pixel(left + PIXELS_PER_CELL, top), BLACK_PIXEL);
     assert_eq!(picture.pixel(left, top + PIXELS_PER_CELL), BLACK_PIXEL);
+}
+
+/// A Prop whose Asset sits at a place holding spaces, quotes, non-ASCII letters, or symbols is
+/// drawn from its own image, never as a placeholder.
+#[test]
+fn any_path_works_in_the_export() {
+    let mut fixture = Fixture::new();
+    fixture.place(MAGENTA, Vec2::new(3.5, 3.5));
+
+    let picture = fixture.picture("odd.png");
+
+    assert_eq!(picture.at_cell(3, 3), MAGENTA_PIXEL);
+    assert_eq!(
+        picture.count(MAGENTA_PIXEL),
+        (PIXELS_PER_CELL * PIXELS_PER_CELL) as usize
+    );
 }
 
 /// Every pixel no Element covers is opaque black, and the Export holds no transparent or

@@ -17,7 +17,9 @@ use bevy::ecs::message::Messages;
 use bevy::math::{IVec2, UVec2, Vec2};
 use drs_authoring_manager::AuthoringManagerPlugin;
 use drs_history::{History, HistoryPlugin};
-use drs_library_access::{LibraryAccessPlugin, LibraryDirectories, Manifest, write_manifest};
+use drs_library_access::{
+    LibraryAccessPlugin, LibraryDirectories, Manifest, asset_path, write_manifest,
+};
 use drs_library_manager::LibraryManagerPlugin;
 use drs_model::{
     AddFolder, Apply, AssetReferences, Bounds, CanonicalName, ChosenAsset, CommandFailed,
@@ -36,6 +38,13 @@ use tempfile::TempDir;
 const TABLE: &str = "table.png";
 /// The place of the barrel image in the fixture folder.
 const BARREL: &str = "props/barrel.png";
+/// The place of a crate image: spaces, quotes, non-ASCII letters, and symbols, among them the `#`
+/// and `?` an asset path would otherwise read as a label and a query.
+#[cfg(not(windows))]
+const CRATE: &str = "odd 'things' & more/caf\u{e9} #1? [v2].png";
+/// The place of a crate image; Windows forbids `?` in file names.
+#[cfg(windows)]
+const CRATE: &str = "odd 'things' & more/caf\u{e9} #1 [v2].png";
 /// The pixel size of the table image.
 const TABLE_PIXELS: UVec2 = UVec2::new(512, 256);
 /// The pixel size of the barrel image.
@@ -726,6 +735,45 @@ fn any_path_works_for_projects() {
     other.opens(&file);
     assert_eq!(other.order(), saved.ids);
     assert_eq!(other.project().0.name, "Straße's map №7");
+}
+
+/// An Asset whose place holds spaces, quotes, non-ASCII letters, or symbols is recorded, saved,
+/// and resolved on another device like any other, and the asset path it is drawn from names the
+/// file and nothing else.
+#[test]
+fn any_path_works_for_assets() {
+    let mut device = Device::new();
+    let folder = library(
+        device.root(),
+        "library",
+        &[(TABLE, TABLE_PIXELS), (CRATE, BARREL_PIXELS)],
+    );
+    let key = device.add_folder(&folder, FIXTURES);
+    device.place(&key, CRATE, Vec2::ONE);
+    let file = device.save_as(&device.root().join("map.dungeon"));
+    assert_eq!(device.references().assets[0].places, vec![CRATE]);
+
+    let mut other = Device::new();
+    let copy = library(
+        other.root(),
+        "library",
+        &[(TABLE, TABLE_PIXELS), (CRATE, BARREL_PIXELS)],
+    );
+    let other_key = other.add_folder(&copy, FIXTURES);
+    let opened = other.opens(&file);
+
+    assert!(opened.report.missing_assets.is_empty());
+    assert_eq!(
+        other.resolutions(),
+        vec![Resolution::Resolved {
+            folder: other_key.clone(),
+            place: CRATE.to_owned()
+        }]
+    );
+    assert_eq!(other.elements()[0].element.size, Vec2::new(0.5, 0.5));
+    let path = asset_path(&other_key, CRATE);
+    assert_eq!(path.path(), Path::new(other_key.as_str()).join(CRATE));
+    assert_eq!(path.label(), None, "a `#` in the name is not a label");
 }
 
 /// Save adds nothing to the history and changes no Element, the selection, or the view.

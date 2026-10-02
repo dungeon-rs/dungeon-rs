@@ -9,27 +9,28 @@
 )]
 
 use bevy::app::App;
+use bevy::asset::io::AssetSourceId;
 use bevy::ecs::entity::Entity;
 use bevy::ecs::hierarchy::Children;
 use bevy::ecs::message::Messages;
 use bevy::math::{UVec2, Vec2};
 use drs_authoring_manager::AuthoringManagerPlugin;
 use drs_history::{History, HistoryPlugin};
-use drs_library_access::LibraryAccessPlugin;
+use drs_library_access::{LIBRARY_SOURCE, LibraryAccessPlugin, asset_path};
 use drs_library_manager::LibraryManagerPlugin;
 use drs_model::{
     AddFolder, Apply, AssetFolder, AssetFolderReference, AssetKind, AssetReferences, CanonicalName,
     ChosenAsset, CommandFailed, EditElement, EditorDirectories, Element, ElementChange, ElementId,
     Fingerprint, FolderAdded, FolderKey, FolderRefused, Gesture, Layer, ModelPlugin, PROP,
-    PlaceElement, Prop, Redo, RemoveElement, Undo,
+    PlaceElement, Prop, Redo, RemoveElement, Resolution, ResolutionTable, Undo,
 };
 use drs_project_manager::ProjectManagerPlugin;
 use std::fs;
 use std::path::{Path, PathBuf};
 use tempfile::TempDir;
 
-/// The Asset Folder every test places from: a table of 512 by 256 pixels and a barrel of 128 by
-/// 128 pixels in a subfolder.
+/// The Asset Folder every test places from: a table of 512 by 256 pixels, a barrel of 128 by
+/// 128 pixels in a subfolder, and a crate of 128 by 128 pixels at a place full of symbols.
 struct Fixture {
     /// Keeps the temporary directory alive for the test.
     _root: TempDir,
@@ -45,10 +46,19 @@ struct Fixture {
 const TABLE: &str = "table.png";
 /// The place of the barrel image in the fixture folder.
 const BARREL: &str = "props/barrel.png";
+/// The place of the crate image: spaces, quotes, non-ASCII letters, and symbols, among them the
+/// `#` and `?` an asset path would otherwise read as a label and a query.
+#[cfg(not(windows))]
+const CRATE: &str = "odd 'things' & more/caf\u{e9} #1? [v2].png";
+/// The place of the crate image; Windows forbids `?` in file names.
+#[cfg(windows)]
+const CRATE: &str = "odd 'things' & more/caf\u{e9} #1 [v2].png";
 /// The pixel size of the table image.
 const TABLE_PIXELS: UVec2 = UVec2::new(512, 256);
 /// The pixel size of the barrel image.
 const BARREL_PIXELS: UVec2 = UVec2::new(128, 128);
+/// The pixel size of the crate image.
+const CRATE_PIXELS: UVec2 = UVec2::new(128, 128);
 
 /// Writes an opaque PNG of `size` pixels at `place` under `folder`.
 fn png(folder: &Path, place: &str, size: UVec2) {
@@ -107,6 +117,7 @@ impl Fixture {
         let folder = root.path().join("fixtures");
         png(&folder, TABLE, TABLE_PIXELS);
         png(&folder, BARREL, BARREL_PIXELS);
+        png(&folder, CRATE, CRATE_PIXELS);
         let mut app = editor(root.path());
         let added = add_folder(&mut app, &folder, "Fixtures");
         Self {
@@ -229,6 +240,17 @@ impl Fixture {
         let world = self.app.world_mut();
         world.query::<&AssetFolder>().iter(world).cloned().collect()
     }
+
+    /// The Project's resolution table.
+    fn resolutions(&mut self) -> Vec<Resolution> {
+        let world = self.app.world_mut();
+        world
+            .query::<&ResolutionTable>()
+            .single(world)
+            .expect("exactly one Project")
+            .rows
+            .clone()
+    }
 }
 
 /// What the World holds about one placed Prop.
@@ -343,6 +365,36 @@ fn anywhere_on_the_level() {
     let props = fixture.props();
     assert_eq!(props.len(), 1);
     assert_eq!(props[0].element.position, far_outside);
+}
+
+/// An Asset whose place holds spaces, quotes, non-ASCII letters, or symbols is placed like any
+/// other: its own pixels are read for its size, its place is recorded and resolved as spelled,
+/// and the asset path it is drawn from names the file and nothing else.
+#[test]
+fn any_path_works() {
+    let mut fixture = Fixture::new();
+
+    fixture.place(CRATE, Vec2::ONE);
+
+    let props = fixture.props();
+    assert_eq!(props.len(), 1);
+    assert_eq!(
+        props[0].element.size,
+        Vec2::new(0.5, 0.5),
+        "the size comes from the image's own pixels"
+    );
+    assert_eq!(fixture.references().assets[0].places, vec![CRATE]);
+    assert_eq!(
+        fixture.resolutions(),
+        vec![Resolution::Resolved {
+            folder: fixture.key.clone(),
+            place: CRATE.to_owned()
+        }]
+    );
+    let path = asset_path(&fixture.key, CRATE);
+    assert_eq!(path.path(), Path::new(fixture.key.as_str()).join(CRATE));
+    assert_eq!(path.label(), None, "a `#` in the name is not a label");
+    assert_eq!(*path.source(), AssetSourceId::from(LIBRARY_SOURCE));
 }
 
 /// Several Props placed from the same Asset are independent Elements, each with its own

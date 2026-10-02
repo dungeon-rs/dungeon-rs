@@ -1,6 +1,6 @@
 //! One sprite per Prop, kept in step with the model through change detection.
 
-use bevy_asset::{AssetServer, Handle, LoadState};
+use bevy_asset::{AssetPath, AssetServer, Handle, LoadState};
 use bevy_color::Color;
 use bevy_ecs::component::Component;
 use bevy_ecs::entity::Entity;
@@ -22,7 +22,7 @@ pub(crate) struct Drawing {
     /// The Element drawn.
     element: Entity,
     /// The asset path of the image shown, or `None` while a placeholder stands in.
-    image: Option<String>,
+    image: Option<AssetPath<'static>>,
 }
 
 /// Marks a sprite whose image has not finished loading.
@@ -123,7 +123,7 @@ pub(crate) fn sync_props(
                             show(
                                 &mut commands.entity(sprite_entity),
                                 &mut sprite,
-                                image.as_deref(),
+                                image.as_ref(),
                                 &asset_server,
                             );
                         }
@@ -133,7 +133,7 @@ pub(crate) fn sync_props(
                             ..Sprite::default()
                         };
                         let mut spawned = commands.spawn_empty();
-                        show(&mut spawned, &mut sprite, image.as_deref(), &asset_server);
+                        show(&mut spawned, &mut sprite, image.as_ref(), &asset_server);
                         spawned.insert((
                             sprite,
                             Transform::from_translation(translation),
@@ -165,7 +165,11 @@ pub(crate) fn settle_loads(
             Some(LoadState::Failed(error)) => {
                 log::warn!(
                     "the image {} could not be loaded, so a placeholder stands in: {error}",
-                    drawing.image.as_deref().unwrap_or_default()
+                    drawing
+                        .image
+                        .as_ref()
+                        .map(ToString::to_string)
+                        .unwrap_or_default()
                 );
                 placeholder(&mut sprite);
                 commands.entity(entity).remove::<Loading>();
@@ -177,7 +181,7 @@ pub(crate) fn settle_loads(
 /// The `lib://` path of an Element's image: where the resolution table says its Prop's Asset
 /// Reference loads from on this device. `None` for a Missing Asset, for a row not yet resolved,
 /// and for an Element that is no Prop.
-fn image_of(resolutions: &ResolutionTable, prop: Option<&Prop>) -> Option<String> {
+fn image_of(resolutions: &ResolutionTable, prop: Option<&Prop>) -> Option<AssetPath<'static>> {
     match resolutions.get(prop?.asset)? {
         Resolution::Resolved { folder, place } => Some(asset_path(folder, place)),
         Resolution::Missing(_) => None,
@@ -188,11 +192,11 @@ fn image_of(resolutions: &ResolutionTable, prop: Option<&Prop>) -> Option<String
 fn show(
     entity: &mut EntityCommands,
     sprite: &mut Sprite,
-    image: Option<&str>,
+    image: Option<&AssetPath<'static>>,
     asset_server: &AssetServer,
 ) {
     if let Some(path) = image {
-        sprite.image = asset_server.load::<Image>(path.to_owned());
+        sprite.image = asset_server.load::<Image>(path);
         sprite.color = Color::WHITE;
         entity.insert(Loading);
     } else {

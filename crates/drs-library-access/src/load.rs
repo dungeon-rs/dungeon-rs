@@ -1,6 +1,7 @@
 //! Loading one Asset: what a Project needs to record about it.
 
 use crate::LibraryError;
+use bevy_asset::AssetPath;
 use bevy_math::UVec2;
 use drs_model::{Fingerprint, FolderKey};
 use std::path::{Component, Path, PathBuf};
@@ -16,10 +17,13 @@ pub struct LoadedAsset {
     pub fingerprint: Fingerprint,
 }
 
-/// The `lib://` path of the Asset at `place` in the folder with `key`.
+/// The `lib://` asset path of the Asset at `place` in the folder with `key`.
+///
+/// The path is assembled from its parts rather than parsed from text, so a `#` or `?` in a file
+/// name stays part of the name instead of being read as an asset label or query.
 #[must_use]
-pub fn asset_path(key: &FolderKey, place: &str) -> String {
-    format!("{}://{}/{place}", crate::LIBRARY_SOURCE, key.as_str())
+pub fn asset_path(key: &FolderKey, place: &str) -> AssetPath<'static> {
+    AssetPath::from_path_buf(Path::new(key.as_str()).join(place)).with_source(crate::LIBRARY_SOURCE)
 }
 
 /// The file at `place` inside `folder`, refusing a place that climbs out of the folder.
