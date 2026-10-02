@@ -18,9 +18,11 @@ and to announce a pending crash report.
   through [`take_layer`](crate::take_layer), and the entries carry their UTC
   timestamp, level, and module. The level comes from `RUST_LOG` through
   [`log_directives`](crate::log_directives): the variable's directives
-  alone when it is well-formed, as Bevy's log plugin reads it for the
-  terminal, and the default, [`DEFAULT_LEVEL`](crate::DEFAULT_LEVEL), when
-  it is unset, or when it is malformed, which is said on the terminal. When the directory or the file cannot be created, the reason is
+  laid over the default, [`DEFAULT_LEVEL`](crate::DEFAULT_LEVEL), when it
+  is well-formed, as Bevy's log plugin reads it for the terminal, which the
+  Host starts from the same [`DEFAULT_FILTER`](crate::DEFAULT_FILTER) so the
+  two agree, and the default alone when it is unset, or when it is
+  malformed, which is said on the terminal. When the directory or the file cannot be created, the reason is
   printed and the editor logs to the terminal only; what came out is a
   [`Logging`](crate::Logging).
 - **`InstallCrashHandler`**:

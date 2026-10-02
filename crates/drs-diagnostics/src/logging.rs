@@ -5,7 +5,7 @@ use std::path::{Path, PathBuf};
 use std::sync::{Mutex, PoisonError};
 use thiserror::Error;
 use tracing_subscriber::Layer;
-use tracing_subscriber::filter::EnvFilter;
+use tracing_subscriber::filter::{Directive, EnvFilter};
 use tracing_subscriber::registry::Registry;
 
 /// A boxed layer over the registry: the type Bevy's log plugin takes as its custom layer.
@@ -20,7 +20,12 @@ const LOG_FILE_SUFFIX: &str = "log";
 /// How many daily log files are kept.
 pub const KEPT_LOG_FILES: usize = 7;
 
-/// The level without `RUST_LOG`: the editor's own events, without the engine's noise.
+/// The engine crates whose noise the default keeps out of the log; the Host hands the same
+/// directives to Bevy's log plugin, so the terminal starts from the defaults the file does.
+pub const DEFAULT_FILTER: &str = "wgpu=error,naga=warn";
+
+/// The level without `RUST_LOG`: the editor's own events at `info`, with [`DEFAULT_FILTER`]
+/// keeping the engine's noise out.
 pub const DEFAULT_LEVEL: &str = "info,wgpu=error,naga=warn";
 
 /// The layer built by [`start_logging`], until the Host takes it.
@@ -102,25 +107,34 @@ impl LogDirectives {
     }
 }
 
-/// Derives the filter from a `RUST_LOG` value: the value's directives alone when it is
-/// well-formed, as Bevy's log plugin reads it for the terminal, so the file and the terminal
-/// agree; the default directives otherwise, with a malformed value said in the fallback note.
+/// Derives the filter from a `RUST_LOG` value: the value's directives laid over the default
+/// ones, the more specific winning, which is how Bevy's log plugin reads the variable for the
+/// terminal, so the file and the terminal agree; the default directives alone when the value is
+/// unset or malformed, a malformed value being said in the fallback note.
 #[must_use]
 pub fn log_directives(rust_log: Option<&str>) -> LogDirectives {
-    let defaults = || EnvFilter::builder().parse_lossy(DEFAULT_LEVEL);
+    let defaults = EnvFilter::builder().parse_lossy(DEFAULT_LEVEL);
     let Some(value) = rust_log.map(str::trim).filter(|value| !value.is_empty()) else {
         return LogDirectives {
-            filter: defaults(),
+            filter: defaults,
             fallback: None,
         };
     };
-    match EnvFilter::builder().parse(value) {
+    let laid_over = value
+        .split(',')
+        .filter(|directive| !directive.is_empty())
+        .try_fold(defaults.clone(), |filter, directive| {
+            directive
+                .parse::<Directive>()
+                .map(|directive| filter.add_directive(directive))
+        });
+    match laid_over {
         Ok(filter) => LogDirectives {
             filter,
             fallback: None,
         },
         Err(error) => LogDirectives {
-            filter: defaults(),
+            filter: defaults,
             fallback: Some(format!(
                 "RUST_LOG is malformed ({error}); logging at the default level {DEFAULT_LEVEL}"
             )),
@@ -206,14 +220,15 @@ pub(crate) fn current_log_file(now: time::OffsetDateTime) -> Option<PathBuf> {
     state.file.then(|| state.directory.join(log_file_name(now)))
 }
 
-/// Deletes the oldest daily log files beyond the kept count, oldest by the date in the name,
-/// leaving room for the file of the day of `now`; crash reports and anything else in the
-/// directory are never touched.
-fn prune_by_date(directory: &Path, now: time::OffsetDateTime) {
+/// Deletes the oldest daily log files beyond one fewer than the kept count, oldest by the date
+/// in the name, today's file counted when it already exists, so the appender, which prunes by
+/// creation time when it is built and at midnight, finds fewer files than its maximum and
+/// deletes nothing at start; crash reports and anything else in the directory are never
+/// touched.
+fn prune_by_date(directory: &Path) {
     let Ok(entries) = std::fs::read_dir(directory) else {
         return;
     };
-    let today = log_file_name(now);
     let prefix = format!("{LOG_FILE_PREFIX}.");
     let suffix = format!(".{LOG_FILE_SUFFIX}");
     let mut dated: Vec<(String, PathBuf)> = entries
@@ -221,7 +236,7 @@ fn prune_by_date(directory: &Path, now: time::OffsetDateTime) {
         .filter_map(|entry| {
             let name = entry.file_name().to_str()?.to_owned();
             let date = name.strip_prefix(&prefix)?.strip_suffix(&suffix)?;
-            (name != today).then(|| (date.to_owned(), entry.path()))
+            Some((date.to_owned(), entry.path()))
         })
         .collect();
     dated.sort();
@@ -250,8 +265,8 @@ fn log_file_name(now: time::OffsetDateTime) -> String {
 }
 
 /// The daily appender over `directory`, created first so the appender finds the directory it
-/// prunes, and pruned by the dates in the file names before the appender prunes by creation
-/// time at midnight, so a start deletes the oldest files whatever the file system remembers.
+/// prunes, and pruned by the dates in the file names before the appender is built, so a start
+/// deletes the oldest files whatever the file system remembers about their creation.
 ///
 /// # Errors
 ///
@@ -263,7 +278,7 @@ fn appender(
         path: directory.to_path_buf(),
         source,
     })?;
-    prune_by_date(directory, time::OffsetDateTime::now_utc());
+    prune_by_date(directory);
     tracing_appender::rolling::Builder::new()
         .rotation(tracing_appender::rolling::Rotation::DAILY)
         .filename_prefix(LOG_FILE_PREFIX)

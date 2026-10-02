@@ -25,7 +25,9 @@ const PRODUCT: Product = Product {
 ///
 /// The crash handler goes first, so that a crash before any window still leaves a report;
 /// logging next, with its layer handed to Bevy's log plugin, which is added on its own so that
-/// the first entry names the log file before any other plugin logs; then the Bundled Files,
+/// the first entry names the log file before any other plugin logs, and with the Utility's
+/// default filter, so the terminal and the file start from the same directives before
+/// `RUST_LOG` is laid over both; then the Bundled Files,
 /// which the default asset source is rooted at. The `lib://` asset source is registered before
 /// Bevy's `AssetPlugin` builds, since sources freeze then, and `.meta` lookups are off because
 /// Asset Folders never hold them.
@@ -44,6 +46,7 @@ fn main() -> AppExit {
     register_library_source(&mut app);
     app.add_plugins(LogPlugin {
         custom_layer: |_| drs_diagnostics::take_layer(),
+        filter: drs_diagnostics::DEFAULT_FILTER.to_owned(),
         ..LogPlugin::default()
     });
     let started = drs_diagnostics::log_start(&logging, bundled_files);

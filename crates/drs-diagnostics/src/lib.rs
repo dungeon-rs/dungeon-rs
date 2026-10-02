@@ -14,8 +14,8 @@ pub use crash::{
     run_guarded,
 };
 pub use logging::{
-    BoxedLayer, DEFAULT_LEVEL, KEPT_LOG_FILES, LogDirectives, Logging, LoggingError,
-    log_directives, log_directory, start_logging, take_layer,
+    BoxedLayer, DEFAULT_FILTER, DEFAULT_LEVEL, KEPT_LOG_FILES, LogDirectives, Logging,
+    LoggingError, log_directives, log_directory, start_logging, take_layer,
 };
 pub use reveal::{RevealError, reveal_logs};
 

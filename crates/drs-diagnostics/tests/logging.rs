@@ -150,6 +150,43 @@ fn a_week_of_files_is_kept() {
     assert!(logging.file.is_some());
 }
 
+/// A start on a day that already has its file keeps that file and what it holds, and still
+/// leaves at most seven: the oldest by date go, never today's, whatever the file system
+/// remembers about creation.
+#[test]
+fn a_start_on_a_day_with_a_file_keeps_that_file() {
+    let root = TempDir::new().expect("temporary root");
+    let logs = root.path().join("logs");
+    fs::create_dir_all(&logs).expect("the log directory");
+    let day = today();
+    let todays = logs.join(format!("dungeon-rs.{day}.log"));
+    fs::write(&todays, "earlier today\n").expect("today's file");
+    for day in 1..=10 {
+        fs::write(
+            logs.join(format!("dungeon-rs.2026-09-{day:02}.log")),
+            "old\n",
+        )
+        .expect("an old log file");
+    }
+
+    let (_, guard) = subscriber(&logs, log_directives(None));
+    tracing::info!(target: "drs_test", "later today");
+    drop(guard);
+
+    if today() != day {
+        return;
+    }
+    let kept = log_files(&logs);
+    assert!(kept.len() <= KEPT_LOG_FILES, "{kept:?}");
+    assert!(
+        kept.contains(&"dungeon-rs.2026-09-10.log".to_owned()),
+        "{kept:?}"
+    );
+    let text = fs::read_to_string(&todays).expect("today's file");
+    assert!(text.starts_with("earlier today"), "{text}");
+    assert!(text.contains("later today"), "{text}");
+}
+
 /// An entry is in the file once the call that logged it returns; nothing is held back in a
 /// buffer.
 #[test]
@@ -183,12 +220,13 @@ fn a_log_directory_that_cannot_be_made_leaves_the_terminal_only() {
     assert!(take_layer().is_none());
 }
 
-/// When `RUST_LOG` is set and well-formed, its directives alone decide which entries are
-/// logged; the default's exceptions for the engine no longer apply.
+/// When `RUST_LOG` is set and well-formed, its directives are laid over the default ones, the
+/// more specific winning, as the terminal reads it: a default the variable does not name stays,
+/// and one it names is replaced.
 #[test]
 fn the_level_comes_from_rust_log() {
     let root = TempDir::new().expect("temporary root");
-    let level = log_directives(Some("debug,drs_quiet=error"));
+    let level = log_directives(Some("debug,drs_quiet=error,naga=info"));
     assert!(level.fallback.is_none());
     let (file, _guard) = subscriber(&root.path().join("logs"), level);
 
@@ -196,12 +234,14 @@ fn the_level_comes_from_rust_log() {
     tracing::warn!(target: "drs_quiet", "a quiet warning");
     tracing::error!(target: "drs_quiet", "a quiet error");
     tracing::warn!(target: "wgpu::device", "a wgpu warning");
+    tracing::info!(target: "naga::front", "a naga info entry");
 
     let text = fs::read_to_string(&file).expect("the log file");
     assert!(text.contains("a debug entry"), "{text}");
     assert!(!text.contains("a quiet warning"), "{text}");
     assert!(text.contains("a quiet error"), "{text}");
-    assert!(text.contains("a wgpu warning"), "{text}");
+    assert!(!text.contains("a wgpu warning"), "{text}");
+    assert!(text.contains("a naga info entry"), "{text}");
 }
 
 /// Without `RUST_LOG`, entries at `info` and above are logged, except that `wgpu` logs at
