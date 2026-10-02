@@ -1,6 +1,6 @@
 //! The asset source thumbnails are read through: `thumb://<folder-key>/<place>`.
 
-use super::pack::{Digest, Record, read_entry};
+use super::pack::{Digest, Record, digest, read_entry};
 use crate::LibraryTable;
 use crate::source::key_and_parts;
 use bevy_app::App;
@@ -36,14 +36,8 @@ struct Served {
 }
 
 /// The digest of an Asset's folder key and place, which the table is keyed by.
-pub(crate) fn place_digest(folder: &str, place: &str) -> Digest {
-    let mut hasher = blake3::Hasher::new();
-    hasher.update(folder.as_bytes());
-    hasher.update(&[0]);
-    hasher.update(place.as_bytes());
-    let mut digest = [0; 16];
-    digest.copy_from_slice(&hasher.finalize().as_bytes()[..16]);
-    digest
+fn place_digest(folder: &str, place: &str) -> Digest {
+    digest(&[folder.as_bytes(), &[0], place.as_bytes()])
 }
 
 impl ThumbnailTable {

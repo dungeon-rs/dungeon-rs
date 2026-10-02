@@ -40,17 +40,15 @@ pub struct ThumbnailKey {
 impl ThumbnailKey {
     /// The digest the index records the key by.
     fn digest(&self) -> Digest {
-        let mut hasher = blake3::Hasher::new();
-        hasher.update(self.folder.as_str().as_bytes());
-        hasher.update(&[0]);
-        hasher.update(self.place.as_bytes());
-        hasher.update(&[0]);
-        hasher.update(&self.byte_size.to_le_bytes());
-        hasher.update(&self.modified.as_secs().to_le_bytes());
-        hasher.update(&self.modified.subsec_nanos().to_le_bytes());
-        let mut digest = [0; 16];
-        digest.copy_from_slice(&hasher.finalize().as_bytes()[..16]);
-        digest
+        pack::digest(&[
+            self.folder.as_str().as_bytes(),
+            &[0],
+            self.place.as_bytes(),
+            &[0],
+            &self.byte_size.to_le_bytes(),
+            &self.modified.as_secs().to_le_bytes(),
+            &self.modified.subsec_nanos().to_le_bytes(),
+        ])
     }
 }
 

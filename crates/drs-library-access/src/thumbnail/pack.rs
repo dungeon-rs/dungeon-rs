@@ -38,6 +38,17 @@ const FLUSH_AFTER: Duration = Duration::from_millis(100);
 /// The digest of an Asset's key: its folder key, place, byte size, and modification time.
 pub(crate) type Digest = [u8; 16];
 
+/// The digest of `parts` hashed one after the other: the first 16 bytes of their BLAKE3 hash.
+pub(crate) fn digest(parts: &[&[u8]]) -> Digest {
+    let mut hasher = blake3::Hasher::new();
+    for part in parts {
+        hasher.update(part);
+    }
+    let mut digest = [0; 16];
+    digest.copy_from_slice(&hasher.finalize().as_bytes()[..16]);
+    digest
+}
+
 /// Where one thumbnail lies in the pack.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct Record {
