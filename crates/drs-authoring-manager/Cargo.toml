@@ -22,12 +22,7 @@ unicode-normalization = { workspace = true }
 
 [features]
 default = []
-dev = [
-  "drs-history/dev",
-  "drs-library-access/dev",
-  "drs-model/dev",
-  "drs-shape-engine/dev",
-]
+dev = ["drs-history/dev", "drs-library-access/dev", "drs-model/dev", "drs-shape-engine/dev"]
 
 [lints]
 workspace = true
