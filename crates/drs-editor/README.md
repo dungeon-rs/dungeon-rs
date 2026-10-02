@@ -47,8 +47,9 @@ two rows either side are named to the library Manager with Browse whenever
 they change, so they are generated first; thumbnails are loaded through the
 `thumb://` asset source, so the asset system decodes them off the main thread,
 the rows either side are loaded ahead, a thumbnail is registered with egui only
-while its row is laid out, and at most 512 decoded thumbnails are kept, the
-least recently shown dropped first.
+while its row is laid out, so none while the panel is behind another tab, and
+at most 512 decoded thumbnails are kept, the least recently shown dropped
+first.
 
 The panels read the World and send Commands and requests as messages; they
 never own domain state. The Editor writes only the model's `Viewport` (panning

@@ -126,6 +126,7 @@ pub(crate) fn draw(_main_thread: NonSendMarker, mut contexts: EguiContexts, mut 
                 .show_leaf_collapse_buttons(false)
                 .show_inside(ui, &mut panels);
         });
+    browser::release_if_hidden(&mut editor.library, &mut contexts);
     name_prompt(&ctx, &mut editor);
     let Editor {
         state,

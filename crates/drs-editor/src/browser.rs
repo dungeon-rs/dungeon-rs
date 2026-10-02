@@ -41,6 +41,8 @@ pub(crate) struct Browser {
     frame: u64,
     /// The Assets last named to the library Manager as wanted.
     wanted: Vec<AssetAddress>,
+    /// Whether the panel was drawn in this frame.
+    drawn: bool,
     /// The cells laid out in the last frame, for the development script to describe.
     pub cells: Vec<Cell>,
 }
@@ -167,6 +169,7 @@ pub(crate) fn show(
     } = library;
     let browser = &mut **browser;
     browser.frame += 1;
+    browser.drawn = true;
     browser.cells.clear();
     rematch(browser, state.filter.trim(), folders);
     if browser.matching.folders.is_empty() {
@@ -211,6 +214,16 @@ pub(crate) fn show(
     prefetch(browser, folders, assets, &ahead, &range, columns);
     want(browser, folders, browse, &ahead, columns);
     release(browser, contexts, &laid_out);
+}
+
+/// Unregisters every thumbnail when the panel was not drawn in this frame, as when its tab is
+/// behind another, so that no texture stays registered for a grid nobody sees.
+pub(crate) fn release_if_hidden(library: &mut Library, contexts: &mut EguiContexts) {
+    let browser = &mut *library.browser;
+    if !std::mem::take(&mut browser.drawn) {
+        browser.cells.clear();
+        release(browser, contexts, &BTreeSet::new());
+    }
 }
 
 /// How many cells fit side by side in `width`, at least one.
