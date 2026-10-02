@@ -18,8 +18,8 @@ use bevy_ecs::world::World;
 use bevy_math::Vec2;
 use drs_history::{ReversibleCommand, SetField, Target};
 use drs_model::{
-    AssetReferences, Element, ElementId, Level, Portal, PortalAnchor, PortalsRemoved, Segment,
-    WALL, Wall, WallShape,
+    AssetReferences, Element, ElementId, Level, LinePlace, Portal, PortalAnchor, PortalsRemoved,
+    Segment, WALL, Wall, WallShape,
 };
 use drs_shape_engine::{
     PointEdit, PortalSetting, anchor_portals, anchor_portals_through, generate_walls, split_wall,
@@ -182,26 +182,22 @@ pub(crate) fn add_point(
 ) -> Result<(), AuthoringError> {
     let before = wall_of(world, element)?;
     let wall = split_wall(&before, segment, t)?;
-    let (portals, lost) = anchored_to(world, element);
+    // A Portal anchored at a segment the Wall lacks lies past every segment, so it moves one on
+    // like a Portal on a later segment and never comes to name the new one: it keeps standing
+    // where it was saved.
+    let (set, lost) = anchored_to(world, element);
+    let anchored: Vec<Anchored> = set.into_iter().chain(lost).collect();
     let places = anchor_portals_through(
         &before,
         PointEdit::Added { segment, t },
-        &settings(&portals),
+        &settings(&anchored),
     );
     let mut moves = Vec::new();
-    for ((portal, anchor, _), place) in portals.iter().zip(places) {
-        if let Some(place) = place {
-            moves.push(moved(*portal, *anchor, place.segment, place.t)?);
-        }
-    }
-    // A Portal anchored at a segment the Wall lacks lies past every segment, so it moves one on
-    // like a Portal on a later segment, and the new segment never becomes its own: it keeps
-    // standing where it was saved.
-    let renumbered =
-        anchor_portals_through(&before, PointEdit::Added { segment, t }, &settings(&lost));
-    for ((portal, anchor, _), place) in lost.iter().zip(renumbered) {
-        if let Some(place) = place {
-            moves.push(moved(*portal, *anchor, place.segment, place.t)?);
+    for ((portal, anchor, _), place) in anchored.iter().zip(places) {
+        if let Some(place) = place
+            && let Some(field) = moved(*portal, *anchor, place)?
+        {
+            moves.push(field);
         }
     }
     record_together(
@@ -257,7 +253,7 @@ pub(crate) fn remove_point(
     let mut moves = Vec::new();
     for ((portal, anchor, _), place) in portals.iter().zip(places) {
         match place {
-            Some(place) => moves.push(moved(*portal, *anchor, place.segment, place.t)?),
+            Some(place) => moves.extend(moved(*portal, *anchor, place)?),
             None => gone.push(*portal),
         }
     }
@@ -313,8 +309,8 @@ fn settings(portals: &[Anchored]) -> Vec<PortalSetting> {
         .collect()
 }
 
-/// The field command that moves a Portal's anchor to another segment and parameter, its side
-/// kept.
+/// The field command that moves a Portal's anchor to another place along its Wall, its side
+/// kept, or `None` when the place is the one it has, so a step records no change that is none.
 ///
 /// # Errors
 ///
@@ -322,18 +318,21 @@ fn settings(portals: &[Anchored]) -> Vec<PortalSetting> {
 fn moved(
     portal: ElementId,
     anchor: PortalAnchor,
-    segment: usize,
-    t: f32,
-) -> Result<SetField<ElementId>, AuthoringError> {
+    place: LinePlace,
+) -> Result<Option<SetField<ElementId>>, AuthoringError> {
+    if (anchor.index, anchor.t.to_bits()) == (place.segment, place.t.to_bits()) {
+        return Ok(None);
+    }
     SetField::<ElementId>::new::<Portal>(
         portal,
         "anchor",
         Some(PortalAnchor {
-            index: segment,
-            t,
+            index: place.segment,
+            t: place.t,
             ..anchor
         }),
     )
+    .map(Some)
     .map_err(|error| AuthoringError::History(error.to_string()))
 }
 
