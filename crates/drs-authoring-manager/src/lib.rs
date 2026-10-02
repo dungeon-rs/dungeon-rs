@@ -340,3 +340,63 @@ fn handle_redo(world: &mut World, requests: &mut SystemState<MessageReader<Redo>
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    #![expect(
+        clippy::missing_panics_doc,
+        reason = "a test stops at the first thing that is not as expected"
+    )]
+
+    use super::*;
+    use bevy_ecs::error::BevyError;
+    use bevy_ecs::resource::Resource;
+    use drs_history::ReversibleCommand;
+
+    /// A count the test's commands add to.
+    #[derive(Resource, Default)]
+    struct Count(i32);
+
+    /// Adds one to the [`Count`], or refuses to when `refused`.
+    struct AddOne {
+        /// Whether applying it fails.
+        refused: bool,
+    }
+
+    impl ReversibleCommand for AddOne {
+        fn apply(&mut self, world: &mut World) -> Result<(), BevyError> {
+            if self.refused {
+                return Err("refused".into());
+            }
+            world.get_resource_mut::<Count>().ok_or("no count")?.0 += 1;
+            Ok(())
+        }
+
+        fn revert(&mut self, world: &mut World) -> Result<(), BevyError> {
+            world.get_resource_mut::<Count>().ok_or("no count")?.0 -= 1;
+            Ok(())
+        }
+    }
+
+    /// A Command whose second step fails is taken back whole: its first step is reverted,
+    /// nothing is recorded, the failure is returned, and what could be redone still can be.
+    #[test]
+    fn a_failing_second_step_closes_the_group_empty() {
+        let mut world = World::new();
+        world.init_resource::<History>();
+        world.init_resource::<Count>();
+        record_step(&mut world, AddOne { refused: false }).expect("recorded");
+        undo(&mut world).expect("undone");
+
+        history(&mut world).expect("a history").begin_group();
+        let outcome = record(&mut world, AddOne { refused: false })
+            .and_then(|()| record(&mut world, AddOne { refused: true }));
+        let closed = close_group(&mut world, outcome);
+
+        assert!(matches!(closed, Err(AuthoringError::History(_))));
+        assert_eq!(world.get_resource::<Count>().expect("a count").0, 0);
+        let history = history(&mut world).expect("a history");
+        assert_eq!(history.undo_depth(), 0);
+        assert!(history.can_redo());
+    }
+}
