@@ -16,7 +16,7 @@ The Author builds a Level by putting Elements on its Layers. This capability let
 4. As an Author, I can rely on each new Element landing on top of the Elements already on the Layer, so that what I place or draw last is what I see.
 5. As an Author, I can place the same Asset many times, so that a room gets as many barrels as it needs.
 6. As an Author, I can place a Prop outside the Bounds, so that the Bounds never get in the way of composing.
-7. As an Author, I can press Escape to stop placing, or to leave the Wall or the Portal tool, and go back to selecting, so that I never place by accident.
+7. As an Author, I can press Escape to stop placing and go back to selecting, so that I never place by accident.
 
 ### Drawing a Wall
 
@@ -226,7 +226,7 @@ _Why_: two quadratic curves cannot in general be joined into one, and a predicta
 
 **One thing under the pointer**: choosing an Asset leaves the Wall tool and discards a Wall being drawn, unless the Portal tool is chosen, which makes it the Portal's image; choosing the Wall tool drops the chosen Asset and the selection and leaves the Portal tool; choosing the Portal tool leaves the Wall tool, discarding a Wall being drawn, drops the selection, and keeps a chosen Asset as the Portal's image.
 
-**Options follow the selection**: with a Wall selected, the tool's options show its thickness and colour and a change to either is sent as one Edit Element, a typed thickness of zero or less as typed, so that it is refused with the reason; with none selected, they set the thickness and colour the next Wall is drawn with, an eighth of a cell and a dark grey to start, and a typed thickness of zero or less leaves the next Wall's as it was; the thickness offered goes up to sixteen cells, dragged or typed, and a drag never takes it below a hundredth of a cell.
+**Options follow the selection**: with a Wall selected, the tool's options show its thickness and colour and a change to either is sent as one Edit Element, a typed thickness of zero or less as typed, so that it is refused with the reason; with none selected, they set the thickness and colour the next Wall is drawn with, an eighth of a cell and a dark grey to start, and a typed thickness of zero or less leaves the next Wall's as it was; the thickness offered goes up to sixteen cells, dragged or typed, a selected Wall thicker than that shows its own thickness and sends nothing until changed, and a drag never takes it below a hundredth of a cell.
 
 **Hit within the thickness**: a Wall is under the pointer when the pointer is no farther from its line than half its thickness or four screen pixels, whichever is more, and the nearest point of its line lies in no stretch a Portal covers; with a Wall selected, its handles are hit before any Element.
 
