@@ -47,9 +47,9 @@ impl Side {
     }
 }
 
-/// Where a Portal is set: the Element it is set into, one of that Element's segments, the
-/// parameter along that segment from zero at its first point to one at its second, and the side
-/// it faces.
+/// Where a Portal is set: the Element it is set into, the number of the part of that Element it
+/// is set into, the parameter along that part from zero at its first point to one at its second,
+/// and the side it faces.
 ///
 /// The anchor names the Element by its identity, so it survives saving, undo, and redo; only the
 /// edits that renumber the segments move it to another segment.
@@ -57,9 +57,10 @@ impl Side {
 pub struct PortalAnchor {
     /// The Element the Portal is set into.
     pub host: ElementId,
-    /// The segment, counted from zero.
-    pub segment: usize,
-    /// The parameter along the segment, from zero to one.
+    /// Which part of the Element the Portal is set into, counted from zero: the segment of a Wall
+    /// or the edge of a Room.
+    pub index: usize,
+    /// The parameter along that part, from zero to one.
     pub t: f32,
     /// The side the Portal faces.
     pub side: Side,

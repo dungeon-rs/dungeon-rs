@@ -52,9 +52,9 @@ pub(crate) fn host_of(
     if level_of(world, entity) != level {
         return Err(AuthoringError::OnAnotherLevel(anchor.host));
     }
-    if anchor.segment >= wall.segments.len() {
+    if anchor.index >= wall.segments.len() {
         return Err(AuthoringError::NoSegment {
-            segment: anchor.segment,
+            segment: anchor.index,
             segments: wall.segments.len(),
         });
     }
@@ -75,7 +75,7 @@ fn standing_in(
     let standing = anchor_portals(
         wall,
         &[PortalSetting {
-            segment: anchor.segment,
+            segment: anchor.index,
             t: anchor.t,
             width,
         }],
@@ -328,7 +328,7 @@ pub(crate) fn portal_change(
             let mut anchor = portal_of(world, id)?
                 .anchor
                 .ok_or(AuthoringError::Freestanding)?;
-            anchor.segment = *segment;
+            anchor.index = *segment;
             anchor.t = *t;
             let entity = id
                 .entity(world)
@@ -363,7 +363,7 @@ pub(crate) fn set_into(world: &mut World, host: ElementId) -> Vec<(ElementId, Po
         .iter(world)
         .filter_map(|(entity, id, portal)| {
             let anchor = portal.anchor?;
-            (anchor.host == host && anchor.segment < segments && (0.0..=1.0).contains(&anchor.t))
+            (anchor.host == host && anchor.index < segments && (0.0..=1.0).contains(&anchor.t))
                 .then_some((entity, *id, anchor, portal.width))
         })
         .collect();

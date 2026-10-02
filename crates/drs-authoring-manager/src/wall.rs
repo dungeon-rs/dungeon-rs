@@ -295,7 +295,7 @@ fn settings(portals: &[(ElementId, PortalAnchor, f32)]) -> Vec<PortalSetting> {
     portals
         .iter()
         .map(|(_, anchor, width)| PortalSetting {
-            segment: anchor.segment,
+            segment: anchor.index,
             t: anchor.t,
             width: *width,
         })
@@ -318,7 +318,7 @@ fn moved(
         portal,
         "anchor",
         Some(PortalAnchor {
-            segment,
+            index: segment,
             t,
             ..anchor
         }),
@@ -561,7 +561,7 @@ fn set_by_host(
         let Some(&(host, segments)) = hosts.get(&anchor.host) else {
             continue;
         };
-        if anchor.segment < segments
+        if anchor.index < segments
             && (0.0..=1.0).contains(&anchor.t)
             && level_of(entity) == level_of(host)
         {

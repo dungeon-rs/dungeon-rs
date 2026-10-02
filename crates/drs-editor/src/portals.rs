@@ -131,7 +131,7 @@ pub(crate) fn snap<'a>(
         best = Some(Snap {
             anchor: PortalAnchor {
                 host,
-                segment: place.segment,
+                index: place.segment,
                 t: place.t.clamp(0.0, 1.0),
                 side: side.unwrap_or_else(|| side_of(along, at, cells)),
             },
@@ -392,7 +392,7 @@ pub(crate) fn describe(
             portal.mirrored,
             portal.anchor.map(|anchor| (
                 anchor.host.as_raw(),
-                anchor.segment,
+                anchor.index,
                 anchor.t,
                 anchor.side
             ))

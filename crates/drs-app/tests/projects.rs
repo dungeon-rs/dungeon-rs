@@ -1891,7 +1891,7 @@ impl SavedPortals {
             Vec2::ZERO,
             Some(PortalAnchor {
                 host: wall,
-                segment: 1,
+                index: 1,
                 t: 0.25,
                 side: Side::Right,
             }),
@@ -1938,7 +1938,7 @@ fn portals_are_saved_with_their_anchor() {
         data["anchor"],
         json!({
             "host": saved.wall.as_raw().to_string(),
-            "segment": 1,
+            "index": 1,
             "t": 0.25,
             "side": "Right"
         })

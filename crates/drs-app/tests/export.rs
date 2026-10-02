@@ -1131,7 +1131,7 @@ fn a_wall_is_clipped_at_the_edge() {
 fn anchored(host: ElementId, segment: usize, t: f32, side: Side) -> PortalAnchor {
     PortalAnchor {
         host,
-        segment,
+        index: segment,
         t,
         side,
     }

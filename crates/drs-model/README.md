@@ -28,9 +28,10 @@ it.
 A Portal carries [`Portal`](crate::Portal): the Asset Reference row of its image,
 its width in Grid cells, its rotation, whether it is mirrored, and, when it is
 set into a Wall, its [`PortalAnchor`](crate::PortalAnchor): the identity of the
-Element it is set into, a segment, a parameter along it, and the
-[`Side`](crate::Side) it faces. The anchor names what the Portal is set into as
-`host`, never by kind. A set Portal's position, rotation, and mirroring are kept
+Element it is set into, the `index` of a part of it (a Wall's segment, a Room's
+edge), a parameter along that part, and the [`Side`](crate::Side) it faces. The
+anchor names what the Portal is set into as `host` and its part as `index`,
+never by kind. A set Portal's position, rotation, and mirroring are kept
 equal to what its anchor gives, so freeing it is clearing the anchor.
 
 A [`ProjectSnapshot`](crate::ProjectSnapshot) holds every component of every

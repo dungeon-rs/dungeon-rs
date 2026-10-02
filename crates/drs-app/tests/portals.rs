@@ -224,7 +224,7 @@ impl Fixture {
             Vec2::ZERO,
             Some(PortalAnchor {
                 host,
-                segment,
+                index: segment,
                 t,
                 side,
             }),
@@ -467,7 +467,7 @@ fn a_portal_is_an_image_with_a_width() {
         set.portal.anchor,
         Some(PortalAnchor {
             host: wall,
-            segment: 1,
+            index: 1,
             t: 0.5,
             side: Side::Right,
         })
@@ -624,7 +624,7 @@ fn set_into_a_wall() {
 
     let anchor = PortalAnchor {
         host: first,
-        segment: 1,
+        index: 1,
         t: 0.25,
         side: Side::Left,
     };
@@ -642,7 +642,7 @@ fn set_into_a_wall() {
 
     let into_the_second = PortalAnchor {
         host: second,
-        segment: 0,
+        index: 0,
         t: 0.5,
         side: Side::Right,
     };
@@ -712,7 +712,7 @@ fn refused_anchors() {
     let door = fixture.free_door(Vec2::new(2.0, 2.0));
     let anchor = |host, segment, t| PortalAnchor {
         host,
-        segment,
+        index: segment,
         t,
         side: Side::Left,
     };
@@ -759,7 +759,7 @@ fn sliding_along_the_wall() {
     for (segment, t, gesture) in slides {
         fixture.apply(edit(door, ElementChange::Along { segment, t }, gesture));
         let anchor = fixture.anchor(door);
-        assert_eq!((anchor.segment, anchor.t), (segment, t));
+        assert_eq!((anchor.index, anchor.t), (segment, t));
         assert_eq!(anchor.side, Side::Right, "the side is kept");
     }
     assert_near(
@@ -974,7 +974,7 @@ fn adding_a_point_keeps_portals_in_place() {
         .iter()
         .map(|door| {
             let anchor = fixture.anchor(*door);
-            (anchor.segment, anchor.t)
+            (anchor.index, anchor.t)
         })
         .collect();
     assert_eq!(places, vec![(0, 0.5), (1, 0.5), (2, 0.4)]);
@@ -987,7 +987,7 @@ fn adding_a_point_keeps_portals_in_place() {
             t: 0.25,
         },
     );
-    assert_eq!(fixture.anchor(curved).segment, 3);
+    assert_eq!(fixture.anchor(curved).index, 3);
     assert_close(fixture.anchor(curved).t, 0.2, "past the new point");
     for (door, centre) in doors.iter().zip(&centres) {
         assert_near(fixture.portal(*door).element.position, *centre, "in place");
@@ -999,7 +999,7 @@ fn adding_a_point_keeps_portals_in_place() {
         fixture.anchor(after),
         PortalAnchor {
             host: wall,
-            segment: 0,
+            index: 0,
             t: 0.75,
             side: Side::Right
         }
@@ -1027,13 +1027,13 @@ fn removing_a_point_carries_the_portals_beside_it() {
 
     fixture.edit(wall, ElementChange::RemovePoint { index: 1 });
     assert_eq!(fixture.history().undo_depth(), depth + 1, "one step");
-    assert_eq!(fixture.anchor(first).segment, 0);
+    assert_eq!(fixture.anchor(first).index, 0);
     assert_close(fixture.anchor(first).t, 1.0 / 12.0, "a cell of twelve");
-    assert_eq!(fixture.anchor(second).segment, 0);
+    assert_eq!(fixture.anchor(second).index, 0);
     assert_close(fixture.anchor(second).t, 10.0 / 12.0, "ten cells of twelve");
     assert_eq!(fixture.anchor(second).side, Side::Right);
     assert_eq!(
-        (fixture.anchor(later).segment, fixture.anchor(later).t),
+        (fixture.anchor(later).index, fixture.anchor(later).t),
         (1, 0.5)
     );
     assert_near(
@@ -1051,7 +1051,7 @@ fn removing_a_point_carries_the_portals_beside_it() {
     fixture.edit(wall, ElementChange::RemovePoint { index: 0 });
     assert_eq!(fixture.entity(first), None, "gone with the first segment");
     assert_eq!(
-        (fixture.anchor(later).segment, fixture.anchor(later).t),
+        (fixture.anchor(later).index, fixture.anchor(later).t),
         (0, 0.5),
         "one segment back"
     );
@@ -1101,7 +1101,7 @@ fn gone_with_an_end_segment() {
 
     fixture.edit(wall, ElementChange::RemovePoint { index: 2 });
     assert_eq!(fixture.entity(last), None);
-    assert_eq!(fixture.anchor(first).segment, 0);
+    assert_eq!(fixture.anchor(first).index, 0);
     assert_eq!(
         fixture.removed(),
         vec![PortalsRemoved {
@@ -1308,7 +1308,7 @@ fn portal_commands_share_the_history() {
             portal: door,
             anchor: PortalAnchor {
                 host: wall,
-                segment: 0,
+                index: 0,
                 t: 0.5,
                 side: Side::Left,
             },
@@ -1373,7 +1373,7 @@ fn portal_commands_redo_exactly() {
             portal: free,
             anchor: PortalAnchor {
                 host: wall,
-                segment: 0,
+                index: 0,
                 t: 0.75,
                 side: Side::Right,
             },
