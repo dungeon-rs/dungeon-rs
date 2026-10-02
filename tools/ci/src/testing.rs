@@ -9,6 +9,8 @@ pub struct Crate {
     name: String,
     /// Workspace crates (by name) or external crates this crate depends on.
     dependencies: Vec<String>,
+    /// External crates this crate depends on for its tests only.
+    dev_dependencies: Vec<String>,
     features: Vec<(String, Vec<String>)>,
     /// `None` leaves the README out.
     readme: Option<String>,
@@ -22,6 +24,7 @@ impl Crate {
         Self {
             name: name.to_string(),
             dependencies: Vec::new(),
+            dev_dependencies: Vec::new(),
             features: vec![("default".into(), vec![]), ("dev".into(), vec![])],
             readme: Some("# crate\n\nFeatures: `default`, `dev`.\n".into()),
             source: String::new(),
@@ -54,6 +57,12 @@ impl Crate {
     /// Adds a dependency on an external crate.
     pub fn depends_on_external(mut self, name: &str) -> Self {
         self.dependencies.push(format!("external:{name}"));
+        self
+    }
+
+    /// Adds a dev-dependency on an external crate.
+    pub fn dev_depends_on_external(mut self, name: &str) -> Self {
+        self.dev_dependencies.push(name.to_string());
         self
     }
 
@@ -127,6 +136,12 @@ fn write_crate(root: &Path, krate: &Crate) {
             None => manifest.push_str(&format!(
                 "{dependency} = {{ path = \"../{dependency}\" }}\n"
             )),
+        }
+    }
+    if !krate.dev_dependencies.is_empty() {
+        manifest.push_str("\n[dev-dependencies]\n");
+        for external in &krate.dev_dependencies {
+            manifest.push_str(&format!("{external} = \"1\"\n"));
         }
     }
     manifest.push_str("\n[features]\n");

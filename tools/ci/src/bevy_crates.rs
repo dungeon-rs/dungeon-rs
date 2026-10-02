@@ -152,6 +152,17 @@ mod tests {
     }
 
     #[test]
+    fn a_bevy_crate_only_tests_use_is_named() {
+        let violations = violations_for(&[Crate::new("drs-model")
+            .depends_on_external("bevy_ecs")
+            .dev_depends_on_external("bevy_mesh")]);
+
+        assert_eq!(violations.len(), 1);
+        assert_eq!(violations[0].package, "drs-model");
+        assert!(violations[0].detail.contains("bevy_mesh"));
+    }
+
+    #[test]
     fn a_crate_outside_bevy_is_free_to_use() {
         let violations = violations_for(&[Crate::new("drs-model").depends_on_external("serde")]);
 
@@ -168,6 +179,13 @@ mod tests {
     #[test]
     fn a_bullet_without_a_list_is_an_error() {
         let markdown = MARKDOWN.replace("(`bevy_ecs`, `bevy_math`)", "`bevy_ecs` and `bevy_math`");
+
+        assert!(narrow_crates(&markdown).is_err());
+    }
+
+    #[test]
+    fn a_list_item_outside_bevy_is_an_error() {
+        let markdown = MARKDOWN.replace("(`bevy_ecs`, `bevy_math`)", "(`bevy_ecs`, `serde`)");
 
         assert!(narrow_crates(&markdown).is_err());
     }
