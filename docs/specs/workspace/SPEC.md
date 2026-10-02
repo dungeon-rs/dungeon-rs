@@ -44,6 +44,8 @@ The architecture decomposes the editor into components, each its own crate, with
 
 **Same-kind isolation**: no Engine depends on an Engine, no ResourceAccess on a ResourceAccess, no Manager on a Manager. Follows from the Dependencies table, and holds because the table allows none.
 
+**Bundle marker names the version**: the marker file `bundle/dungeon-rs.bundle`, which marks the workspace's bundle directory as the editor's, names the version every workspace crate has, so an editor built from the workspace finds its Bundled Files without a warning.
+
 **Engines raise no events**: the sources of a crate the Dependencies table types as an Engine neither derive a message, event, or entity event nor read, write, or observe one; a mention in a comment, or a longer name that merely contains one of those names, does not count.
 
 **One gate**: `just check` runs every check listed under Project tasks in the architecture and exits non-zero when any fails; `just test` runs tests only, and `just run` starts the Host in development mode.
@@ -80,7 +82,10 @@ The architecture decomposes the editor into components, each its own crate, with
 - **Restricted externals**: `tools/ci/src/architecture.rs::a_restricted_external_in_an_allowed_component_type_passes`, `tools/ci/src/architecture.rs::a_restricted_external_in_an_allowed_crate_passes`, `tools/ci/src/architecture.rs::a_restricted_external_outside_its_allowed_components_is_named`, `tools/ci/src/architecture.rs::an_unrestricted_external_is_free_to_use`, `tools/ci/src/architecture.rs::the_host_type_resolves_a_restricted_external`
 - **Well-formed tables**: `tools/ci/src/architecture.rs::the_tables_are_read_from_the_markdown`, `tools/ci/src/architecture.rs::a_document_without_the_tables_is_an_error`, `tools/ci/src/architecture.rs::a_row_with_the_wrong_number_of_cells_is_an_error`, `tools/ci/src/architecture.rs::an_unknown_component_type_is_an_error`, `tools/ci/src/architecture.rs::a_duplicate_row_is_an_error`, `tools/ci/src/architecture.rs::a_dependency_on_an_unlisted_component_is_an_error`, `tools/ci/src/architecture.rs::a_restriction_naming_an_unknown_type_is_an_error`
 - **Same-kind isolation**: `tools/ci/src/architecture.rs::an_engine_depending_on_an_engine_breaks_same_kind_isolation`, `tools/ci/src/architecture.rs::a_resource_access_depending_on_a_resource_access_breaks_same_kind_isolation`, `tools/ci/src/architecture.rs::a_manager_depending_on_a_manager_breaks_same_kind_isolation`
-- **Engines raise no events**: `tools/ci/src/engine_events.rs::an_engine_of_plain_systems_passes`, `tools/ci/src/engine_events.rs::an_engine_defining_a_message_is_named_with_the_line`, `tools/ci/src/engine_events.rs::an_engine_defining_an_event_is_named`, `tools/ci/src/engine_events.rs::an_engine_reading_or_writing_messages_is_named`, `tools/ci/src/engine_events.rs::an_engine_observing_is_named`, `tools/ci/src/engine_events.rs::a_mention_in_a_comment_is_not_a_use`, `tools/ci/src/engine_events.rs::a_longer_name_sharing_the_letters_is_not_a_use`, `tools/ci/src/engine_events.rs::a_manager_may_use_messages`
+- **Bundle marker names the version**: the marker file `bundle/dungeon-rs.bundle`, which marks the workspace's bundle directory as the editor's, names the version every workspace crate has, so an editor built from the workspace finds its Bundled Files without a warning.
+
+**Engines raise no events**: `tools/ci/src/engine_events.rs::an_engine_of_plain_systems_passes`, `tools/ci/src/engine_events.rs::an_engine_defining_a_message_is_named_with_the_line`, `tools/ci/src/engine_events.rs::an_engine_defining_an_event_is_named`, `tools/ci/src/engine_events.rs::an_engine_reading_or_writing_messages_is_named`, `tools/ci/src/engine_events.rs::an_engine_observing_is_named`, `tools/ci/src/engine_events.rs::a_mention_in_a_comment_is_not_a_use`, `tools/ci/src/engine_events.rs::a_longer_name_sharing_the_letters_is_not_a_use`, `tools/ci/src/engine_events.rs::a_manager_may_use_messages`
+- **Bundle marker names the version**: `tools/ci/src/bundle_marker.rs::a_marker_naming_the_workspace_version_passes`, `tools/ci/src/bundle_marker.rs::a_marker_naming_another_version_is_named_with_both`, `tools/ci/src/bundle_marker.rs::a_missing_marker_is_reported`
 - **One gate**: no unit test; the seam is the `check` recipe of the `justfile`, exercised by every run of the gate.
 - **CI runs the gate**: no unit test; the seam is the CI workflow, exercised by every pull request.
 - **Weekly supply chain**: no unit test; the seam is the supply-chain workflow, exercised by its schedule.
@@ -89,7 +94,7 @@ The architecture decomposes the editor into components, each its own crate, with
 ## Not supported
 
 - The rows of the Rule translation table marked `review` are not checked by the tool; the standards review is their only guard.
-- The checks read manifests only, except the Engine-events check. A dependency reached through another crate's re-exports, or any other rule about what source code does, is outside them.
+- The checks read manifests only, except the Engine-events check and the bundle marker check, which reads the marker file. A dependency reached through another crate's re-exports, or any other rule about what source code does, is outside them.
 
 ## Notes
 

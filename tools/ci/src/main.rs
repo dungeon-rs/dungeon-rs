@@ -1,4 +1,5 @@
 mod architecture;
+mod bundle_marker;
 mod documented_features;
 mod engine_events;
 mod required_features;
@@ -42,6 +43,9 @@ pub enum Commands {
     /// Validates that Engine crates define and use no messages, events, or observers.
     #[clap(name = "engine-events")]
     ValidateEngineEvents,
+    /// Validates that the bundle marker names the workspace's version.
+    #[clap(name = "bundle-marker")]
+    ValidateBundleMarker,
 }
 
 fn main() -> Result<()> {
@@ -73,6 +77,7 @@ fn run(command: Commands, metadata: &Metadata) -> Result<Vec<Violation>> {
         Commands::ValidateWorkspaceFeatures => workspace_features::check(metadata),
         Commands::ValidateArchitecture => architecture(metadata)?.check(metadata),
         Commands::ValidateEngineEvents => engine_events::check(&architecture(metadata)?, metadata)?,
+        Commands::ValidateBundleMarker => bundle_marker::check(metadata),
     })
 }
 
