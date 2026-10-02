@@ -21,9 +21,8 @@ changes at runtime. The Host registers it with
 [`register_library_source`](crate::register_library_source) before Bevy's
 `AssetPlugin` is added, because asset sources freeze when that plugin builds.
 
-[`LibraryDirectories`](crate::LibraryDirectories) resolves the platform's
-configuration and cache directories unless the model's directory resource
-overrides them.
+[`LibraryDirectories`](crate::LibraryDirectories) holds the configuration and
+cache directories as the model's directory resource resolves them.
 
 ## Features
 

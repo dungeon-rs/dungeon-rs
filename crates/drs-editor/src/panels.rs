@@ -1,6 +1,7 @@
 //! The window's layout: the menu bar, the docked Assets panel and viewport, the status line, and
 //! the Canonical Name prompt.
 
+use crate::diagnostics::Diagnostics;
 use crate::state::{EditorState, NamePrompt};
 use crate::{bindings, browser, diagnostics};
 use bevy::ecs::message::MessageWriter;
@@ -9,7 +10,7 @@ use bevy::ecs::system::{NonSendMarker, Query, Res, ResMut, SystemParam};
 use bevy::math::Rect;
 use bevy_egui::EguiContexts;
 use drs_history::History;
-use drs_model::{AddFolder, AssetFolder, CanonicalName, Diagnostics, Redo, Undo, Viewport};
+use drs_model::{AddFolder, AssetFolder, CanonicalName, Redo, Undo, Viewport};
 use egui_dock::{DockArea, DockState, NodeIndex, Style, TabViewer};
 
 /// The panels the window is split into.
@@ -59,8 +60,8 @@ pub(crate) struct Editor<'w, 's> {
     folders: Query<'w, 's, &'static AssetFolder>,
     /// Whether there is anything to undo or redo.
     history: Res<'w, History>,
-    /// Where the logs are, when the Host said.
-    diagnostics: Option<Res<'w, Diagnostics>>,
+    /// Where the logs are, as the Host said.
+    diagnostics: Res<'w, Diagnostics>,
     /// The messages to send.
     outgoing: Outgoing<'w>,
 }
@@ -140,7 +141,7 @@ fn menu_bar(ctx: &egui::Context, root: &mut egui::Ui, editor: &mut Editor) {
             });
             ui.menu_button("Help", |ui| {
                 if ui.button("Show Logs").clicked() {
-                    diagnostics::show_logs(&mut editor.state, editor.diagnostics.as_deref());
+                    diagnostics::show_logs(&mut editor.state, &editor.diagnostics);
                 }
             });
         });

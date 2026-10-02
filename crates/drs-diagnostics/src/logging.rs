@@ -74,9 +74,7 @@ pub struct Logging {
 
 impl Logging {
     /// Logs the first entry of the run: where the log file is, or why there is none.
-    ///
-    /// Called once the subscriber is installed, since nothing logged before it is kept.
-    pub fn announce(&self) {
+    pub(crate) fn log_location(&self) {
         match (&self.file, &self.failure) {
             (Some(file), _) => tracing::info!("logging to {}", file.display()),
             (None, Some(failure)) => {
@@ -89,18 +87,18 @@ impl Logging {
 
 /// Which entries are logged, derived from `RUST_LOG`.
 #[derive(Debug)]
-pub struct LevelFilter {
+pub struct LogDirectives {
     /// The filter the file layer applies.
     pub filter: EnvFilter,
     /// What is said on the terminal when `RUST_LOG` was malformed and the default applies.
     pub fallback: Option<String>,
 }
 
-impl LevelFilter {
-    /// The filter derived from the `RUST_LOG` variable of this process.
+impl LogDirectives {
+    /// The directives derived from the `RUST_LOG` variable of this process.
     #[must_use]
     pub fn from_environment() -> Self {
-        level_filter(std::env::var(EnvFilter::DEFAULT_ENV).ok().as_deref())
+        log_directives(std::env::var(EnvFilter::DEFAULT_ENV).ok().as_deref())
     }
 }
 
@@ -108,10 +106,10 @@ impl LevelFilter {
 /// directives added on top so each can override one; a malformed value leaves the default in
 /// place and is said in the fallback note.
 #[must_use]
-pub fn level_filter(rust_log: Option<&str>) -> LevelFilter {
+pub fn log_directives(rust_log: Option<&str>) -> LogDirectives {
     let defaults = EnvFilter::builder().parse_lossy(DEFAULT_LEVEL);
     let Some(value) = rust_log.map(str::trim).filter(|value| !value.is_empty()) else {
-        return LevelFilter {
+        return LogDirectives {
             filter: defaults,
             fallback: None,
         };
@@ -126,11 +124,11 @@ pub fn level_filter(rust_log: Option<&str>) -> LevelFilter {
                 .map(|directive| filter.add_directive(directive))
         });
     match parsed {
-        Ok(filter) => LevelFilter {
+        Ok(filter) => LogDirectives {
             filter,
             fallback: None,
         },
-        Err(error) => LevelFilter {
+        Err(error) => LogDirectives {
             filter: defaults,
             fallback: Some(format!(
                 "RUST_LOG is malformed ({error}); logging at the default level {DEFAULT_LEVEL}"
@@ -139,19 +137,12 @@ pub fn level_filter(rust_log: Option<&str>) -> LevelFilter {
     }
 }
 
-/// The log directory: the one given, or `logs` under the platform's cache directory for the
-/// editor, or under the temporary directory when the platform names none.
+/// The log directory: the one the editor's directories resolved to, or `logs` under the
+/// platform's temporary directory when they resolved to none, so that logging has somewhere to
+/// go on a platform that names no cache directory.
 #[must_use]
-pub fn log_directory(overridden: Option<&Path>) -> PathBuf {
-    if let Some(directory) = overridden {
-        return directory.to_path_buf();
-    }
-    directories::ProjectDirs::from("", "", "dungeon-rs")
-        .map_or_else(
-            || std::env::temp_dir().join("dungeon-rs"),
-            |dirs| dirs.cache_dir().to_path_buf(),
-        )
-        .join("logs")
+pub fn log_directory(resolved: Option<PathBuf>) -> PathBuf {
+    resolved.unwrap_or_else(|| std::env::temp_dir().join("dungeon-rs").join("logs"))
 }
 
 /// Starts logging to a daily file in `directory`, keeping the last seven, with entries written
@@ -162,7 +153,7 @@ pub fn log_directory(overridden: Option<&Path>) -> PathBuf {
 /// file cannot be created, the reason is printed to the terminal and logging goes there only,
 /// so the editor starts regardless. A malformed `RUST_LOG` is said on the terminal too.
 #[must_use]
-pub fn start_logging(directory: &Path, level: LevelFilter) -> Logging {
+pub fn start_logging(directory: &Path, level: LogDirectives) -> Logging {
     if let Some(note) = &level.fallback {
         eprintln!("{note}");
     }

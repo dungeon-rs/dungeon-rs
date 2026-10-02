@@ -17,13 +17,27 @@ mod viewport;
 use bevy::app::{App, Plugin, Startup, Update};
 use bevy::ecs::schedule::IntoScheduleConfigs;
 use bevy_egui::{EguiPlugin, EguiPrimaryContextPass};
+use drs_diagnostics::Started;
 
 /// The egui interface: the panels, the menu, and the viewport's interaction.
-pub struct EditorPlugin;
+pub struct EditorPlugin {
+    /// What the diagnostics Utility set up and found at start.
+    started: Started,
+}
+
+impl EditorPlugin {
+    /// The Editor over what the diagnostics Utility set up and found at start, which it keeps
+    /// for Show Logs and the status line.
+    #[must_use]
+    pub fn new(started: Started) -> Self {
+        Self { started }
+    }
+}
 
 impl Plugin for EditorPlugin {
     fn build(&self, app: &mut App) {
         app.add_plugins(EguiPlugin::default())
+            .insert_resource(diagnostics::Diagnostics(self.started.clone()))
             .init_resource::<state::EditorState>()
             .init_resource::<panels::Layout>()
             .add_systems(EguiPrimaryContextPass, panels::draw)

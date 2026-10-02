@@ -8,8 +8,8 @@
 )]
 
 use drs_diagnostics::{
-    DEFAULT_LEVEL, KEPT_LOG_FILES, LevelFilter, LoggingError, level_filter, start_logging,
-    take_layer,
+    BundledFilesNotFound, DEFAULT_LEVEL, KEPT_LOG_FILES, LogDirectives, LoggingError,
+    log_directives, log_start, start_logging, take_layer,
 };
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -20,7 +20,7 @@ use tracing_subscriber::layer::SubscriberExt as _;
 /// the test; the guard keeps it installed.
 fn subscriber(
     directory: &Path,
-    level: LevelFilter,
+    level: LogDirectives,
 ) -> (PathBuf, tracing::subscriber::DefaultGuard) {
     let logging = start_logging(directory, level);
     let file = logging.file.expect("a log file in a writable directory");
@@ -67,7 +67,7 @@ fn log_files(directory: &Path) -> Vec<String> {
 fn entries_are_logged_to_the_dated_file() {
     let root = TempDir::new().expect("temporary root");
     let logs = root.path().join("logs");
-    let (file, guard) = subscriber(&logs, level_filter(None));
+    let (file, guard) = subscriber(&logs, log_directives(None));
 
     tracing::info!(target: "drs_test::module", "the first entry");
     tracing::warn!(target: "drs_test::module", "the second entry");
@@ -97,7 +97,7 @@ fn the_log_directory_is_made() {
     let root = TempDir::new().expect("temporary root");
     let logs = root.path().join("cache").join("logs");
 
-    let logging = start_logging(&logs, level_filter(None));
+    let logging = start_logging(&logs, log_directives(None));
 
     assert!(logs.is_dir());
     assert!(logging.file.is_some());
@@ -122,7 +122,7 @@ fn a_week_of_files_is_kept() {
     let report = logs.join("crash-2026-09-05T10-00-00Z.txt");
     fs::write(&report, "a report\n").expect("a crash report");
 
-    let logging = start_logging(&logs, level_filter(None));
+    let logging = start_logging(&logs, log_directives(None));
 
     let kept = log_files(&logs);
     assert_eq!(kept.len(), KEPT_LOG_FILES, "{kept:?}");
@@ -139,7 +139,7 @@ fn a_week_of_files_is_kept() {
 #[test]
 fn an_entry_is_written_as_it_happens() {
     let root = TempDir::new().expect("temporary root");
-    let (file, _guard) = subscriber(&root.path().join("logs"), level_filter(None));
+    let (file, _guard) = subscriber(&root.path().join("logs"), log_directives(None));
 
     tracing::info!(target: "drs_test", "written at once");
 
@@ -155,7 +155,7 @@ fn a_log_directory_that_cannot_be_made_leaves_the_terminal_only() {
     let logs = root.path().join("logs");
     fs::write(&logs, "a file where the directory should be").expect("the file in the way");
 
-    let logging = start_logging(&logs, level_filter(None));
+    let logging = start_logging(&logs, log_directives(None));
 
     assert_eq!(logging.directory, logs);
     assert!(logging.file.is_none());
@@ -171,7 +171,7 @@ fn a_log_directory_that_cannot_be_made_leaves_the_terminal_only() {
 #[test]
 fn the_level_comes_from_rust_log() {
     let root = TempDir::new().expect("temporary root");
-    let level = level_filter(Some("debug,drs_quiet=error"));
+    let level = log_directives(Some("debug,drs_quiet=error"));
     assert!(level.fallback.is_none());
     let (file, _guard) = subscriber(&root.path().join("logs"), level);
 
@@ -190,7 +190,7 @@ fn the_level_comes_from_rust_log() {
 #[test]
 fn the_default_level_applies_without_rust_log() {
     let root = TempDir::new().expect("temporary root");
-    let (file, _guard) = subscriber(&root.path().join("logs"), level_filter(None));
+    let (file, _guard) = subscriber(&root.path().join("logs"), log_directives(None));
 
     tracing::debug!(target: "drs_test", "an editor debug entry");
     tracing::info!(target: "drs_test", "an editor info entry");
@@ -212,7 +212,7 @@ fn the_default_level_applies_without_rust_log() {
 #[test]
 fn a_malformed_rust_log_falls_back_to_the_default() {
     let root = TempDir::new().expect("temporary root");
-    let level = level_filter(Some("drs_test=loud"));
+    let level = log_directives(Some("drs_test=loud"));
     assert!(
         level
             .fallback
@@ -236,16 +236,18 @@ fn a_malformed_rust_log_falls_back_to_the_default() {
 fn the_first_entry_names_the_log_file() {
     let root = TempDir::new().expect("temporary root");
     let logs = root.path().join("logs");
-    let logging = start_logging(&logs, level_filter(None));
+    let logging = start_logging(&logs, log_directives(None));
     let file = logging.file.clone().expect("a log file");
     let layer = take_layer().expect("the layer logging yields");
     let _guard = tracing::subscriber::set_default(
         tracing_subscriber::registry::Registry::default().with(layer),
     );
 
-    logging.announce();
+    let started = log_start(&logging, Err(BundledFilesNotFound { tried: Vec::new() }));
 
     let text = fs::read_to_string(&file).expect("the log file");
     let first = text.lines().next().expect("a first line");
     assert!(first.contains(&file.display().to_string()), "{first}");
+    assert_eq!(started.log_file.as_deref(), Some(file.as_path()));
+    assert_eq!(started.logs, logs);
 }

@@ -1,5 +1,6 @@
 //! A crash handler that leaves a report and announces it.
 
+use crate::Product;
 use std::collections::VecDeque;
 use std::fmt::Write as _;
 use std::panic::{AssertUnwindSafe, PanicHookInfo};
@@ -12,9 +13,10 @@ use std::thread::ThreadId;
 pub struct CrashHandler {
     /// Where reports are written: the log directory.
     pub log_directory: PathBuf,
-    /// The editor's version, named in each report.
-    pub version: String,
-    /// Whether a crash is announced in a dialog; tests and headless runs say no.
+    /// The editor, named in each report and in the dialog.
+    pub product: Product,
+    /// Whether a crash is announced in a dialog; tests and headless runs say no, and
+    /// [`dialogs_possible`] tells the Host.
     pub dialogs: bool,
 }
 
@@ -28,9 +30,6 @@ pub struct CrashReport {
     /// The log file current when the crash happened, if any.
     pub log_file: Option<PathBuf>,
 }
-
-/// The name of the editor, as the dialog names it.
-const EDITOR: &str = "DungeonRS";
 
 /// The handler installed, and the main thread's identity.
 static INSTALLED: Mutex<Option<Installed>> = Mutex::new(None);
@@ -48,6 +47,26 @@ struct Installed {
     handler: CrashHandler,
     /// The thread the handler was installed on: the main thread.
     main_thread: ThreadId,
+}
+
+/// Whether a crash dialog can be shown and waited for: not on a continuous-integration run
+/// (`CI` set), not when `DRS_NO_DIALOGS` is set, not on Linux without a display
+/// (`DISPLAY` and `WAYLAND_DISPLAY` both unset), and in development not while a script drives
+/// the editor (`DRS_SCRIPT` set), since nobody is there to click.
+#[must_use]
+pub fn dialogs_possible() -> bool {
+    let set = |variable: &str| std::env::var_os(variable).is_some_and(|value| !value.is_empty());
+    if set("CI") || set("DRS_NO_DIALOGS") {
+        return false;
+    }
+    #[cfg(feature = "dev")]
+    if set("DRS_SCRIPT") {
+        return false;
+    }
+    if cfg!(target_os = "linux") && !set("DISPLAY") && !set("WAYLAND_DISPLAY") {
+        return false;
+    }
+    true
 }
 
 /// Installs the crash handler on the calling thread, which is taken to be the main thread.
@@ -88,23 +107,25 @@ pub fn take_pending_report() -> Option<CrashReport> {
 /// Shows the dialog that says the editor crashed and names the report and the log file, when
 /// dialogs are on; shows nothing otherwise. Called on the main thread.
 pub fn announce(report: &CrashReport) {
-    let dialogs = INSTALLED
+    let Some(product) = INSTALLED
         .lock()
         .unwrap_or_else(PoisonError::into_inner)
         .as_ref()
-        .is_some_and(|installed| installed.handler.dialogs);
-    if !dialogs {
+        .filter(|installed| installed.handler.dialogs)
+        .map(|installed| installed.handler.product)
+    else {
         return;
-    }
+    };
+    let name = product.name;
     let log_file = report.log_file.as_ref().map_or_else(
         || "none: logging went to the terminal only".to_owned(),
         |file| file.display().to_string(),
     );
     rfd::MessageDialog::new()
         .set_level(rfd::MessageLevel::Error)
-        .set_title(format!("{EDITOR} crashed"))
+        .set_title(format!("{name} crashed"))
         .set_description(format!(
-            "{EDITOR} crashed: {}\n\nThe crash report was written to:\n{}\n\nThe log file is:\n{log_file}",
+            "{name} crashed: {}\n\nThe crash report was written to:\n{}\n\nThe log file is:\n{log_file}",
             report.message,
             report.path.display(),
         ))
@@ -141,15 +162,13 @@ fn on_panic(info: &PanicHookInfo<'_>) {
     let message = panic_message(info);
     let log_file = crate::logging::current_log_file(now);
     let text = report_text(&installed.handler, info, &message, now, log_file.as_deref());
+    let name = installed.handler.product.name;
     let Some(path) = write_report(&installed.handler.log_directory, now, &text) else {
-        eprintln!("{EDITOR} crashed and the crash report could not be written anywhere");
+        eprintln!("{name} crashed and the crash report could not be written anywhere");
         return;
     };
-    eprintln!(
-        "{EDITOR} crashed; the crash report is at {}",
-        path.display()
-    );
-    tracing::error!(report = %path.display(), "{EDITOR} crashed: {message}");
+    eprintln!("{name} crashed; the crash report is at {}", path.display());
+    tracing::error!(report = %path.display(), "{name} crashed: {message}");
     PENDING
         .lock()
         .unwrap_or_else(PoisonError::into_inner)
@@ -198,9 +217,9 @@ fn report_text(
 ) -> String {
     let mut text = String::new();
     // Writing to a `String` cannot fail.
-    let _ = writeln!(text, "# {EDITOR} crash report");
+    let _ = writeln!(text, "# {} crash report", handler.product.name);
     let _ = writeln!(text, "\n## When (UTC)\n{}", timestamp(now));
-    let _ = writeln!(text, "\n## Version\n{}", handler.version);
+    let _ = writeln!(text, "\n## Version\n{}", handler.product.version);
     let _ = writeln!(
         text,
         "\n## Platform\n{} {}",

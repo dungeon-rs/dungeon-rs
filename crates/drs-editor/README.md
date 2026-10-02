@@ -2,7 +2,8 @@
 
 The Client: the egui interface through which the Author works.
 
-The [`EditorPlugin`](crate::EditorPlugin) lays the window out with `egui_dock`:
+The [`EditorPlugin`](crate::EditorPlugin), built over what the diagnostics
+Utility set up and found at start, lays the window out with `egui_dock`:
 an Assets panel on the left that lists the Assets of every added Asset Folder
 under its Canonical Name, filtered by name, and the viewport in the centre,
 which is left transparent so the Level drawn by the render Engine shows

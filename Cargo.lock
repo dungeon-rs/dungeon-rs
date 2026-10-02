@@ -2443,7 +2443,6 @@ dependencies = [
 name = "drs-diagnostics"
 version = "0.0.1"
 dependencies = [
- "directories",
  "rfd",
  "tempfile",
  "thiserror 2.0.21",
@@ -2487,7 +2486,6 @@ dependencies = [
  "bevy_math",
  "bevy_tasks",
  "blake3",
- "directories",
  "drs-model",
  "image",
  "serde",
@@ -2521,6 +2519,7 @@ dependencies = [
  "bevy_ecs",
  "bevy_math",
  "bevy_reflect",
+ "directories",
  "drs-history",
  "serde",
  "thiserror 2.0.21",

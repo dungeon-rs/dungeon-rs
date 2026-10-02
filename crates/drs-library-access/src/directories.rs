@@ -21,21 +21,10 @@ impl LibraryDirectories {
     /// [`LibraryError::NoPlatformDirectories`] when a directory is not overridden and the
     /// platform names none.
     pub fn resolve(overrides: &EditorDirectories) -> Result<Self, LibraryError> {
-        let platform = || {
-            directories::ProjectDirs::from("", "", "dungeon-rs")
-                .ok_or(LibraryError::NoPlatformDirectories)
-        };
-        let configuration = match &overrides.configuration {
-            Some(directory) => directory.clone(),
-            None => platform()?.config_dir().to_path_buf(),
-        };
-        let cache = match &overrides.cache {
-            Some(directory) => directory.clone(),
-            None => platform()?.cache_dir().to_path_buf(),
-        };
+        let resolved = overrides.resolve()?;
         Ok(Self {
-            configuration,
-            cache,
+            configuration: resolved.configuration,
+            cache: resolved.cache,
         })
     }
 

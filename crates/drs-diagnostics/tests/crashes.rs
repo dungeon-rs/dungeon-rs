@@ -8,7 +8,7 @@
 )]
 
 use drs_diagnostics::{
-    CrashHandler, install_crash_handler, level_filter, start_logging, take_layer,
+    CrashHandler, Product, install_crash_handler, log_directives, start_logging, take_layer,
     take_pending_report,
 };
 use std::fs;
@@ -17,8 +17,11 @@ use std::sync::{Mutex, MutexGuard, OnceLock, PoisonError};
 use tempfile::TempDir;
 use tracing_subscriber::layer::SubscriberExt as _;
 
-/// The version the handler is installed with.
-const VERSION: &str = "7.8.9-test";
+/// The editor the handler is installed for.
+const PRODUCT: Product = Product {
+    name: "TestEditor",
+    version: "7.8.9-test",
+};
 
 /// The process-wide fixture: the temporary root, the log directory, and the log file.
 struct Fixture {
@@ -43,7 +46,7 @@ fn setup() -> (&'static Fixture, MutexGuard<'static, ()>) {
     let fixture = FIXTURE.get_or_init(|| {
         let root = TempDir::new().expect("temporary root");
         let logs = root.path().join("logs");
-        let logging = start_logging(&logs, level_filter(None));
+        let logging = start_logging(&logs, log_directives(None));
         let log_file = logging.file.clone().expect("a log file");
         let layer = take_layer().expect("the layer logging yields");
         tracing::subscriber::set_global_default(
@@ -52,7 +55,7 @@ fn setup() -> (&'static Fixture, MutexGuard<'static, ()>) {
         .expect("the first subscriber of the process");
         let handler = CrashHandler {
             log_directory: logs.clone(),
-            version: VERSION.to_owned(),
+            product: PRODUCT,
             dialogs: false,
         };
         std::thread::spawn(move || install_crash_handler(handler))
@@ -138,8 +141,9 @@ fn the_report_holds_each_field_under_its_heading() {
             .trim()
             .to_owned()
     };
+    assert!(text.starts_with("# TestEditor crash report"), "{text}");
     assert!(section("When (UTC)").ends_with('Z'), "{text}");
-    assert_eq!(section("Version"), VERSION);
+    assert_eq!(section("Version"), PRODUCT.version);
     assert_eq!(
         section("Platform"),
         format!("{} {}", std::env::consts::OS, std::env::consts::ARCH)

@@ -6,60 +6,59 @@ use bevy::asset::{AssetMetaCheck, AssetPlugin};
 use bevy::log::LogPlugin;
 use bevy::window::{Window, WindowPlugin};
 use drs_authoring_manager::AuthoringManagerPlugin;
-use drs_diagnostics::{CrashHandler, LevelFilter};
+use drs_diagnostics::{CrashHandler, LogDirectives, Product};
 use drs_editor::EditorPlugin;
 use drs_history::HistoryPlugin;
 use drs_library_access::{LibraryAccessPlugin, register_library_source};
 use drs_library_manager::LibraryManagerPlugin;
-use drs_model::{BundleDirectory, Diagnostics, EditorDirectories, ModelPlugin};
+use drs_model::{EditorDirectories, ModelPlugin};
 use drs_project_manager::ProjectManagerPlugin;
 use drs_render_engine::RenderEnginePlugin;
 
-/// The editor's version, as the crash report and the bundle marker name it.
-const VERSION: &str = env!("CARGO_PKG_VERSION");
+/// The editor, as the crash report, the dialog, and the bundle marker name it.
+const PRODUCT: Product = Product {
+    name: "DungeonRS",
+    version: env!("CARGO_PKG_VERSION"),
+};
 
 /// Builds the editor out of every crate's plugin and runs it.
 ///
-/// The crash handler goes first, so that the hook Bevy's plugins build chains it and a crash
-/// before any window still leaves a report; logging next, with its layer handed to Bevy's log
-/// plugin, which is added on its own so that the first entry names the log file before any
-/// other plugin logs; then the Bundled Files, which the default asset source is rooted at. The
-/// `lib://` asset source is registered before Bevy's `AssetPlugin` builds, since sources freeze
-/// then, and `.meta` lookups are off because Asset Folders never hold them.
+/// The crash handler goes first, so that a crash before any window still leaves a report;
+/// logging next, with its layer handed to Bevy's log plugin, which is added on its own so that
+/// the first entry names the log file before any other plugin logs; then the Bundled Files,
+/// which the default asset source is rooted at. The `lib://` asset source is registered before
+/// Bevy's `AssetPlugin` builds, since sources freeze then, and `.meta` lookups are off because
+/// Asset Folders never hold them.
 fn main() -> AppExit {
     let directories = directories();
-    let logs = drs_diagnostics::log_directory(directories.logs.as_deref());
+    let logs = drs_diagnostics::log_directory(directories.resolve().ok().map(|found| found.logs));
     drs_diagnostics::install_crash_handler(CrashHandler {
         log_directory: logs.clone(),
-        version: VERSION.to_owned(),
-        dialogs: true,
+        product: PRODUCT,
+        dialogs: drs_diagnostics::dialogs_possible(),
     });
-    let logging = drs_diagnostics::start_logging(&logs, LevelFilter::from_environment());
-    let executable = std::env::current_exe().unwrap_or_default();
-    let bundle = drs_diagnostics::locate_bundled_files(&executable, VERSION);
+    let logging = drs_diagnostics::start_logging(&logs, LogDirectives::from_environment());
+    let bundled_files = drs_diagnostics::locate_bundled_files_of_this_executable(PRODUCT);
 
-    let mut asset_plugin = AssetPlugin {
-        meta_check: AssetMetaCheck::Never,
-        ..AssetPlugin::default()
-    };
-    if let Ok(found) = &bundle {
-        asset_plugin.file_path = found.root().to_string_lossy().into_owned();
-    }
     let mut app = App::new();
     register_library_source(&mut app);
     app.add_plugins(LogPlugin {
         custom_layer: |_| drs_diagnostics::take_layer(),
         ..LogPlugin::default()
     });
-    drs_diagnostics::announce_start(&logging, &bundle);
+    let started = drs_diagnostics::log_start(&logging, bundled_files);
     app.add_plugins(
         DefaultPlugins
             .build()
             .disable::<LogPlugin>()
-            .set(asset_plugin)
+            .set(AssetPlugin {
+                file_path: started.asset_root().to_string_lossy().into_owned(),
+                meta_check: AssetMetaCheck::Never,
+                ..AssetPlugin::default()
+            })
             .set(WindowPlugin {
                 primary_window: Some(Window {
-                    title: "DungeonRS".to_owned(),
+                    title: PRODUCT.name.to_owned(),
                     ..Window::default()
                 }),
                 ..WindowPlugin::default()
@@ -73,19 +72,9 @@ fn main() -> AppExit {
         ProjectManagerPlugin,
         AuthoringManagerPlugin,
         RenderEnginePlugin,
-        EditorPlugin,
+        EditorPlugin::new(started),
     ));
     app.insert_resource(directories);
-    app.insert_resource(Diagnostics {
-        logs: logging.directory,
-        log_file: logging.file,
-        bundle: match bundle {
-            Ok(found) => BundleDirectory::Found(found.root().to_path_buf()),
-            Err(missing) => BundleDirectory::Missing {
-                tried: missing.tried,
-            },
-        },
-    });
     drs_diagnostics::run_guarded(|| app.run())
 }
 

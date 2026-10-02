@@ -16,7 +16,6 @@ bevy_ecs = { workspace = true }
 bevy_math = { workspace = true }
 bevy_tasks = { workspace = true }
 blake3 = { workspace = true }
-directories = { workspace = true }
 drs-model = { path = "../drs-model" }
 image = { workspace = true }
 serde = { workspace = true }

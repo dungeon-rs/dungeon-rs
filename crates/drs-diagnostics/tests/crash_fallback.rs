@@ -6,7 +6,7 @@
     reason = "a test and its fixtures stop at the first thing that is not as expected"
 )]
 
-use drs_diagnostics::{CrashHandler, install_crash_handler, take_pending_report};
+use drs_diagnostics::{CrashHandler, Product, install_crash_handler, take_pending_report};
 use std::fs;
 use std::os::unix::fs::PermissionsExt as _;
 use tempfile::TempDir;
@@ -25,7 +25,10 @@ fn an_unwritable_log_directory_sends_the_report_to_the_temporary_directory() {
     }
     let handler = CrashHandler {
         log_directory: logs.clone(),
-        version: "0.0.0-test".to_owned(),
+        product: Product {
+            name: "TestEditor",
+            version: "0.0.0-test",
+        },
         dialogs: false,
     };
     std::thread::spawn(move || install_crash_handler(handler))

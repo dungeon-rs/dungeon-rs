@@ -1,5 +1,6 @@
 //! The location of the editor's Bundled Files by platform layout.
 
+use crate::Product;
 use std::path::{Component, Path, PathBuf};
 use thiserror::Error;
 
@@ -88,6 +89,20 @@ pub struct BundledFilesNotFound {
     pub tried: Vec<PathBuf>,
 }
 
+impl BundledFilesNotFound {
+    /// A directory the default asset source can be rooted at without reading anything: the
+    /// first location tried, which holds no marker, or, when even the executable's directory is
+    /// unknown, a directory under the platform's temporary directory that nothing creates.
+    #[must_use]
+    pub fn asset_root(&self) -> PathBuf {
+        self.tried.first().cloned().unwrap_or_else(|| {
+            std::env::temp_dir()
+                .join("dungeon-rs")
+                .join("bundle-not-found")
+        })
+    }
+}
+
 /// The locations tried, as one clause.
 fn tried_list(tried: &[PathBuf]) -> String {
     if tried.is_empty() {
@@ -123,6 +138,21 @@ pub enum BundledFileError {
         /// What the file system said.
         reason: String,
     },
+}
+
+/// Finds the bundle directory of the editor that is running, from where its executable is.
+///
+/// # Errors
+///
+/// [`BundledFilesNotFound`] naming every location tried when none is marked, and naming none
+/// when the executable's own location is unknown.
+pub fn locate_bundled_files_of_this_executable(
+    product: Product,
+) -> Result<BundledFiles, BundledFilesNotFound> {
+    match std::env::current_exe() {
+        Ok(executable) => locate_bundled_files(&executable, product.version),
+        Err(_) => Err(BundledFilesNotFound { tried: Vec::new() }),
+    }
 }
 
 /// Finds the bundle directory from the executable's location, never from the working

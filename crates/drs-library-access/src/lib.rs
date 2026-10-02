@@ -21,8 +21,8 @@ use std::path::PathBuf;
 #[derive(Debug, thiserror::Error)]
 pub enum LibraryError {
     /// The platform names no home directory, so no configuration or cache directory is known.
-    #[error("no configuration or cache directory is known on this platform")]
-    NoPlatformDirectories,
+    #[error(transparent)]
+    NoPlatformDirectories(#[from] drs_model::NoPlatformDirectories),
     /// A file or directory could not be read, written, or listed.
     #[error("cannot {action} {}: {source}", path.display())]
     Io {
