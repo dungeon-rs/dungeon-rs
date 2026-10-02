@@ -17,7 +17,7 @@ use kurbo::{Line, ParamCurve, Point, QuadBez};
 /// A curved segment so strongly bent that it would take more than [`MOST_CHORDS`] chords is
 /// flattened into that many, and its chords then stray farther; that takes a control point more
 /// than thirty thousand cells from the middle of its segment.
-const TOLERANCE: f64 = 0.001;
+pub(crate) const TOLERANCE: f64 = 0.001;
 
 /// The fewest chords a curved segment is flattened into, so that its middle is always a point of
 /// the line.
@@ -48,6 +48,17 @@ pub enum ShapeError {
     /// The parameter does not lie strictly between the segment's two points.
     #[error("a segment is split strictly between its points, not at {0}")]
     OutsideSegment(f32),
+    /// The Room has no edge of that number.
+    #[error("the Room has no edge {edge}; it has {edges}")]
+    NoEdge {
+        /// The edge asked for.
+        edge: usize,
+        /// How many edges the Room has.
+        edges: usize,
+    },
+    /// The parameter does not lie strictly between the edge's two points.
+    #[error("an edge is split strictly between its points, not at {0}")]
+    OutsideEdge(f32),
 }
 
 /// `GenerateWalls`: the shape a drawn Wall is drawn and picked by, left out along `stretches`.
@@ -411,7 +422,29 @@ fn half_turn(from: kurbo::Vec2, through: kurbo::Vec2, radius: f64) -> Vec<kurbo:
 /// range of arc length: a band per chord, a round join on the outer side of each bend, a round
 /// cap at each end of the line that no gap reaches, and a square end at each end of a gap.
 fn stroke(line: &[LinePoint], radius: f64, gaps: &[(f64, f64)]) -> StrokeMesh {
-    // The line's points with their arc lengths, coincident points merged.
+    let (points, travelled) = distinct(line);
+    let mut builder = Builder::default();
+    let Some(&first) = points.first() else {
+        return builder.mesh;
+    };
+    if gaps.is_empty() && points.len() == 1 {
+        // A Wall whose points all coincide is drawn as a dot of its thickness.
+        dot(&mut builder, first, radius);
+        return builder.mesh;
+    }
+    for (start, end) in runs(gaps, travelled) {
+        if end - start <= COINCIDENT {
+            continue;
+        }
+        let run = cut(&points, start, end);
+        stroke_run(&mut builder, &run, radius, start <= 0.0, end >= travelled);
+    }
+    builder.mesh
+}
+
+/// The points of a flattened line with their arc lengths, coincident points merged, and the
+/// length of the whole line.
+fn distinct(line: &[LinePoint]) -> (Vec<(Point, f64)>, f64) {
     let mut points: Vec<(Point, f64)> = Vec::with_capacity(line.len());
     let mut travelled = 0.0;
     for line_point in line {
@@ -427,26 +460,147 @@ fn stroke(line: &[LinePoint], radius: f64, gaps: &[(f64, f64)]) -> StrokeMesh {
             }
         }
     }
+    (points, travelled)
+}
+
+/// Adds a dot of half-thickness `radius` at `centre`: what a line whose points all coincide is
+/// drawn as.
+fn dot(builder: &mut Builder, centre: (Point, f64), radius: f64) {
+    let east = kurbo::Vec2::new(1.0, 0.0);
+    let north = kurbo::Vec2::new(0.0, 1.0);
+    builder.fan(centre, radius, &half_turn(north, -east, radius));
+    builder.fan(centre, radius, &half_turn(-north, east, radius));
+}
+
+/// The stroke of a closed flattened line, whose last point is its first again, at half-thickness
+/// `radius`, left out along `gaps`, each a range of arc length from where it starts to where it
+/// ends, a gap that starts after it ends running on past the first point: a band per chord and a
+/// round join on the outer side of every bend, the first point's included, with no caps; the
+/// stroke ends squarely across the line at each end of a gap.
+pub(crate) fn stroke_closed(line: &[LinePoint], radius: f64, gaps: &[(f64, f64)]) -> StrokeMesh {
+    let (points, total) = distinct(line);
     let mut builder = Builder::default();
-    let Some(&first) = points.first() else {
-        return builder.mesh;
-    };
-    if gaps.is_empty() && points.len() == 1 {
-        // A Wall whose points all coincide is drawn as a dot of its thickness.
-        let east = kurbo::Vec2::new(1.0, 0.0);
-        let north = kurbo::Vec2::new(0.0, 1.0);
-        builder.fan(first, radius, &half_turn(north, -east, radius));
-        builder.fan(first, radius, &half_turn(-north, east, radius));
+    // The ring of distinct points: the closing point is the first again, so it is left out.
+    let mut ring = points.clone();
+    if ring.len() > 1
+        && let (Some(&(first, _)), Some(&(last, _))) = (ring.first(), ring.last())
+        && length(last - first) <= COINCIDENT
+    {
+        ring.pop();
+    }
+    if ring.len() < 2 {
+        if let (Some(&first), true) = (ring.first(), gaps.is_empty()) {
+            dot(&mut builder, first, radius);
+        }
         return builder.mesh;
     }
-    for (start, end) in runs(gaps, travelled) {
+    let runs = ring_runs(gaps, total);
+    if gaps.is_empty() || runs == [(0.0, total)] {
+        stroke_ring(&mut builder, &ring, total, radius);
+        return builder.mesh;
+    }
+    for (start, end) in runs {
         if end - start <= COINCIDENT {
             continue;
         }
-        let run = cut(&points, start, end);
-        stroke_run(&mut builder, &run, radius, start <= 0.0, end >= travelled);
+        let run = if end <= total {
+            cut(&points, start, end)
+        } else {
+            // The run goes on past the first point, where the arc length starts again at zero.
+            let mut run = cut(&points, start, total);
+            run.extend(cut(&points, 0.0, end - total).into_iter().skip(1));
+            run
+        };
+        stroke_run(&mut builder, &run, radius, false, false);
     }
     builder.mesh
+}
+
+/// The ranges of arc length round a closed line of length `total` that no gap covers, each from
+/// where it starts to where it ends; a range that runs on past the first point ends beyond
+/// `total`, by the length it runs on.
+fn ring_runs(gaps: &[(f64, f64)], total: f64) -> Vec<(f64, f64)> {
+    let mut covered = Vec::with_capacity(gaps.len() + 1);
+    for &(from, to) in gaps {
+        if from <= to {
+            covered.push((from, to));
+        } else {
+            // A gap that starts after it ends covers the end of the line and its start.
+            covered.push((from, total));
+            covered.push((0.0, to));
+        }
+    }
+    let mut runs = runs(&covered, total);
+    if runs.len() >= 2
+        && runs.first().is_some_and(|first| first.0 <= 0.0)
+        && runs.last().is_some_and(|last| last.1 >= total)
+    {
+        // The run at the end and the run at the start meet at the first point: they are one.
+        let first = runs.remove(0);
+        if let Some(last) = runs.last_mut() {
+            last.1 = total + first.1;
+        }
+    }
+    runs
+}
+
+/// Adds the stroke of a whole closed ring of two or more distinct points, `total` long: a band
+/// per chord, the last back to the first, and a round join on the outer side of every bend, the
+/// first point's included.
+fn stroke_ring(builder: &mut Builder, ring: &[(Point, f64)], total: f64, radius: f64) {
+    let count = ring.len();
+    let next = |index: usize| (index + 1) % count;
+    let directions: Vec<kurbo::Vec2> = (0..count)
+        .map(|index| {
+            let along = ring[next(index)].0 - ring[index].0;
+            along / length(along)
+        })
+        .collect();
+    for (index, direction) in directions.iter().enumerate() {
+        let end = if next(index) == 0 {
+            (ring[0].0, total)
+        } else {
+            ring[next(index)]
+        };
+        builder.band(ring[index], end, left(*direction) * radius);
+    }
+    for index in 0..count {
+        let before = directions[(index + count - 1) % count];
+        join(builder, ring[index], before, directions[index], radius);
+    }
+}
+
+/// The unit vector a quarter turn to the left of `direction`.
+fn left(direction: kurbo::Vec2) -> kurbo::Vec2 {
+    kurbo::Vec2::new(-direction.y, direction.x)
+}
+
+/// Adds the round join at `centre` on the outer side of the bend from `before` to `after`, unit
+/// directions of the chords meeting there.
+fn join(
+    builder: &mut Builder,
+    centre: (Point, f64),
+    before: kurbo::Vec2,
+    after: kurbo::Vec2,
+    radius: f64,
+) {
+    let bend = before.cross(after);
+    let (from, to) = if bend > 0.0 {
+        (-left(before), -left(after))
+    } else {
+        (left(before), left(after))
+    };
+    // `from` and `to` are `before` and `after` turned by the same quarter turn, so their dot
+    // product is the same.
+    if before.dot(after) <= -1.0 + f64::EPSILON {
+        // The line turns right back on itself: the outer side is the whole way round the
+        // front.
+        builder.fan(centre, radius, &half_turn(from, before, radius));
+    } else if from.dot(to) < 1.0 {
+        let mut rim = vec![from];
+        arc(from, to, halvings(from, to, radius), &mut rim);
+        builder.fan(centre, radius, &rim);
+    }
 }
 
 /// The ranges of arc length from zero to `total` that no gap covers, in order.
@@ -514,31 +668,12 @@ fn stroke_run(
             along / length(along)
         })
         .collect();
-    let left = |direction: kurbo::Vec2| kurbo::Vec2::new(-direction.y, direction.x);
 
     for (pair, direction) in points.windows(2).zip(&directions) {
         builder.band(pair[0], pair[1], left(*direction) * radius);
     }
     for (index, turn) in directions.windows(2).enumerate() {
-        let (before, after) = (turn[0], turn[1]);
-        let bend = before.cross(after);
-        let (from, to) = if bend > 0.0 {
-            (-left(before), -left(after))
-        } else {
-            (left(before), left(after))
-        };
-        let centre = points[index + 1];
-        // `from` and `to` are `before` and `after` turned by the same quarter turn, so their dot
-        // product is the same.
-        if before.dot(after) <= -1.0 + f64::EPSILON {
-            // The line turns right back on itself: the outer side is the whole way round the
-            // front.
-            builder.fan(centre, radius, &half_turn(from, before, radius));
-        } else if from.dot(to) < 1.0 {
-            let mut rim = vec![from];
-            arc(from, to, halvings(from, to, radius), &mut rim);
-            builder.fan(centre, radius, &rim);
-        }
+        join(builder, points[index + 1], turn[0], turn[1], radius);
     }
     if let (Some(&first), Some(&start)) = (points.first(), directions.first())
         && cap_start

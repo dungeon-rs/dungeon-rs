@@ -13,6 +13,7 @@ authors.workspace = true
 bevy_math = { workspace = true }
 drs-model = { path = "../drs-model" }
 kurbo = { workspace = true }
+lyon_tessellation = { workspace = true }
 thiserror = { workspace = true }
 
 [features]

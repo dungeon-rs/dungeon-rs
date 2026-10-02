@@ -23,6 +23,25 @@ no Portal moves on the Level, or gone with the part of the Wall it sat in.
 Lengths along the line are measured over the flattened line, summing its
 chords, so they too come out the same on every machine.
 
+For a Room, [`combine_outlines`](crate::combine_outlines) flattens its outline
+into a closed line, from the first point round to the first point again, each
+point tagged with the edge it lies on, and fills what the line winds around,
+under the non-zero rule, as its floor; it is given one Room at a time and
+combines nothing yet. [`generate_room_walls`](crate::generate_room_walls)
+strokes that closed line at the Room's thickness with a round join at every
+point, the first included, and no caps, left out along its Portals' stretches,
+which may run on past the first point. [`split_room`](crate::split_room) splits
+an edge as a Wall's segment is split, a point added on the last edge becoming
+the last point. [`anchor_room_portals`](crate::anchor_room_portals) and
+[`anchor_room_portals_through`](crate::anchor_room_portals_through) do for a
+Room's Walls what their Wall counterparts do, lengths along the closed line
+wrapping past its first point and the joined edge of a removed first point
+being the last.
+
+The floor is filled by `lyon_tessellation` over the same chords the Walls are
+stroked along, so the floor's edge and the Walls' centre line agree; it is given
+straight chords only, which it fills with arithmetic and comparisons.
+
 Strokes are tessellated by the Engine itself, with no trigonometry: a round join
 or cap is an arc subdivided by halving its angle until it is within the
 tolerance, which takes only square roots, so the same Wall gives the same mesh,

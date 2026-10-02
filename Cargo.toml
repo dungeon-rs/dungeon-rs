@@ -114,6 +114,7 @@ caseless = "0.2"
 directories = "6.0"
 kurbo = { version = "0.13", default-features = false, features = ["std"] }
 log = "0.4"
+lyon_tessellation = "1.0"
 memchr = "2.8"
 naga = { version = "30.0", default-features = false, features = ["wgsl-in"] }
 png = "0.18"
