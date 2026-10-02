@@ -13,16 +13,16 @@ mod support;
 use bevy::app::App;
 use bevy::asset::io::AssetSourceId;
 use bevy::ecs::entity::Entity;
-use bevy::ecs::hierarchy::Children;
+use bevy::ecs::hierarchy::{ChildOf, Children};
 use bevy::ecs::message::Messages;
 use bevy::math::{UVec2, Vec2};
 use drs_history::History;
 use drs_library_access::{LIBRARY_SOURCE, asset_path};
 use drs_model::{
     Apply, AssetAddress, AssetFolder, AssetFolderReference, AssetKind, AssetReferences,
-    BrushSettings, CanonicalName, CommandFailed, EditElement, Element, ElementChange, ElementId,
-    Fingerprint, FolderKey, Gesture, PROP, Paint, PlaceElement, Placement, Prop, RemoveElement,
-    Resolution, ResolutionTable, Stroke, Viewport,
+    BrushSettings, CanonicalName, Colour, CommandFailed, EditElement, Element, ElementChange,
+    ElementId, Fingerprint, FolderKey, Gesture, PROP, Paint, PlaceElement, Placement, Portal,
+    PortalAnchor, Prop, RemoveElement, Resolution, ResolutionTable, Side, Stroke, Viewport,
 };
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -536,6 +536,98 @@ fn a_failed_command_is_reported() {
         assert!(!fixture.history().can_redo());
     }
     assert_eq!(fixture.props()[0].id, placed);
+}
+
+/// A Command recorded as several steps that fails partway is taken back whole: nothing of it
+/// stays applied, it records nothing, and what could be redone still can be.
+#[test]
+fn a_command_failing_halfway_is_taken_back() {
+    let mut fixture = Fixture::new();
+    let layer = fixture.layer();
+    fixture.apply(Apply::PlaceElement(PlaceElement {
+        layer,
+        placement: Placement::Wall {
+            points: vec![Vec2::ZERO, Vec2::new(4.0, 0.0)],
+            thickness: 0.25,
+            colour: Colour::rgb(60, 60, 60),
+        },
+    }));
+    let wall = support::last_on(&mut fixture.app, layer);
+    let anchor = PortalAnchor {
+        host: wall,
+        index: 0,
+        t: 0.5,
+        side: Side::Left,
+    };
+    fixture.apply(Apply::PlaceElement(PlaceElement {
+        layer,
+        placement: Placement::Portal {
+            position: Vec2::ZERO,
+            asset: AssetAddress {
+                folder: fixture.key.clone(),
+                place: TABLE.to_owned(),
+            },
+            anchor: Some(anchor),
+        },
+    }));
+    let portal = support::last_on(&mut fixture.app, layer);
+    fixture.apply(Apply::PlaceElement(PlaceElement {
+        layer,
+        placement: Placement::Prop {
+            position: Vec2::ONE,
+            asset: AssetAddress {
+                folder: fixture.key.clone(),
+                place: BARREL.to_owned(),
+            },
+        },
+    }));
+    let barrel = support::last_on(&mut fixture.app, layer);
+    fixture.undo();
+    // The Wall leaves its Layer and its Portal goes with it, so removing the Wall removes the
+    // Portal first and then fails, as the Wall sits on no Layer.
+    let (wall_entity, portal_entity) = (
+        support::entity(&mut fixture.app, wall).expect("the Wall"),
+        support::entity(&mut fixture.app, portal).expect("the Portal"),
+    );
+    let world = fixture.app.world_mut();
+    let stray = world.spawn_empty().id();
+    world.entity_mut(wall_entity).remove::<ChildOf>();
+    world.entity_mut(portal_entity).insert(ChildOf(stray));
+    fixture.app.update();
+    let depth = fixture.history().undo_depth();
+
+    let failed = support::try_apply(
+        &mut fixture.app,
+        Apply::RemoveElement(RemoveElement { element: wall }),
+    );
+
+    assert_eq!(failed.len(), 1, "the removal is refused with a reason");
+    assert!(failed[0].contains("sits on no Layer"), "{}", failed[0]);
+    let restored = support::entity(&mut fixture.app, portal).expect("the Portal is back");
+    let world = fixture.app.world();
+    assert_eq!(
+        world
+            .get::<Portal>(restored)
+            .and_then(|portal| portal.anchor),
+        Some(anchor),
+        "the Portal is set into its Wall again"
+    );
+    assert_eq!(
+        world.get::<ChildOf>(restored).map(ChildOf::parent),
+        Some(stray),
+        "the Portal is back where it was"
+    );
+    assert!(
+        support::entity(&mut fixture.app, wall).is_some(),
+        "the Wall stays"
+    );
+    assert_eq!(fixture.history().undo_depth(), depth, "nothing is recorded");
+    assert!(
+        fixture.history().can_redo(),
+        "what was undone can still be redone"
+    );
+    fixture.redo();
+    assert_eq!(support::last_on(&mut fixture.app, layer), barrel);
 }
 
 /// Add Asset Folder, Place Element, Edit Element, and Remove Element are each one undo step, and
