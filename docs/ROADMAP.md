@@ -3,7 +3,6 @@
 ## I can build and export a simple dungeon: Walls, doors, Rooms, painted Terrain, and Layers, from a library I can actually browse
 
 - **[Search at scale](changes/search-at-scale.md)**: typing in the browser finds any of hundreds of thousands of Assets by name within a keystroke, whatever the letter case. Commands: none.
-- **[Walls](changes/walls.md)**: the Author draws straight or curved Walls and edits their points at any time. Commands: none.
 - **[Portals](changes/portals.md)**: doors and windows set into Walls stay anchored through every Wall edit, or stand free. Commands: Set Portal into Wall, Free Portal.
 - **[Rooms](changes/rooms.md)**: a Room outline generates its floor and its Walls, and its points stay editable. Commands: none.
 - **Rooms combine and cut**: overlapping Room outlines combine into one, a Room cuts another, their Walls follow, and Portals set into them stay anchored. Commands: none.

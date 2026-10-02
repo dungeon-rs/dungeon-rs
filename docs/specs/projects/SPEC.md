@@ -30,7 +30,7 @@ Relink and Embed Asset are owned here and not implemented; Save and Open are lif
 ### Reopening
 
 15. As an Author, I can open a Project file through my operating system's open dialog, filtered to Project files, so that I find my Projects quickly.
-16. As an Author, I can rely on the opened Project replacing what I was working on, with every Prop where it was, at its size, in its stacking order, so that I continue exactly where I left off.
+16. As an Author, I can rely on the opened Project replacing what I was working on, with every Prop and Wall where it was, at its size, in its stacking order, so that I continue exactly where I left off.
 17. As an Author, I am asked whether to save, discard, or cancel when I open a file while I have unsaved changes, so that I never lose work by opening another Project.
 18. As an Author, I am asked the same question when I quit with unsaved changes, so that closing the window never loses work.
 19. As an Author, I can cancel at that question, or cancel the save it leads to, and be left exactly where I was, so that a wrong click costs nothing.
@@ -50,6 +50,8 @@ Relink and Embed Asset are owned here and not implemented; Save and Open are lif
 33. As an Author sharing a Project with a collaborator who lacks one of my Asset Folders, I can rely on the Project coming back from them with every Asset Reference and Element intact, so that their saving never damages my map.
 34. As an Author, I can open a Project on a device with no Asset Folders at all, with every Prop a placeholder, so that I can at least look at the map and see what it needs.
 35. As an Author, I can rely on the Project remembering the file it was opened from, so that Save after Open goes to that file.
+36. As an Author, I can save a Project with Walls and reopen it with every Wall's points, curves, thickness, and colour as they were, so that my dungeon survives closing the editor.
+37. As an Author sharing a Project with a collaborator whose editor does not know Walls, I can rely on their editor keeping my Walls as placeholders of the right extent and saving them back untouched, so that a round trip through an older editor never loses a wall.
 
 ## Rules
 
@@ -91,7 +93,7 @@ Relink and Embed Asset are owned here and not implemented; Save and Open are lif
 
 **Unsaved changes are asked about**: opening a file or quitting while the Project has unsaved changes asks the Author to save, discard, or cancel; cancelling, or cancelling or failing the save it leads to, leaves the Project, the history, and the editor as they were.
 
-**A bad file is refused**: a file that is not a Project, cannot be read, or holds malformed data is refused with the reason, and the current Project and its history are untouched.
+**A bad file is refused**: a file that is not a Project, cannot be read, or holds malformed data, a Wall among it with fewer than two points, a segment more or fewer than one per pair of neighbouring points, a thickness not above zero or not finite, or a point that is not finite, is refused with the reason, and the current Project and its history are untouched.
 _Why_: a bad file must become a report, never a crash or a half-loaded Project.
 
 **A newer file is refused**: a file whose format version, or any component version in it, is newer than this editor knows is refused, naming the version, and the current Project is untouched.
@@ -100,6 +102,8 @@ _Why_: opening it and saving would silently drop what the newer editor saved, ag
 **Unknown components round-trip**: data in an Element under a component name this editor does not know is kept with the Element and written back unchanged on save. Follows from: References are never dropped.
 
 **Unknown kinds are kept**: an Element whose kind is not registered on this editor stays on its Layer at its position in the stacking order, is drawn as a placeholder of its recorded size, is counted in the report shown after opening, and is written back unchanged on save. Follows from: References are never dropped.
+
+**Saved as its points**: a saved Wall holds its points, which segments are curved and their control points, its thickness, and its colour, and reopens the same; an editor that does not know the Wall kind keeps it as a placeholder of its size and writes it back unchanged. Follows from: References are never dropped.
 
 **Resolved by Canonical Name and place**: an Asset Reference resolves to the file at its recorded place inside the Asset Folder on this device whose Canonical Name equals the recorded one, compared ignoring letter case and Unicode normalisation, wherever that folder sits on this device. Follows from: A Project is device-independent.
 
@@ -128,9 +132,9 @@ The technology the architecture fixes (the Project format principles of stable c
 
 ### The Project file
 
-- **Shape**: one JSON document, pretty-printed in a fixed key order and ending in a newline. It holds the format version, which is 1; the Project entity's envelopes (the Project, the Grid, the Bounds, and the Asset Reference table); the Levels in order, each with its own envelopes and its Layers in order, each Layer with its envelopes and the ElementIds of its Elements in stacking order; and the Elements, keyed by ElementId written as a decimal string and sorted by it. Every component is an envelope of a version and that component's data under its stable name (`project`, `grid`, `bounds`, `asset_references`, `level`, `layer`, `element`, `prop`). The extension is `.dungeon`, added when the chosen name lacks it in any letter case, a fact of the product that `model` states; the file's shape and its version live in ProjectAccess and nowhere else.
+- **Shape**: one JSON document, pretty-printed in a fixed key order and ending in a newline. It holds the format version, which is 1; the Project entity's envelopes (the Project, the Grid, the Bounds, and the Asset Reference table); the Levels in order, each with its own envelopes and its Layers in order, each Layer with its envelopes and the ElementIds of its Elements in stacking order; and the Elements, keyed by ElementId written as a decimal string and sorted by it. Every component is an envelope of a version and that component's data under its stable name (`project`, `grid`, `bounds`, `asset_references`, `level`, `layer`, `element`, `prop`, `wall`). The extension is `.dungeon`, added when the chosen name lacks it in any letter case, a fact of the product that `model` states; the file's shape and its version live in ProjectAccess and nowhere else.
 - **The snapshot**: `model` holds a format-agnostic snapshot of a whole Project (the Project's envelopes, its Levels and Layers in order, its Elements by identity). ProjectManager gathers it from the World on Save and materialises it into the World on Open; ProjectAccess's ReadProject and WriteProject map it to and from the file's shape. _Why_: the snapshot is the model's view of a Project and the file is ProjectAccess's volatility, so a new format version changes one crate and no Manager.
-- **Serialisation registry**: `model` holds a registry of serialisable components, each with its stable name, the version it writes, the tier of entity it belongs on (Project, Level, Layer, or Element), and how to read every version it has had; each crate registers the components it owns when its plugin is built, in one declaration that both implements and registers them, so a component is never implemented but forgotten. All components of a Project are `model`'s today, each at version 1. The Project's name is not written: it is the file's. Reading checks the format version first, then every known envelope's version, so a newer file is refused by name and version before anything is built. An envelope whose name no entry knows is kept verbatim on its entity, under a component that holds unknown envelopes, and written back unchanged. A known envelope under another tier than its component's is malformed and refused. _Why_: a Level's envelope on the Project entity would otherwise read as a second Level.
+- **Serialisation registry**: `model` holds a registry of serialisable components, each with its stable name, the version it writes, the tier of entity it belongs on (Project, Level, Layer, or Element), and how to read every version it has had; each crate registers the components it owns when its plugin is built, in one declaration that both implements and registers them, so a component is never implemented but forgotten. All components of a Project are `model`'s today, each at version 1. The Project's name is not written: it is the file's. Reading checks the format version first, then every known envelope's version, so a newer file is refused by name and version before anything is built. An envelope whose name no entry knows is kept verbatim on its entity, under a component that holds unknown envelopes, and written back unchanged. A known envelope under another tier than its component's is malformed and refused. _Why_: a Level's envelope on the Project entity would otherwise read as a second Level. A component may refuse data that parses but is not one of it: the Wall, whose own check is the one its Commands use, refuses a Wall that check finds malformed, naming the component and the reason.
 - **Atomic writes**: WriteProject writes to a temporary file beside the target, flushes it to the disk, and renames it over the target once complete, so a failed write or a crash leaves the previous file untouched and never a partial one; the temporary file is removed on failure. It is created as readable as any file the Author makes, not private to the owner as temporary files are. _Why_: a saved Project is for sharing.
 - **Not in the file**: the history, the selection, the Viewport, folder keys, paths, the Project's name, and the resolution table.
 
@@ -168,10 +172,11 @@ The automated seam is a headless Bevy App of the real plugins of `model`, `histo
 - **Opened as saved**: `crates/drs-app/tests/projects.rs::opened_as_saved`
 - **Open replaces the Project**: `crates/drs-app/tests/projects.rs::open_replaces_the_project`
 - **Unsaved changes are asked about**: by hand: no automated seam for the egui UI; verified by driving the editor with the dev-only input script, whose `close` step presses the window's close button
-- **A bad file is refused**: `crates/drs-app/tests/projects.rs::a_bad_file_is_refused`, `crates/drs-app/tests/projects.rs::a_misplaced_envelope_is_refused`
+- **A bad file is refused**: `crates/drs-app/tests/projects.rs::a_bad_file_is_refused` (a Wall of one point and a Wall short of a segment among the malformed files; the rest of the Wall's check is `crates/drs-app/tests/walls.rs::malformed_walls_are_refused`), `crates/drs-app/tests/projects.rs::a_misplaced_envelope_is_refused`
 - **A newer file is refused**: `crates/drs-app/tests/projects.rs::a_newer_file_is_refused`
 - **Unknown components round-trip**: `crates/drs-app/tests/projects.rs::unknown_components_round_trip`
 - **Unknown kinds are kept**: `crates/drs-app/tests/projects.rs::unknown_kinds_are_kept` (all but the drawing, which is checked by hand)
+- **Saved as its points**: `crates/drs-app/tests/projects.rs::walls_are_saved_as_their_points` (a straight and a curved Wall), `crates/drs-app/tests/projects.rs::unknown_walls_round_trip` (an editor whose registry lacks the Wall kind opening and saving the same file)
 - **Resolved by Canonical Name and place**: `crates/drs-app/tests/projects.rs::resolved_by_canonical_name_and_place`, `crates/drs-app/tests/projects.rs::any_path_works_for_assets`
 - **Spelling differences resolve**: `crates/drs-app/tests/projects.rs::spelling_differences_resolve`, `crates/drs-catalog-engine/src/resolve.rs::tests::two_spellings_are_ambiguous`
 - **Same place, changed content**: `crates/drs-app/tests/projects.rs::same_place_changed_content`
