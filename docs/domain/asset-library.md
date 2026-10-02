@@ -28,6 +28,10 @@ _Avoid_: bundle, archive
 **Embedded Asset**:
 An Asset stored inside a Project instead of in an Asset Folder, for one-off Assets that belong to that Project alone.
 
+**Bundled File**:
+A file the editor ships and needs in order to run, such as its own fonts and shaders. Never an Asset.
+_Avoid_: resource, bundled resource
+
 **Indexing Rule**:
 A rule that decides which files in an Asset Folder are Assets, and of what Asset Kind.
 
