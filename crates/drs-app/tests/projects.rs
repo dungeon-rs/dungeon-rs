@@ -24,9 +24,9 @@ use drs_model::{
     EditElement, EditorDirectories, Element, ElementChange, ElementId, ElementKindName,
     ElementKindRegistry, FolderKey, FreePortal, Gesture, Grid, Layer, Level, MissingAsset,
     MissingReason, OpenProject, PORTAL, PlaceElement, Placement, Portal, PortalAnchor, Project,
-    ProjectOpened, ProjectRefused, ProjectRequest, ProjectSaved, Prop, RemoveElement, Resolution,
-    ResolutionTable, SaveProject, SavedMark, Serialisable, SerialisationRegistry, Side,
-    UnknownComponents, UnknownKind, Viewport, WALL, Wall, WallShape,
+    ProjectOpened, ProjectRefused, ProjectRequest, ProjectSaved, Prop, ROOM, RemoveElement,
+    Resolution, ResolutionTable, Room, RoomShape, SaveProject, SavedMark, Serialisable,
+    SerialisationRegistry, Side, UnknownComponents, UnknownKind, Viewport, WALL, Wall, WallShape,
 };
 use drs_model::{BrushSettings, Paint, Stroke, TERRAIN, Terrain, TerrainCoverage, TileKey};
 use serde_json::{Value, json};
@@ -2568,4 +2568,267 @@ fn a_lost_portal_is_edited_as_freestanding() {
     assert_eq!(portal.mirrored, !before.mirrored, "mirrored the other way");
     assert_eq!(portal.anchor, before.anchor, "the anchor kept");
     assert_eq!(saved.device.history().undo_depth(), depth + 3);
+}
+
+impl Device {
+    /// Places a Room through `points` and bends each edge that has a control.
+    fn room(&mut self, points: &[Vec2], controls: &[Option<Vec2>], thickness: f32) -> ElementId {
+        let layer = self.layer();
+        self.apply(Apply::PlaceElement(PlaceElement {
+            layer,
+            placement: Placement::Room {
+                points: points.to_vec(),
+                thickness,
+                wall_colour: Colour::rgb(60, 60, 60),
+                floor_colour: Colour::rgb(200, 190, 170),
+            },
+        }));
+        let id = self
+            .elements()
+            .last()
+            .map(|placed| placed.id)
+            .expect("the placed Room is the last child of the Layer");
+        for (segment, control) in controls.iter().enumerate() {
+            if control.is_some() {
+                self.apply(Apply::EditElement(EditElement {
+                    element: id,
+                    change: ElementChange::Control {
+                        segment,
+                        position: *control,
+                    },
+                    gesture: Gesture::Single,
+                }));
+            }
+        }
+        id
+    }
+
+    /// Every Room on the Layer in stacking order, with its Element and derived shape.
+    fn rooms(&mut self) -> Vec<(ElementId, Element, Room, Option<RoomShape>)> {
+        let layer = self.layer();
+        let world = self.app.world_mut();
+        let children: Vec<Entity> = world
+            .get::<Children>(layer)
+            .map(|children| children.iter().copied().collect())
+            .unwrap_or_default();
+        children
+            .into_iter()
+            .filter_map(|entity| {
+                Some((
+                    *world.get::<ElementId>(entity)?,
+                    world.get::<Element>(entity)?.clone(),
+                    world.get::<Room>(entity)?.clone(),
+                    world.get::<RoomShape>(entity).cloned(),
+                ))
+            })
+            .collect()
+    }
+
+    /// Makes the editor one that does not know the Room kind, as an older one would be.
+    fn forget_rooms(&mut self) {
+        let world = self.app.world_mut();
+        world.resource_mut::<ElementKindRegistry>().remove(&ROOM);
+        assert!(
+            world
+                .resource_mut::<SerialisationRegistry>()
+                .remove(<Room as Serialisable>::NAME),
+            "the Room was known"
+        );
+    }
+}
+
+/// A device that saved a straight Room and a curved one among the Props of [`Saved`], with a
+/// Portal set into the curved Room.
+struct SavedRooms {
+    /// The device.
+    device: Device,
+    /// The straight Room and the curved one.
+    rooms: [ElementId; 2],
+    /// The Portal set into the curved Room.
+    portal: ElementId,
+    /// The file saved.
+    file: PathBuf,
+}
+
+impl SavedRooms {
+    /// Places the Props of [`Saved`], the two Rooms, and the Portal, and saves.
+    fn new() -> Self {
+        let mut saved = Saved::new();
+        let straight = saved.device.room(
+            &[
+                Vec2::new(1.0, 1.0),
+                Vec2::new(6.0, 1.0),
+                Vec2::new(6.0, 4.0),
+            ],
+            &[],
+            0.125,
+        );
+        let curved = saved.device.room(
+            &[
+                Vec2::new(-4.0, -4.0),
+                Vec2::new(4.0, -4.0),
+                Vec2::new(4.0, 2.0),
+                Vec2::new(-4.0, 2.0),
+            ],
+            &[None, None, Some(Vec2::new(0.0, 6.0))],
+            0.5,
+        );
+        let portal = saved.device.portal(
+            &saved.key,
+            TABLE,
+            Vec2::ZERO,
+            Some(PortalAnchor {
+                host: curved,
+                index: 3,
+                t: 0.25,
+                side: Side::Right,
+            }),
+        );
+        let file = saved
+            .device
+            .save_as(&saved.device.root().join("rooms.dungeon"));
+        Self {
+            device: saved.device,
+            rooms: [straight, curved],
+            portal,
+            file,
+        }
+    }
+
+    /// The Portal as the device holds it now.
+    fn portal(&mut self) -> (ElementId, Element, Portal) {
+        let portal = self.portal;
+        self.device
+            .portals()
+            .into_iter()
+            .find(|(id, ..)| *id == portal)
+            .expect("the Portal")
+    }
+}
+
+/// A saved Room holds its points, which edges are curved and their control points, its wall
+/// thickness, its wall colour, and its floor colour, and reopens the same, with every Portal set
+/// into the same place of the same Room.
+#[test]
+fn rooms_are_saved_as_their_outline() {
+    let mut saved = SavedRooms::new();
+    let rooms = saved.device.rooms();
+    let portal = saved.portal();
+    let order = saved.device.order();
+
+    let written = json(&saved.file);
+    let curved = &written["elements"][saved.rooms[1].as_raw().to_string()];
+    assert_eq!(curved["element"]["data"]["kind"], json!("room"));
+    assert_eq!(
+        curved["room"],
+        json!({
+            "version": 1,
+            "data": {
+                "points": [[-4.0, -4.0], [4.0, -4.0], [4.0, 2.0], [-4.0, 2.0]],
+                "edges": [
+                    { "control": null },
+                    { "control": null },
+                    { "control": [0.0, 6.0] },
+                    { "control": null }
+                ],
+                "thickness": 0.5,
+                "wall_colour": { "red": 60, "green": 60, "blue": 60 },
+                "floor_colour": { "red": 200, "green": 190, "blue": 170 }
+            }
+        })
+    );
+    let set = &written["elements"][saved.portal.as_raw().to_string()];
+    assert_eq!(
+        set["portal"]["data"]["anchor"],
+        json!({
+            "host": saved.rooms[1].as_raw().to_string(),
+            "index": 3,
+            "t": 0.25,
+            "side": "Right"
+        })
+    );
+
+    let mut other = Device::new();
+    other.opens(&saved.file);
+    assert_eq!(other.order(), order);
+    let reopened = other.rooms();
+    assert_eq!(reopened, rooms);
+    assert!(reopened.iter().all(|(.., shape)| shape.is_some()));
+    let reopened_portal = other
+        .portals()
+        .into_iter()
+        .find(|(id, ..)| *id == saved.portal)
+        .expect("the Portal");
+    assert_eq!(reopened_portal, portal, "set into the same place");
+
+    let again = other.save_as(&other.root().join("again.dungeon"));
+    assert_eq!(
+        fs::read(&again).expect("the file saved again"),
+        fs::read(&saved.file).expect("the file")
+    );
+}
+
+/// An editor that does not know the Room kind keeps every Room as a placeholder of its size and
+/// the Portals set into them standing where they were saved, writes both back unchanged, and
+/// the first editor reopens the Portals set into their Rooms again.
+#[test]
+fn unknown_rooms_round_trip() {
+    let mut saved = SavedRooms::new();
+    let rooms = saved.device.rooms();
+    let portal = saved.portal();
+    let order = saved.device.order();
+    let mut unaware = Device::new();
+    unaware.forget_rooms();
+
+    let opened = unaware.opens(&saved.file);
+
+    assert_eq!(unaware.order(), order);
+    assert!(unaware.rooms().is_empty(), "no Room is known");
+    for (id, element, ..) in &rooms {
+        let placed = unaware
+            .elements()
+            .into_iter()
+            .find(|placed| placed.id == *id)
+            .expect("the Room stays on its Layer");
+        assert_eq!(&placed.element, element, "a placeholder of the Room's size");
+        assert_eq!(
+            placed
+                .unknown
+                .expect("the Room is kept")
+                .envelopes
+                .keys()
+                .collect::<Vec<_>>(),
+            vec!["room"]
+        );
+    }
+    assert_eq!(
+        opened.report.unknown_kinds,
+        vec![UnknownKind {
+            kind: ROOM,
+            elements: 2
+        }]
+    );
+    let standing = unaware
+        .portals()
+        .into_iter()
+        .find(|(id, ..)| *id == saved.portal)
+        .expect("the Portal");
+    assert_eq!(standing, portal, "standing where it was saved");
+
+    let copy = unaware.save_as(&unaware.root().join("copy.dungeon"));
+    assert_eq!(
+        fs::read(&copy).expect("the copy"),
+        fs::read(&saved.file).expect("the file")
+    );
+    saved.device.opens(&copy);
+    assert_eq!(saved.device.rooms().len(), 2);
+    assert_eq!(saved.portal(), portal, "set into its Room again");
+    let shape = saved
+        .device
+        .rooms()
+        .into_iter()
+        .find(|(id, ..)| *id == saved.rooms[1])
+        .and_then(|(.., shape)| shape)
+        .expect("the Room has its shape");
+    assert_eq!(shape.walls.stretches.len(), 1, "the Room gives way again");
 }
