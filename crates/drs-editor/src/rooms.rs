@@ -6,10 +6,11 @@
 //! Place Element; every change to a placed Room is an Edit Element. A Room's handles are a
 //! Wall's, through the outline the Wall tool's handles are seen by.
 
+use crate::handles::{HANDLE_PIXELS, HANDLES};
 use crate::state::{EditorState, Interaction, Tool};
 use crate::walls::{
-    DEFAULT_COLOUR, DEFAULT_THICKNESS, HANDLE_PIXELS, HANDLES, NEAR_THE_LAST, OptionGesture,
-    colour_option, end_option, on_wall, send_option, thickness_option,
+    DEFAULT_COLOUR, DEFAULT_THICKNESS, NEAR_THE_LAST, OptionGesture, colour_option, end_option,
+    on_wall, send_option, thickness_option,
 };
 use bevy::color::Color;
 use bevy::ecs::entity::Entity;
@@ -78,7 +79,7 @@ pub(crate) fn choose_room_tool(state: &mut EditorState) {
     crate::paint::discard_stroke(state);
     state.chosen = None;
     state.selected = None;
-    state.walls.handle = None;
+    state.handle = None;
     state.walls.drawing.clear();
     state.tool = Tool::Room;
 }

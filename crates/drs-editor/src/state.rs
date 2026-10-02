@@ -3,10 +3,11 @@
 //! tool with the Wall, the Room, or the stroke being drawn and the options being changed. None of
 //! it is domain state.
 
+use crate::handles::OutlineHandle;
 use crate::paint::PaintTool;
 use crate::portals::PortalTool;
 use crate::rooms::RoomTool;
-use crate::walls::{WallHandle, WallTool};
+use crate::walls::WallTool;
 use bevy::ecs::resource::Resource;
 use bevy::math::Vec2;
 use drs_model::{AssetAddress, ElementId, ExportLevel, OpenReport};
@@ -38,6 +39,8 @@ pub(crate) struct EditorState {
     pub interaction: Interaction,
     /// The tool the viewport's clicks serve.
     pub tool: Tool,
+    /// The selected handle of the selected Wall or Room and the Element it belongs to.
+    pub handle: Option<(ElementId, OutlineHandle)>,
     /// The Wall tool's own state.
     pub walls: WallTool,
     /// The Portal tool's own state.
@@ -55,6 +58,12 @@ impl EditorState {
             || self.question.is_some()
             || self.report.is_some()
             || self.export.is_some()
+    }
+
+    /// The selected handle of `element`, if one is selected.
+    pub fn handle_of(&self, element: ElementId) -> Option<OutlineHandle> {
+        self.handle
+            .and_then(|(owner, handle)| (owner == element).then_some(handle))
     }
 
     /// Whether an Element or a handle of a Wall or a Room is being dragged, a Portal slid along
@@ -206,7 +215,7 @@ pub(crate) enum Interaction {
         /// The Wall or the Room.
         element: ElementId,
         /// The handle under the pointer.
-        handle: WallHandle,
+        handle: OutlineHandle,
         /// Where the handle was, in cells, when the button went down.
         origin: Vec2,
         /// The pointer, on screen, when the button went down.

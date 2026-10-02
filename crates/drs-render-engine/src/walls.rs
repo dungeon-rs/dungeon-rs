@@ -40,7 +40,7 @@ const FLOOR_BELOW: f32 = 0.5;
 
 /// Marks a mesh entity as drawing one part of one Element.
 #[derive(Component)]
-pub(crate) struct WallDrawing {
+pub(crate) struct OutlineDrawing {
     /// The Element drawn.
     element: Entity,
     /// The part of it drawn.
@@ -75,9 +75,9 @@ pub(crate) fn walls_changed(
 /// One flat-colour Material per colour a Wall, a Room's Walls, or a Room's floor is drawn in,
 /// shared by everything drawn in that colour.
 #[derive(Resource, Default)]
-pub(crate) struct WallMaterials(BTreeMap<[u8; 3], Handle<ColorMaterial>>);
+pub(crate) struct OutlineMaterials(BTreeMap<[u8; 3], Handle<ColorMaterial>>);
 
-impl WallMaterials {
+impl OutlineMaterials {
     /// The Material of `colour`, added the first time something is drawn in it.
     ///
     /// It blends rather than being opaque, though the colour is, so that the mesh sorts with the
@@ -102,13 +102,13 @@ impl WallMaterials {
 
 /// The assets the Walls and Rooms are drawn with.
 #[derive(SystemParam)]
-pub(crate) struct WallAssets<'w> {
+pub(crate) struct OutlineAssets<'w> {
     /// The meshes, one per Wall and two per Room.
     meshes: ResMut<'w, Assets<Mesh>>,
     /// The Materials, one per colour.
     materials: ResMut<'w, Assets<ColorMaterial>>,
     /// Which Material each colour has.
-    shared: ResMut<'w, WallMaterials>,
+    shared: ResMut<'w, OutlineMaterials>,
 }
 
 /// A colour as the shared Materials are kept by.
@@ -207,12 +207,12 @@ pub(crate) fn sync_walls(
     rooms: Query<(&Element, &Room, Ref<RoomShape>)>,
     mut drawings: Query<(
         Entity,
-        &mut WallDrawing,
+        &mut OutlineDrawing,
         &Mesh2d,
         &mut MeshMaterial2d<ColorMaterial>,
         &mut Transform,
     )>,
-    mut assets: WallAssets,
+    mut assets: OutlineAssets,
 ) {
     let mut sync = Sync {
         unseen: drawings
@@ -279,12 +279,12 @@ fn draw(
     commands: &mut Commands,
     drawings: &mut Query<(
         Entity,
-        &mut WallDrawing,
+        &mut OutlineDrawing,
         &Mesh2d,
         &mut MeshMaterial2d<ColorMaterial>,
         &mut Transform,
     )>,
-    assets: &mut WallAssets,
+    assets: &mut OutlineAssets,
 ) {
     sync.in_use.insert(key(piece.colour));
     let translation = Vec3::new(0.0, 0.0, piece.depth);
@@ -308,7 +308,7 @@ fn draw(
             Mesh2d(assets.meshes.add((piece.mesh)())),
             MeshMaterial2d(assets.shared.of(piece.colour, &mut assets.materials)),
             Transform::from_translation(translation),
-            WallDrawing {
+            OutlineDrawing {
                 element: piece.element,
                 part: piece.part,
                 colour: piece.colour,

@@ -8,11 +8,12 @@
 //! Manager.
 
 use crate::bindings;
+use crate::handles::{self, Outline};
 use crate::paint;
 use crate::portals;
 use crate::rooms;
 use crate::state::{EditorState, Interaction, Tool};
-use crate::walls::{self, Outline};
+use crate::walls;
 use bevy::color::Color;
 use bevy::ecs::entity::Entity;
 use bevy::ecs::hierarchy::Children;
@@ -481,7 +482,7 @@ fn drag_handle(
     let position = origin + (viewport.cells_at(cursor) - viewport.cells_at(pointer));
     apply.write(Apply::EditElement(EditElement {
         element,
-        change: walls::handle_change(handle, position),
+        change: handles::handle_change(handle, position),
         gesture: if moved_at.is_some() {
             Gesture::Continue
         } else {
@@ -490,10 +491,10 @@ fn drag_handle(
     }));
     // A straight segment's middle, once dragged, is the segment's control point.
     let handle = match handle {
-        walls::WallHandle::Middle(segment) => walls::WallHandle::Control(segment),
-        walls::WallHandle::Point(_) | walls::WallHandle::Control(_) => handle,
+        handles::OutlineHandle::Middle(segment) => handles::OutlineHandle::Control(segment),
+        handles::OutlineHandle::Point(_) | handles::OutlineHandle::Control(_) => handle,
     };
-    state.walls.handle = Some((element, handle));
+    state.handle = Some((element, handle));
     state.interaction = Interaction::Handle {
         element,
         handle,
@@ -557,12 +558,12 @@ fn press(
         return;
     }
     let selected = level.selected_outline(state.selected);
-    if walls::press_selected(state, apply, selected, viewport, cursor, double) {
+    if handles::press_selected(state, apply, selected, viewport, cursor, double) {
         return;
     }
     let hit = level.topmost_at(cells, viewport.zoom);
     state.selected = hit.map(|(id, ..)| id);
-    state.walls.handle = None;
+    state.handle = None;
     match hit {
         Some((element, _, true)) => portals::press_set(state, element, cursor),
         Some((element, origin, false)) => {
@@ -614,7 +615,7 @@ fn finish_gesture(
                 let position = origin + (viewport.cells_at(last) - viewport.cells_at(pointer));
                 apply.write(Apply::EditElement(EditElement {
                     element,
-                    change: walls::handle_change(handle, position),
+                    change: handles::handle_change(handle, position),
                     gesture: Gesture::End,
                 }));
             }
@@ -748,11 +749,11 @@ pub(crate) fn keys(
     if bindings::any_pressed(bindings::REMOVE, &keys)
         && let Some(element) = state.selected
     {
-        let picked = state.walls.handle_of(element);
+        let picked = state.handle_of(element);
         if let (Some((_, outline, _)), Some(handle)) =
             (level.selected_outline(Some(element)), picked)
         {
-            if let Some(change) = walls::delete_handle(&outline, handle) {
+            if let Some(change) = handles::delete_handle(&outline, handle) {
                 apply.write(Apply::EditElement(EditElement {
                     element,
                     change,
@@ -763,7 +764,7 @@ pub(crate) fn keys(
             state.selected = None;
             apply.write(Apply::RemoveElement(RemoveElement { element }));
         }
-        state.walls.handle = None;
+        state.handle = None;
     }
     if state.step_under_way() {
         return;
@@ -799,15 +800,15 @@ pub(crate) fn outline_selection(
     }
     // The state is written only when something changes, so it is not marked changed every frame.
     let Some(selected) = state.selected else {
-        if state.walls.handle.is_some() {
-            state.walls.handle = None;
+        if state.handle.is_some() {
+            state.handle = None;
         }
         return;
     };
     let Some((_, element, wall, portal, room)) = elements.iter().find(|(id, ..)| **id == selected)
     else {
         state.selected = None;
-        state.walls.handle = None;
+        state.handle = None;
         return;
     };
     let isometry = portal.map_or_else(
@@ -818,17 +819,12 @@ pub(crate) fn outline_selection(
     let outline = wall
         .map(Outline::of_wall)
         .or_else(|| room.map(Outline::of_room));
-    let gone = match (outline, state.walls.handle_of(selected)) {
-        (Some(outline), Some(handle)) => !walls::handle_exists(&outline, handle),
+    let gone = match (outline, state.handle_of(selected)) {
+        (Some(outline), Some(handle)) => !handles::handle_exists(&outline, handle),
         (None, Some(_)) => true,
         (_, None) => false,
     };
-    if gone
-        || state
-            .walls
-            .handle
-            .is_some_and(|(owner, _)| owner != selected)
-    {
-        state.walls.handle = None;
+    if gone || state.handle.is_some_and(|(owner, _)| owner != selected) {
+        state.handle = None;
     }
 }

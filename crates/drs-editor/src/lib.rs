@@ -7,6 +7,7 @@ mod crash_test;
 mod diagnostics;
 mod export;
 mod files;
+mod handles;
 mod outcomes;
 mod paint;
 mod panels;
@@ -89,6 +90,7 @@ impl Plugin for EditorPlugin {
                     (
                         viewport::outline_selection,
                         walls::draw_overlays,
+                        handles::draw,
                         rooms::draw_overlays,
                         portals::draw_marker,
                     )

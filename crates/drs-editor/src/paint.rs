@@ -70,7 +70,7 @@ impl PaintTool {
 pub(crate) fn choose_paint_tool(state: &mut EditorState) {
     walls::leave_tool(state);
     state.selected = None;
-    state.walls.handle = None;
+    state.handle = None;
     state.tool = Tool::Paint;
 }
 

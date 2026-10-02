@@ -34,7 +34,7 @@ pub struct RenderEnginePlugin;
 impl Plugin for RenderEnginePlugin {
     fn build(&self, app: &mut App) {
         app.add_plugins(Material2dPlugin::<terrain::TerrainMaterial>::default())
-            .init_resource::<walls::WallMaterials>()
+            .init_resource::<walls::OutlineMaterials>()
             .init_resource::<terrain::TerrainDrawings>()
             .add_systems(Startup, projection::spawn_camera)
             .add_systems(

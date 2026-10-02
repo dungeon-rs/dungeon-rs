@@ -128,7 +128,7 @@ pub(crate) fn choose_portal_tool(state: &mut EditorState) {
     crate::paint::discard_stroke(state);
     state.rooms.drawing.clear();
     state.selected = None;
-    state.walls.handle = None;
+    state.handle = None;
     state.tool = Tool::Portal;
 }
 

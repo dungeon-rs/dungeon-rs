@@ -353,7 +353,7 @@ fn status_line(root: &mut egui::Ui, state: &EditorState, set_portal: bool) {
                     "drawing a Room of {} points",
                     state.rooms.drawing.len()
                 ));
-            } else if state.walls.handle.is_some() {
+            } else if state.handle.is_some() {
                 ui.weak("Drag moves it, Delete removes or straightens it");
                 ui.label("1 handle selected");
             } else if state.selected.is_some() {
