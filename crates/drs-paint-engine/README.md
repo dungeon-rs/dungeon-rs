@@ -15,12 +15,13 @@ strongest.
 
 A [`PaintCache`](crate::PaintCache) holds one Terrain's coverage at 32 pixels per
 cell in tiles of 512 pixels a side, keyed by their place in the Level's pixel
-plane, negative places included, an absent tile being empty.
-[`apply_stroke`](crate::apply_stroke) brings it up to the Terrain's strokes:
-appended strokes are composited onto the tiles they touch, and when earlier
-strokes changed or went, only the tiles the differing strokes touch are
-rasterized again from every stroke. Both are plain functions over the model's
-types; the Manager that owns the cache keeps it.
+plane, negative places included, an absent tile being empty, and publishes them
+as the model's coverage without copying a pixel; no one else looks inside it.
+[`apply_stroke`](crate::apply_stroke) brings it up to the Terrain's strokes and
+says whether any tile changed: appended strokes are composited onto the tiles
+they touch, and when earlier strokes changed or went, only the tiles the
+differing strokes touch are rasterized again from every stroke. Both are plain
+functions over the model's types; the Manager that owns the cache keeps it.
 
 ## Features
 

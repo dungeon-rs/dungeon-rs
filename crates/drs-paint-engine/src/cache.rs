@@ -28,8 +28,8 @@ pub struct PaintCache {
 
 impl PaintCache {
     /// The tiles some stroke covers, by place.
-    #[must_use]
-    pub fn tiles(&self) -> &BTreeMap<TileKey, CoverageTile> {
+    #[cfg(test)]
+    fn tiles(&self) -> &BTreeMap<TileKey, CoverageTile> {
         &self.tiles
     }
 
@@ -42,18 +42,17 @@ impl PaintCache {
     }
 
     /// Replaces a tile's pixels, giving it a new revision when they differ, and drops it when
-    /// nothing is covered.
-    fn store(&mut self, key: TileKey, pixels: Vec<u8>) {
+    /// nothing is covered; whether the tiles changed.
+    fn store(&mut self, key: TileKey, pixels: Vec<u8>) -> bool {
         if pixels.iter().all(|pixel| *pixel == 0) {
-            self.tiles.remove(&key);
-            return;
+            return self.tiles.remove(&key).is_some();
         }
         if self
             .tiles
             .get(&key)
             .is_some_and(|tile| *tile.pixels == *pixels)
         {
-            return;
+            return false;
         }
         self.revision += 1;
         self.tiles.insert(
@@ -63,7 +62,17 @@ impl PaintCache {
                 pixels: Arc::from(pixels),
             },
         );
+        true
     }
+}
+
+/// What bringing a cache up to its strokes did.
+#[derive(Debug, Default)]
+struct Applied {
+    /// The tiles rasterized.
+    touched: BTreeSet<TileKey>,
+    /// Whether any tile's pixels changed, or a tile came or went.
+    changed: bool,
 }
 
 /// The region a tile covers.
@@ -96,22 +105,27 @@ fn tiles_of(stroke: &Stroke) -> impl Iterator<Item = TileKey> {
     (bottom..=top).flat_map(move |y| (left..=right).map(move |x| TileKey { x, y }))
 }
 
-/// `ApplyStroke`: brings `cache` up to `strokes`, a Terrain's strokes in order, and returns the
-/// tiles it rasterized.
+/// `ApplyStroke`: brings `cache` up to `strokes`, a Terrain's strokes in order, and says whether
+/// any tile changed, so the coverage published from it needs publishing again.
 ///
 /// Strokes appended since the cache last ran are composited onto the tiles they touch. When an
 /// earlier stroke changed or went, as an undo makes it go, only the tiles touched by the strokes
 /// that differ, before or after, are rasterized again from every stroke, so undoing a stroke
 /// recomputes that stroke's tiles alone. Either way the tiles end up holding exactly what
 /// rasterizing every stroke afresh gives.
-pub fn apply_stroke(cache: &mut PaintCache, strokes: &[Stroke]) -> BTreeSet<TileKey> {
+pub fn apply_stroke(cache: &mut PaintCache, strokes: &[Stroke]) -> bool {
+    bring_up(cache, strokes).changed
+}
+
+/// Brings `cache` up to `strokes` as [`apply_stroke`] does, and tells which tiles it rasterized.
+fn bring_up(cache: &mut PaintCache, strokes: &[Stroke]) -> Applied {
     let kept = cache
         .strokes
         .iter()
         .zip(strokes)
         .take_while(|(before, now)| before == now)
         .count();
-    let mut touched = BTreeSet::new();
+    let mut applied = Applied::default();
     if kept == cache.strokes.len() {
         for stroke in &strokes[kept..] {
             for key in tiles_of(stroke) {
@@ -121,27 +135,27 @@ pub fn apply_stroke(cache: &mut PaintCache, strokes: &[Stroke]) -> BTreeSet<Tile
                     |tile| tile.pixels.to_vec(),
                 );
                 composite(&mut pixels, stroke, &region);
-                cache.store(key, pixels);
-                touched.insert(key);
+                applied.changed |= cache.store(key, pixels);
+                applied.touched.insert(key);
             }
         }
     } else {
-        touched = cache.strokes[kept..]
+        applied.touched = cache.strokes[kept..]
             .iter()
             .chain(&strokes[kept..])
             .flat_map(tiles_of)
             .collect();
-        for key in &touched {
+        for key in &applied.touched {
             let region = region(*key);
             let mut pixels = vec![0; (COVERAGE_TILE_PIXELS * COVERAGE_TILE_PIXELS) as usize];
             for stroke in strokes {
                 composite(&mut pixels, stroke, &region);
             }
-            cache.store(*key, pixels);
+            applied.changed |= cache.store(*key, pixels);
         }
     }
     cache.strokes = strokes.to_vec();
-    touched
+    applied
 }
 
 #[cfg(test)]
@@ -224,8 +238,12 @@ mod tests {
         let strokes = strokes();
         let mut cache = PaintCache::default();
         for laid in 1..=strokes.len() {
-            apply_stroke(&mut cache, &strokes[..laid]);
+            assert!(
+                apply_stroke(&mut cache, &strokes[..laid]),
+                "stroke {laid} shows"
+            );
         }
+        assert!(!apply_stroke(&mut cache, &strokes), "nothing new");
         assert_eq!(pixels(&cache), afresh(&strokes));
         assert!(cache.tiles().keys().any(|key| key.x < 0), "a negative tile");
         assert!(cache.tiles().len() >= 4, "{} tiles", cache.tiles().len());
@@ -237,16 +255,16 @@ mod tests {
     fn an_undo_touches_only_its_tiles() {
         let strokes = strokes();
         let mut cache = PaintCache::default();
-        apply_stroke(&mut cache, &strokes[..3]);
+        bring_up(&mut cache, &strokes[..3]);
         let before = pixels(&cache);
-        let laid = apply_stroke(&mut cache, &strokes);
+        let laid = bring_up(&mut cache, &strokes).touched;
         let revisions: BTreeMap<TileKey, u64> = cache
             .tiles()
             .iter()
             .map(|(key, tile)| (*key, tile.revision))
             .collect();
 
-        let undone = apply_stroke(&mut cache, &strokes[..3]);
+        let undone = bring_up(&mut cache, &strokes[..3]).touched;
 
         assert_eq!(undone, laid);
         assert_eq!(undone, tiles_of(&strokes[3]).collect());

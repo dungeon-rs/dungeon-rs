@@ -354,8 +354,7 @@ pub(crate) fn derive_coverage(
     for (entity, terrain, mut element, coverage, painted) in &mut terrains {
         match (coverage, painted) {
             (Some(mut coverage), Some(mut painted)) => {
-                apply_stroke(&mut painted.0, &terrain.strokes);
-                if !same_tiles(&coverage, &painted.0) {
+                if apply_stroke(&mut painted.0, &terrain.strokes) {
                     *coverage = painted.0.coverage();
                 }
             }
@@ -377,16 +376,4 @@ pub(crate) fn derive_coverage(
             element.size = footprint.size();
         }
     }
-}
-
-/// Whether the published coverage holds the cache's tiles at their revisions.
-fn same_tiles(coverage: &TerrainCoverage, cache: &PaintCache) -> bool {
-    coverage.tiles.len() == cache.tiles().len()
-        && coverage
-            .tiles
-            .iter()
-            .zip(cache.tiles())
-            .all(|((key, tile), (cached_key, cached))| {
-                key == cached_key && tile.revision == cached.revision
-            })
 }
