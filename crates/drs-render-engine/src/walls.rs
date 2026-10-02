@@ -34,8 +34,8 @@ enum Part {
     Floor,
 }
 
-/// How far below its Element's depth a floor is drawn: under the Element's own Walls and over
-/// the Element before it, one whole unit below.
+/// How far below its Room's depth a floor is drawn: half the unit of depth between one Element
+/// and the next, so the floor lies under the Room's own Walls and over the Element before it.
 const FLOOR_BELOW: f32 = 0.5;
 
 /// Marks a mesh entity as drawing one part of one Element.
@@ -111,6 +111,20 @@ pub(crate) struct OutlineAssets<'w> {
     shared: ResMut<'w, OutlineMaterials>,
 }
 
+/// What the outlines are drawn from: the kind each Element is drawn as, and the Walls and the
+/// Rooms with their derived shapes.
+#[derive(SystemParam)]
+pub(crate) struct Outlined<'w, 's> {
+    /// The Element kinds, which say how each is drawn.
+    kinds: Option<Res<'w, ElementKindRegistry>>,
+    /// Every Element's kind.
+    elements: Query<'w, 's, &'static Element>,
+    /// The Walls with their derived shapes.
+    walls: Query<'w, 's, (&'static Wall, Ref<'static, WallShape>)>,
+    /// The Rooms with their derived shapes.
+    rooms: Query<'w, 's, (&'static Room, Ref<'static, RoomShape>)>,
+}
+
 /// A colour as the shared Materials are kept by.
 fn key(colour: Colour) -> [u8; 3] {
     [colour.red, colour.green, colour.blue]
@@ -143,25 +157,18 @@ fn stroke_mesh(stroke: &StrokeMesh) -> Mesh {
     .with_inserted_indices(Indices::U32(stroke.indices.clone()))
 }
 
-/// The mesh of a floor: its vertices in cells, with their position as the first texture
-/// coordinate, for a Material that repeats across it, and its triangles.
+/// The mesh of a floor: its vertices in cells and its triangles.
 fn floor_mesh(floor: &FillMesh) -> Mesh {
     let positions: Vec<[f32; 3]> = floor
         .vertices
         .iter()
         .map(|vertex| [vertex.x, vertex.y, 0.0])
         .collect();
-    let across: Vec<[f32; 2]> = floor
-        .vertices
-        .iter()
-        .map(|vertex| [vertex.x, vertex.y])
-        .collect();
     Mesh::new(
         PrimitiveTopology::TriangleList,
         RenderAssetUsages::RENDER_WORLD,
     )
     .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, positions)
-    .with_inserted_attribute(Mesh::ATTRIBUTE_UV_0, across)
     .with_inserted_indices(Indices::U32(floor.indices.clone()))
 }
 
@@ -202,9 +209,7 @@ struct Sync {
 pub(crate) fn sync_walls(
     mut commands: Commands,
     stacking: Stacking,
-    kinds: Option<Res<ElementKindRegistry>>,
-    walls: Query<(&Element, &Wall, Ref<WallShape>)>,
-    rooms: Query<(&Element, &Room, Ref<RoomShape>)>,
+    model: Outlined,
     mut drawings: Query<(
         Entity,
         &mut OutlineDrawing,
@@ -222,46 +227,49 @@ pub(crate) fn sync_walls(
         in_use: BTreeSet::new(),
     };
     for stacked in stacking.in_order() {
-        if let Ok((element, wall, shape)) = walls.get(stacked.element) {
-            match drawn_as(kinds.as_deref(), element) {
-                Some(DrawnAs::StrokedPath) => {
-                    let piece = Piece {
-                        element: stacked.element,
-                        part: Part::Stroke,
-                        colour: wall.colour,
-                        depth: stacked.depth,
-                        changed: shape.is_changed(),
-                        mesh: Box::new(|| stroke_mesh(&shape.mesh)),
-                    };
-                    draw(&mut sync, piece, &mut commands, &mut drawings, &mut assets);
-                }
-                Some(DrawnAs::Image | DrawnAs::PaintedSurface | DrawnAs::FilledOutline) | None => {}
+        let Ok(element) = model.elements.get(stacked.element) else {
+            continue;
+        };
+        match drawn_as(model.kinds.as_deref(), element) {
+            Some(DrawnAs::StrokedPath) => {
+                let Ok((wall, shape)) = model.walls.get(stacked.element) else {
+                    continue;
+                };
+                let piece = Piece {
+                    element: stacked.element,
+                    part: Part::Stroke,
+                    colour: wall.colour,
+                    depth: stacked.depth,
+                    changed: shape.is_changed(),
+                    mesh: Box::new(|| stroke_mesh(&shape.mesh)),
+                };
+                draw(&mut sync, piece, &mut commands, &mut drawings, &mut assets);
             }
-        } else if let Ok((element, room, shape)) = rooms.get(stacked.element) {
-            match drawn_as(kinds.as_deref(), element) {
-                Some(DrawnAs::FilledOutline) => {
-                    let changed = shape.is_changed();
-                    let floor = Piece {
-                        element: stacked.element,
-                        part: Part::Floor,
-                        colour: room.floor_colour,
-                        depth: stacked.depth - FLOOR_BELOW,
-                        changed,
-                        mesh: Box::new(|| floor_mesh(&shape.floor)),
-                    };
-                    draw(&mut sync, floor, &mut commands, &mut drawings, &mut assets);
-                    let walls = Piece {
-                        element: stacked.element,
-                        part: Part::Stroke,
-                        colour: room.wall_colour,
-                        depth: stacked.depth,
-                        changed,
-                        mesh: Box::new(|| stroke_mesh(&shape.walls.mesh)),
-                    };
-                    draw(&mut sync, walls, &mut commands, &mut drawings, &mut assets);
-                }
-                Some(DrawnAs::Image | DrawnAs::StrokedPath | DrawnAs::PaintedSurface) | None => {}
+            Some(DrawnAs::FilledOutline) => {
+                let Ok((room, shape)) = model.rooms.get(stacked.element) else {
+                    continue;
+                };
+                let changed = shape.is_changed();
+                let floor = Piece {
+                    element: stacked.element,
+                    part: Part::Floor,
+                    colour: room.floor_colour,
+                    depth: stacked.depth - FLOOR_BELOW,
+                    changed,
+                    mesh: Box::new(|| floor_mesh(&shape.floor)),
+                };
+                draw(&mut sync, floor, &mut commands, &mut drawings, &mut assets);
+                let walls = Piece {
+                    element: stacked.element,
+                    part: Part::Stroke,
+                    colour: room.wall_colour,
+                    depth: stacked.depth,
+                    changed,
+                    mesh: Box::new(|| stroke_mesh(&shape.walls.mesh)),
+                };
+                draw(&mut sync, walls, &mut commands, &mut drawings, &mut assets);
             }
+            Some(DrawnAs::Image | DrawnAs::PaintedSurface) | None => {}
         }
     }
     for drawn in sync.unseen.into_values() {
