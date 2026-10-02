@@ -101,7 +101,7 @@ pub fn anchor_portals(wall: &Wall, portals: &[PortalSetting]) -> Vec<Option<Stan
 /// that lay before its centre, and each Portal on a later segment one segment back. Removing the
 /// first or the last point removes the Portals on the segment it takes away and moves every
 /// Portal on a later segment one segment back; removing a point of a Wall of two points removes
-/// every Portal.
+/// every Portal, and naming a point the Wall does not have leaves every Portal where it is.
 #[must_use]
 pub fn anchor_portals_through(
     wall: &Wall,
@@ -152,9 +152,6 @@ fn added(portal: &PortalSetting, split: usize, s: f32) -> LinePlace {
 )]
 fn removed(wall: &Wall, index: usize, portals: &[PortalSetting]) -> Vec<Option<LinePlace>> {
     let points = wall.points.len();
-    if points <= 2 || index >= points {
-        return vec![None; portals.len()];
-    }
     let back = |portal: &PortalSetting| LinePlace {
         segment: portal.segment - 1,
         t: portal.t,
@@ -163,6 +160,12 @@ fn removed(wall: &Wall, index: usize, portals: &[PortalSetting]) -> Vec<Option<L
         segment: portal.segment,
         t: portal.t,
     };
+    if index >= points {
+        return portals.iter().map(|portal| Some(kept(portal))).collect();
+    }
+    if points <= 2 {
+        return vec![None; portals.len()];
+    }
     if index == 0 {
         return portals
             .iter()
