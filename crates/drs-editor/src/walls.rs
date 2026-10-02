@@ -142,7 +142,7 @@ pub(crate) fn choose_wall_tool(state: &mut EditorState) {
 }
 
 /// Goes back to the Select tool from the Wall or the Portal tool, discarding a Wall being drawn.
-pub(crate) fn leave_wall_tool(state: &mut EditorState) {
+pub(crate) fn leave_tool(state: &mut EditorState) {
     state.tool = Tool::Select;
     state.walls.drawing.clear();
 }
@@ -472,7 +472,7 @@ pub(crate) fn tool_strip(
                         )
                         .clicked()
                     {
-                        leave_wall_tool(&mut state);
+                        leave_tool(&mut state);
                     }
                     if ui
                         .add_enabled(

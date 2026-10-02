@@ -183,7 +183,7 @@ pub(crate) fn pointer(
         return;
     }
     if state.tool == Tool::Wall && state.chosen.is_some() {
-        walls::leave_wall_tool(&mut state);
+        walls::leave_tool(&mut state);
     }
     let Some(cursor) = input.window.cursor_position() else {
         finish_gesture(&mut state, &mut apply, &viewport, &input);
@@ -592,7 +592,7 @@ pub(crate) fn keys(
             state.chosen = None;
         }
         if matches!(state.tool, Tool::Wall | Tool::Portal) {
-            walls::leave_wall_tool(&mut state);
+            walls::leave_tool(&mut state);
         }
     }
     if bindings::any_pressed(bindings::REMOVE, &keys)
