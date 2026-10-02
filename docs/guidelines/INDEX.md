@@ -14,6 +14,7 @@
 - [Failure shown in the status line](./status-line-failure.md): use when the Editor learns of a failure the Author must see without a modal.
 - [Headless seam test](./headless-seam-test.md): use when writing a test at a Manager seam.
 - [Message handler of a Manager](./manager-message-handler.md): use when a Manager handles a new Command or request message.
+- [Outline host](./outline-host.md): use when the editor gains a kind of Element drawn from an editable outline that Portals can be set into.
 - [Reversible command](./reversible-command.md): use when a Manager records a new undoable step.
 - [Serialisable component](./serialisable-component.md): use when a crate adds a component a Project file must hold.
 - [Timed budget test](./timed-budget-test.md): use when a test bounds how long the code takes.
