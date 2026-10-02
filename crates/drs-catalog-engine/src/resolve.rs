@@ -85,3 +85,76 @@ pub fn resolve<'a>(
         version: folder.version.clone(),
     })
 }
+
+#[cfg(test)]
+mod tests {
+    #![expect(
+        clippy::missing_panics_doc,
+        reason = "a test stops at the first thing that is not as expected"
+    )]
+    use super::*;
+    use drs_model::{AssetKind, Fingerprint, FolderKey, IndexedAsset, ScanSkips};
+    use std::time::Duration;
+
+    /// An Asset Folder named `Fixtures` holding an image at each of `places`.
+    fn folder(places: &[&str]) -> AssetFolder {
+        AssetFolder {
+            name: CanonicalName("Fixtures".to_owned()),
+            key: FolderKey("fixtures".to_owned()),
+            path: "/library".into(),
+            version: "2026-10-02".to_owned(),
+            assets: places
+                .iter()
+                .map(|place| IndexedAsset {
+                    name: "barrel".to_owned(),
+                    place: (*place).to_owned(),
+                    kind: AssetKind::IMAGE,
+                    byte_size: 1,
+                    modified: Duration::ZERO,
+                })
+                .collect(),
+            skips: ScanSkips::default(),
+        }
+    }
+
+    /// An Asset Reference into `Fixtures` recorded at `place`.
+    fn reference(place: &str) -> AssetReference {
+        AssetReference {
+            folder: CanonicalName("fixtures".to_owned()),
+            places: vec![place.to_owned()],
+            name: "barrel".to_owned(),
+            kind: AssetKind::IMAGE,
+            fingerprint: Fingerprint::blake3("00"),
+            byte_size: 1,
+            pixel_size: None,
+        }
+    }
+
+    /// Two Assets that each differ from the recorded place only in letter case or Unicode
+    /// normalisation make the reference a Missing Asset as ambiguous, naming both, rather than
+    /// resolving to either; a lone such Asset resolves.
+    #[test]
+    fn two_spellings_are_ambiguous() {
+        let fixtures = folder(&["props/Barrel.png", "props/barrel.png"]);
+
+        let resolution = resolve(&reference("PROPS/BARREL.png"), [&fixtures]);
+
+        assert_eq!(
+            resolution,
+            Resolution::Missing(MissingReason::Ambiguous {
+                version: "2026-10-02".to_owned(),
+                candidates: vec!["props/Barrel.png".to_owned(), "props/barrel.png".to_owned()],
+            })
+        );
+        assert_eq!(
+            resolve(
+                &reference("PROPS/BARREL.png"),
+                [&folder(&["props/Barrel.png"])]
+            ),
+            Resolution::Resolved {
+                folder: FolderKey("fixtures".to_owned()),
+                place: "props/Barrel.png".to_owned(),
+            }
+        );
+    }
+}
