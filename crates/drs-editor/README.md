@@ -34,8 +34,8 @@ then the platform's save dialog proposing `<Project> - <Level>.png`; while the
 Export is written the viewport, Undo, Redo, and another Export wait for it.
 Library → Add Asset Folder… opens the platform's folder dialog and then asks
 for the Canonical Name. Edit → Undo and Redo are offered while no drag, Wall
-being drawn, or Export is under way. Help → Show Logs opens the log directory in the
-platform's file manager.
+being drawn, or Export is under way. Help → Show Logs opens the log directory
+in the platform's file manager.
 
 The grid lays out only the rows in view, as many 128-point cells as the panel's
 width holds. Each cell shows a neutral square until its thumbnail is generated,
@@ -83,9 +83,9 @@ segment.
   to a file, the editor is driven by its steps, one per frame (`wait`, `move`, `down`,
   `up`, `click`, `drag`, `key`, `hold`, `release`, `text`, `scroll`, `pinch`,
   `screenshot`, `describe`, which also logs the Wall tool and every Wall, `close`,
-  `quit`), fed
-  in as the messages the window would send so egui and the viewport see them alike;
-  `describe` logs every clickable widget and every cell of the grid with its rectangle.
+  `quit`), fed in as the messages the window would send so egui and the viewport see
+  them alike; `describe` logs every clickable widget and every cell of the grid with
+  its rectangle.
   With `DRS_PICK_FOLDER` set, Add Asset Folder… takes that folder instead of opening
   the dialog; with `DRS_PICK_FILE` set, Open… takes that file; with `DRS_SAVE_FILE`
   set, Save As… and Export Level… write to that path (the extension is added when it

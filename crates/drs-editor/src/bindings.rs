@@ -85,7 +85,8 @@ pub(crate) const REDO: &[Binding] = &[
     Binding::new(Modifiers::COMMAND, Key::Y, KeyCode::KeyY),
 ];
 
-/// Remove the selected Element or handle: Delete, and on macOS Backspace too, as its keyboards have no Delete.
+/// Remove the selected Element or handle: Delete, and on macOS Backspace too, as its keyboards
+/// have no Delete.
 #[cfg(target_os = "macos")]
 pub(crate) const REMOVE: &[Binding] = &[
     Binding::new(Modifiers::NONE, Key::Delete, KeyCode::Delete),
