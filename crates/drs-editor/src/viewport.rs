@@ -7,8 +7,8 @@
 //! Manager.
 
 use crate::bindings;
-use crate::state::{EditorState, Interaction};
-use crate::walls::{self, Tool};
+use crate::state::{EditorState, Interaction, Tool};
+use crate::walls;
 use bevy::color::Color;
 use bevy::ecs::entity::Entity;
 use bevy::ecs::hierarchy::Children;
@@ -140,7 +140,7 @@ pub(crate) fn pointer(
     if state.exporting {
         return;
     }
-    if state.walls.tool == Tool::Wall && state.chosen.is_some() {
+    if state.tool == Tool::Wall && state.chosen.is_some() {
         walls::leave_wall_tool(&mut state);
     }
     let Some(cursor) = input.window.cursor_position() else {
@@ -275,7 +275,7 @@ fn press(
     cursor: Vec2,
     double: bool,
 ) {
-    if state.walls.tool == Tool::Wall {
+    if state.tool == Tool::Wall {
         walls::draw_click(
             state,
             apply,
@@ -432,14 +432,14 @@ pub(crate) fn keys(
     if bindings::any_pressed(bindings::WALL_TOOL, &keys) {
         walls::choose_wall_tool(&mut state);
     }
-    if bindings::any_pressed(bindings::FINISH, &keys) && state.walls.tool == Tool::Wall {
+    if bindings::any_pressed(bindings::FINISH, &keys) && state.tool == Tool::Wall {
         walls::finish(&mut state, &mut apply, level.current_layer());
     }
     if keys.just_pressed(KeyCode::Escape) {
         if state.chosen.is_some() {
             state.chosen = None;
         }
-        if state.walls.tool == Tool::Wall {
+        if state.tool == Tool::Wall {
             walls::leave_wall_tool(&mut state);
         }
     }

@@ -5,7 +5,7 @@
 //! The Wall being drawn is the Editor's own state until it is finished, when it becomes one
 //! Place Element; every change to a placed Wall is an Edit Element.
 
-use crate::state::EditorState;
+use crate::state::{EditorState, Tool};
 use bevy::color::{Alpha, Color};
 use bevy::ecs::entity::Entity;
 use bevy::ecs::message::MessageWriter;
@@ -41,16 +41,6 @@ const HANDLES: Color = Color::srgb(0.35, 0.75, 1.0);
 /// The colour of the selected handle.
 const PICKED: Color = Color::srgb(1.0, 0.85, 0.2);
 
-/// What the viewport's clicks do.
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
-pub(crate) enum Tool {
-    /// Clicks select, or place the chosen Asset.
-    #[default]
-    Select,
-    /// Clicks add the points of a Wall.
-    Wall,
-}
-
 /// A handle of the selected Wall.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum Handle {
@@ -74,8 +64,6 @@ struct OptionGesture {
 /// The Wall tool's state.
 #[derive(Debug)]
 pub(crate) struct WallTool {
-    /// The tool chosen.
-    pub tool: Tool,
     /// The points of the Wall being drawn, in cells.
     pub drawing: Vec<Vec2>,
     /// The thickness the next Wall is drawn with, in cells.
@@ -91,10 +79,9 @@ pub(crate) struct WallTool {
 }
 
 impl Default for WallTool {
-    /// The Select tool, with an eighth of a cell and a dark grey for the next Wall.
+    /// An eighth of a cell and a dark grey for the next Wall.
     fn default() -> Self {
         Self {
-            tool: Tool::Select,
             drawing: Vec::new(),
             thickness: DEFAULT_THICKNESS,
             colour: DEFAULT_COLOUR,
@@ -133,12 +120,12 @@ pub(crate) fn choose_wall_tool(state: &mut EditorState) {
     state.chosen = None;
     state.selected = None;
     state.walls.handle = None;
-    state.walls.tool = Tool::Wall;
+    state.tool = Tool::Wall;
 }
 
 /// Leaves the Wall tool for the Select tool, discarding a Wall being drawn.
 pub(crate) fn leave_wall_tool(state: &mut EditorState) {
-    state.walls.tool = Tool::Select;
+    state.tool = Tool::Select;
     state.walls.drawing.clear();
 }
 
@@ -415,7 +402,7 @@ pub(crate) fn tool_strip(
         .show(&ctx, |ui| {
             egui::Frame::popup(ui.style()).show(ui, |ui| {
                 ui.horizontal(|ui| {
-                    let tool = state.walls.tool;
+                    let tool = state.tool;
                     let enabled = !state.exporting;
                     if ui
                         .add_enabled(
@@ -576,7 +563,7 @@ pub(crate) fn describe(
 ) {
     bevy::log::info!(
         "describe: tool {:?}, drawing {:?}, handle {:?}, next thickness {} colour {:?}",
-        state.walls.tool,
+        state.tool,
         state.walls.drawing,
         state.walls.handle.map(|(_, handle)| handle),
         state.walls.thickness,

@@ -3,8 +3,7 @@
 
 use crate::diagnostics::Diagnostics;
 use crate::files::ProjectView;
-use crate::state::{EditorState, NamePrompt};
-use crate::walls::Tool;
+use crate::state::{EditorState, NamePrompt, Tool};
 use crate::{bindings, browser, diagnostics, export, files};
 use bevy::app::AppExit;
 use bevy::ecs::message::MessageWriter;
@@ -316,7 +315,7 @@ fn status_line(root: &mut egui::Ui, state: &EditorState) {
             } else if let Some(chosen) = &state.chosen {
                 ui.weak("Escape stops placing");
                 ui.label(format!("placing {}", chosen.name));
-            } else if state.walls.tool == Tool::Wall {
+            } else if state.tool == Tool::Wall {
                 ui.weak("Click adds a point, Enter or a double-click finishes, Escape stops");
                 ui.label(format!(
                     "drawing a Wall of {} points",

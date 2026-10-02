@@ -32,7 +32,9 @@ pub(crate) struct EditorState {
     pub exporting: bool,
     /// The pointer gesture under way in the viewport.
     pub interaction: Interaction,
-    /// The tool the viewport's clicks serve, and the Wall tool's own state.
+    /// The tool the viewport's clicks serve.
+    pub tool: Tool,
+    /// The Wall tool's own state.
     pub walls: WallTool,
 }
 
@@ -65,6 +67,16 @@ impl EditorState {
     pub fn step_under_way(&self) -> bool {
         self.dragging() || self.walls.drawing_in_progress()
     }
+}
+
+/// What the viewport's clicks do.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub(crate) enum Tool {
+    /// Clicks select, or place the chosen Asset.
+    #[default]
+    Select,
+    /// Clicks add the points of a Wall.
+    Wall,
 }
 
 /// The Asset chosen for placing, with its name for the status line.
