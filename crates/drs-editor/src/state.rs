@@ -86,6 +86,17 @@ pub(crate) struct Question {
     pub refusal: Option<String>,
 }
 
+impl Question {
+    /// The question as first asked, in front of `pending`.
+    pub fn asking(pending: Pending) -> Self {
+        Self {
+            pending,
+            phase: Phase::Asking,
+            refusal: None,
+        }
+    }
+}
+
 /// The action an unsaved-changes question stands in front of.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum Pending {

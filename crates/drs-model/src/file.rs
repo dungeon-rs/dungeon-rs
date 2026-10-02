@@ -2,7 +2,7 @@
 //! Project, and where the history stood when the file was last written or read.
 
 use bevy_ecs::resource::Resource;
-use drs_history::Position;
+use drs_history::{History, Position};
 use std::path::{Path, PathBuf};
 
 /// The extension of Project files.
@@ -45,6 +45,13 @@ pub struct SavedMark {
 }
 
 impl SavedMark {
+    /// Whether the Project has unsaved changes: `history` stands elsewhere than it did at the
+    /// last save or open.
+    #[must_use]
+    pub fn unsaved(&self, history: &History) -> bool {
+        history.position() != self.position
+    }
+
     /// The name the Author knows the Project by: its file's name without the extension, or
     /// `Untitled` while it has no file.
     #[must_use]

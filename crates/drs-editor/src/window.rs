@@ -1,7 +1,7 @@
 //! The window itself: its title, which names the Project and marks unsaved changes, and its
 //! close button, which asks about unsaved changes instead of closing at once.
 
-use crate::state::{EditorState, Pending, Phase, Question};
+use crate::state::{EditorState, Pending, Question};
 use bevy::app::AppExit;
 use bevy::ecs::message::{MessageReader, MessageWriter};
 use bevy::ecs::query::With;
@@ -23,11 +23,7 @@ pub(crate) fn title(
     mut window: Single<&mut Window, With<PrimaryWindow>>,
 ) {
     let name = mark.name();
-    let marker = if history.position() == mark.position {
-        ""
-    } else {
-        UNSAVED
-    };
+    let marker = if mark.unsaved(&history) { UNSAVED } else { "" };
     let title = format!("{marker}{name} — {EDITOR}");
     if window.title != title {
         window.title = title;
@@ -46,13 +42,9 @@ pub(crate) fn close_requested(
     if requests.read().next().is_none() {
         return;
     }
-    if history.position() == mark.position {
+    if !mark.unsaved(&history) {
         exit.write(AppExit::Success);
     } else if state.question.is_none() {
-        state.question = Some(Question {
-            pending: Pending::Quit,
-            phase: Phase::Asking,
-            refusal: None,
-        });
+        state.question = Some(Question::asking(Pending::Quit));
     }
 }

@@ -42,7 +42,7 @@ pub(crate) struct ProjectView<'w, 's> {
 impl ProjectView<'_, '_> {
     /// Whether the Project has unsaved changes: the history stands elsewhere than at the save.
     pub fn unsaved(&self) -> bool {
-        self.history.position() != self.mark.position
+        self.mark.unsaved(&self.history)
     }
 
     /// Whether the Project has a file to save to without asking.
@@ -97,11 +97,7 @@ impl ProjectView<'_, '_> {
 /// Open…: asks about unsaved changes first, then lets the Author pick a Project file.
 pub(crate) fn open(state: &mut EditorState, view: &ProjectView, outgoing: &mut Outgoing) {
     if view.unsaved() {
-        state.question = Some(Question {
-            pending: Pending::Open,
-            phase: Phase::Asking,
-            refusal: None,
-        });
+        state.question = Some(Question::asking(Pending::Open));
     } else {
         proceed(Pending::Open, outgoing);
     }
@@ -110,11 +106,7 @@ pub(crate) fn open(state: &mut EditorState, view: &ProjectView, outgoing: &mut O
 /// Quit: asks about unsaved changes first, then exits.
 pub(crate) fn quit(state: &mut EditorState, view: &ProjectView, outgoing: &mut Outgoing) {
     if view.unsaved() {
-        state.question = Some(Question {
-            pending: Pending::Quit,
-            phase: Phase::Asking,
-            refusal: None,
-        });
+        state.question = Some(Question::asking(Pending::Quit));
     } else {
         proceed(Pending::Quit, outgoing);
     }
