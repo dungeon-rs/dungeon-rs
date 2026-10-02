@@ -209,10 +209,19 @@ pub struct SerialisationRegistry {
 }
 
 impl SerialisationRegistry {
-    /// Registers a component, replacing an entry of the same name.
+    /// Registers a component under its stable name.
+    ///
+    /// Two components under one name would read each other's envelopes, so registering a name
+    /// twice is a programming error, caught in debug builds; a release build keeps the later one.
     pub fn register<C: Serialisable>(&mut self) {
-        self.entries
+        let previous = self
+            .entries
             .insert(C::NAME, SerialisableComponent::of::<C>());
+        debug_assert!(
+            previous.is_none(),
+            "two components are registered under the name `{}`",
+            C::NAME
+        );
     }
 
     /// The entry of a component, if its name is registered.
@@ -305,74 +314,28 @@ impl SerialisationRegistry {
     }
 }
 
-impl Serialisable for Project {
-    const NAME: &'static str = "project";
-    const VERSION: u32 = 1;
+/// Implements [`Serialisable`] for components that have had one version only, each under its
+/// stable name.
+macro_rules! serialisable_at_version_one {
+    ($($component:ty => $name:literal),* $(,)?) => {$(
+        impl Serialisable for $component {
+            const NAME: &'static str = $name;
+            const VERSION: u32 = 1;
 
-    fn read(version: u32, data: &RawValue) -> Result<Self, SerialisationError> {
-        read_only_version(version, data)
-    }
+            fn read(version: u32, data: &RawValue) -> Result<Self, SerialisationError> {
+                read_only_version(version, data)
+            }
+        }
+    )*};
 }
 
-impl Serialisable for Grid {
-    const NAME: &'static str = "grid";
-    const VERSION: u32 = 1;
-
-    fn read(version: u32, data: &RawValue) -> Result<Self, SerialisationError> {
-        read_only_version(version, data)
-    }
-}
-
-impl Serialisable for Bounds {
-    const NAME: &'static str = "bounds";
-    const VERSION: u32 = 1;
-
-    fn read(version: u32, data: &RawValue) -> Result<Self, SerialisationError> {
-        read_only_version(version, data)
-    }
-}
-
-impl Serialisable for AssetReferences {
-    const NAME: &'static str = "asset_references";
-    const VERSION: u32 = 1;
-
-    fn read(version: u32, data: &RawValue) -> Result<Self, SerialisationError> {
-        read_only_version(version, data)
-    }
-}
-
-impl Serialisable for Level {
-    const NAME: &'static str = "level";
-    const VERSION: u32 = 1;
-
-    fn read(version: u32, data: &RawValue) -> Result<Self, SerialisationError> {
-        read_only_version(version, data)
-    }
-}
-
-impl Serialisable for Layer {
-    const NAME: &'static str = "layer";
-    const VERSION: u32 = 1;
-
-    fn read(version: u32, data: &RawValue) -> Result<Self, SerialisationError> {
-        read_only_version(version, data)
-    }
-}
-
-impl Serialisable for Element {
-    const NAME: &'static str = "element";
-    const VERSION: u32 = 1;
-
-    fn read(version: u32, data: &RawValue) -> Result<Self, SerialisationError> {
-        read_only_version(version, data)
-    }
-}
-
-impl Serialisable for Prop {
-    const NAME: &'static str = "prop";
-    const VERSION: u32 = 1;
-
-    fn read(version: u32, data: &RawValue) -> Result<Self, SerialisationError> {
-        read_only_version(version, data)
-    }
+serialisable_at_version_one! {
+    Project => "project",
+    Grid => "grid",
+    Bounds => "bounds",
+    AssetReferences => "asset_references",
+    Level => "level",
+    Layer => "layer",
+    Element => "element",
+    Prop => "prop",
 }
