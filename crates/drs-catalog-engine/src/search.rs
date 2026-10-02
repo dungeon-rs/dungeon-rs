@@ -7,7 +7,7 @@ use memchr::memmem::Finder;
 use std::cmp::{Ordering, Reverse};
 use std::collections::BinaryHeap;
 use std::path::Path;
-use unicode_normalization::char::canonical_combining_class;
+use unicode_normalization::char::is_combining_mark;
 
 /// The byte that ends every row of a [`Rows`] text: no name, path, or word holds it.
 const END: u8 = 0;
@@ -420,7 +420,7 @@ fn begins_word(text: &str, at: usize) -> bool {
         Some(_) => text[..at]
             .chars()
             .rev()
-            .find(|before| canonical_combining_class(*before) == 0)
+            .find(|before| !is_combining_mark(*before))
             .is_none_or(|before| !before.is_alphanumeric()),
     }
 }
@@ -434,7 +434,7 @@ fn inside_a_letter(text: &str, at: usize) -> bool {
         Some(_) => text
             .get(at..)
             .and_then(|rest| rest.chars().next())
-            .is_some_and(|next| canonical_combining_class(next) != 0),
+            .is_some_and(is_combining_mark),
     }
 }
 

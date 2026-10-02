@@ -179,10 +179,18 @@ fn accents_however_stored() {
     assert_eq!(places("cafe", &props), vec!["Cafeteria.png"]);
 
     // An `x` with an acute has no composed form, and `ǰ`, written composed, folds to a `j` and
-    // a combining caron: in neither is the bare letter there to match.
+    // a combining caron: in neither is the bare letter there to match. The combining grapheme
+    // joiner is a mark that combines with nothing, so its class leaves it out of composing, yet
+    // it belongs to the `x` before it all the same.
     let runes = folder(
         "Runes",
-        &["Ax\u{301}e.png", "Axe.png", "ǰar.png", "Jar.png"],
+        &[
+            "Ax\u{301}e.png",
+            "Ax\u{34f}e.png",
+            "Axe.png",
+            "ǰar.png",
+            "Jar.png",
+        ],
     );
     assert_eq!(places("ax", &runes), vec!["Axe.png"]);
     assert_eq!(places("ax\u{301}", &runes), vec!["Ax\u{301}e.png"]);
@@ -285,9 +293,10 @@ fn word_starts_rank_first() {
             "Old-Bed.png",
             "Bedbug_Flowerbed.png",
             "Flowerbed_Bedside.png",
-            // An `x` with a combining acute: the mark belongs to the letter, so `bed` follows a
-            // letter here.
+            // An `x` with a combining acute, and one with the combining grapheme joiner: the mark
+            // belongs to the letter, so `bed` follows a letter here.
             "X\u{301}bed.png",
+            "X\u{34f}bed.png",
         ],
     );
 
@@ -301,6 +310,7 @@ fn word_starts_rank_first() {
             "Flowerbed.png",
             "Room2bed.png",
             "X\u{301}bed.png",
+            "X\u{34f}bed.png",
         ]
     );
     assert_eq!(
