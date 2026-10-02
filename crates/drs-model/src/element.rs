@@ -1,6 +1,6 @@
 //! Elements, their stable identity, and the registry of Element kinds.
 
-use crate::AssetReferenceRow;
+use crate::{AssetReferenceRow, WALL};
 use bevy_ecs::component::Component;
 use bevy_ecs::entity::Entity;
 use bevy_ecs::error::BevyError;
@@ -116,6 +116,15 @@ impl ElementKindName {
 /// The Prop kind.
 pub const PROP: ElementKindName = ElementKindName::new("prop");
 
+/// How the Elements of a kind are drawn.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum DrawnAs {
+    /// As an image filling the Element's box.
+    Image,
+    /// As a path stroked at a thickness.
+    StrokedPath,
+}
+
 /// What the editor knows about an Element kind.
 ///
 /// A kind is a descriptor, not code: adding one never restructures a component.
@@ -125,6 +134,8 @@ pub struct ElementKindDescriptor {
     pub name: ElementKindName,
     /// How the kind is shown to the Author.
     pub label: String,
+    /// How its Elements are drawn.
+    pub drawn_as: DrawnAs,
 }
 
 /// Every Element kind the editor knows, by name.
@@ -135,7 +146,7 @@ pub struct ElementKindRegistry {
 }
 
 impl Default for ElementKindRegistry {
-    /// A registry with the built-in kinds: Prop.
+    /// A registry with the built-in kinds: Prop and Wall.
     fn default() -> Self {
         let mut registry = Self {
             kinds: BTreeMap::new(),
@@ -143,6 +154,12 @@ impl Default for ElementKindRegistry {
         registry.register(ElementKindDescriptor {
             name: PROP,
             label: "Prop".to_owned(),
+            drawn_as: DrawnAs::Image,
+        });
+        registry.register(ElementKindDescriptor {
+            name: WALL,
+            label: "Wall".to_owned(),
+            drawn_as: DrawnAs::StrokedPath,
         });
         registry
     }
@@ -152,6 +169,12 @@ impl ElementKindRegistry {
     /// Adds a kind, replacing a descriptor of the same name.
     pub fn register(&mut self, descriptor: ElementKindDescriptor) {
         self.kinds.insert(descriptor.name.clone(), descriptor);
+    }
+
+    /// Forgets a kind, as an editor that never knew it would, returning its descriptor if it was
+    /// known.
+    pub fn remove(&mut self, name: &ElementKindName) -> Option<ElementKindDescriptor> {
+        self.kinds.remove(name)
     }
 
     /// The descriptor of a kind, if the kind is known.

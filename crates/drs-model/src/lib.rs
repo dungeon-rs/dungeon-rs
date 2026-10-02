@@ -12,6 +12,7 @@ mod serialisation;
 mod snapshot;
 mod thumbnails;
 mod viewport;
+mod wall;
 
 pub use assets::{
     AssetFolder, AssetFolderReference, AssetKind, AssetReference, AssetReferenceRow,
@@ -20,7 +21,8 @@ pub use assets::{
 };
 pub use directories::{EditorDirectories, NoPlatformDirectories, ResolvedDirectories};
 pub use element::{
-    Element, ElementId, ElementKindDescriptor, ElementKindName, ElementKindRegistry, PROP, Prop,
+    DrawnAs, Element, ElementId, ElementKindDescriptor, ElementKindName, ElementKindRegistry, PROP,
+    Prop,
 };
 pub use file::{PROJECT_EXTENSION, SavedMark, project_name_of, with_extension_if_missing};
 pub use messages::{
@@ -40,6 +42,7 @@ pub use serialisation::{
 pub use snapshot::{LayerSnapshot, LevelSnapshot, ProjectSnapshot};
 pub use thumbnails::{THUMBNAIL_SOURCE, ThumbnailState, Thumbnails};
 pub use viewport::Viewport;
+pub use wall::{Colour, LinePoint, Segment, StrokeMesh, WALL, Wall, WallShape};
 
 use bevy_app::{App, Plugin, Update};
 use bevy_ecs::schedule::IntoScheduleConfigs;
@@ -60,6 +63,7 @@ impl Plugin for ModelPlugin {
             .register_type::<Element>()
             .register_type::<ElementId>()
             .register_type::<Prop>()
+            .register_type::<Wall>()
             .register_type::<AssetReferences>()
             .register_type::<ResolutionTable>()
             .register_type::<UnknownComponents>()

@@ -1,7 +1,7 @@
 //! The serialisation registry: how each component is written into a Project file and read back
 //! from every version it has had, and the component that keeps what no entry knows.
 
-use crate::{AssetReferences, Bounds, Element, Grid, Layer, Level, Project, Prop};
+use crate::{AssetReferences, Bounds, Element, Grid, Layer, Level, Project, Prop, Wall};
 use bevy_ecs::component::Component;
 use bevy_ecs::reflect::ReflectComponent;
 use bevy_ecs::resource::Resource;
@@ -257,6 +257,13 @@ impl SerialisationRegistry {
         );
     }
 
+    /// Forgets the component registered under `name`, as an editor that never knew it would, so
+    /// its envelopes are kept verbatim from then on. Returns whether a component was registered
+    /// under the name.
+    pub fn remove(&mut self, name: &str) -> bool {
+        self.entries.remove(name).is_some()
+    }
+
     /// The entry of a component, if its name is registered.
     #[must_use]
     pub fn get(&self, name: &str) -> Option<&SerialisableComponent> {
@@ -359,11 +366,13 @@ impl SerialisationRegistry {
     }
 }
 
-/// Implements [`Serialisable`] for the model's components, which have had one version only,
-/// each under its stable name and on its tier, and emits [`register_all`], which registers
-/// exactly that list, so a component is never implemented but forgotten or the other way round.
+/// Implements [`Serialisable`] for the model's components that have had one version only and
+/// need no check beyond their shape, each under its stable name and on its tier, and emits
+/// [`register_all`], which registers exactly that list and the components that implement
+/// [`Serialisable`] themselves, so a component is never implemented but forgotten or the other
+/// way round.
 macro_rules! serialisable_at_version_one {
-    ($($component:ty => $name:literal on $tier:expr),* $(,)?) => {
+    ($($component:ty => $name:literal on $tier:expr),* $(,)?; checked: $($checked:ty),* $(,)?) => {
         $(
             impl Serialisable for $component {
                 const NAME: &'static str = $name;
@@ -379,6 +388,7 @@ macro_rules! serialisable_at_version_one {
         /// Registers every component the model owns.
         pub(crate) fn register_all(registry: &mut SerialisationRegistry) {
             $(registry.register::<$component>();)*
+            $(registry.register::<$checked>();)*
         }
     };
 }
@@ -391,5 +401,6 @@ serialisable_at_version_one! {
     Level => "level" on Tier::Level,
     Layer => "layer" on Tier::Layer,
     Element => "element" on Tier::Element,
-    Prop => "prop" on Tier::Element,
+    Prop => "prop" on Tier::Element;
+    checked: Wall,
 }

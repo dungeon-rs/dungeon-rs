@@ -13,6 +13,16 @@ Elements are that Layer's children in stacking order: the first child is drawn
 first. An Element is addressed by its [`ElementId`](crate::ElementId), never by
 its entity handle.
 
+A Prop carries [`Prop`](crate::Prop) beside its [`Element`](crate::Element); a
+Wall carries [`Wall`](crate::Wall): its points in Grid cells, one
+[`Segment`](crate::Segment) between each point and the next, straight or curved
+by a control point, its thickness, and its [`Colour`](crate::Colour). The
+segments are numbered from the first point on, and only adding or removing a
+point renumbers them. A Wall's [`WallShape`](crate::WallShape) is derived from
+it and never saved: its line flattened into chords, each point tagged with its
+segment and the parameter along it, and the stroke it is drawn with. The
+authoring Manager writes it; whoever draws or picks a Wall reads it.
+
 A [`ProjectSnapshot`](crate::ProjectSnapshot) holds every component of every
 entity of the Project as an envelope of a version and data under a stable name,
 in no file's shape: how a snapshot is laid out in a Project file is
@@ -50,8 +60,8 @@ its own panics tells the crash handler so, which the Host puts in.
 
 Every component type here is written only by the systems of the crate that owns
 it; everyone else reads. The [`ModelPlugin`](crate::ModelPlugin) registers the
-types for reflection, the messages, and the Element kind registry with Prop as
-its first kind, and orders the Managers' handling through
+types for reflection, the messages, and the Element kind registry with Prop
+and Wall as its kinds, and orders the Managers' handling through
 [`ManagerSystems`](crate::ManagerSystems): Commands before Undo before Redo.
 
 ## Features
