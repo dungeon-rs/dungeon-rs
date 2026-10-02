@@ -72,15 +72,14 @@ pub enum AuthoringError {
     /// The change or Command is one only a Portal has, and the Element is no Portal.
     #[error("the Element {0:?} is not a Portal")]
     NotAPortal(ElementId),
-    /// The Portal would not be one: a width not above zero, or a rotation that is not finite.
+    /// The Portal would not be one, for the reason its own check gives (a width not above zero, a
+    /// rotation that is not finite, a parameter along its segment outside zero to one), or it
+    /// would stand at a position that is not finite.
     #[error("{0}")]
     MalformedPortal(String),
     /// A Portal is to be set into a Wall on another Level than its own.
     #[error("the Wall {0:?} is on another Level than the Portal")]
     OnAnotherLevel(ElementId),
-    /// A Portal is to be set at a parameter outside its segment.
-    #[error("a Portal is set at a parameter from 0 to 1 along its segment, not {0}")]
-    OutsideSegment(f32),
     /// The position, rotation, or mirroring of a Portal set into a Wall is to change, which
     /// follow its Wall.
     #[error("the Portal is set into a Wall, which it follows; free it first")]

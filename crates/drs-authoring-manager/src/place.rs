@@ -11,8 +11,7 @@ use drs_history::{ReversibleCommand, Target};
 use drs_library_access::load_asset;
 use drs_model::{
     AssetAddress, AssetFolder, AssetFolderReference, AssetReference, AssetReferences, Element,
-    ElementId, Grid, Layer, PORTAL, PROP, PlaceElement, Placement, Portal, PortalAnchor, Project,
-    Prop, Wall,
+    ElementId, Grid, Layer, PORTAL, PROP, PlaceElement, Placement, Portal, Project, Prop, Wall,
 };
 use unicode_normalization::UnicodeNormalization;
 
@@ -30,19 +29,13 @@ fn project_of(world: &World, layer: Entity) -> Result<Entity, AuthoringError> {
     .ok_or(AuthoringError::NoProject)
 }
 
-/// What an Element placed from an Asset shows its image as.
-pub(crate) enum Shown {
+/// What an Element placed from an Asset is spawned as.
+pub(crate) enum Spawned {
     /// A Prop.
     Prop,
-    /// A Portal, turned and mirrored, and set into a Wall when anchored.
-    Portal {
-        /// How far it is turned, in radians counter-clockwise.
-        rotation: f32,
-        /// Whether its image is mirrored.
-        mirrored: bool,
-        /// Where it is set, if anywhere.
-        anchor: Option<PortalAnchor>,
-    },
+    /// A Portal as it stands, its Asset Reference row set to the one the Project records the
+    /// Asset in when the step is applied.
+    Portal(Portal),
 }
 
 /// The recorded step: the Element spawned on top of its Layer, keeping its identity so that
@@ -59,8 +52,8 @@ pub(crate) struct Place {
     pub(crate) position: Vec2,
     /// The Asset as resolved, with the Element's natural size.
     pub(crate) resolved: Resolved,
-    /// What the Element shows its image as.
-    pub(crate) shown: Shown,
+    /// What the Element is spawned as.
+    pub(crate) spawned: Spawned,
     /// The identity the Element keeps through undo and redo.
     pub(crate) element: ElementId,
 }
@@ -75,8 +68,8 @@ impl ReversibleCommand for Place {
             .get_mut::<AssetReferences>(resolved.project)
             .ok_or(AuthoringError::NoProject)?
             .record(resolved.reference.clone(), resolved.folder.clone())?;
-        match &self.shown {
-            Shown::Prop => spawn_on_top(
+        match &self.spawned {
+            Spawned::Prop => spawn_on_top(
                 world,
                 self.layer,
                 (
@@ -89,11 +82,7 @@ impl ReversibleCommand for Place {
                     self.element,
                 ),
             ),
-            Shown::Portal {
-                rotation,
-                mirrored,
-                anchor,
-            } => spawn_on_top(
+            Spawned::Portal(portal) => spawn_on_top(
                 world,
                 self.layer,
                 (
@@ -104,10 +93,7 @@ impl ReversibleCommand for Place {
                     },
                     Portal {
                         asset: row,
-                        width: resolved.size.x,
-                        rotation: *rotation,
-                        mirrored: *mirrored,
-                        anchor: *anchor,
+                        ..portal.clone()
                     },
                     self.element,
                 ),
@@ -283,7 +269,7 @@ fn place_prop(
             layer,
             position,
             resolved,
-            shown: Shown::Prop,
+            spawned: Spawned::Prop,
             element: ElementId::new(),
         },
     )

@@ -2,7 +2,7 @@
 //! the edits only a Portal has, and finding the Portals set into a Wall.
 
 use crate::AuthoringError;
-use crate::place::{Place, Shown, resolve};
+use crate::place::{Place, Spawned, resolve};
 use bevy_ecs::entity::Entity;
 use bevy_ecs::error::BevyError;
 use bevy_ecs::hierarchy::ChildOf;
@@ -10,8 +10,8 @@ use bevy_ecs::world::World;
 use bevy_math::Vec2;
 use drs_history::{ReversibleCommand, SetField, Target};
 use drs_model::{
-    AssetAddress, Element, ElementChange, ElementId, FreePortal, Level, Portal, PortalAnchor,
-    SetPortalIntoWall, Wall,
+    AssetAddress, AssetReferenceRow, Element, ElementChange, ElementId, FreePortal, Level, Portal,
+    PortalAnchor, SetPortalIntoWall, Wall,
 };
 use drs_shape_engine::{PortalSetting, anchor_portals};
 
@@ -36,14 +36,13 @@ pub(crate) fn sets_into(
 }
 
 /// The Wall an anchor names, checked for a Portal on `level`: the host must be a Wall on that
-/// Level with the segment named, and the parameter between zero and one.
+/// Level with the segment named. Whether the parameter is one is the Portal's own check.
 ///
 /// # Errors
 ///
 /// [`AuthoringError::UnknownElement`] or [`AuthoringError::NotAWall`] when the host is no Wall,
-/// [`AuthoringError::OnAnotherLevel`] when it lies on another Level,
-/// [`AuthoringError::NoSegment`] when it has no such segment, or
-/// [`AuthoringError::OutsideSegment`] for a parameter outside zero to one.
+/// [`AuthoringError::OnAnotherLevel`] when it lies on another Level, or
+/// [`AuthoringError::NoSegment`] when it has no such segment.
 pub(crate) fn host_of(
     world: &mut World,
     anchor: &PortalAnchor,
@@ -66,10 +65,18 @@ pub(crate) fn host_of(
             segments: wall.segments.len(),
         });
     }
-    if !(0.0..=1.0).contains(&anchor.t) {
-        return Err(AuthoringError::OutsideSegment(anchor.t));
-    }
     Ok(wall)
+}
+
+/// Refuses a Portal that would not be one, for the reason [`Portal::malformation`] gives.
+///
+/// # Errors
+///
+/// [`AuthoringError::MalformedPortal`] with that reason.
+pub(crate) fn well_formed(portal: &Portal) -> Result<(), AuthoringError> {
+    portal.malformation().map_or(Ok(()), |reason| {
+        Err(AuthoringError::MalformedPortal(reason))
+    })
 }
 
 /// Where a Portal of `width` set at `anchor` into `wall` stands: its centre, its rotation, which
@@ -104,8 +111,9 @@ fn standing_in(
 ///
 /// # Errors
 ///
-/// What [`host_of`] reports for an anchor it refuses, what resolving the Asset reports, or
-/// [`AuthoringError::History`] when the step could not be recorded.
+/// [`AuthoringError::MalformedPortal`] for a position that is not finite or a Portal that would
+/// not be one, what [`host_of`] reports for an anchor it refuses, what resolving the Asset
+/// reports, or [`AuthoringError::History`] when the step could not be recorded.
 pub(crate) fn place_portal(
     world: &mut World,
     layer: Entity,
@@ -113,6 +121,11 @@ pub(crate) fn place_portal(
     asset: &AssetAddress,
     anchor: Option<PortalAnchor>,
 ) -> Result<(), AuthoringError> {
+    if !position.is_finite() {
+        return Err(AuthoringError::MalformedPortal(
+            "a Portal's position must be finite".to_owned(),
+        ));
+    }
     let host = match &anchor {
         Some(anchor) => {
             let level = level_of(world, layer);
@@ -120,29 +133,33 @@ pub(crate) fn place_portal(
         }
         None => None,
     };
-    if !position.is_finite() {
-        return Err(AuthoringError::MalformedPortal(
-            "a Portal's position must be finite".to_owned(),
-        ));
-    }
     let resolved = resolve(world, layer, asset)?;
-    let (position, rotation, mirrored) = match (&host, &anchor) {
-        (Some(wall), Some(anchor)) => {
-            standing_in(wall, anchor, resolved.size.x, 0.0).unwrap_or((position, 0.0, false))
-        }
-        _ => (position, 0.0, false),
+    let mut portal = Portal {
+        // The row is the one the Project records the Asset in when the step is applied; which
+        // row it is changes nothing about whether the Portal is one.
+        asset: AssetReferenceRow(0),
+        width: resolved.size.x,
+        rotation: 0.0,
+        mirrored: false,
+        anchor,
     };
+    well_formed(&portal)?;
+    let mut position = position;
+    if let (Some(wall), Some(anchor)) = (&host, &anchor)
+        && let Some((centre, rotation, mirrored)) =
+            standing_in(wall, anchor, portal.width, portal.rotation)
+    {
+        position = centre;
+        portal.rotation = rotation;
+        portal.mirrored = mirrored;
+    }
     crate::record_step(
         world,
         Place {
             layer,
             position,
             resolved,
-            shown: Shown::Portal {
-                rotation,
-                mirrored,
-                anchor,
-            },
+            spawned: Spawned::Portal(portal),
             element: ElementId::new(),
         },
     )
@@ -238,19 +255,24 @@ impl ReversibleCommand for SetIntoWall {
 /// # Errors
 ///
 /// [`AuthoringError::UnknownElement`] or [`AuthoringError::NotAPortal`] when the Element is no
-/// Portal, what [`host_of`] reports for an anchor it refuses, or [`AuthoringError::History`]
-/// when the step could not be recorded.
+/// Portal, what [`host_of`] reports for an anchor it refuses,
+/// [`AuthoringError::MalformedPortal`] for a parameter outside zero to one, or
+/// [`AuthoringError::History`] when the step could not be recorded.
 pub(crate) fn set_portal_into_wall(
     world: &mut World,
     command: &SetPortalIntoWall,
 ) -> Result<(), AuthoringError> {
-    portal_of(world, command.portal)?;
+    let portal = portal_of(world, command.portal)?;
     let entity = command
         .portal
         .entity(world)
         .map_err(|_| AuthoringError::UnknownElement(command.portal))?;
     let level = level_of(world, entity);
     host_of(world, &command.anchor, level)?;
+    well_formed(&Portal {
+        anchor: Some(command.anchor),
+        ..portal
+    })?;
     crate::record_step(
         world,
         SetIntoWall {
@@ -287,8 +309,8 @@ pub(crate) fn free_portal(world: &mut World, command: &FreePortal) -> Result<(),
 /// # Errors
 ///
 /// [`AuthoringError::NotAPortal`] when the Element is no Portal,
-/// [`AuthoringError::MalformedPortal`] for a width not above zero or a rotation that is not
-/// finite, [`AuthoringError::FollowsItsWall`] for the rotation or mirroring of a set Portal,
+/// [`AuthoringError::MalformedPortal`] for a width not above zero, a rotation that is not
+/// finite, or a parameter outside zero to one, [`AuthoringError::FollowsItsWall`] for the rotation or mirroring of a set Portal,
 /// [`AuthoringError::Freestanding`] for the side or place of a freestanding one, what
 /// [`host_of`] reports for a place its Wall does not have, or [`AuthoringError::History`] when
 /// the field cannot be addressed.
@@ -298,11 +320,6 @@ pub(crate) fn portal_change(
     change: &ElementChange,
 ) -> Result<Option<SetField<ElementId>>, AuthoringError> {
     let history = |error: drs_history::HistoryError| AuthoringError::History(error.to_string());
-    let well_formed = |portal: &Portal| {
-        portal.malformation().map_or(Ok(()), |reason| {
-            Err(AuthoringError::MalformedPortal(reason))
-        })
-    };
     let field = match change {
         ElementChange::Width(width) => {
             let mut portal = portal_of(world, id)?;
@@ -333,16 +350,17 @@ pub(crate) fn portal_change(
             SetField::<ElementId>::new::<Portal>(id, "anchor", Some(anchor))
         }
         ElementChange::Along { segment, t } => {
-            let mut anchor = portal_of(world, id)?
-                .anchor
-                .ok_or(AuthoringError::Freestanding)?;
+            let mut portal = portal_of(world, id)?;
+            let anchor = portal.anchor.as_mut().ok_or(AuthoringError::Freestanding)?;
             anchor.index = *segment;
             anchor.t = *t;
+            let anchor = *anchor;
             let entity = id
                 .entity(world)
                 .map_err(|_| AuthoringError::UnknownElement(id))?;
             let level = level_of(world, entity);
             host_of(world, &anchor, level)?;
+            well_formed(&portal)?;
             SetField::<ElementId>::new::<Portal>(id, "anchor", Some(anchor))
         }
         ElementChange::Position(_)
