@@ -13,8 +13,9 @@ use drs_model::Viewport;
 #[derive(Component)]
 pub(crate) struct LevelCamera;
 
-/// What shows where nothing is drawn.
-const BACKDROP: Color = Color::srgb(0.16, 0.16, 0.18);
+/// What shows where nothing is drawn: a mid grey, so the dark grey a Wall is drawn in by default
+/// and the editor's dark panels both stand apart from it.
+const BACKDROP: Color = Color::srgb(0.52, 0.52, 0.55);
 
 /// Depth beyond which Elements are clipped, either way; stacking assigns one unit per Element.
 pub(crate) const DEPTH: f32 = 1_000_000.0;
