@@ -308,34 +308,47 @@ pub(crate) fn summarise(report: &OpenReport) -> String {
 }
 
 /// The platform's open dialog filtered to Project files, or in development builds the file
-/// `DRS_PICK_FILE` names when it is set, an empty value standing for a cancelled dialog.
+/// `DRS_PICK_FILE` names when it is set.
 fn choose_open_file() -> Option<PathBuf> {
-    #[cfg(feature = "dev")]
-    if let Some(path) = std::env::var_os("DRS_PICK_FILE") {
-        return (!path.is_empty()).then(|| PathBuf::from(path));
-    }
-    rfd::FileDialog::new()
-        .set_title("Open Project")
-        .add_filter("Project", &[PROJECT_EXTENSION])
-        .pick_file()
+    choose("DRS_PICK_FILE", || {
+        rfd::FileDialog::new()
+            .set_title("Open Project")
+            .add_filter("Project", &[PROJECT_EXTENSION])
+            .pick_file()
+    })
 }
 
 /// The platform's save dialog proposing `proposed` and filtered to `extension`, or in
-/// development builds the file `DRS_SAVE_FILE` names when it is set, an empty value standing
-/// for a cancelled dialog.
+/// development builds the file `DRS_SAVE_FILE` names when it is set.
 pub(crate) fn choose_save_file(
     title: &str,
     filter: &str,
     extension: &str,
     proposed: &str,
 ) -> Option<PathBuf> {
-    #[cfg(feature = "dev")]
-    if let Some(path) = std::env::var_os("DRS_SAVE_FILE") {
-        return (!path.is_empty()).then(|| PathBuf::from(path));
+    choose("DRS_SAVE_FILE", || {
+        rfd::FileDialog::new()
+            .set_title(title)
+            .add_filter(filter, &[extension])
+            .set_file_name(proposed)
+            .save_file()
+    })
+}
+
+/// What a platform dialog chooses, or in development builds what the environment variable
+/// `variable` stands in for it with: unset, the dialog opens; set but empty, the dialog was
+/// cancelled; set to a path, that path was chosen.
+#[cfg(feature = "dev")]
+pub(crate) fn choose(variable: &str, dialog: impl FnOnce() -> Option<PathBuf>) -> Option<PathBuf> {
+    match std::env::var_os(variable) {
+        Some(value) => (!value.is_empty()).then(|| PathBuf::from(value)),
+        None => dialog(),
     }
-    rfd::FileDialog::new()
-        .set_title(title)
-        .add_filter(filter, &[extension])
-        .set_file_name(proposed)
-        .save_file()
+}
+
+/// What a platform dialog chooses; only development builds let an environment variable stand
+/// in for it.
+#[cfg(not(feature = "dev"))]
+pub(crate) fn choose(_variable: &str, dialog: impl FnOnce() -> Option<PathBuf>) -> Option<PathBuf> {
+    dialog()
 }

@@ -292,15 +292,13 @@ fn pick_folder(state: &mut EditorState) {
 }
 
 /// The platform's folder dialog, or in development builds the folder `DRS_PICK_FOLDER` names
-/// when it is set, an empty value standing for a cancelled dialog.
+/// when it is set.
 fn choose_folder() -> Option<std::path::PathBuf> {
-    #[cfg(feature = "dev")]
-    if let Some(path) = std::env::var_os("DRS_PICK_FOLDER") {
-        return (!path.is_empty()).then(|| std::path::PathBuf::from(path));
-    }
-    rfd::FileDialog::new()
-        .set_title("Add Asset Folder")
-        .pick_folder()
+    files::choose("DRS_PICK_FOLDER", || {
+        rfd::FileDialog::new()
+            .set_title("Add Asset Folder")
+            .pick_folder()
+    })
 }
 
 /// The status line: what happened last on the left, what the Author is doing on the right.
