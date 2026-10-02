@@ -71,8 +71,8 @@ pub(crate) struct LevelView<'w, 's> {
     /// Every Element's identity and box, its Wall and derived shape when it is a Wall, and its
     /// Portal when it is one.
     elements: Query<'w, 's, Picked>,
-    /// The Elements that are Terrain, for the Terrain a Paint adds to.
-    terrains: Query<'w, 's, (), With<Terrain>>,
+    /// The Terrains and the images they show, for the one a Paint adds to.
+    pub(crate) terrains: paint::Terrains<'w, 's>,
     /// How each known kind is drawn, which says what is never picked.
     kinds: Option<Res<'w, ElementKindRegistry>>,
 }
@@ -90,15 +90,13 @@ type Picked = (
 impl LevelView<'_, '_> {
     /// The Layer new Props are placed on: the Project's only Layer for now; choosing one among
     /// several is a later concern.
-    fn current_layer(&self) -> Option<Entity> {
+    pub(crate) fn current_layer(&self) -> Option<Entity> {
         self.any_layer.iter().next()
     }
 
-    /// Whether the Layer new Props are placed on has a Terrain to paint more onto.
-    fn current_layer_has_terrain(&self) -> bool {
-        self.current_layer()
-            .and_then(|layer| self.layers.get(layer).ok())
-            .is_some_and(|(_, elements)| elements.iter().any(|e| self.terrains.contains(*e)))
+    /// The Terrain a Paint on the current Layer adds to, with its identity: the Layer's topmost.
+    pub(crate) fn current_terrain(&self) -> Option<(ElementId, &Terrain)> {
+        self.terrains.on(self.current_layer())
     }
 
     /// The topmost Element under a point in cells at `zoom`, with its centre and whether it is a
@@ -431,7 +429,7 @@ fn press(
     double: bool,
 ) {
     if state.tool == Tool::Paint {
-        let terrain = level.current_layer_has_terrain();
+        let terrain = level.current_terrain().is_some();
         paint::press(state, terrain, viewport.cells_at(cursor));
         return;
     }

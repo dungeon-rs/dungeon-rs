@@ -446,8 +446,6 @@ pub(crate) fn tool_strip(
     mut state: ResMut<EditorState>,
     viewport: Res<Viewport>,
     level: LevelView,
-    terrains: crate::paint::Terrains,
-    layers: Query<Entity, With<drs_model::Layer>>,
     mut apply: MessageWriter<Apply>,
 ) {
     let Ok(ctx) = contexts.ctx_mut() else {
@@ -512,8 +510,8 @@ pub(crate) fn tool_strip(
                     ui.separator();
                     if state.tool == Tool::Paint {
                         portals::end_options(&mut state, &mut apply);
-                        let terrain = terrains.on(layers.iter().next());
-                        crate::paint::options(ui, &mut state, terrain, &terrains, &mut apply);
+                        let terrain = level.current_terrain();
+                        crate::paint::options(ui, &mut state, terrain, &level.terrains, &mut apply);
                     } else if let Some((id, element, portal)) = &portal {
                         portals::options(
                             ui,
