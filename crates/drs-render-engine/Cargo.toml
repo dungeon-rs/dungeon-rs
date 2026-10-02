@@ -29,6 +29,9 @@ drs-model = { path = "../drs-model" }
 log = { workspace = true }
 thiserror = { workspace = true }
 
+[dev-dependencies]
+naga = { workspace = true }
+
 [features]
 default = []
 dev = ["drs-library-access/dev", "drs-model/dev"]

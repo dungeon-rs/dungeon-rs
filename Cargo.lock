@@ -2611,6 +2611,7 @@ dependencies = [
  "drs-library-access",
  "drs-model",
  "log",
+ "naga",
  "thiserror 2.0.21",
 ]
 

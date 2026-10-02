@@ -571,3 +571,24 @@ fn settle(drawn: &mut TerrainDrawn, asset_server: &AssetServer) {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    #![expect(
+        clippy::missing_panics_doc,
+        reason = "a test stops at the first thing that is not as expected"
+    )]
+    use super::SHADER_SOURCE;
+    use naga::valid::{Capabilities, ValidationFlags, Validator};
+
+    /// The masked tiled image Shader parses and validates as WGSL, so a mistake in it shows
+    /// without a GPU, before Bevy compiles it at the first frame that draws a Terrain.
+    #[test]
+    fn the_shader_is_valid_wgsl() {
+        let module = naga::front::wgsl::parse_str(SHADER_SOURCE)
+            .unwrap_or_else(|error| panic!("{}", error.emit_to_string(SHADER_SOURCE)));
+        Validator::new(ValidationFlags::all(), Capabilities::default())
+            .validate(&module)
+            .unwrap_or_else(|error| panic!("{}", error.emit_to_string(SHADER_SOURCE)));
+    }
+}

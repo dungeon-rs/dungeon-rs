@@ -2,7 +2,9 @@
 // the Level at its natural size, masked by the coverage.
 //
 // Plain WGSL with no imports: the fragment stage reads only the texture coordinates of the 2D
-// mesh vertex shader's output, and the Material's bind group is group 2.
+// mesh vertex shader's output, and the Material's bind group is group 2. `VertexOutput` mirrors
+// the part read of the `VertexOutput` of Bevy's 2D mesh vertex shader, in `bevy_sprite_render`'s
+// `mesh2d/vertex_output.wesl`, and `Params` mirrors the render Engine's `Params` field by field.
 
 struct VertexOutput {
     @builtin(position) position: vec4<f32>,
