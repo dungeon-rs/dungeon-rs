@@ -26,6 +26,7 @@ The architecture decomposes the editor into components, each its own crate, with
 16. As a contributor, I can rely on the gate failing when the workspace's bundle marker names a version other than the crates', so that an editor built from the workspace never warns about its own Bundled Files.
 17. As a contributor, I can rely on the gate failing when a guideline's Example is no longer taken from its Exemplar, so that a guideline never teaches code the workspace has moved away from.
 18. As a contributor, I can rely on the gate failing when a crate uses a Bevy crate the architecture neither lists as narrow nor restricts, so that every new Bevy crate is a deliberate decision.
+19. As a contributor, I can rely on the gate failing when a WGSL Shader a crate bundles does not parse or validate, naming the file and the line, so that a broken Shader is found without a GPU rather than when the editor first draws with it.
 
 ## Rules
 
@@ -55,6 +56,8 @@ The architecture decomposes the editor into components, each its own crate, with
 
 **Engines raise no events**: the sources of a crate the Dependencies table types as an Engine neither derive a message, event, or entity event nor read, write, or observe one; a mention in a comment, or a longer name that merely contains one of those names, does not count.
 
+**Shaders validate**: every `.wgsl` file in a `shaders` directory anywhere under the workspace's `crates` directory parses as WGSL and passes naga's validation, the one wgpu runs before it compiles a Shader; a file that does not fails the check with the file named, and with the line where naga gives one; a workspace with no such file passes.
+
 **One gate**: `just check` runs every check listed under Project tasks in the architecture and exits non-zero when any fails; `just test` runs tests only, and `just run` starts the Host in development mode.
 
 **CI runs the gate**: the CI workflow runs `just check` on Windows, macOS, and Linux for every pull request and every push to the default branch.
@@ -66,13 +69,14 @@ The architecture decomposes the editor into components, each its own crate, with
 ## Implementation Decisions
 
 - The workspace rules are checked by the `ci` tool: its own crate outside the workspace, with its own lockfile, run through the `workspace` recipe of the `justfile`. It has one subcommand per check and an `all` subcommand that runs every check, so one run reports everything that is wrong.
-- Every check runs against `cargo metadata` of the workspace, which the tool locates from its own position rather than from the directory it is run in, so it reads manifests, not source; the Engine-events check, which reads the Engine crates' sources, the bundle marker check, which reads the marker file, and the guideline-examples check, which reads the guidelines and their Exemplar files, are the exceptions.
+- Every check runs against `cargo metadata` of the workspace, which the tool locates from its own position rather than from the directory it is run in, so it reads manifests, not source; the Engine-events check, which reads the Engine crates' sources, the bundle marker check, which reads the marker file, the guideline-examples check, which reads the guidelines and their Exemplar files, and the WGSL check, which reads the Shader files, are the exceptions.
 - The architecture check reads the Dependencies and Restricted external dependencies tables from the architecture document itself, so the documentation and its enforcement cannot drift. The Type column resolves rows such as Client and Host in the restricted table. A malformed table is an error, never a weaker check.
 - The Bevy-crates check reads the narrow crates from the first parenthesised list of the architecture's Framework boundary bullet and the Restricted external dependencies table from the same document, and names each crate using any other `bevy` or `bevy_` crate with that crate. _Why_: Bevy is split into many crates, and one added without a row would otherwise escape every restriction.
 - Same-kind isolation is checked on its own, in addition to the allowed dependencies, so a table that wrongly allowed an Engine to depend on an Engine is still caught.
 - The Engine-events check reads source rather than manifests: every Rust file of every Engine crate, with comments stripped, is searched for the derives that define a message or an event and the names that read, write, or observe one, and each hit is reported with its file and line. It is the Rule translation row marked `enforced`.
 - The guideline-examples check takes each guideline's Exemplar from its `**Exemplar**:` line and its Example from the first fenced block under its Example heading, and names the first line of the Example it cannot find in order. A workspace without a guidelines directory passes it.
-- A violation is one crate, or for the guideline-examples check one guideline, breaking one rule, with a detail of what is wrong. All violations are rendered as a single table of crate or guideline, rule, and problem on standard error, and the tool exits non-zero when there is at least one.
+- The WGSL check finds the Shaders under the workspace's `crates` directory itself, in every directory named `shaders`, and parses and validates each with naga, the WGSL front end and validator wgpu uses, built into the `ci` tool alone, so the check needs neither a GPU nor Bevy; it names the line of a parse failure and of a validation failure where naga locates one.
+- A violation is one crate, or for the guideline-examples check one guideline and for the WGSL check one Shader file, breaking one rule, with a detail of what is wrong. All violations are rendered as a single table of crate or guideline, rule, and problem on standard error, and the tool exits non-zero when there is at least one.
 - The checks are tested against fixture workspaces: small throwaway workspaces written to a temporary directory and read back through `cargo metadata`, one passing and one violating each rule.
 - Empty crates carry only their manifest, README, and an empty library root; the Host keeps its binary. Dependencies are added by the changes that need them.
 - `just check` is the whole gate: formatting (the workspace, the `ci` tool, and the TOML files), lints, typos, supply chain and licences, the workspace rules (including the guideline examples), commit messages, tests (including the `ci` tool's own), a build on the minimum supported Rust version, and a warning-free docs build. On Linux and macOS the tests and lints use the `fast` profile; on Windows they do not. _Why_: the `fast` profile breaks on Windows under linker limits.
@@ -95,6 +99,7 @@ The architecture decomposes the editor into components, each its own crate, with
 - **Guideline examples come from their exemplars**: `tools/ci/src/guideline_examples.rs::tests::an_example_trimmed_from_its_exemplar_passes`, `tools/ci/src/guideline_examples.rs::tests::a_line_not_in_the_exemplar_is_named`, `tools/ci/src/guideline_examples.rs::tests::lines_in_another_order_are_named`, `tools/ci/src/guideline_examples.rs::tests::a_missing_exemplar_is_reported`, `tools/ci/src/guideline_examples.rs::tests::a_guideline_without_an_exemplar_or_an_example_is_reported`, `tools/ci/src/guideline_examples.rs::tests::a_workspace_without_guidelines_passes`
 - **Engines raise no events**: `tools/ci/src/engine_events.rs::tests::an_engine_of_plain_systems_passes`, `tools/ci/src/engine_events.rs::tests::an_engine_defining_a_message_is_named_with_the_line`, `tools/ci/src/engine_events.rs::tests::an_engine_defining_an_event_is_named`, `tools/ci/src/engine_events.rs::tests::an_engine_reading_or_writing_messages_is_named`, `tools/ci/src/engine_events.rs::tests::an_engine_observing_is_named`, `tools/ci/src/engine_events.rs::tests::a_mention_in_a_comment_is_not_a_use`, `tools/ci/src/engine_events.rs::tests::a_longer_name_sharing_the_letters_is_not_a_use`, `tools/ci/src/engine_events.rs::tests::a_manager_may_use_messages`
 - **Bundle marker names the version**: `tools/ci/src/bundle_marker.rs::tests::a_marker_naming_the_workspace_version_passes`, `tools/ci/src/bundle_marker.rs::tests::a_marker_naming_another_version_is_named_with_both`, `tools/ci/src/bundle_marker.rs::tests::a_missing_marker_is_reported`
+- **Shaders validate**: `tools/ci/src/wgsl_shaders.rs::tests::a_valid_shader_passes`, `tools/ci/src/wgsl_shaders.rs::tests::a_shader_that_does_not_parse_is_named_with_its_line`, `tools/ci/src/wgsl_shaders.rs::tests::a_shader_that_does_not_validate_is_named`, `tools/ci/src/wgsl_shaders.rs::tests::only_wgsl_files_in_a_shaders_directory_are_checked`, `tools/ci/src/wgsl_shaders.rs::tests::a_workspace_without_shaders_passes`
 - **One gate**: no unit test; the seam is the `check` recipe of the `justfile`, exercised by every run of the gate.
 - **CI runs the gate**: no unit test; the seam is the CI workflow, exercised by every pull request.
 - **Weekly supply chain**: no unit test; the seam is the supply-chain workflow, exercised by its schedule.
@@ -103,7 +108,7 @@ The architecture decomposes the editor into components, each its own crate, with
 ## Not supported
 
 - The rows of the Rule translation table marked `review` are not checked by the tool; the standards review is their only guard.
-- The checks read manifests only, except the Engine-events check, which reads source, the bundle marker check, which reads the marker file, and the guideline-examples check, which reads the guidelines and their Exemplar files. A dependency reached through another crate's re-exports, or any other rule about what source code does, is outside them.
+- The checks read manifests only, except the Engine-events check, which reads source, the bundle marker check, which reads the marker file, the guideline-examples check, which reads the guidelines and their Exemplar files, and the WGSL check, which reads the Shader files; a Shader that validates may still disagree with the Bevy types it mirrors, which no check compares. A dependency reached through another crate's re-exports, or any other rule about what source code does, is outside them.
 
 ## Notes
 
