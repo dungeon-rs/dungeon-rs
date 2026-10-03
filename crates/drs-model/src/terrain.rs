@@ -311,8 +311,9 @@ pub enum TileContent {
 /// One tile of a Terrain's coverage.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CoverageTile {
-    /// A number that changes whenever the tile's pixels do, and only then; for a tile on the GPU,
-    /// whenever its pixels are rasterized, as they never come back to be compared.
+    /// A number that changes whenever the tile's pixels do: for a tile on the CPU only then, and
+    /// for a tile on the GPU whenever it is rasterized, as its pixels never come back to be
+    /// compared.
     pub revision: u64,
     /// Where its pixels are held.
     pub content: TileContent,
