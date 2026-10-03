@@ -15,18 +15,18 @@ nothing: a stroke that paints raises the coverage to its own where that is
 higher, and an erase lowers it to one minus its own where that is lower, so an
 erase is exact in one pass and takes only from the strokes laid before it.
 
-A [`PaintCache`](crate::PaintCache) holds one Terrain's coverage at 32 pixels per
-cell in tiles of 512 pixels a side, keyed by their place in the Level's pixel
-plane, negative places included, an absent tile being empty, and publishes them
-as the model's coverage without copying a pixel; no one else looks inside it.
-[`apply_stroke`](crate::apply_stroke) brings it up to the Terrain's strokes and
-says whether any tile changed. It compares the strokes it holds with the
+A [`PaintCache`](crate::PaintCache) holds one Terrain's coverage at 32 pixels
+per cell in tiles of 512 pixels a side, keyed by their place in the Level's
+pixel plane, negative places included, an absent tile being empty, and publishes
+them as the model's coverage without copying a pixel; no one else looks inside
+it. [`apply_stroke`](crate::apply_stroke) brings it up to the Terrain's strokes
+and says whether any tile changed. It compares the strokes it holds with the
 Terrain's from both ends: appended strokes, erases included, are composited onto
 the tiles they touch, and otherwise only the tiles the strokes between the
-shared ends touch, as they were and as they are, are rasterized again from
-every stroke, so editing or removing one stroke recomputes that stroke's tiles
-alone. Both are plain
-functions over the model's types; the Manager that owns the cache keeps it.
+shared ends touch, as they were and as they are, are rasterized again from every
+stroke, so editing or removing one stroke recomputes that stroke's tiles alone.
+Both are plain functions over the model's types; the Manager that owns the cache
+keeps it.
 
 ## Features
 
