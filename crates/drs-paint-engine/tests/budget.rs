@@ -103,6 +103,20 @@ impl Bench {
         }
     }
 
+    /// A fresh World with a cache of no stroke made for its GPU.
+    fn fresh() -> Self {
+        let mut world = World::new();
+        world.init_resource::<Assets<Image>>();
+        world.init_resource::<StrokeJobs>();
+        let mut state = SystemState::<StrokeRasterizer<'static>>::new(&mut world);
+        let cache = PaintCache::new(&state.get_mut(&mut world).expect("the rasterizer"));
+        Self {
+            world,
+            state,
+            cache,
+        }
+    }
+
     /// Brings the cache up to `strokes` and the view, returning whether the coverage changed.
     fn apply(&mut self, strokes: &[Stroke], viewport: &Viewport) -> bool {
         let mut rasterizer = self.state.get_mut(&mut self.world).expect("the rasterizer");
@@ -156,7 +170,7 @@ fn painting_costs_the_main_thread_little() {
     assert_eq!(segments, 8_000);
     let centre = Vec2::splat(30.0);
     let view = viewport(centre, ZOOM);
-    let mut warm = Bench::new(PaintCache::default());
+    let mut warm = Bench::fresh();
     warm.apply(&strokes, &view);
     let warm = warm.cache;
     assert_eq!(warm.coverage().band, 256);
@@ -207,7 +221,7 @@ fn zooming_and_panning_cost_the_main_thread_little() {
     let strokes = terrain();
     assert_eq!(strokes.len(), 200);
     let centre = Vec2::splat(30.0);
-    let mut far = Bench::new(PaintCache::default());
+    let mut far = Bench::fresh();
     far.apply(&strokes, &viewport(centre, 40.0));
     let far = far.cache;
     assert_eq!(far.coverage().band, 32);

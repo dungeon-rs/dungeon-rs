@@ -5,7 +5,7 @@
 
 ## Rules
 
-- The Engine owns the cache's type, a `pub struct` with private fields that derives `Default`, so only the Engine's own verbs look inside it (`PaintCache` in the paint Engine's `cache.rs`); an Engine keeps no state of its own, so the value lives with its caller, as the architecture's Painting bullet says.
+- The Engine owns the cache's type, a `pub struct` with private fields, so only the Engine's own verbs look inside it (`PaintCache` in the paint Engine's `cache.rs`); an Engine keeps no state of its own, so the value lives with its caller, as the architecture's Painting bullet says. A cache that works one way or another depending on what the App holds is made by a constructor that settles the way once, from what the verb is passed (`PaintCache::new` from the `StrokeRasterizer`), so the verb never switches a live cache over; one that needs nothing derives `Default`.
 - The Engine's verb brings the cache up to the model in place and says whether anything a reader sees changed (`apply_stroke` returns `bool`); the cache hands out only the model's derived component (`PaintCache::coverage`), sharing its buffers through `Arc` rather than copying them, never its own parts. Work the verb hands to the render world goes through a system parameter the Engine defines (`StrokeRasterizer`), which the Manager's system takes and passes on, never through an event.
 - The Manager that calls the verb holds the cache in a `pub(crate)` component of its own on the Element (`Painted`), never in `drs-model`, never reflected or serialised, so a Save and a Remove Element snapshot leave it out and a restored Element builds it again.
 - The system that drives it is the derived model component's: added `.after(ManagerSystems::Redo)`, driven by change detection on the source and on whatever else the verb takes (`Ref<Terrain>` and the `Viewport`), inserting the published component and the cache together through `Commands` the first time, and assigning the published component only when the verb says something changed.
@@ -17,7 +17,7 @@
 ```rust
 /// A Terrain's tiled coverage as the paint Engine keeps it, private to the Manager: the cache the
 /// published [`TerrainCoverage`] shares its tiles with.
-#[derive(Component, Debug, Default)]
+#[derive(Component, Debug)]
 pub(crate) struct Painted(PaintCache);
 
 pub(crate) fn derive_coverage(
@@ -46,9 +46,11 @@ pub(crate) fn derive_coverage(
                 }
             }
             (_, painted) => {
-                let mut cache = painted
-                    .map(|mut painted| std::mem::take(&mut painted.0))
-                    .unwrap_or_default();
+                let fresh = PaintCache::new(&rasterizer);
+                let mut cache = match painted {
+                    Some(mut painted) => std::mem::replace(&mut painted.0, fresh),
+                    None => fresh,
+                };
                 apply_stroke(&mut cache, &terrain.strokes, &viewport, &mut rasterizer);
                 commands
                     .entity(entity)

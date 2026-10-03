@@ -15,10 +15,11 @@ nothing: a stroke that paints raises the coverage to its own where that is
 higher, and an erase lowers it to one minus its own where that is lower, so an
 erase is exact in one pass and takes only from the strokes laid before it.
 
-A [`PaintCache`](crate::PaintCache) holds one Terrain's coverage in tiles of
-512 pixels a side, keyed by their place in the Level's pixel plane at their band,
-negative places included, an absent tile being empty, and publishes them as the
-model's coverage without copying a pixel; no one else looks inside it.
+A [`PaintCache`](crate::PaintCache), made for the GPU or the CPU once and for good
+by [`PaintCache::new`](crate::PaintCache::new), holds one Terrain's coverage in
+tiles of 512 pixels a side, keyed by their place in the Level's pixel plane at
+their band, negative places included, an absent tile being empty, and publishes
+them as the model's coverage without copying a pixel; no one else looks inside it.
 [`apply_stroke`](crate::apply_stroke) brings it up to the Terrain's strokes and to
 the view the Viewport shows, and says whether anything published changed. It
 compares the strokes it holds with the Terrain's from both ends: appended strokes,

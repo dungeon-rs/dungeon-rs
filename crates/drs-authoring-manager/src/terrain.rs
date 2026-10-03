@@ -538,7 +538,7 @@ fn remove_stroke(
 
 /// A Terrain's tiled coverage as the paint Engine keeps it, private to the Manager: the cache the
 /// published [`TerrainCoverage`] shares its tiles with.
-#[derive(Component, Debug, Default)]
+#[derive(Component, Debug)]
 pub(crate) struct Painted(PaintCache);
 
 /// Brings the coverage of every Terrain whose strokes may have changed since the last frame up
@@ -575,9 +575,11 @@ pub(crate) fn derive_coverage(
                 }
             }
             (_, painted) => {
-                let mut cache = painted
-                    .map(|mut painted| std::mem::take(&mut painted.0))
-                    .unwrap_or_default();
+                let fresh = PaintCache::new(&rasterizer);
+                let mut cache = match painted {
+                    Some(mut painted) => std::mem::replace(&mut painted.0, fresh),
+                    None => fresh,
+                };
                 apply_stroke(&mut cache, &terrain.strokes, &viewport, &mut rasterizer);
                 commands
                     .entity(entity)

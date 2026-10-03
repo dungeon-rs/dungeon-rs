@@ -30,23 +30,12 @@ pub struct PaintCache {
     base: Band,
     /// The active band when it is not the base.
     overlay: Option<Band>,
-    /// Whether the tiles are on the GPU, once anything was rasterized.
-    on_gpu: Option<bool>,
+    /// Whether the tiles are rasterized on the GPU, fixed when the cache is made.
+    on_gpu: bool,
+    /// Whether a view has chosen the active band yet.
+    banded: bool,
     /// The revision the last rasterized tile was given.
     revision: u64,
-}
-
-impl Default for PaintCache {
-    /// No stroke and no tile, at the base band.
-    fn default() -> Self {
-        Self {
-            strokes: Vec::new(),
-            base: Band::new(BASE),
-            overlay: None,
-            on_gpu: None,
-            revision: 0,
-        }
-    }
 }
 
 /// The tiles of one band.
@@ -78,6 +67,26 @@ struct Held {
 }
 
 impl PaintCache {
+    /// A cache of no stroke and no tile, at the base band, that rasterizes on the GPU when
+    /// `rasterizer` has one, and otherwise on the CPU, for as long as it lives.
+    #[must_use]
+    pub fn new(rasterizer: &StrokeRasterizer) -> Self {
+        Self::rasterized_on(rasterizer.has_gpu())
+    }
+
+    /// A cache of no stroke and no tile, at the base band, rasterized on the GPU when `on_gpu`
+    /// says so and otherwise on the CPU.
+    fn rasterized_on(on_gpu: bool) -> Self {
+        Self {
+            strokes: Vec::new(),
+            base: Band::new(BASE),
+            overlay: None,
+            on_gpu,
+            banded: false,
+            revision: 0,
+        }
+    }
+
     /// The coverage as the model holds it: the tiles of the active band, sharing their pixels
     /// rather than copying them.
     #[must_use]
@@ -218,9 +227,13 @@ pub fn apply_stroke(
     viewport: &Viewport,
     rasterizer: &mut StrokeRasterizer,
 ) -> bool {
+    if !cache.on_gpu {
+        return on_cpu(cache, strokes).changed;
+    }
     match rasterizer.gpu() {
         Some(mut gpu) => on_gpu(cache, strokes, viewport, &mut gpu),
-        None => on_cpu(cache, strokes).changed,
+        // A cache made for the GPU is only ever brought up where there is one.
+        None => false,
     }
 }
 
@@ -246,13 +259,6 @@ fn region(key: TileKey) -> Region {
 /// rasterized.
 fn on_cpu(cache: &mut PaintCache, strokes: &[Stroke]) -> Applied {
     let mut applied = Applied::default();
-    if cache.on_gpu != Some(false) {
-        applied.changed = cache.on_gpu.is_some();
-        *cache = PaintCache {
-            on_gpu: Some(false),
-            ..PaintCache::default()
-        };
-    }
     let diff = Diff::of(&cache.strokes, strokes);
     if diff.appended {
         for stroke in &strokes[diff.kept..] {
@@ -357,14 +363,6 @@ fn plan(
 /// anything the published coverage holds changed.
 fn on_gpu(cache: &mut PaintCache, strokes: &[Stroke], viewport: &Viewport, gpu: &mut Gpu) -> bool {
     let mut changed = false;
-    let first = cache.on_gpu != Some(true);
-    if first {
-        changed = cache.on_gpu.is_some();
-        *cache = PaintCache {
-            on_gpu: Some(true),
-            ..PaintCache::default()
-        };
-    }
     let diff = Diff::of(&cache.strokes, strokes);
     let view = viewport.view();
     let base_tiles = cache.base.tiles.len();
@@ -382,10 +380,11 @@ fn on_gpu(cache: &mut PaintCache, strokes: &[Stroke], viewport: &Viewport, gpu: 
     let base_changed = carry_out(cache, Which::Base, base_plan, &spans, gpu, &mut drawn);
 
     let active = cache.active();
-    let band = if first {
-        floor_band(viewport.zoom)
-    } else {
+    let band = if cache.banded {
         next_band(active, viewport.zoom)
+    } else {
+        cache.banded = true;
+        floor_band(viewport.zoom)
     };
     let switched = band != active;
     if switched {
@@ -674,7 +673,7 @@ mod tests {
     #[test]
     fn appending_equals_rasterizing() {
         let strokes = strokes();
-        let mut cache = PaintCache::default();
+        let mut cache = PaintCache::rasterized_on(false);
         for laid in 1..=strokes.len() {
             assert!(
                 on_cpu(&mut cache, &strokes[..laid]).changed,
@@ -692,7 +691,7 @@ mod tests {
     #[test]
     fn an_undo_touches_only_its_tiles() {
         let strokes = strokes();
-        let mut cache = PaintCache::default();
+        let mut cache = PaintCache::rasterized_on(false);
         on_cpu(&mut cache, &strokes[..3]);
         let before = pixels(&cache);
         let laid = on_cpu(&mut cache, &strokes).touched;
@@ -725,7 +724,7 @@ mod tests {
     #[test]
     fn appending_an_erase_equals_rasterizing() {
         let strokes = with_erases();
-        let mut cache = PaintCache::default();
+        let mut cache = PaintCache::rasterized_on(false);
         on_cpu(&mut cache, &strokes[..4]);
         let painted = pixels(&cache);
         for laid in 5..=strokes.len() {
@@ -747,7 +746,7 @@ mod tests {
     #[test]
     fn an_edit_touches_only_its_tiles() {
         let before = with_erases();
-        let mut cache = PaintCache::default();
+        let mut cache = PaintCache::rasterized_on(false);
         on_cpu(&mut cache, &before);
         let revisions = revisions(&cache);
         let mut after = before.clone();
@@ -770,7 +769,7 @@ mod tests {
     #[test]
     fn a_removal_touches_only_its_tiles() {
         let all = with_erases();
-        let mut cache = PaintCache::default();
+        let mut cache = PaintCache::rasterized_on(false);
         on_cpu(&mut cache, &all);
         let laid = pixels(&cache);
         let revisions = revisions(&cache);
@@ -793,7 +792,7 @@ mod tests {
     #[test]
     fn an_edit_equals_rasterizing() {
         let mut strokes = with_erases();
-        let mut cache = PaintCache::default();
+        let mut cache = PaintCache::rasterized_on(false);
         on_cpu(&mut cache, &strokes);
         let edits: [fn(&mut Vec<Stroke>); 7] = [
             |strokes| strokes[0].points[1] = Vec2::new(10.0, 12.0),
@@ -869,7 +868,7 @@ mod tests {
     fn a_plan_names_the_tiles_of_a_change() {
         let before = with_erases();
         let mut images = Assets::<Image>::default();
-        let mut cache = PaintCache::default();
+        let mut cache = PaintCache::rasterized_on(true);
         on_a_gpu(
             &mut cache,
             &mut images,
@@ -1000,7 +999,7 @@ mod tests {
     fn the_bands_follow_the_view_on_the_gpu() {
         let strokes = with_erases();
         let mut images = Assets::<Image>::default();
-        let mut cache = PaintCache::default();
+        let mut cache = PaintCache::rasterized_on(true);
         let far = viewport(Vec2::new(8.0, 8.0), 20.0, 40.0);
         let (changed, drawn) = on_a_gpu(&mut cache, &mut images, &strokes, &far);
         assert!(changed);

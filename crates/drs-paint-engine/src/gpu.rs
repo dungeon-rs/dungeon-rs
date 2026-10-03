@@ -255,6 +255,11 @@ pub struct StrokeRasterizer<'w> {
 }
 
 impl StrokeRasterizer<'_> {
+    /// Whether there is a GPU to rasterize on.
+    pub(crate) fn has_gpu(&self) -> bool {
+        self.jobs.is_some() && self.images.is_some()
+    }
+
     /// The GPU to rasterize on, or `None` to rasterize on the CPU.
     pub(crate) fn gpu(&mut self) -> Option<Gpu<'_>> {
         match (self.jobs.as_deref_mut(), self.images.as_deref_mut()) {
