@@ -448,26 +448,26 @@ mod tests {
         let mut strokes = with_erases();
         let mut cache = PaintCache::default();
         bring_up(&mut cache, &strokes);
-        let edits: [&dyn Fn(&mut Vec<Stroke>); 7] = [
-            &|strokes| strokes[0].points[1] = Vec2::new(10.0, 12.0),
-            &|strokes| {
+        let edits: [fn(&mut Vec<Stroke>); 7] = [
+            |strokes| strokes[0].points[1] = Vec2::new(10.0, 12.0),
+            |strokes| {
                 for point in &mut strokes[2].points {
                     *point += Vec2::new(-30.0, 9.0);
                 }
             },
-            &|strokes| {
+            |strokes| {
                 strokes[3].brush = BrushSettings {
                     size: 6.0,
                     hardness: 0.9,
                     strength: 0.3,
                 };
             },
-            &|strokes| strokes[0].erase = true,
-            &|strokes| strokes[4].erase = false,
-            &|strokes| {
+            |strokes| strokes[0].erase = true,
+            |strokes| strokes[4].erase = false,
+            |strokes| {
                 strokes.remove(1);
             },
-            &|strokes| strokes.insert(3, strokes[4].clone()),
+            |strokes| strokes.insert(3, strokes[4].clone()),
         ];
         for (number, edit) in edits.iter().enumerate() {
             edit(&mut strokes);

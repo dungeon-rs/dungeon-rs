@@ -495,8 +495,8 @@ fn erasing_caps_what_remains() {
     // A soft stroke along a row of pixel centres, so a pixel `j` rows above lies `j`
     // thirty-seconds of a cell from its path.
     let y = 4.0 + HALF_PIXEL;
-    let paint = brush(4.0, 0.5, 1.0);
-    fixture.flagstones(stroke(&[Vec2::new(0.0, y), Vec2::new(20.0, y)], paint));
+    let soft = brush(4.0, 0.5, 1.0);
+    fixture.flagstones(stroke(&[Vec2::new(0.0, y), Vec2::new(20.0, y)], soft));
     let full = brush(2.0, 0.5, 1.0);
     let x = 4.0 + HALF_PIXEL;
     fixture.erase(erasing(&[Vec2::new(x, 0.0), Vec2::new(x, 8.0)], full));
@@ -515,9 +515,12 @@ fn erasing_caps_what_remains() {
     for across in 0..48_u8 {
         for up in 0..72_u8 {
             let (dx, dy) = (f32::from(across) / 32.0, f32::from(up) / 32.0);
-            let point = Vec2::new(x + dx, y + dy);
-            let expected = byte(shaped(paint, dy)).min(byte(1.0 - shaped(full, dx)));
-            assert_eq!(at(&tiles, point), expected, "{dx} across and {dy} up");
+            let expected = byte(shaped(soft, dy)).min(byte(1.0 - shaped(full, dx)));
+            assert_eq!(
+                at(&tiles, Vec2::new(x + dx, y + dy)),
+                expected,
+                "{dx} across and {dy} up"
+            );
         }
     }
 

@@ -7,8 +7,7 @@ use bevy_ecs::entity::Entity;
 use bevy_ecs::world::World;
 use drs_history::{SetField, Target};
 use drs_model::{
-    EditElement, Element, ElementChange, ElementId, Gesture, Portal, PortalsRemoved, Room, Terrain,
-    Wall,
+    EditElement, Element, ElementChange, ElementId, Gesture, Portal, PortalsRemoved, Room, Wall,
 };
 
 /// Edit Element: sets the changed property through the generic field command, or adds or
@@ -37,14 +36,7 @@ pub(crate) fn edit_element(
     let entity = id
         .entity(world)
         .map_err(|_| AuthoringError::UnknownElement(id))?;
-    // A Terrain is moved and reshaped through its strokes alone: its image and its strokes
-    // change, nothing else of it.
-    if world.get::<Terrain>(entity).is_some()
-        && !matches!(command.change, ElementChange::Material(_))
-        && !crate::terrain::is_stroke_change(&command.change)
-    {
-        return Err(AuthoringError::TerrainChangesOnlyItsMaterialAndStrokes(id));
-    }
+    crate::terrain::only_material_and_strokes(world, entity, id, &command.change)?;
     let edit = if world.get::<Wall>(entity).is_some() {
         outline_edit::<Wall>(world, id, &command.change)?
     } else if world.get::<Room>(entity).is_some() {
@@ -71,8 +63,8 @@ pub(crate) fn edit_element(
 
 /// The edit of an Element that is neither a Wall nor a Room: the field command of its position,
 /// unless it is a Portal that follows its host, of a change only a Portal has, or of a stroke of
-/// a Terrain; or a Terrain's Material or the removal of one of its strokes, recorded as a step of
-/// its own.
+/// a Terrain; or a Terrain's Material or the removal of one of its strokes, each recorded as a
+/// step of its own.
 ///
 /// # Errors
 ///
@@ -112,15 +104,12 @@ fn element_change(
             return crate::terrain::set_material(world, id, asset)
                 .map(|()| OutlineEdit::Recorded(None));
         }
-        ElementChange::RemoveStroke { stroke } => {
-            return crate::terrain::remove_stroke(world, id, *stroke)
-                .map(|()| OutlineEdit::Recorded(None));
-        }
         ElementChange::StrokePoint { .. }
         | ElementChange::StrokePosition { .. }
         | ElementChange::StrokeBrush { .. }
-        | ElementChange::StrokeErase { .. } => {
-            match crate::terrain::stroke_field(world, id, change)? {
+        | ElementChange::StrokeErase { .. }
+        | ElementChange::RemoveStroke { .. } => {
+            match crate::terrain::stroke_change(world, id, change)? {
                 Some(field) => Ok(field),
                 None => return Ok(OutlineEdit::Recorded(None)),
             }

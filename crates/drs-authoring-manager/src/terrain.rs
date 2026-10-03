@@ -369,72 +369,95 @@ fn stroke_of(terrain: &mut Terrain, stroke: usize) -> Result<&mut Stroke, Author
 
 /// The field command of an Edit Element changing one stroke of a Terrain, a point of its path,
 /// its whole path, its Brush settings, or whether it erases, once the Terrain it would leave is
-/// checked; `None` when the change names what the stroke already does, which records nothing.
+/// checked; `None` when the change names what the stroke already does, which records nothing, or
+/// removes the stroke, which [`remove_stroke`] records as a step of its own.
 ///
 /// # Errors
 ///
 /// [`AuthoringError::UnknownElement`], [`AuthoringError::NotATerrain`],
 /// [`AuthoringError::NoStroke`], or [`AuthoringError::NoStrokePoint`] for what the change names
-/// and the Terrain lacks, [`AuthoringError::MalformedStroke`] for the reason the Terrain's own
+/// and the Element lacks, [`AuthoringError::MalformedStroke`] for the reason the Terrain's own
 /// check gives the Terrain it would leave, or [`AuthoringError::History`] when the field cannot
-/// be named.
-pub(crate) fn stroke_field(
+/// be named or the removal recorded.
+pub(crate) fn stroke_change(
     world: &mut World,
     element: ElementId,
     change: &ElementChange,
 ) -> Result<Option<SetField<ElementId>>, AuthoringError> {
     let mut terrain = terrain_of(world, element)?;
     let history = |error: drs_history::HistoryError| AuthoringError::History(error.to_string());
-    let field = match change {
-        ElementChange::StrokePoint {
-            stroke,
-            index,
-            position,
-        } => {
-            let points = &mut stroke_of(&mut terrain, *stroke)?.points;
-            let count = points.len();
-            *points
-                .get_mut(*index)
-                .ok_or(AuthoringError::NoStrokePoint {
-                    index: *index,
-                    points: count,
-                })? = *position;
-            SetField::new::<Terrain>(
-                element,
-                &format!("strokes[{stroke}].points[{index}]"),
-                *position,
-            )
+    let field = if let ElementChange::StrokePoint {
+        stroke,
+        index,
+        position,
+    } = change
+    {
+        let points = &mut stroke_of(&mut terrain, *stroke)?.points;
+        let count = points.len();
+        *points
+            .get_mut(*index)
+            .ok_or(AuthoringError::NoStrokePoint {
+                index: *index,
+                points: count,
+            })? = *position;
+        SetField::new::<Terrain>(
+            element,
+            &format!("strokes[{stroke}].points[{index}]"),
+            *position,
+        )
+    } else if let ElementChange::StrokePosition { stroke, position } = change {
+        let moved = stroke_of(&mut terrain, *stroke)?;
+        let by = *position - moved.centre();
+        for point in &mut moved.points {
+            *point += by;
         }
-        ElementChange::StrokePosition { stroke, position } => {
-            let moved = stroke_of(&mut terrain, *stroke)?;
-            let by = *position - moved.centre();
-            for point in &mut moved.points {
-                *point += by;
-            }
-            SetField::new::<Terrain>(
-                element,
-                &format!("strokes[{stroke}].points"),
-                moved.points.clone(),
-            )
+        SetField::new::<Terrain>(
+            element,
+            &format!("strokes[{stroke}].points"),
+            moved.points.clone(),
+        )
+    } else if let ElementChange::StrokeBrush { stroke, brush } = change {
+        stroke_of(&mut terrain, *stroke)?.brush = *brush;
+        SetField::new::<Terrain>(element, &format!("strokes[{stroke}].brush"), *brush)
+    } else if let ElementChange::StrokeErase { stroke, erase } = change {
+        let changed = stroke_of(&mut terrain, *stroke)?;
+        if changed.erase == *erase {
+            return Ok(None);
         }
-        ElementChange::StrokeBrush { stroke, brush } => {
-            stroke_of(&mut terrain, *stroke)?.brush = *brush;
-            SetField::new::<Terrain>(element, &format!("strokes[{stroke}].brush"), *brush)
-        }
-        ElementChange::StrokeErase { stroke, erase } => {
-            let changed = stroke_of(&mut terrain, *stroke)?;
-            if changed.erase == *erase {
-                return Ok(None);
-            }
-            changed.erase = *erase;
-            SetField::new::<Terrain>(element, &format!("strokes[{stroke}].erase"), *erase)
-        }
-        _ => return Err(AuthoringError::NotATerrain(element)),
+        changed.erase = *erase;
+        SetField::new::<Terrain>(element, &format!("strokes[{stroke}].erase"), *erase)
+    } else if let ElementChange::RemoveStroke { stroke } = change {
+        return remove_stroke(world, element, terrain, *stroke).map(|()| None);
+    } else {
+        return Err(AuthoringError::TerrainChangesOnlyItsMaterialAndStrokes(
+            element,
+        ));
     };
     if let Some(reason) = terrain.malformation() {
         return Err(AuthoringError::MalformedStroke(reason));
     }
     field.map(Some).map_err(history)
+}
+
+/// Refuses an Edit Element of a Terrain that changes anything but its Material or one of its
+/// strokes.
+///
+/// # Errors
+///
+/// [`AuthoringError::TerrainChangesOnlyItsMaterialAndStrokes`] for such a change of a Terrain.
+pub(crate) fn only_material_and_strokes(
+    world: &World,
+    entity: Entity,
+    element: ElementId,
+    change: &ElementChange,
+) -> Result<(), AuthoringError> {
+    let allowed = matches!(change, ElementChange::Material(_)) || is_stroke_change(change);
+    if world.get::<Terrain>(entity).is_some() && !allowed {
+        return Err(AuthoringError::TerrainChangesOnlyItsMaterialAndStrokes(
+            element,
+        ));
+    }
+    Ok(())
 }
 
 /// The recorded step of removing a stroke that is not its Terrain's only one: the stroke taken
@@ -481,21 +504,20 @@ impl ReversibleCommand for RemoveStroke {
     }
 }
 
-/// Edit Element removing a stroke of a Terrain, as a step of its own that closes any gesture
+/// Edit Element removing a stroke of `terrain`, as a step of its own that closes any gesture
 /// left open: every other stroke keeps its order, and the only stroke takes its Terrain with
 /// it, as a Remove Element of the Terrain would.
 ///
 /// # Errors
 ///
-/// [`AuthoringError::UnknownElement`], [`AuthoringError::NotATerrain`], or
-/// [`AuthoringError::NoStroke`] for what the change names and the Terrain lacks, or
-/// [`AuthoringError::History`] when the step could not be recorded.
-pub(crate) fn remove_stroke(
+/// [`AuthoringError::NoStroke`] for a stroke the Terrain lacks, or [`AuthoringError::History`]
+/// when the step could not be recorded.
+fn remove_stroke(
     world: &mut World,
     element: ElementId,
+    mut terrain: Terrain,
     stroke: usize,
 ) -> Result<(), AuthoringError> {
-    let mut terrain = terrain_of(world, element)?;
     stroke_of(&mut terrain, stroke)?;
     if terrain.strokes.len() == 1 {
         return crate::record_step(world, crate::remove::Remove::of(element));
