@@ -568,6 +568,21 @@ impl Fixture {
         }));
     }
 
+    /// Lays an erase through `points` with `brush` on the Layer's Terrain, naming no image,
+    /// failing the test if the Paint was refused.
+    fn erase(&mut self, points: &[Vec2], brush: BrushSettings) {
+        let layer = self.layer();
+        self.run(Apply::Paint(Paint {
+            layer,
+            stroke: Stroke {
+                points: points.to_vec(),
+                brush,
+                erase: true,
+            },
+            asset: None,
+        }));
+    }
+
     /// Makes the Bounds `size` cells with their lower-left corner at `origin`, so an Export at a
     /// high resolution stays small. No Command resizes the Bounds yet, so the fixture sets them
     /// in the World directly, as a Command would once there is one.
@@ -2072,4 +2087,107 @@ fn a_room_is_clipped_at_the_edge() {
             assert_eq!(picture.pixel(x, y), BLACK_PIXEL, "({x}, {y})");
         }
     }
+}
+
+/// A full-strength erase across a painted stroke shows what lies below the Terrain on its path,
+/// here the background, and the stroke's image beyond its radius.
+#[test]
+fn an_erase_shows_what_lies_below() {
+    let mut fixture = Fixture::new();
+    fixture.paint(
+        RED,
+        &[Vec2::new(5.0, 15.0), Vec2::new(25.0, 15.0)],
+        brush(4.0, 1.0, 1.0),
+    );
+    fixture.erase(
+        &[Vec2::new(15.0, 10.0), Vec2::new(15.0, 20.0)],
+        brush(2.0, 1.0, 1.0),
+    );
+
+    let picture = fixture.picture("erased.png");
+    let at = |x: f32, y: f32| picture.at_point(Vec2::new(x, y), PIXELS_PER_CELL);
+
+    assert_eq!(at(15.0, 15.0), BLACK_PIXEL, "on the erase's path");
+    assert_eq!(at(15.6, 16.0), BLACK_PIXEL, "within its radius");
+    assert_eq!(at(13.5, 15.0), RED_PIXEL, "beyond its radius");
+    assert_eq!(at(17.0, 14.0), RED_PIXEL, "beyond it on the other side");
+}
+
+/// A half-strength erase with a sharp joint over full paint leaves the same colour inside the
+/// joint, where both its segments reach, as on its straight stretch, and as a half-strength
+/// stroke painted alone over the background shows.
+#[test]
+fn an_erase_leaves_no_build_up() {
+    let mut fixture = Fixture::new();
+    fixture.paint(
+        RED,
+        &[Vec2::new(3.0, 15.0), Vec2::new(27.0, 15.0)],
+        brush(8.0, 1.0, 1.0),
+    );
+    fixture.erase(
+        &[
+            Vec2::new(8.0, 12.0),
+            Vec2::new(12.0, 18.0),
+            Vec2::new(16.0, 12.0),
+        ],
+        brush(2.0, 1.0, 0.5),
+    );
+    let picture = fixture.picture("joint.png");
+    let joint = picture.at_point(Vec2::new(12.0, 17.5), PIXELS_PER_CELL);
+    let straight = picture.at_point(Vec2::new(10.0, 15.0), PIXELS_PER_CELL);
+
+    let mut alone = Fixture::new();
+    alone.paint(
+        RED,
+        &[Vec2::new(5.0, 15.0), Vec2::new(25.0, 15.0)],
+        brush(2.0, 1.0, 0.5),
+    );
+    let half = alone
+        .picture("half.png")
+        .at_point(Vec2::new(10.0, 15.0), PIXELS_PER_CELL);
+
+    assert!(partly_red(straight), "half left: {straight:?}");
+    assert_eq!(
+        joint, straight,
+        "inside the joint as on the straight stretch"
+    );
+    assert_eq!(straight, half, "as a half-strength stroke alone");
+}
+
+/// A moved stroke exports at its new place, with the background at its old one, and an erase
+/// turned to painting exports with the Terrain's image.
+#[test]
+fn an_edited_stroke_exports_as_edited() {
+    let mut fixture = Fixture::new();
+    let hard = brush(2.0, 1.0, 1.0);
+    fixture.paint(RED, &[Vec2::new(5.0, 10.0), Vec2::new(10.0, 10.0)], hard);
+    let terrain = fixture.last();
+    fixture.paint(RED, &[Vec2::new(5.0, 20.0), Vec2::new(10.0, 20.0)], hard);
+    fixture.erase(&[Vec2::new(22.0, 8.0), Vec2::new(26.0, 8.0)], hard);
+    fixture.edit(
+        terrain,
+        ElementChange::StrokePosition {
+            stroke: 1,
+            position: Vec2::new(20.0, 22.0),
+        },
+    );
+    fixture.edit(
+        terrain,
+        ElementChange::StrokeErase {
+            stroke: 2,
+            erase: false,
+        },
+    );
+
+    let picture = fixture.picture("edited.png");
+    let at = |x: f32, y: f32| picture.at_point(Vec2::new(x, y), PIXELS_PER_CELL);
+
+    assert_eq!(
+        at(20.0, 22.0),
+        RED_PIXEL,
+        "the moved stroke at its new place"
+    );
+    assert_eq!(at(7.5, 20.0), BLACK_PIXEL, "the background at its old one");
+    assert_eq!(at(7.5, 10.0), RED_PIXEL, "the stroke left where it was");
+    assert_eq!(at(24.0, 8.0), RED_PIXEL, "the erase turned to painting");
 }
