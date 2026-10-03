@@ -1112,11 +1112,90 @@ fn a_bad_file_is_refused() {
         refused.reason
     );
 
+    refuses_malformed_outlines(&mut saved, &root);
+
     assert_eq!(saved.device.elements(), elements);
     assert_eq!(saved.device.history().undo_depth(), depth);
     assert!(saved.device.history().can_redo());
     assert_eq!(saved.device.counts(), (1, 1, 1));
     assert_eq!(saved.device.mark().file, Some(saved.file.clone()));
+}
+
+/// Opens files whose first Element is turned into a Wall or a Room that is not one, a Wall with
+/// a point that is not finite and Rooms of too few points, too few edges, or a control point that
+/// is not finite, and checks that each is refused naming the kind and why.
+fn refuses_malformed_outlines(saved: &mut Saved, root: &Path) {
+    let id = saved.ids[0].as_raw().to_string();
+    // A number past the largest single-precision one reads as infinity, the only way a JSON
+    // file can hold a coordinate that is not finite.
+    let grey = json!({ "red": 64, "green": 64, "blue": 64 });
+    let outline = |kind: &str, points: Value, parts: Value| -> Value {
+        let mut data = json!({ "points": points, "thickness": 0.125 });
+        if kind == "wall" {
+            data["segments"] = parts;
+            data["colour"] = grey.clone();
+        } else {
+            data["edges"] = parts;
+            data["wall_colour"] = grey.clone();
+            data["floor_colour"] = json!({ "red": 200, "green": 200, "blue": 200 });
+        }
+        data
+    };
+    let straight = json!({ "control": null });
+    for (name, kind, data, reason) in [
+        (
+            "endless-wall",
+            "wall",
+            outline("wall", json!([[1.0, 1.0], [1e39, 1.0]]), json!([straight])),
+            "finite",
+        ),
+        (
+            "two-points",
+            "room",
+            outline(
+                "room",
+                json!([[1.0, 1.0], [3.0, 1.0]]),
+                json!([straight, straight]),
+            ),
+            "three or more points",
+        ),
+        (
+            "short-room",
+            "room",
+            outline(
+                "room",
+                json!([[1.0, 1.0], [3.0, 1.0], [3.0, 3.0]]),
+                json!([straight, straight]),
+            ),
+            "needs 3 edges",
+        ),
+        (
+            "endless-room",
+            "room",
+            outline(
+                "room",
+                json!([[1.0, 1.0], [3.0, 1.0], [3.0, 3.0]]),
+                json!([straight, { "control": [-1e39, 2.0] }, straight]),
+            ),
+            "finite",
+        ),
+    ] {
+        let mut outlined = json(&saved.file);
+        let envelopes = outlined["elements"][&id]
+            .as_object_mut()
+            .expect("the Element's envelopes");
+        envelopes.remove("prop");
+        envelopes["element"]["data"]["kind"] = json!(kind);
+        envelopes.insert(kind.to_owned(), json!({ "version": 1, "data": data }));
+        let path = root.join(format!("{name}.dungeon"));
+        write_json(&path, &outlined);
+        let refused = saved.device.open(&path).expect_err("a malformed outline");
+        assert!(
+            refused.reason.contains(kind) && refused.reason.contains(reason),
+            "{name}: {}",
+            refused.reason
+        );
+    }
 }
 
 /// A file that holds a known component under another entity than its own, a Level's component
