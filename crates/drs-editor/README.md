@@ -74,15 +74,15 @@ drags the view.
 
 A tool strip over the viewport offers Select, Wall, Portal, and Room, a Snap
 switch after the tools, and the thickness and colour of the selected Wall, or of
-the next Wall while none is selected. With the Wall tool, chosen there or with `W`, each click adds a point
-of a Wall previewed with a rubber band to the pointer, and Enter or a
-double-click finishes it as one Place Element; choosing an Asset leaves the
-tool, and choosing the tool drops the chosen Asset and the selection. The
-selected Wall shows a handle at each point, at each control point with guide
-lines, and at the middle of each straight segment: dragging one moves the point
-or bends the segment as one gesture, a double-click on the line adds a point
-there, and Delete removes the selected point or straightens the selected control
-point's segment.
+the next Wall while none is selected. With the Wall tool, chosen there or with
+`W`, each click adds a point of a Wall previewed with a rubber band to the
+pointer, and Enter or a double-click finishes it as one Place Element; choosing
+an Asset leaves the tool, and choosing the tool drops the chosen Asset and the
+selection. The selected Wall shows a handle at each point, at each control point
+with guide lines, and at the middle of each straight segment: dragging one moves
+the point or bends the segment as one gesture, a double-click on the line adds a
+point there, and Delete removes the selected point or straightens the selected
+control point's segment.
 
 The viewport draws the Grid as thin, faint lines along the edges of the cells in
 view, over the Elements, while a cell is at least eight pixels across; it is the
@@ -176,8 +176,9 @@ tool discard a stroke being drawn.
   With `DRS_PICK_FOLDER` set, Add Asset Folder… takes that folder instead of opening
   the dialog; with `DRS_PICK_FILE` set, Open… takes that file; with `DRS_SAVE_FILE`
   set, Save As… writes to that path (the extension is added when it lacks one), and so
-  does Export Level… unless `DRS_EXPORT_FILE` is set, whose path it writes to instead, so
-  one script can both save and export. An empty value stands for a cancelled dialog.
+  does Export Level… while `DRS_EXPORT_FILE` is unset. With `DRS_EXPORT_FILE` set,
+  Export Level… writes to that path instead, so one script can both save and export.
+  An empty value stands for a cancelled dialog.
   With `DRS_CRASH_TEST` set to `main`, `thread`, or `startup`, the editor panics on
   purpose on the main thread on its second frame, on a spawned thread on its second
   frame, or while its plugins build before any window exists, so the crash handler can
