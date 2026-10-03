@@ -18,6 +18,7 @@ mod rooms;
 mod screenshot;
 #[cfg(feature = "dev")]
 mod script;
+mod snapping;
 mod state;
 mod viewport;
 mod walls;
@@ -29,7 +30,7 @@ use bevy::gizmos::AppGizmoBuilder;
 use bevy::window::{Window, WindowPlugin};
 use bevy_egui::{EguiPlugin, EguiPrimaryContextPass};
 use drs_diagnostics::Started;
-use drs_model::ManagerSystems;
+use drs_model::{ManagerSystems, SnapSystems};
 
 /// The window the Editor runs in, for the Host to `set` on Bevy's default plugins: it is not
 /// closed on request, because the Editor answers the window's close request itself, asking
@@ -70,6 +71,7 @@ impl Plugin for EditorPlugin {
             .init_resource::<state::EditorState>()
             .init_resource::<browser::Browser>()
             .init_resource::<panels::Layout>()
+            .init_resource::<snapping::SnapSwitch>()
             .insert_gizmo_config(grid::GridGizmos, grid::config())
             .add_systems(
                 EguiPrimaryContextPass,
@@ -93,6 +95,9 @@ impl Plugin for EditorPlugin {
                         window::title,
                         viewport::pointer,
                         viewport::keys,
+                        // The tools have used the snapped point of the frame before, the one on
+                        // screen, before the Pointer of this frame is written for it to answer.
+                        snapping::write_pointer.before(SnapSystems),
                     )
                         .chain(),
                     // The overlays are drawn from the Level as this frame's Commands, Undo, and
@@ -104,9 +109,11 @@ impl Plugin for EditorPlugin {
                         handles::draw,
                         rooms::draw_overlays,
                         portals::draw_marker,
+                        snapping::draw_marker,
                     )
                         .chain()
-                        .after(ManagerSystems::Redo),
+                        .after(ManagerSystems::Redo)
+                        .after(SnapSystems),
                 )
                     .chain(),
             );

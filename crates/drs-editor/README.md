@@ -60,8 +60,9 @@ never own domain state. The Editor writes only the model's `Viewport` (panning
 and zooming) and its own state: the chosen Asset, the thumbnails it holds, the
 selection, the search text, the prompt, question, report, or dialog in progress,
 whether an Export is being written, the tool, the Wall, the Room outline, or the
-stroke being drawn, the option being changed, the Brush, and the selected
-stroke.
+stroke being drawn, the option being changed, the Brush, the selected stroke,
+and the Snap switch. It writes the model's `Pointer` each frame: the Level being
+worked on, where the pointer is, a reach of eight pixels, and what snaps.
 Clicking in the viewport places the chosen Asset or selects the topmost Element
 under the pointer, a Prop by its rectangle, a Portal by its turned rectangle,
 a Wall by its line outside the stretches its Portals cover, and a Room by its
@@ -71,9 +72,9 @@ placing, and the platform's usual shortcuts undo and redo. Scrolling pans, a
 wheel or a pinch zooms, and the middle button or Space with the left button
 drags the view.
 
-A tool strip over the viewport offers Select, Wall, Portal, and Room, and the
-thickness and colour of the selected Wall, or of the next Wall while none is
-selected. With the Wall tool, chosen there or with `W`, each click adds a point
+A tool strip over the viewport offers Select, Wall, Portal, and Room, a Snap
+switch after the tools, and the thickness and colour of the selected Wall, or of
+the next Wall while none is selected. With the Wall tool, chosen there or with `W`, each click adds a point
 of a Wall previewed with a rubber band to the pointer, and Enter or a
 double-click finishes it as one Place Element; choosing an Asset leaves the
 tool, and choosing the tool drops the chosen Asset and the selection. The
@@ -82,6 +83,21 @@ lines, and at the middle of each straight segment: dragging one moves the point
 or bends the segment as one gesture, a double-click on the line adds a point
 there, and Delete removes the selected point or straightens the selected control
 point's segment.
+
+The viewport draws the Grid as thin, faint lines along the edges of the cells in
+view, over the Elements, while a cell is at least eight pixels across; it is the
+Editor's own overlay, so no Export holds it. With snapping, a point a click of
+the Wall or the Room tool adds, both corners of a Room rectangle, and a point of a
+selected Wall or Room being dragged go where the authoring Manager's snapped point
+puts the pointer: on the nearest point of a Wall or Room of the Level within
+reach, or else on the nearest Grid corner. A small ring shows where the next click
+of either tool lands, filled when it lies on another Element's point, and the
+rubber bands end at it; the point placed is the one shown, the snapped point
+derived from the Pointer written the frame before. A whole Wall or Room dragged
+moves by whole cells, each step sending the amount moved since the last. Control
+points, middles, the point a double-click adds, Props, and Portals never snap.
+The Snap switch, on at start and never saved, turns snapping off, and holding
+Alt, Option on macOS, places and drags freely while it is held, a drag included.
 
 With the Room tool, chosen in the strip or with `R`, each click adds a point of
 an outline previewed with rubber bands from the last point to the pointer and
@@ -150,7 +166,8 @@ tool discard a stroke being drawn.
   to a file, the editor is driven by its steps, one per frame (`wait`, `move`, `down`,
   `up`, `click`, `drag`, `key`, `hold`, `release`, `text`, `scroll`, `pinch`,
   `screenshot`, `describe`, which also logs the Wall and Room tools, every Wall
-  and Room and the stretches it gives way along, and every Portal, `close`,
+  and Room and the stretches it gives way along, every Portal, the Snap switch,
+  the Pointer, and the snapped point, `close`,
   `quit`), fed in as the messages the window would send so egui and the viewport see
   them alike; `describe` logs every clickable widget and every cell of the grid with
   its rectangle.

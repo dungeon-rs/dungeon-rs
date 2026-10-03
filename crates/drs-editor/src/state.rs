@@ -77,6 +77,7 @@ impl EditorState {
                 | Interaction::Handle { .. }
                 | Interaction::Sliding { .. }
                 | Interaction::Outlining { .. }
+                | Interaction::Moving { .. }
         )
     }
 
@@ -233,11 +234,29 @@ pub(crate) enum Interaction {
     Outlining {
         /// The pointer, on screen, when the button went down.
         pointer: Vec2,
+        /// Where the press put the rectangle's first corner, or the click its first point, in
+        /// cells: where snapping put the pointer, or the pointer itself.
+        from: Vec2,
         /// The pointer, on screen, when the rectangle was last dragged; `None` until the drag
         /// begins.
         moved_at: Option<Vec2>,
     },
-    /// The left button went down on an Element; a drag moves it.
+    /// The left button went down on a Wall or a Room; a drag moves it whole, by the amount the
+    /// pointer travelled, in whole cells with snapping.
+    Moving {
+        /// The Wall or the Room under the pointer.
+        element: ElementId,
+        /// Where the pointer was, in cells, when the button went down.
+        from: Vec2,
+        /// The pointer, on screen, when the button went down.
+        pointer: Vec2,
+        /// The pointer, on screen, when the Element was last moved; `None` until the drag begins.
+        moved_at: Option<Vec2>,
+        /// How far it has been moved since the button went down, in cells.
+        moved: Vec2,
+    },
+    /// The left button went down on an Element that is neither a Wall nor a Room; a drag moves
+    /// it.
     Pressed {
         /// The Element under the pointer.
         element: ElementId,

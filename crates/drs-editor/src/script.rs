@@ -20,8 +20,9 @@
 //! - `describe`: log the title, the status line, the dialog open, every clickable widget with its
 //!   rectangle, every cell of the Assets panel's grid with what it shows, the Wall and Room tools,
 //!   every Wall, Portal, and Room, the Paint tool with its Brush, its mode, the selected stroke,
-//!   and the handle being dragged, and every Terrain with each stroke's number, whether it
-//!   erases, its Brush settings, and its points, so a script can be checked and aimed without
+//!   and the handle being dragged, every Terrain with each stroke's number, whether it erases,
+//!   its Brush settings, and its points, and the Snap switch, the Pointer, and the snapped point,
+//!   so a script can be checked and aimed without
 //!   seeing the screen.
 //! - `close`: ask to close the window, as its close button does.
 //! - `quit`: exit the editor.
@@ -173,6 +174,12 @@ pub(crate) struct Described<'w, 's> {
     shapes: Query<'w, 's, (&'static ElementId, &'static WallShape)>,
     /// Every Terrain.
     terrains: Query<'w, 's, (&'static ElementId, &'static Element, &'static Terrain)>,
+    /// The Snap switch.
+    switch: Res<'w, crate::snapping::SnapSwitch>,
+    /// The Pointer.
+    pointer: Res<'w, drs_model::Pointer>,
+    /// The snapped point.
+    snapped: Res<'w, drs_model::SnappedPoint>,
     /// Every Room, with its derived shape once it has one.
     rooms: Query<
         'w,
@@ -228,6 +235,11 @@ pub(crate) fn drive(
                     );
                     crate::paint::describe(&described.state, &described.terrains);
                     crate::rooms::describe(&described.state, &described.rooms);
+                    crate::snapping::describe(
+                        *described.switch,
+                        &described.pointer,
+                        &described.snapped,
+                    );
                 } else {
                     perform(action, *entity, window, &mut commands, &mut injected);
                 }

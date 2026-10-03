@@ -7,6 +7,7 @@
 //! Wall's, through the outline the Wall tool's handles are seen by.
 
 use crate::handles::{HANDLE_PIXELS, HANDLES};
+use crate::snapping::Shown;
 use crate::state::{EditorState, Interaction, Tool};
 use crate::walls::{
     DEFAULT_COLOUR, DEFAULT_THICKNESS, NEAR_THE_LAST, OptionGesture, colour_option, end_option,
@@ -21,8 +22,8 @@ use bevy::gizmos::gizmos::Gizmos;
 use bevy::math::{Isometry2d, Vec2};
 use bevy::window::{PrimaryWindow, Window};
 use drs_model::{
-    Apply, Colour, ElementChange, ElementId, LinePoint, PlaceElement, Placement, Room, RoomShape,
-    Viewport,
+    Apply, Colour, ElementChange, ElementId, LinePoint, PlaceElement, Placement, Pointer, Room,
+    RoomShape, SnappedPoint, Viewport,
 };
 
 /// The floor colour the first Room is drawn with: a light grey.
@@ -118,37 +119,39 @@ pub(crate) fn close(
     place(state, apply, layer, points);
 }
 
-/// A left press with the Room tool: with no point placed it may begin a rectangle, which the
-/// release tells from a click; with points placed it is a click.
+/// A left press with the Room tool, the pointer at `cursor` on screen and snapping putting it at
+/// `cells`, seen at `zoom`: with no point placed it may begin a rectangle, which the release
+/// tells from a click; with points placed it is a click.
 pub(crate) fn press(
     state: &mut EditorState,
     apply: &mut MessageWriter<Apply>,
     layer: Option<Entity>,
-    viewport: &Viewport,
-    cursor: Vec2,
+    zoom: f32,
+    (cursor, cells): (Vec2, Vec2),
 ) {
     if state.rooms.drawing.is_empty() {
         state.interaction = Interaction::Outlining {
             pointer: cursor,
+            from: cells,
             moved_at: None,
         };
     } else {
-        click(state, apply, layer, viewport, cursor);
+        click(state, apply, layer, zoom, cells);
     }
 }
 
-/// A click with the Room tool: within a few pixels of the first point it closes the outline once
-/// three or more points are placed and does nothing before; within a few pixels of the last
-/// point it adds none; anywhere else it adds a point.
+/// A click with the Room tool at `cells`, where snapping put the pointer, seen at `zoom`: within
+/// a few pixels of the first point it closes the outline once three or more points are placed
+/// and does nothing before; within a few pixels of the last point it adds none; anywhere else it
+/// adds the point.
 fn click(
     state: &mut EditorState,
     apply: &mut MessageWriter<Apply>,
     layer: Option<Entity>,
-    viewport: &Viewport,
-    cursor: Vec2,
+    zoom: f32,
+    cells: Vec2,
 ) {
-    let cells = viewport.cells_at(cursor);
-    let near = |point: &Vec2, pixels: f32| point.distance(cells) * viewport.zoom <= pixels;
+    let near = |point: &Vec2, pixels: f32| point.distance(cells) * zoom <= pixels;
     if state
         .rooms
         .drawing
@@ -171,11 +174,16 @@ fn click(
 /// Follows the pointer while the button that may begin a rectangle is held: once it has
 /// travelled farther than `threshold` pixels, the press is a drag.
 pub(crate) fn track(state: &mut EditorState, cursor: Vec2, threshold: f32) {
-    if let Interaction::Outlining { pointer, moved_at } = state.interaction
+    if let Interaction::Outlining {
+        pointer,
+        from,
+        moved_at,
+    } = state.interaction
         && (moved_at.is_some() || (cursor - pointer).length() > threshold)
     {
         state.interaction = Interaction::Outlining {
             pointer,
+            from,
             moved_at: Some(cursor),
         };
     }
@@ -183,16 +191,19 @@ pub(crate) fn track(state: &mut EditorState, cursor: Vec2, threshold: f32) {
 
 /// Ends a press that may have begun a rectangle once its button is up: a drag sends one Place
 /// Element of a Room of the rectangle's four corners, from its lower-left corner
-/// counter-clockwise, unless it is less than a few pixels wide or high; a press that never
-/// became a drag is a click, which adds the first point. A press whose tool was left before
-/// the release, by Escape, another tool, or a chosen Asset, sends and adds nothing.
+/// counter-clockwise, between where snapping put the press and the release, unless those lie
+/// less than a few pixels apart in either direction; its other two corners take one coordinate
+/// from each. A press that never became a drag is a click, which adds the first point where the
+/// press put it. A press whose tool was left before the release, by Escape, another tool, or a
+/// chosen Asset, sends and adds nothing.
 pub(crate) fn release(
     state: &mut EditorState,
     apply: &mut MessageWriter<Apply>,
     layer: Option<Entity>,
     viewport: &Viewport,
+    shown: Shown,
 ) {
-    let Interaction::Outlining { pointer, moved_at } = state.interaction else {
+    let Interaction::Outlining { from, moved_at, .. } = state.interaction else {
         return;
     };
     state.interaction = Interaction::Idle;
@@ -200,14 +211,14 @@ pub(crate) fn release(
         return;
     }
     let Some(released) = moved_at else {
-        click(state, apply, layer, viewport, pointer);
+        click(state, apply, layer, viewport.zoom, from);
         return;
     };
-    let across = (released - pointer).abs();
+    let to = shown.point_or(viewport.cells_at(released));
+    let across = (to - from).abs() * viewport.zoom;
     if across.x < SMALLEST_RECTANGLE || across.y < SMALLEST_RECTANGLE {
         return;
     }
-    let (from, to) = (viewport.cells_at(pointer), viewport.cells_at(released));
     let (low, high) = (from.min(to), from.max(to));
     place(
         state,
@@ -311,18 +322,22 @@ pub(crate) fn end_options(state: &mut EditorState, apply: &mut MessageWriter<App
 }
 
 /// Draws what the Room tool shows over the Level: the outline being drawn as a thin line through
-/// its points with rubber bands from the last point to the pointer and from the pointer to the
-/// first, and the rectangle being dragged. Nothing is drawn while an Export runs.
+/// its points with rubber bands from the last point to where the next click lands, the snapped
+/// point or the pointer, and from there to the first, and the rectangle being dragged between
+/// where snapping put its corners. Nothing is drawn while an Export runs.
 pub(crate) fn draw_overlays(
     mut gizmos: Gizmos,
     state: Res<EditorState>,
     viewport: Res<Viewport>,
     window: Single<&Window, With<PrimaryWindow>>,
+    pointer: Res<Pointer>,
+    snapped: Res<SnappedPoint>,
 ) {
     if state.exporting || state.tool != Tool::Room {
         return;
     }
-    let pointer = window
+    let shown = Shown::of(&snapped, &pointer);
+    let cursor = window
         .cursor_position()
         .filter(|cursor| viewport.contains(*cursor));
     let colour = Color::srgb_u8(
@@ -332,7 +347,7 @@ pub(crate) fn draw_overlays(
     );
     if state.rooms.drawing_in_progress() {
         let radius = HANDLE_PIXELS / viewport.zoom;
-        let at = pointer.map(|cursor| viewport.cells_at(cursor));
+        let at = cursor.map(|cursor| shown.point_or(viewport.cells_at(cursor)));
         let first = state.rooms.drawing.first().copied();
         gizmos.linestrip_2d(
             state.rooms.drawing.iter().copied().chain(at).chain(first),
@@ -343,12 +358,12 @@ pub(crate) fn draw_overlays(
         }
     }
     if let Interaction::Outlining {
-        pointer: from,
+        from,
         moved_at: Some(dragged),
+        ..
     } = state.interaction
     {
-        let to = pointer.unwrap_or(dragged);
-        let (from, to) = (viewport.cells_at(from), viewport.cells_at(to));
+        let to = shown.point_or(viewport.cells_at(cursor.unwrap_or(dragged)));
         gizmos.rect_2d(
             Isometry2d::from_translation(from.midpoint(to)),
             (to - from).abs(),

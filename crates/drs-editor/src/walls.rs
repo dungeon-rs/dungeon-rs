@@ -7,6 +7,7 @@
 //! Place Element; every change to a placed Wall is an Edit Element.
 
 use crate::handles::{HANDLE_PIXELS, HANDLES};
+use crate::snapping::{Shown, SnapSwitch};
 use crate::state::{EditorState, Tool};
 use crate::viewport::LevelView;
 use crate::{portals, rooms};
@@ -21,7 +22,7 @@ use bevy::window::{PrimaryWindow, Window};
 use bevy_egui::EguiContexts;
 use drs_model::{
     Apply, Colour, EditElement, ElementChange, ElementId, Gesture, LinePlace, PlaceElement,
-    Placement, Viewport, Wall, WallShape,
+    Placement, Pointer, SnappedPoint, Viewport, Wall, WallShape,
 };
 
 /// The thickness the first Wall is drawn with: an eighth of a cell.
@@ -149,27 +150,26 @@ pub(crate) fn finish(
     }
 }
 
-/// A click with the Wall tool: the second click of a double-click finishes the Wall at the point
-/// its first click added; any other click adds a point unless it lands within a few pixels of
-/// the last one.
+/// A click with the Wall tool at `cells`, where snapping put the pointer, seen at `zoom`: the
+/// second click of a double-click finishes the Wall at the point its first click added; any other
+/// click adds the point unless it lies within a few pixels of the last one.
 pub(crate) fn draw_click(
     state: &mut EditorState,
     apply: &mut MessageWriter<Apply>,
     layer: Option<Entity>,
-    viewport: &Viewport,
-    cursor: Vec2,
+    zoom: f32,
+    cells: Vec2,
     double: bool,
 ) {
     if double {
         finish(state, apply, layer);
         return;
     }
-    let cells = viewport.cells_at(cursor);
     let near_the_last = state
         .walls
         .drawing
         .last()
-        .is_some_and(|last| last.distance(cells) * viewport.zoom <= NEAR_THE_LAST);
+        .is_some_and(|last| last.distance(cells) * zoom <= NEAR_THE_LAST);
     if !near_the_last {
         state.walls.drawing.push(cells);
     }
@@ -320,7 +320,8 @@ pub(crate) fn colour_option(ui: &mut egui::Ui, label: &str, colour: Colour) -> (
 }
 
 /// The tool strip over the top-left corner of the viewport: Select, Wall, Portal, Room, and Paint,
-/// then the options. With the Paint tool they are the Brush's; with a Portal selected they are
+/// the Snap switch, shown selected while on and switched by a click that is no history step, then
+/// the options. With the Paint tool they are the Brush's; with a Portal selected they are
 /// the Portal's own; with a Room selected, or the Room tool chosen and none selected, they are the
 /// wall thickness, the wall colour, and the floor colour, of the Room or of the next one;
 /// otherwise they are the thickness and the colour, of the selected Wall, a change sent to it as
@@ -333,6 +334,7 @@ pub(crate) fn colour_option(ui: &mut egui::Ui, label: &str, colour: Colour) -> (
 pub(crate) fn tool_strip(
     mut contexts: EguiContexts,
     mut state: ResMut<EditorState>,
+    mut switch: ResMut<SnapSwitch>,
     viewport: Res<Viewport>,
     level: LevelView,
     mut apply: MessageWriter<Apply>,
@@ -358,58 +360,7 @@ pub(crate) fn tool_strip(
             egui::Frame::popup(ui.style()).show(ui, |ui| {
                 ui.set_max_width(strip_width(&viewport, ui.style()));
                 ui.horizontal_wrapped(|ui| {
-                    let tool = state.tool;
-                    let enabled = !state.exporting;
-                    if ui
-                        .add_enabled(
-                            enabled,
-                            egui::Button::selectable(tool == Tool::Select, "Select"),
-                        )
-                        .clicked()
-                    {
-                        leave_tool(&mut state);
-                        crate::paint::leave_paint_tool(&mut state);
-                    }
-                    if ui
-                        .add_enabled(
-                            enabled,
-                            egui::Button::selectable(tool == Tool::Wall, "Wall"),
-                        )
-                        .on_hover_text("W")
-                        .clicked()
-                    {
-                        choose_wall_tool(&mut state);
-                    }
-                    if ui
-                        .add_enabled(
-                            enabled,
-                            egui::Button::selectable(tool == Tool::Portal, "Portal"),
-                        )
-                        .on_hover_text("P")
-                        .clicked()
-                    {
-                        portals::choose_portal_tool(&mut state);
-                    }
-                    if ui
-                        .add_enabled(
-                            enabled,
-                            egui::Button::selectable(tool == Tool::Room, "Room"),
-                        )
-                        .on_hover_text("R")
-                        .clicked()
-                    {
-                        rooms::choose_room_tool(&mut state);
-                    }
-                    if ui
-                        .add_enabled(
-                            enabled,
-                            egui::Button::selectable(tool == Tool::Paint, "Paint"),
-                        )
-                        .on_hover_text("B")
-                        .clicked()
-                    {
-                        crate::paint::choose_paint_tool(&mut state);
-                    }
+                    tools(ui, &mut state, &mut switch);
                     ui.separator();
                     if state.tool == Tool::Paint {
                         portals::end_options(&mut state, &mut apply);
@@ -445,6 +396,77 @@ fn strip_width(viewport: &Viewport, style: &egui::Style) -> f32 {
     let frame = egui::Frame::popup(style).total_margin().sum().x;
     (viewport.area.width() - 2.0 * MARGIN - frame).max(0.0)
 }
+
+/// The tools of the strip, Select, Wall, Portal, Room, and Paint, and the Snap switch after
+/// them, none of which can be used while an Export runs.
+fn tools(ui: &mut egui::Ui, state: &mut EditorState, switch: &mut SnapSwitch) {
+    let tool = state.tool;
+    let enabled = !state.exporting;
+    if ui
+        .add_enabled(
+            enabled,
+            egui::Button::selectable(tool == Tool::Select, "Select"),
+        )
+        .clicked()
+    {
+        leave_tool(state);
+        crate::paint::leave_paint_tool(state);
+    }
+    if ui
+        .add_enabled(
+            enabled,
+            egui::Button::selectable(tool == Tool::Wall, "Wall"),
+        )
+        .on_hover_text("W")
+        .clicked()
+    {
+        choose_wall_tool(state);
+    }
+    if ui
+        .add_enabled(
+            enabled,
+            egui::Button::selectable(tool == Tool::Portal, "Portal"),
+        )
+        .on_hover_text("P")
+        .clicked()
+    {
+        portals::choose_portal_tool(state);
+    }
+    if ui
+        .add_enabled(
+            enabled,
+            egui::Button::selectable(tool == Tool::Room, "Room"),
+        )
+        .on_hover_text("R")
+        .clicked()
+    {
+        rooms::choose_room_tool(state);
+    }
+    if ui
+        .add_enabled(
+            enabled,
+            egui::Button::selectable(tool == Tool::Paint, "Paint"),
+        )
+        .on_hover_text("B")
+        .clicked()
+    {
+        crate::paint::choose_paint_tool(state);
+    }
+    if ui
+        .add_enabled(enabled, egui::Button::selectable(switch.on, "Snap"))
+        .on_hover_text(SNAP_HINT)
+        .clicked()
+    {
+        switch.on = !switch.on;
+    }
+}
+
+/// What the Snap switch's tooltip says.
+const SNAP_HINT: &str = if cfg!(target_os = "macos") {
+    "Snap points to the Grid and to the points of Walls and Rooms; hold Option to place freely"
+} else {
+    "Snap points to the Grid and to the points of Walls and Rooms; hold Alt to place freely"
+};
 
 /// The thickness and colour options, of the selected Wall or of the next one.
 fn options(
@@ -491,12 +513,15 @@ fn options(
 }
 
 /// Draws what the Wall tool shows over the Level: the Wall being drawn as a thin line through its
-/// points with a rubber band to the pointer. Nothing is drawn while an Export runs.
+/// points with a rubber band to where the next click lands, the snapped point or the pointer.
+/// Nothing is drawn while an Export runs.
 pub(crate) fn draw_overlays(
     mut gizmos: Gizmos,
     state: Res<EditorState>,
     viewport: Res<Viewport>,
     window: Single<&Window, With<PrimaryWindow>>,
+    pointer: Res<Pointer>,
+    snapped: Res<SnappedPoint>,
 ) {
     if state.exporting {
         return;
@@ -508,11 +533,12 @@ pub(crate) fn draw_overlays(
             state.walls.colour.green,
             state.walls.colour.blue,
         );
-        let pointer = window
+        let shown = Shown::of(&snapped, &pointer);
+        let next = window
             .cursor_position()
             .filter(|cursor| viewport.contains(*cursor))
-            .map(|cursor| viewport.cells_at(cursor));
-        gizmos.linestrip_2d(state.walls.drawing.iter().copied().chain(pointer), HANDLES);
+            .map(|cursor| shown.point_or(viewport.cells_at(cursor)));
+        gizmos.linestrip_2d(state.walls.drawing.iter().copied().chain(next), HANDLES);
         for point in &state.walls.drawing {
             gizmos.circle_2d(Isometry2d::from_translation(*point), radius / 2.0, colour);
         }

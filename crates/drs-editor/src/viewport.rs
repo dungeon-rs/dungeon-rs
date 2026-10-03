@@ -12,11 +12,12 @@ use crate::handles::{self, Outline};
 use crate::paint;
 use crate::portals;
 use crate::rooms;
+use crate::snapping::Shown;
 use crate::state::{EditorState, Interaction, Tool};
 use crate::walls;
 use bevy::color::Color;
 use bevy::ecs::entity::Entity;
-use bevy::ecs::hierarchy::Children;
+use bevy::ecs::hierarchy::{ChildOf, Children};
 use bevy::ecs::message::{MessageReader, MessageWriter};
 use bevy::ecs::query::With;
 use bevy::ecs::system::{Local, Query, Res, ResMut, Single, SystemParam};
@@ -32,8 +33,8 @@ use bevy_egui::EguiContexts;
 use bevy_egui::input::EguiWantsInput;
 use drs_model::{
     Anchoring, Apply, DrawnAs, EditElement, Element, ElementChange, ElementId, ElementKindRegistry,
-    Gesture, Layer, Level, PlaceElement, Placement, Portal, Redo, RemoveElement, Room, RoomShape,
-    Terrain, Undo, Viewport, Wall, WallShape,
+    Gesture, Layer, Level, PlaceElement, Placement, Pointer, Portal, Redo, RemoveElement, Room,
+    RoomShape, SnappedPoint, Terrain, Undo, Viewport, Wall, WallShape,
 };
 
 /// The zoom factor of one line of a mouse wheel.
@@ -69,6 +70,8 @@ pub(crate) struct LevelView<'w, 's> {
     layers: Query<'w, 's, (Entity, &'static Children), With<Layer>>,
     /// Every Layer, for the one to place on.
     any_layer: Query<'w, 's, Entity, With<Layer>>,
+    /// The Level each Layer belongs to.
+    layer_levels: Query<'w, 's, &'static ChildOf, With<Layer>>,
     /// Every Element's identity and box, its Wall or Room and derived shape when it is one, and
     /// its Portal when it is one.
     elements: Query<'w, 's, Picked>,
@@ -97,6 +100,19 @@ impl LevelView<'_, '_> {
     /// several is a later concern.
     pub(crate) fn current_layer(&self) -> Option<Entity> {
         self.any_layer.iter().next()
+    }
+
+    /// The Level the Author is working on: the current Layer's.
+    pub(crate) fn current_level(&self) -> Option<Entity> {
+        let layer = self.current_layer()?;
+        self.layer_levels.get(layer).ok().map(ChildOf::parent)
+    }
+
+    /// Whether the Element with an identity is a Wall or a Room, which a drag moves by amounts.
+    fn is_outline(&self, element: ElementId) -> bool {
+        self.elements.iter().any(|(id, _, wall, _, _, _, room, _)| {
+            *id == element && (wall.is_some() || room.is_some())
+        })
     }
 
     /// The Terrain a Paint on the current Layer adds to, with its identity: the Layer's topmost.
@@ -269,15 +285,16 @@ fn pointer_gone(
     viewport: &Viewport,
     level: &LevelView,
     input: &Input,
+    shown: Shown,
 ) {
     let released = !input.buttons.pressed(MouseButton::Left);
     if state.interaction == Interaction::Painting && released {
         paint::release(state, apply, viewport, level.current_layer(), None);
     }
-    finish_gesture(state, apply, viewport, input);
+    finish_gesture(state, apply, viewport, input, shown);
     finish_slide(state, apply, viewport, level);
     if released {
-        rooms::release(state, apply, level.current_layer(), viewport);
+        rooms::release(state, apply, level.current_layer(), viewport, shown);
     }
 }
 
@@ -287,10 +304,20 @@ fn pointer_gone(
 /// a modified scroll zooms around the pointer. An Asset chosen while the Wall tool is chosen
 /// leaves the tool, discarding the Wall being drawn.
 ///
+/// A point the Wall or the Room tool adds, a point of a Wall or a Room dragged, and a whole Wall
+/// or Room dragged take the snapped point derived from the Pointer written the frame before, the
+/// one on screen, whenever it answers that Pointer, and the pointer itself otherwise.
+///
 /// A gesture starts only with the pointer over the viewport and egui not using it, a frame late
 /// while a field has the keyboard; one under way ends wherever the button is released, so no
 /// Begin is left without its End. While an
 /// Export runs the pointer is ignored, so the image is of the Level as it was asked for.
+#[expect(
+    clippy::too_many_arguments,
+    clippy::too_many_lines,
+    reason = "a Bevy system is spelled out by what it reads and writes, and the gestures are one \
+              match over what is under way"
+)]
 pub(crate) fn pointer(
     mut input: Input,
     mut state: ResMut<EditorState>,
@@ -299,6 +326,8 @@ pub(crate) fn pointer(
     mut apply: MessageWriter<Apply>,
     time: Res<Time<Real>>,
     mut waiting: Local<Option<(Vec2, bool)>>,
+    written: Res<Pointer>,
+    snapped: Res<SnappedPoint>,
 ) {
     if state.exporting {
         return;
@@ -306,8 +335,9 @@ pub(crate) fn pointer(
     if matches!(state.tool, Tool::Wall | Tool::Room) && state.chosen.is_some() {
         walls::leave_tool(&mut state);
     }
+    let shown = Shown::of(&snapped, &written);
     let Some(cursor) = input.window.cursor_position() else {
-        pointer_gone(&mut state, &mut apply, &viewport, &level, &input);
+        pointer_gone(&mut state, &mut apply, &viewport, &level, &input, shown);
         return;
     };
     let over = viewport.contains(cursor) && !input.egui.wants_any_pointer_input();
@@ -319,11 +349,11 @@ pub(crate) fn pointer(
     match state.interaction {
         Interaction::Idle => {
             if let Some((at, double)) = waiting.take() {
-                press(&mut state, &mut apply, &viewport, &level, at, double);
+                press(&mut state, &mut apply, &viewport, &level, at, double, shown);
             } else if over {
                 let now = time.elapsed_secs_f64();
                 *waiting = start(
-                    &input, &mut state, &mut apply, &viewport, &level, cursor, now,
+                    &input, &mut state, &mut apply, &viewport, &level, cursor, now, shown,
                 );
             }
         }
@@ -351,9 +381,9 @@ pub(crate) fn pointer(
         }
         Interaction::Handle { .. } => {
             if input.buttons.pressed(MouseButton::Left) {
-                drag_handle(&mut state, &mut apply, &viewport, cursor);
+                drag_handle(&mut state, &mut apply, &viewport, cursor, shown);
             } else {
-                finish_gesture(&mut state, &mut apply, &viewport, &input);
+                finish_gesture(&mut state, &mut apply, &viewport, &input, shown);
             }
         }
         Interaction::Sliding { .. } => {
@@ -367,7 +397,20 @@ pub(crate) fn pointer(
             if input.buttons.pressed(MouseButton::Left) {
                 rooms::track(&mut state, cursor, handles::DRAG_THRESHOLD);
             } else {
-                rooms::release(&mut state, &mut apply, level.current_layer(), &viewport);
+                rooms::release(
+                    &mut state,
+                    &mut apply,
+                    level.current_layer(),
+                    &viewport,
+                    shown,
+                );
+            }
+        }
+        Interaction::Moving { .. } => {
+            if input.buttons.pressed(MouseButton::Left) {
+                drag_whole(&mut state, &mut apply, &viewport, cursor, shown);
+            } else {
+                finish_gesture(&mut state, &mut apply, &viewport, &input, shown);
             }
         }
         Interaction::Pressed {
@@ -377,7 +420,7 @@ pub(crate) fn pointer(
             moved_at,
         } => {
             if !input.buttons.pressed(MouseButton::Left) {
-                finish_gesture(&mut state, &mut apply, &viewport, &input);
+                finish_gesture(&mut state, &mut apply, &viewport, &input, shown);
                 return;
             }
             if let Some(gesture) = handles::drag_gesture(pointer, moved_at, cursor) {
@@ -403,6 +446,10 @@ pub(crate) fn pointer(
 /// out a frame late while a field has the keyboard. Such a field sends what was typed into it as
 /// egui lets go of it, in this frame's pass, to what the strip shows then, so the press waits until
 /// the selection it may change has had what was typed for it.
+#[expect(
+    clippy::too_many_arguments,
+    reason = "a press reads the input, the view, the Level, and what snapping shows"
+)]
 fn start(
     input: &Input,
     state: &mut EditorState,
@@ -411,6 +458,7 @@ fn start(
     level: &LevelView,
     cursor: Vec2,
     now: f64,
+    shown: Shown,
 ) -> Option<(Vec2, bool)> {
     let left = input.buttons.just_pressed(MouseButton::Left);
     if input.buttons.just_pressed(MouseButton::Middle)
@@ -426,7 +474,7 @@ fn start(
     if input.egui.wants_any_keyboard_input() {
         return Some((cursor, double));
     }
-    press(state, apply, viewport, level, cursor, double);
+    press(state, apply, viewport, level, cursor, double, shown);
     None
 }
 
@@ -492,12 +540,14 @@ fn finish_slide(
 }
 
 /// Moves the handle being dragged with the pointer, once it has travelled far enough to be a
-/// drag: the first move begins the gesture and every later one continues it.
+/// drag: the first move begins the gesture and every later one continues it. A point goes where
+/// snapping puts the pointer while it snaps.
 fn drag_handle(
     state: &mut EditorState,
     apply: &mut MessageWriter<Apply>,
     viewport: &Viewport,
     cursor: Vec2,
+    shown: Shown,
 ) {
     let Interaction::Handle {
         element,
@@ -512,7 +562,8 @@ fn drag_handle(
     let Some(gesture) = handles::drag_gesture(pointer, moved_at, cursor) else {
         return;
     };
-    let position = origin + (viewport.cells_at(cursor) - viewport.cells_at(pointer));
+    let position =
+        shown.point_or(origin + (viewport.cells_at(cursor) - viewport.cells_at(pointer)));
     apply.write(Apply::EditElement(EditElement {
         element,
         change: handles::handle_change(handle, position),
@@ -533,6 +584,53 @@ fn drag_handle(
     };
 }
 
+/// Moves the Wall or the Room being dragged with the pointer, once it has travelled far enough to
+/// be a drag, by the amount the pointer travelled since the step before, in whole cells while it
+/// snaps: the first move begins the gesture, even by nothing, and every later move that goes
+/// anywhere continues it.
+fn drag_whole(
+    state: &mut EditorState,
+    apply: &mut MessageWriter<Apply>,
+    viewport: &Viewport,
+    cursor: Vec2,
+    shown: Shown,
+) {
+    let Interaction::Moving {
+        element,
+        from,
+        pointer,
+        moved_at,
+        moved,
+    } = state.interaction
+    else {
+        return;
+    };
+    let dragging = moved_at.is_some() || (cursor - pointer).length() > handles::DRAG_THRESHOLD;
+    if !dragging || moved_at == Some(cursor) {
+        return;
+    }
+    let travel = shown.travel_or(viewport.cells_at(cursor) - from);
+    let amount = travel - moved;
+    if moved_at.is_none() || amount != Vec2::ZERO {
+        apply.write(Apply::EditElement(EditElement {
+            element,
+            change: ElementChange::MoveBy(amount),
+            gesture: if moved_at.is_some() {
+                Gesture::Continue
+            } else {
+                Gesture::Begin
+            },
+        }));
+    }
+    state.interaction = Interaction::Moving {
+        element,
+        from,
+        pointer,
+        moved_at: Some(cursor),
+        moved: travel,
+    };
+}
+
 /// A left press over the viewport: with the Paint tool, starts a stroke; with the Wall tool, adds
 /// a point of the Wall being drawn or finishes it; with the Room tool, adds a point of the outline
 /// being drawn, closes it, or may begin a rectangle; with the Portal tool, places a Portal of the
@@ -540,6 +638,7 @@ fn drag_handle(
 /// a Prop of it centred on the pointer; otherwise picks a handle of the selected Wall or Room or
 /// adds a point on its line, or selects the topmost Element under the pointer and arms a drag, or
 /// a slide for a Portal set into a Wall, letting any handle go; empty space clears the selection.
+/// The Wall and the Room tool put their points where snapping put the pointer.
 fn press(
     state: &mut EditorState,
     apply: &mut MessageWriter<Apply>,
@@ -547,24 +646,33 @@ fn press(
     level: &LevelView,
     cursor: Vec2,
     double: bool,
+    shown: Shown,
 ) {
     if state.tool == Tool::Paint {
         paint::press(state, level.current_terrain(), viewport, cursor);
         return;
     }
     if state.tool == Tool::Wall {
+        let at = shown.point_or(viewport.cells_at(cursor));
         walls::draw_click(
             state,
             apply,
             level.current_layer(),
-            viewport,
-            cursor,
+            viewport.zoom,
+            at,
             double,
         );
         return;
     }
     if state.tool == Tool::Room {
-        rooms::press(state, apply, level.current_layer(), viewport, cursor);
+        let at = shown.point_or(viewport.cells_at(cursor));
+        rooms::press(
+            state,
+            apply,
+            level.current_layer(),
+            viewport.zoom,
+            (cursor, at),
+        );
         return;
     }
     let cells = viewport.cells_at(cursor);
@@ -594,6 +702,15 @@ fn press(
     state.handle = None;
     match hit {
         Some((element, _, true)) => portals::press_set(state, element, cursor),
+        Some((element, _, false)) if level.is_outline(element) => {
+            state.interaction = Interaction::Moving {
+                element,
+                from: cells,
+                pointer: cursor,
+                moved_at: None,
+                moved: Vec2::ZERO,
+            };
+        }
         Some((element, origin, false)) => {
             state.interaction = Interaction::Pressed {
                 element,
@@ -607,13 +724,15 @@ fn press(
 }
 
 /// Ends a drag that is under way once its button is up: the position the pointer last moved the
-/// Element or the handle to is sent again as the end of the gesture, so the whole drag is one
-/// history step. A press that never became a drag just ends.
+/// Element or the handle to is sent again as the end of the gesture, or for a whole Wall or Room
+/// the rest of the amount it travelled, so the whole drag is one history step. A press that never
+/// became a drag just ends.
 fn finish_gesture(
     state: &mut EditorState,
     apply: &mut MessageWriter<Apply>,
     viewport: &Viewport,
     input: &Input,
+    shown: Shown,
 ) {
     match state.interaction {
         // A slide ends through `finish_slide`, which knows the Portal's Wall, and a rectangle
@@ -640,10 +759,31 @@ fn finish_gesture(
                 return;
             }
             if let Some(last) = moved_at {
-                let position = origin + (viewport.cells_at(last) - viewport.cells_at(pointer));
+                let position =
+                    shown.point_or(origin + (viewport.cells_at(last) - viewport.cells_at(pointer)));
                 apply.write(Apply::EditElement(EditElement {
                     element,
                     change: handles::handle_change(handle, position),
+                    gesture: Gesture::End,
+                }));
+            }
+            state.interaction = Interaction::Idle;
+        }
+        Interaction::Moving {
+            element,
+            from,
+            moved_at,
+            moved,
+            ..
+        } => {
+            if input.buttons.pressed(MouseButton::Left) {
+                return;
+            }
+            if let Some(last) = moved_at {
+                let travel = shown.travel_or(viewport.cells_at(last) - from);
+                apply.write(Apply::EditElement(EditElement {
+                    element,
+                    change: ElementChange::MoveBy(travel - moved),
                     gesture: Gesture::End,
                 }));
             }
