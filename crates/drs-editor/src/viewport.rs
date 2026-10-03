@@ -109,26 +109,18 @@ impl LevelView<'_, '_> {
         self.layer_levels.get(layer).ok().map(ChildOf::parent)
     }
 
-    /// Whether the Element with an identity is a Wall or a Room, which a drag moves by amounts.
-    fn is_outline(&self, element: ElementId) -> bool {
-        self.elements.iter().any(|(id, _, wall, _, _, _, room, _)| {
-            *id == element && (wall.is_some() || room.is_some())
-        })
-    }
-
     /// The Terrain a Paint on the current Layer adds to, with its identity: the Layer's topmost.
     pub(crate) fn current_terrain(&self) -> Option<(ElementId, &Terrain)> {
         self.terrains.on(self.current_layer())
     }
 
-    /// The topmost Element under a point in cells at `zoom`, with its centre and whether it is a
-    /// Portal that follows its Wall or Room: Layers from the top down, and each Layer's Elements
-    /// from the last drawn back. A Wall is under the point when its line is near enough outside
-    /// the stretches its Portals cover, a Room when the point is inside its floor or so near its
-    /// Walls, a Portal when its turned rectangle holds the point, and any other Element when its
-    /// box does; an Element drawn as a painted surface, a Terrain, never is, so the ground never
-    /// gets in the way of what stands on it.
-    fn topmost_at(&self, cells: Vec2, zoom: f32) -> Option<(ElementId, Vec2, bool)> {
+    /// The topmost Element under a point in cells at `zoom`, as what a drag does with it: Layers
+    /// from the top down, and each Layer's Elements from the last drawn back. A Wall is under the
+    /// point when its line is near enough outside the stretches its Portals cover, a Room when
+    /// the point is inside its floor or so near its Walls, a Portal when its turned rectangle
+    /// holds the point, and any other Element when its box does; an Element drawn as a painted
+    /// surface, a Terrain, never is, so the ground never gets in the way of what stands on it.
+    fn topmost_at(&self, cells: Vec2, zoom: f32) -> Option<Hit> {
         self.levels.iter().find_map(|layers| {
             layers.iter().rev().find_map(|&layer| {
                 let (_, elements) = self.layers.get(layer).ok()?;
@@ -138,23 +130,31 @@ impl LevelView<'_, '_> {
                     if self.painted(element) {
                         return None;
                     }
-                    let hit = match (wall, shape, portal, room, room_shape) {
+                    let other = Hit::Other(*id, element.position);
+                    match (wall, shape, portal, room, room_shape) {
                         (Some(wall), Some(shape), ..) => {
                             walls::on_wall(wall.thickness, shape, cells, zoom)
+                                .then_some(Hit::Outline(*id))
                         }
-                        (Some(_), None, ..) | (None, _, _, Some(_), None) => false,
+                        (Some(_), None, ..) | (None, _, _, Some(_), None) => None,
                         (None, _, _, Some(room), Some(room_shape)) => {
                             rooms::on_room(room, room_shape, cells, zoom)
+                                .then_some(Hit::Outline(*id))
                         }
-                        (None, _, Some(portal), None, _) => {
-                            portals::on_portal(element, portal, cells)
-                        }
+                        (None, _, Some(portal), None, _) => portals::on_portal(
+                            element, portal, cells,
+                        )
+                        .then_some(if portal.follows(anchoring) {
+                            Hit::SetPortal(*id)
+                        } else {
+                            other
+                        }),
                         (None, _, None, None, _) => {
-                            Rect::from_center_size(element.position, element.size).contains(cells)
+                            Rect::from_center_size(element.position, element.size)
+                                .contains(cells)
+                                .then_some(other)
                         }
-                    };
-                    let set = hit && portal.is_some_and(|portal| portal.follows(anchoring));
-                    hit.then_some((*id, element.position, set))
+                    }
                 })
             })
         })
@@ -275,6 +275,26 @@ pub(crate) fn let_go_of_fields_on_press(mut contexts: EguiContexts) {
         ctx.options_mut(|options| {
             options.input_options.surrender_focus_on = egui::SurrenderFocusOn::Presses;
         });
+    }
+}
+
+/// What a press finds under the pointer, as a drag of it goes.
+#[derive(Debug, Clone, Copy, PartialEq)]
+enum Hit {
+    /// A Wall or a Room, which a drag moves whole by amounts.
+    Outline(ElementId),
+    /// A Portal set into a Wall or a Room, which a drag slides along its line.
+    SetPortal(ElementId),
+    /// Any other Element, with its centre, which a drag moves to a position.
+    Other(ElementId, Vec2),
+}
+
+impl Hit {
+    /// The Element found.
+    fn element(self) -> ElementId {
+        match self {
+            Self::Outline(element) | Self::SetPortal(element) | Self::Other(element, _) => element,
+        }
     }
 }
 
@@ -678,18 +698,18 @@ fn press(
         return;
     }
     let hit = level.topmost_at(cells, viewport.zoom);
-    state.selected = hit.map(|(id, ..)| id);
+    state.selected = hit.map(Hit::element);
     state.handle = None;
     match hit {
-        Some((element, _, true)) => portals::press_set(state, element, cursor),
-        Some((element, _, false)) if level.is_outline(element) => {
+        Some(Hit::SetPortal(element)) => portals::press_set(state, element, cursor),
+        Some(Hit::Outline(element)) => {
             state.interaction = Interaction::Moving {
                 element,
                 from: cells,
                 drag: Drag::new(cursor),
             };
         }
-        Some((element, origin, false)) => {
+        Some(Hit::Other(element, origin)) => {
             state.interaction = Interaction::Pressed {
                 element,
                 origin,
