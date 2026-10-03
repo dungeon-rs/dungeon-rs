@@ -15,6 +15,7 @@
 mod support;
 
 use bevy::app::App;
+use bevy::ecs::change_detection::Tick;
 use bevy::ecs::entity::Entity;
 use bevy::ecs::hierarchy::{ChildOf, Children};
 use bevy::ecs::message::Messages;
@@ -22,8 +23,8 @@ use bevy::math::{UVec2, Vec2};
 use drs_model::{
     Apply, AssetAddress, Colour, Element, ElementChange, ElementId, FolderKey, Gesture, Layer,
     Level, OpenProject, PlaceElement, Placement, PointOf, Pointer, Project, ProjectOpened,
-    ProjectRefused, ProjectRequest, ProjectSaved, Room, SaveProject, Snapped, SnappedPoint,
-    Snapping, Wall,
+    ProjectRefused, ProjectRequest, ProjectSaved, RemoveElement, Room, SaveProject, Snapped,
+    SnappedPoint, Snapping, Wall,
 };
 use std::path::{Path, PathBuf};
 use support::edit;
@@ -216,6 +217,20 @@ impl Fixture {
             snapped.pointer
         );
         snapped.snapped
+    }
+
+    /// What the snapped point holds now, without writing the Pointer.
+    fn answer(&self) -> Option<Snapped> {
+        self.app.world().resource::<SnappedPoint>().snapped
+    }
+
+    /// When the snapped point was last written.
+    fn written(&self) -> Tick {
+        self.app
+            .world()
+            .get_resource_change_ticks::<SnappedPoint>()
+            .expect("the snapped point is a resource")
+            .changed
     }
 
     /// The point a pointer at `cells` on the first Level is put at, leaving out `left_out`.
@@ -472,6 +487,75 @@ fn what_a_point_snaps_to() {
     ] {
         assert_eq!(fixture.point(cells), (cells.round(), None), "{what}");
     }
+}
+
+/// The points within reach are those of the Walls and Rooms as they stand: with the pointer
+/// still, a Room placed within reach, moved away, or removed changes where the point is put at
+/// once, and the snapped point is written only when that answer differs.
+#[test]
+fn points_within_reach_follow_the_rooms() {
+    let mut fixture = Fixture::new();
+    let (level, layer) = fixture.level();
+    let grid = Some(Snapped::Point {
+        position: Vec2::new(2.0, 1.0),
+        on: None,
+    });
+    let still = Pointer {
+        level: Some(level),
+        cells: Vec2::new(2.13, 1.04),
+        reach: REACH,
+        snapping: Snapping::Point { left_out: None },
+    };
+    assert_eq!(fixture.snap(still), grid);
+    let written = fixture.written();
+    fixture.app.update();
+    assert_eq!(
+        fixture.written(),
+        written,
+        "nothing changed, nothing written"
+    );
+
+    let corner = Vec2::new(2.1, 1.1);
+    let room = fixture.room_on(layer, &[corner, Vec2::new(5.1, 1.1), Vec2::new(5.1, 4.1)]);
+    let on_corner = Some(Snapped::Point {
+        position: corner,
+        on: Some(room),
+    });
+    assert_eq!(fixture.answer(), on_corner, "a Room placed within reach");
+
+    let written = fixture.written();
+    fixture.edit(room, ElementChange::Colour(LIGHT), Gesture::Single);
+    assert_eq!(fixture.answer(), on_corner);
+    assert_eq!(
+        fixture.written(),
+        written,
+        "an edit that leaves the answer as it was writes nothing"
+    );
+
+    fixture.edit(
+        room,
+        ElementChange::MoveBy(Vec2::new(1.0, 0.0)),
+        Gesture::Single,
+    );
+    assert_eq!(fixture.answer(), grid, "a Room moved out of reach");
+    fixture.edit(
+        room,
+        ElementChange::MoveBy(Vec2::new(-1.0, 0.0)),
+        Gesture::Single,
+    );
+    assert_eq!(fixture.answer(), on_corner, "and back");
+
+    fixture.apply(Apply::RemoveElement(RemoveElement { element: room }));
+    assert_eq!(fixture.answer(), grid, "a Room removed");
+    assert!(
+        fixture
+            .app
+            .world()
+            .resource::<SnappedPoint>()
+            .pointer
+            .same_but_for_position(&still),
+        "every answer is to the Pointer as it was left"
+    );
 }
 
 /// While a point is dragged, that point is never within reach of itself; every other point of
