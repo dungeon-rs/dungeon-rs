@@ -51,8 +51,9 @@ pub use serialisation::{
 };
 pub use snapshot::{LayerSnapshot, LevelSnapshot, ProjectSnapshot};
 pub use terrain::{
-    BrushSettings, COVERAGE_PIXELS_PER_CELL, COVERAGE_TILE_CELLS, COVERAGE_TILE_PIXELS,
-    CoverageTile, Stroke, TERRAIN, Terrain, TerrainCoverage, TileKey,
+    BrushSettings, COVERAGE_BANDS, COVERAGE_PIXELS_PER_CELL, COVERAGE_TILE_CELLS,
+    COVERAGE_TILE_PIXELS, CoverageTile, GpuTile, Stroke, TERRAIN, Terrain, TerrainCoverage,
+    TileKey, tile_cells,
 };
 pub use thumbnails::{THUMBNAIL_SOURCE, ThumbnailState, Thumbnails};
 pub use viewport::Viewport;

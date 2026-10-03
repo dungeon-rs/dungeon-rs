@@ -58,9 +58,13 @@ with the [`BrushSettings`](crate::BrushSettings) it was laid with, a size, a
 hardness, and a strength, and whether it erases. A Terrain's
 [`TerrainCoverage`](crate::TerrainCoverage), how much of its Material shows
 where, is derived from its strokes and never saved: tiles of 512 by 512 pixels at
-32 pixels per cell, keyed by their [`TileKey`](crate::TileKey) in the Level's
-pixel plane, negative keys included, each with a revision that changes only when
-its pixels do. The authoring Manager writes it; the render Engine draws it.
+its active band, a number of pixels per cell, 32 for the base or 64, 128, or 256
+for a closer zoom, keyed by their [`TileKey`](crate::TileKey) in the Level's
+pixel plane at that band, negative keys included. Each tile has a revision that
+changes when its pixels do, and either holds its pixels, rasterized on the CPU,
+or names the image on the GPU that holds them by a plain
+[`GpuTile`](crate::GpuTile) identity the render Engine maps to the image. The
+authoring Manager writes it; the render Engine draws it.
 
 A [`ProjectSnapshot`](crate::ProjectSnapshot) holds every component of every
 entity of the Project as an envelope of a version and data under a stable name,

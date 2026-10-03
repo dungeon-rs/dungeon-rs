@@ -224,17 +224,23 @@ impl Serialisable for Terrain {
     }
 }
 
-/// How many coverage pixels span one Grid cell in a [`TerrainCoverage`].
+/// How many coverage pixels span one Grid cell at the base band of a [`TerrainCoverage`]: the
+/// band it is held at wherever the strokes reach, whatever the zoom.
 pub const COVERAGE_PIXELS_PER_CELL: u32 = 32;
+
+/// The bands a [`TerrainCoverage`] can be shown at, in pixels per Grid cell, the base first; the
+/// others show the view at a closer zoom.
+pub const COVERAGE_BANDS: [u32; 4] = [COVERAGE_PIXELS_PER_CELL, 64, 128, 256];
 
 /// How many pixels a side a tile of a [`TerrainCoverage`] has.
 pub const COVERAGE_TILE_PIXELS: u32 = 512;
 
-/// How many Grid cells a side a tile of a [`TerrainCoverage`] covers.
+/// How many Grid cells a side a tile of a [`TerrainCoverage`] covers at the base band.
 pub const COVERAGE_TILE_CELLS: u32 = COVERAGE_TILE_PIXELS / COVERAGE_PIXELS_PER_CELL;
 
-/// The position of a coverage tile in the Level's pixel plane: the tile `(x, y)` covers the
-/// cells from `(x, y) × 16` up to the next tile's, negative positions included.
+/// The position of a coverage tile in the Level's pixel plane at a band: the tile `(x, y)` covers
+/// the cells from `(x, y)` times its side up to the next tile's, negative positions included; at
+/// the base band a side is 16 cells.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct TileKey {
     /// The column, counted to the right from the tile whose lower-left corner is the origin.
@@ -244,35 +250,82 @@ pub struct TileKey {
 }
 
 impl TileKey {
-    /// The lower-left corner of the tile, in Grid cells.
+    /// The lower-left corner of the tile at the base band, in Grid cells.
     #[must_use]
     pub fn corner(self) -> Vec2 {
+        self.corner_at(COVERAGE_PIXELS_PER_CELL)
+    }
+
+    /// The lower-left corner of the tile at `band` pixels per cell, in Grid cells.
+    #[must_use]
+    pub fn corner_at(self, band: u32) -> Vec2 {
+        let side = tile_cells(band);
         #[expect(
             clippy::cast_precision_loss,
             reason = "tile positions are far below where f32 loses whole numbers"
         )]
-        let cells = |tile: i32| tile as f32 * COVERAGE_TILE_CELLS as f32;
+        let cells = |tile: i32| tile as f32 * side;
         Vec2::new(cells(self.x), cells(self.y))
     }
 }
 
+/// How many Grid cells a side a coverage tile covers at `band` pixels per cell.
+#[must_use]
+pub fn tile_cells(band: u32) -> f32 {
+    #[expect(
+        clippy::cast_precision_loss,
+        reason = "a tile's pixels and a band are small whole numbers, exact in f32"
+    )]
+    let cells = COVERAGE_TILE_PIXELS as f32 / band.max(1) as f32;
+    cells
+}
+
+/// An image on the GPU that holds a coverage tile's pixels: an opaque identity the paint Engine
+/// gives and the render Engine maps to the image, so the model names it without holding it.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
+pub struct GpuTile(pub u64);
+
 /// One tile of a Terrain's coverage.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CoverageTile {
-    /// A number that changes whenever the tile's pixels do, and only then.
+    /// A number that changes whenever the tile's pixels do, and only then; for a tile on the GPU,
+    /// whenever its pixels are rasterized, as they never come back to be compared.
     pub revision: u64,
     /// One byte a pixel, `512 × 512` of them, rows from the tile's top; 255 is full coverage.
-    /// The buffer is shared with whoever computed it, so publishing it copies no pixels.
+    /// The buffer is shared with whoever computed it, so publishing it copies no pixels. Empty
+    /// for a tile rasterized on the GPU, whose pixels stay there.
     pub pixels: Arc<[u8]>,
+    /// The image on the GPU holding the tile's pixels, for a tile rasterized there; `None` for a
+    /// tile rasterized on the CPU.
+    pub image: Option<GpuTile>,
 }
 
-/// A Terrain's coverage at [`COVERAGE_PIXELS_PER_CELL`], derived from its strokes and never
-/// saved: the tiles some stroke covers, by position; an absent tile is empty.
+/// A Terrain's coverage as the editor shows it, derived from its strokes and never saved: the
+/// tiles of its active band that the paint Engine holds, by position; an absent tile is empty.
 ///
-/// The authoring Manager writes it whenever the Terrain's strokes change, after every Manager
-/// has handled its Commands, Undo, and Redo; the render Engine draws it.
-#[derive(Component, Debug, Clone, Default, PartialEq, Eq)]
+/// At the base band the tiles are wherever some stroke covers; at another band, those that meet
+/// the view and that some stroke reaches, and a few beside them.
+///
+/// The authoring Manager writes it whenever the Terrain's strokes, or the view, change, after
+/// every Manager has handled its Commands, Undo, and Redo; the render Engine draws it.
+#[derive(Component, Debug, Clone, PartialEq, Eq)]
 pub struct TerrainCoverage {
-    /// The tiles, by position.
+    /// The active band: how many pixels span one Grid cell in every tile, one of
+    /// [`COVERAGE_BANDS`].
+    pub band: u32,
+    /// The tiles, by position at the band.
     pub tiles: BTreeMap<TileKey, CoverageTile>,
+    /// How many tiles the base band holds, whichever band is active.
+    pub base_tiles: usize,
+}
+
+impl Default for TerrainCoverage {
+    /// No tile, at the base band.
+    fn default() -> Self {
+        Self {
+            band: COVERAGE_PIXELS_PER_CELL,
+            tiles: BTreeMap::new(),
+            base_tiles: 0,
+        }
+    }
 }

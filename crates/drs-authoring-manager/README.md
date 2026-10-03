@@ -52,9 +52,11 @@ it erases, each through the generic field command so a drag is one step; naming 
 erasing it already has records nothing. Removing a stroke, the only edit that renumbers strokes, is
 a step of its own that puts it back at its number on undo, and removing the only stroke removes the
 Terrain. After every Manager has handled the frame's Commands, Undo, and Redo, the Manager brings
-each changed Terrain's tiled coverage up to its strokes through the paint Engine, keeping the
-Engine's cache, which only the Engine looks inside, in a component of its own; it publishes the
-coverage again when a tile changed, and sets the Element's box around the strokes.
+each changed Terrain's tiled coverage up to its strokes, and every Terrain's up to the view when the
+Viewport changed, through the paint Engine, which rasterizes on the GPU when the editor renders and
+on the CPU otherwise; it keeps the Engine's cache, which only the Engine looks inside, in a
+component of its own, publishes the coverage again when something it holds changed, and sets the
+Element's box around the strokes.
 
 The Editor sends it `Apply`, `Undo`, and `Redo` messages; a Command that cannot be carried out is
 answered with a `CommandFailed` message that says why, and an undo or redo that cannot be with a

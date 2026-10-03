@@ -4,20 +4,20 @@
 
 use crate::AuthoringError;
 use crate::place::{Resolved, indexed_asset, project_of, resolve, spawn_beneath, take_off};
+use bevy_ecs::change_detection::{DetectChanges, Ref};
 use bevy_ecs::component::Component;
 use bevy_ecs::entity::Entity;
 use bevy_ecs::error::BevyError;
 use bevy_ecs::hierarchy::Children;
-use bevy_ecs::query::Changed;
-use bevy_ecs::system::{Commands, Query};
+use bevy_ecs::system::{Commands, Query, Res};
 use bevy_ecs::world::World;
 use drs_history::{ReversibleCommand, SetField, Target};
 use drs_model::{
     AssetAddress, AssetFolderReference, AssetReference, AssetReferenceRow, AssetReferences,
     Element, ElementChange, ElementId, Paint, Stroke, StrokeChange, TERRAIN, Terrain,
-    TerrainCoverage,
+    TerrainCoverage, Viewport,
 };
-use drs_paint_engine::{PaintCache, apply_stroke};
+use drs_paint_engine::{PaintCache, StrokeRasterizer, apply_stroke};
 use unicode_normalization::UnicodeNormalization;
 
 /// The recorded step of the first stroke on a Layer: the Terrain spawned under every Element on
@@ -542,29 +542,35 @@ fn remove_stroke(
 pub(crate) struct Painted(PaintCache);
 
 /// Brings the coverage of every Terrain whose strokes may have changed since the last frame up
-/// to its strokes through the paint Engine, publishes it when a tile changed, and sets the
-/// Element's box around the strokes. A new image keeps the coverage.
+/// to its strokes, and of every Terrain when the view changed up to the view, through the paint
+/// Engine, publishes it when something it holds changed, and sets the Element's box around the
+/// strokes. A new image keeps the coverage.
 #[expect(
     clippy::type_complexity,
     reason = "a Bevy query is spelled out by the components it reads and writes"
 )]
 pub(crate) fn derive_coverage(
     mut commands: Commands,
-    mut terrains: Query<
-        (
-            Entity,
-            &Terrain,
-            &mut Element,
-            Option<&mut TerrainCoverage>,
-            Option<&mut Painted>,
-        ),
-        Changed<Terrain>,
-    >,
+    mut terrains: Query<(
+        Entity,
+        Ref<Terrain>,
+        &mut Element,
+        Option<&mut TerrainCoverage>,
+        Option<&mut Painted>,
+    )>,
+    viewport: Option<Res<Viewport>>,
+    mut rasterizer: StrokeRasterizer,
 ) {
+    let looked_elsewhere = viewport.as_ref().is_some_and(DetectChanges::is_changed);
+    let viewport = viewport.map_or_else(Viewport::default, |viewport| *viewport);
     for (entity, terrain, mut element, coverage, painted) in &mut terrains {
+        let repainted = terrain.is_changed();
+        if !repainted && !looked_elsewhere {
+            continue;
+        }
         match (coverage, painted) {
             (Some(mut coverage), Some(mut painted)) => {
-                if apply_stroke(&mut painted.0, &terrain.strokes) {
+                if apply_stroke(&mut painted.0, &terrain.strokes, &viewport, &mut rasterizer) {
                     *coverage = painted.0.coverage();
                 }
             }
@@ -572,11 +578,14 @@ pub(crate) fn derive_coverage(
                 let mut cache = painted
                     .map(|mut painted| std::mem::take(&mut painted.0))
                     .unwrap_or_default();
-                apply_stroke(&mut cache, &terrain.strokes);
+                apply_stroke(&mut cache, &terrain.strokes, &viewport, &mut rasterizer);
                 commands
                     .entity(entity)
                     .insert((cache.coverage(), Painted(cache)));
             }
+        }
+        if !repainted {
+            continue;
         }
         let footprint = terrain.element_box();
         if element.position != footprint.center() {

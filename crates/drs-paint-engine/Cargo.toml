@@ -10,8 +10,18 @@ repository.workspace = true
 authors.workspace = true
 
 [dependencies]
+bevy_app = { workspace = true }
+bevy_asset = { workspace = true }
+bevy_ecs = { workspace = true }
+bevy_image = { workspace = true }
 bevy_math = { workspace = true }
+bevy_render = { workspace = true }
+bevy_shader = { workspace = true }
 drs-model = { path = "../drs-model" }
+log = { workspace = true }
+
+[dev-dependencies]
+naga = { workspace = true }
 
 [features]
 default = []

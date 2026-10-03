@@ -56,6 +56,13 @@ impl Viewport {
         self.area.center() + Vec2::new(offset.x, -offset.y)
     }
 
+    /// The rectangle of cells shown: the area's size at the zoom, around the centre; of no size
+    /// before the Editor lays the area out.
+    #[must_use]
+    pub fn view(&self) -> Rect {
+        Rect::from_center_half_size(self.centre, self.area.half_size() / self.zoom)
+    }
+
     /// Whether a screen point lies in the area the Level is shown in.
     #[must_use]
     pub fn contains(&self, point: Vec2) -> bool {

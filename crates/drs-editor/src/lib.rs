@@ -100,7 +100,11 @@ impl Plugin for EditorPlugin {
                         // screen, before the Pointer of this frame is written for it to answer.
                         snapping::write_pointer.before(SnapSystems),
                     )
-                        .chain(),
+                        .chain()
+                        // The Viewport is where the Author looks before the Managers derive
+                        // anything from it, so Terrain is shown at the new zoom and around the
+                        // new centre in the frame the view moves.
+                        .before(ManagerSystems::Commands),
                     // The overlays are drawn from the Level as this frame's Commands, Undo, and
                     // Redo leave it, so an outline or a marker never shows the frame before.
                     (

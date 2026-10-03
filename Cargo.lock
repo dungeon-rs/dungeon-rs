@@ -2559,8 +2559,16 @@ dependencies = [
 name = "drs-paint-engine"
 version = "0.0.1"
 dependencies = [
+ "bevy_app",
+ "bevy_asset",
+ "bevy_ecs",
+ "bevy_image",
  "bevy_math",
+ "bevy_render",
+ "bevy_shader",
  "drs-model",
+ "log",
+ "naga",
 ]
 
 [[package]]
