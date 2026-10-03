@@ -13,18 +13,18 @@ use bevy_render::render_asset::RenderAssets;
 use bevy_render::render_resource::binding_types::{storage_buffer_read_only, uniform_buffer};
 use bevy_render::render_resource::{
     BindGroup, BindGroupEntries, BindGroupLayoutDescriptor, BindGroupLayoutEntries, BlendComponent,
-    BlendFactor, BlendOperation, BlendState, CachedRenderPipelineId, ColorTargetState, ColorWrites,
-    DynamicUniformBuffer, Extent3d, FragmentState, LoadOp, Operations, PipelineCache,
-    PrimitiveState, RenderPassColorAttachment, RenderPassDescriptor, RenderPipelineDescriptor,
-    ShaderStages, ShaderType, StorageBuffer, StoreOp, TextureDimension, TextureFormat,
-    TextureUsages, VertexState,
+    BlendFactor, BlendOperation, BlendState, CachedPipelineState, CachedRenderPipelineId,
+    ColorTargetState, ColorWrites, DynamicUniformBuffer, Extent3d, FragmentState, LoadOp,
+    Operations, PipelineCache, PrimitiveState, RenderPassColorAttachment, RenderPassDescriptor,
+    RenderPipelineDescriptor, ShaderStages, ShaderType, StorageBuffer, StoreOp, TextureDimension,
+    TextureFormat, TextureUsages, VertexState,
 };
 use bevy_render::renderer::{
     RenderContext, RenderDevice, RenderGraph, RenderGraphSystems, RenderQueue,
 };
 use bevy_render::texture::GpuImage;
 use bevy_render::{ExtractSchedule, MainWorld, Render, RenderApp, RenderStartup, RenderSystems};
-use bevy_shader::Shader;
+use bevy_shader::{Shader, ShaderCacheError};
 use drs_model::{COVERAGE_TILE_PIXELS, GpuTile, Stroke, TileKey};
 use std::collections::{BTreeMap, BTreeSet};
 use std::ops::Range;
@@ -64,15 +64,18 @@ impl Plugin for PaintEnginePlugin {
     }
 
     /// Adds the stroke Shader once every plugin is built, so the shader assets exist whichever
-    /// order the plugins were added in.
+    /// order the plugins were added in. Without it no work is handed to the render world, which
+    /// could never draw it, and coverage is rasterized on the CPU.
     fn finish(&self, app: &mut App) {
         if app.world().get_resource::<StrokeJobs>().is_none() {
             return;
         }
         let Some(mut shaders) = app.world_mut().get_resource_mut::<Assets<Shader>>() else {
             log::warn!(
-                "there are no shader assets to add the stroke Shader to, so Terrain is not drawn"
+                "there are no shader assets to add the stroke Shader to, so Terrain is \
+                 rasterized on the CPU"
             );
+            app.world_mut().remove_resource::<StrokeJobs>();
             return;
         };
         if shaders
@@ -82,7 +85,8 @@ impl Plugin for PaintEnginePlugin {
             )
             .is_err()
         {
-            log::warn!("the stroke Shader could not be added, so Terrain is not drawn");
+            log::warn!("the stroke Shader could not be added, so Terrain is rasterized on the CPU");
+            app.world_mut().remove_resource::<StrokeJobs>();
         }
     }
 }
@@ -386,16 +390,131 @@ fn queue_pipelines(mut commands: Commands, cache: Res<PipelineCache>) {
 /// The work taken from the main world and not drawn yet, and what drawing it this frame needs.
 #[derive(Resource, Default)]
 struct Pending {
-    /// The segments of every stroke the passes draw.
-    segments: Vec<SegmentData>,
-    /// The tiles to draw into, in order.
-    passes: Vec<Pass>,
+    /// The work waiting to be drawn.
+    waiting: Waiting,
     /// The tiles' uniforms.
     tiles: DynamicUniformBuffer<TileData>,
     /// The segments on the GPU.
     segment_buffer: StorageBuffer<Vec<SegmentData>>,
     /// What this frame draws with, once everything it needs is ready.
     prepared: Option<Prepared>,
+    /// Whether the stroke pipeline failed to compile, and that was said.
+    failed: bool,
+}
+
+/// The work taken from the main world and not drawn yet: the tiles to draw into, in order, and
+/// the segments their strokes are made of.
+#[derive(Debug, Default)]
+struct Waiting {
+    /// The segments of every stroke the passes draw.
+    segments: Vec<SegmentData>,
+    /// The tiles to draw into, in order.
+    passes: Vec<Pass>,
+}
+
+impl Waiting {
+    /// Adds the work handed over in a frame after the work already waiting. A pass that clears
+    /// its tile draws everything the passes before it drew there, so it supersedes every earlier
+    /// pass for that tile: work waiting for the pipeline holds, for each tile, at most one cleared
+    /// pass and those drawn onto it since, and only the segments they draw.
+    fn absorb(&mut self, jobs: StrokeJobs) {
+        let offset = segment_count(&self.segments);
+        self.segments.extend(jobs.segments);
+        self.passes.extend(jobs.passes.into_iter().map(|mut pass| {
+            for run in &mut pass.runs {
+                run.segments = run.segments.start + offset..run.segments.end + offset;
+            }
+            pass
+        }));
+        if self.supersede() {
+            self.compact();
+        }
+    }
+
+    /// Drops every pass a later pass that clears the same tile supersedes; whether it dropped any.
+    fn supersede(&mut self) -> bool {
+        let before = self.passes.len();
+        let mut cleared_later = BTreeSet::new();
+        let mut kept = Vec::with_capacity(before);
+        for pass in std::mem::take(&mut self.passes).into_iter().rev() {
+            let image = pass.image.id();
+            if cleared_later.contains(&image) {
+                continue;
+            }
+            if pass.clear {
+                cleared_later.insert(image);
+            }
+            kept.push(pass);
+        }
+        kept.reverse();
+        self.passes = kept;
+        self.passes.len() != before
+    }
+
+    /// Keeps only the segments some pass draws, in their order, and moves the runs onto them.
+    fn compact(&mut self) {
+        let mut drawn: Vec<Range<u32>> = self
+            .passes
+            .iter()
+            .flat_map(|pass| pass.runs.iter().map(|run| run.segments.clone()))
+            .collect();
+        drawn.sort_by_key(|range| range.start);
+        let mut spans: Vec<Range<u32>> = Vec::new();
+        for range in drawn {
+            match spans.last_mut() {
+                Some(last) if range.start <= last.end => last.end = last.end.max(range.end),
+                Some(_) | None => spans.push(range),
+            }
+        }
+        let mut segments = Vec::new();
+        let mut moved = Vec::with_capacity(spans.len());
+        for span in spans {
+            let start = segment_count(&segments);
+            if let Some(kept) = self.segments.get(span.start as usize..span.end as usize) {
+                segments.extend_from_slice(kept);
+            }
+            moved.push((span, start));
+        }
+        for run in self.passes.iter_mut().flat_map(|pass| pass.runs.iter_mut()) {
+            let index = moved.partition_point(|(span, _)| span.end <= run.segments.start);
+            if let Some((span, start)) = moved.get(index) {
+                run.segments =
+                    run.segments.start - span.start + start..run.segments.end - span.start + start;
+            }
+        }
+        self.segments = segments;
+    }
+}
+
+/// Whether the stroke pipeline can draw.
+#[derive(Debug, Clone, PartialEq, Eq)]
+enum Readiness {
+    /// Both variants are compiled.
+    Ready,
+    /// A variant is still compiling, or waiting for its Shader: the work waits.
+    Compiling,
+    /// A variant failed to compile, for this reason, and never will: the work is let go.
+    Failed(String),
+}
+
+impl Readiness {
+    /// How ready the pipeline is whose variants are in `states`.
+    fn of(states: [&CachedPipelineState; 2]) -> Self {
+        let mut readiness = Self::Ready;
+        for state in states {
+            match state {
+                CachedPipelineState::Ok(_) => {}
+                CachedPipelineState::Queued
+                | CachedPipelineState::Creating(_)
+                | CachedPipelineState::Err(
+                    ShaderCacheError::ShaderNotLoaded(_)
+                    | ShaderCacheError::ShaderImportNotYetAvailable,
+                ) => readiness = Self::Compiling,
+                CachedPipelineState::Err(error) => return Self::Failed(error.to_string()),
+            }
+        }
+        readiness
+    }
 }
 
 /// The bind group and each pass's offset into the tiles' uniforms, ready for this frame.
@@ -416,20 +535,13 @@ fn extract_jobs(mut main_world: ResMut<MainWorld>, mut pending: ResMut<Pending>)
         return;
     }
     let jobs = std::mem::take(&mut *jobs);
-    let offset = segment_count(&pending.segments);
-    pending.segments.extend(jobs.segments);
-    pending
-        .passes
-        .extend(jobs.passes.into_iter().map(|mut pass| {
-            for run in &mut pass.runs {
-                run.segments = run.segments.start + offset..run.segments.end + offset;
-            }
-            pass
-        }));
+    pending.waiting.absorb(jobs);
 }
 
 /// Writes the work's buffers and bind group once the pipelines are compiled and every tile's
-/// image exists on the GPU; until then the work waits, whole, for a later frame.
+/// image exists on the GPU; until then the work waits, whole, for a later frame. Should the
+/// pipeline fail to compile, the work is let go, so it holds no tile's image, and the failure
+/// is said once.
 fn prepare_jobs(
     mut pending: ResMut<Pending>,
     pipelines: Option<Res<StrokePipelines>>,
@@ -439,24 +551,41 @@ fn prepare_jobs(
     queue: Res<RenderQueue>,
 ) {
     pending.prepared = None;
-    if pending.passes.is_empty() {
+    if pending.waiting.passes.is_empty() {
         return;
     }
     let Some(pipelines) = pipelines else {
         return;
     };
-    let ready = cache.get_render_pipeline(pipelines.paint).is_some()
-        && cache.get_render_pipeline(pipelines.erase).is_some()
-        && pending
-            .passes
-            .iter()
-            .all(|pass| images.get(&pass.image).is_some());
-    if !ready {
+    match Readiness::of([
+        cache.get_render_pipeline_state(pipelines.paint),
+        cache.get_render_pipeline_state(pipelines.erase),
+    ]) {
+        Readiness::Ready => {}
+        Readiness::Compiling => return,
+        Readiness::Failed(reason) => {
+            if !pending.failed {
+                log::warn!(
+                    "the stroke pipeline failed to compile, so Terrain is not drawn: {reason}"
+                );
+                pending.failed = true;
+            }
+            pending.waiting = Waiting::default();
+            return;
+        }
+    }
+    if !pending
+        .waiting
+        .passes
+        .iter()
+        .all(|pass| images.get(&pass.image).is_some())
+    {
         return;
     }
     let pending = &mut *pending;
     pending.tiles.clear();
     let offsets: Vec<u32> = pending
+        .waiting
         .passes
         .iter()
         .map(|pass| {
@@ -472,7 +601,7 @@ fn prepare_jobs(
         })
         .collect();
     pending.tiles.write_buffer(&device, &queue);
-    let mut segments = pending.segments.clone();
+    let mut segments = pending.waiting.segments.clone();
     if segments.is_empty() {
         // A storage binding may not be empty; no run draws this one.
         segments.push(SegmentData {
@@ -526,8 +655,7 @@ fn rasterize_jobs(
     ) else {
         return;
     };
-    let passes = std::mem::take(&mut pending.passes);
-    pending.segments.clear();
+    let passes = std::mem::take(&mut pending.waiting).passes;
     let encoder = context.command_encoder();
     for (pass, offset) in passes.iter().zip(&prepared.offsets) {
         let Some(target) = images.get(&pass.image) else {
@@ -568,5 +696,161 @@ fn rasterize_jobs(
             }
             drawing.draw(0..6, run.segments.clone());
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    #![expect(
+        clippy::missing_panics_doc,
+        reason = "a test stops at the first thing that is not as expected"
+    )]
+    use super::*;
+    use bevy_shader::ShaderCacheError;
+    use drs_model::BrushSettings;
+
+    /// Three strokes, the last erasing, of one, two, and three segments.
+    fn strokes() -> Vec<Stroke> {
+        let brush = BrushSettings {
+            size: 1.0,
+            hardness: 0.5,
+            strength: 1.0,
+        };
+        let stroke = |points: &[Vec2], erase| Stroke {
+            points: points.to_vec(),
+            brush,
+            erase,
+        };
+        vec![
+            stroke(&[Vec2::new(1.0, 1.0)], false),
+            stroke(&[Vec2::ZERO, Vec2::X, Vec2::ONE], false),
+            stroke(&[Vec2::ZERO, Vec2::Y, Vec2::ONE, Vec2::X], true),
+        ]
+    }
+
+    /// The work of one frame: each of `drawn` names a tile's image, whether it is cleared, and
+    /// the strokes drawn into it.
+    fn frame(strokes: &[Stroke], drawn: &[(&Handle<Image>, bool, &[usize])]) -> StrokeJobs {
+        let mut jobs = StrokeJobs::default();
+        jobs.hand_over(
+            strokes,
+            drawn
+                .iter()
+                .map(|(image, clear, numbers)| Drawn {
+                    image: (*image).clone(),
+                    key: TileKey { x: 0, y: 0 },
+                    band: 32,
+                    clear: *clear,
+                    strokes: numbers.to_vec(),
+                })
+                .collect(),
+        );
+        jobs
+    }
+
+    /// A run as drawn: whether it erases, and its segments.
+    type RunDrawn = (bool, Vec<SegmentData>);
+
+    /// What each waiting pass draws: its image, whether it clears, and the segments of its
+    /// runs, with whether each erases.
+    fn drawn(waiting: &Waiting) -> Vec<(AssetId<Image>, bool, Vec<RunDrawn>)> {
+        waiting
+            .passes
+            .iter()
+            .map(|pass| {
+                let runs = pass
+                    .runs
+                    .iter()
+                    .map(|run| {
+                        let range = run.segments.start as usize..run.segments.end as usize;
+                        (run.erase, waiting.segments[range].to_vec())
+                    })
+                    .collect();
+                (pass.image.id(), pass.clear, runs)
+            })
+            .collect()
+    }
+
+    /// The segments of the strokes numbered in `numbers`, in order.
+    fn of(strokes: &[Stroke], numbers: &[usize]) -> Vec<SegmentData> {
+        numbers
+            .iter()
+            .flat_map(|number| segments(&strokes[*number]))
+            .collect()
+    }
+
+    /// Work handed over in a later frame waits after the work of earlier frames, each pass still
+    /// drawing its own strokes' segments.
+    #[test]
+    fn work_waits_in_the_order_it_came() {
+        let strokes = strokes();
+        let mut images = Assets::<Image>::default();
+        let (first, second) = (images.add(Image::default()), images.add(Image::default()));
+        let mut waiting = Waiting::default();
+
+        waiting.absorb(frame(&strokes, &[(&first, true, &[0, 1])]));
+        waiting.absorb(frame(&strokes, &[(&second, false, &[1, 2])]));
+
+        assert_eq!(
+            drawn(&waiting),
+            vec![
+                (first.id(), true, vec![(false, of(&strokes, &[0, 1]))]),
+                (
+                    second.id(),
+                    false,
+                    vec![(false, of(&strokes, &[1])), (true, of(&strokes, &[2]))]
+                ),
+            ]
+        );
+    }
+
+    /// A pass that clears a tile lets go of every pass for that tile still waiting and of the
+    /// segments only they drew, and keeps what other tiles wait for and what is drawn onto it
+    /// later.
+    #[test]
+    fn a_cleared_tile_supersedes_its_waiting_work() {
+        let strokes = strokes();
+        let mut images = Assets::<Image>::default();
+        let (first, second) = (images.add(Image::default()), images.add(Image::default()));
+        let mut waiting = Waiting::default();
+
+        waiting.absorb(frame(
+            &strokes,
+            &[(&first, true, &[0, 2]), (&second, true, &[1])],
+        ));
+        waiting.absorb(frame(&strokes, &[(&first, false, &[1])]));
+        waiting.absorb(frame(&strokes, &[(&first, true, &[0])]));
+        waiting.absorb(frame(&strokes, &[(&first, false, &[2])]));
+
+        assert_eq!(
+            drawn(&waiting),
+            vec![
+                (second.id(), true, vec![(false, of(&strokes, &[1]))]),
+                (first.id(), true, vec![(false, of(&strokes, &[0]))]),
+                (first.id(), false, vec![(true, of(&strokes, &[2]))]),
+            ]
+        );
+        assert_eq!(
+            waiting.segments.len(),
+            of(&strokes, &[1, 0, 2]).len(),
+            "only the segments still drawn are kept"
+        );
+    }
+
+    /// Work waits while either variant of the pipeline is queued, compiling, or waiting for its
+    /// Shader, and is let go once either has failed for good.
+    #[test]
+    fn work_waits_for_the_pipeline_unless_it_failed() {
+        let queued = CachedPipelineState::Queued;
+        let no_shader = CachedPipelineState::Err(ShaderCacheError::ShaderNotLoaded(SHADER.id()));
+        let broken = CachedPipelineState::Err(ShaderCacheError::CreateShaderModule(
+            "no entry point".to_owned(),
+        ));
+        assert_eq!(Readiness::of([&queued, &queued]), Readiness::Compiling);
+        assert_eq!(Readiness::of([&no_shader, &queued]), Readiness::Compiling);
+        assert!(matches!(
+            Readiness::of([&queued, &broken]),
+            Readiness::Failed(reason) if reason.contains("no entry point")
+        ));
     }
 }

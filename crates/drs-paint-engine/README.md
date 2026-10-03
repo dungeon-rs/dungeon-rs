@@ -41,7 +41,9 @@ alone, which the model names by an opaque identity. The work is handed to
 one pass per tile, clearing it or drawing onto it, with one quad per segment of
 each stroke and a maximum blend for paint and a minimum blend for erase, before
 any camera renders the frame; work that finds the pipeline not compiled yet waits
-for a later frame. Without a renderer the cache holds the base band alone,
+for a later frame, a pass that clears a tile replacing the work still waiting for
+it, and is let go, with a warning, should the pipeline fail to compile. Without a
+renderer, or without the stroke Shader, the cache holds the base band alone,
 rasterized on the CPU, whatever the zoom.
 
 ## Features
