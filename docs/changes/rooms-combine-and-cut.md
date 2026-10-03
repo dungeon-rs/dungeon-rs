@@ -233,7 +233,6 @@ The technology the architecture fixes (Rooms keeping their editable source outli
 
 ## Out of Scope
 
-- Snapping a Room's points to the Grid or to other Rooms (ShapeEngine's Snap): without it, edges lie exactly on one another only when their points are given or clicked exactly alike, so shared edges are reached by hand only by drawing at the same places in the same view.
 - Opening a shared edge without a Portal, or keeping a Wall across an overlap: a shared edge always carries its Wall, and overlapping Rooms are always open into each other.
 - Freeing a Portal instead of removing it when its Wall is taken away: Free Portal stays the Author's own Command.
 - Combining Rooms across Layers, with drawn Walls, or with Caves; a cut that takes away from Rooms after it, from other Layers, or from Terrain, Props, or drawn Walls.
@@ -251,5 +250,5 @@ The technology the architecture fixes (Rooms keeping their editable source outli
 - A Portal's side stays relative to its own edge's direction, so a combination, whose pieces may run reversed, never changes which way a Portal faces.
 - A Room whose floor is entirely cut away, or hidden under a later Room's floor, draws nothing and is picked nowhere until the Rooms over it change; it stays an Element, and it is selected again through undo or by moving what covers it.
 - An Element placed between two Rooms of one combination is under the combination's Walls even where it lies far from the later Room, because a combination is drawn as one.
-- Shared edges need exact coincidence: two edges whose points differ by any amount are either apart, and each walled, or overlapping, and open into each other. Coordinates that come from the same pointer position in the same view are equal, which is how the Author reaches a shared edge by hand until snapping exists.
+- Shared edges need exact coincidence: two edges whose points differ by any amount are either apart, and each walled, or overlapping, and open into each other. Snapping puts a point placed or dragged exactly on a Grid corner or on another Wall's or Room's point, which is how the Author reaches a shared edge; a point placed freely meets another only when it is given exactly alike.
 - An editor that knows Rooms but not cutting refuses a Project holding version-two Rooms as saved by a newer editor; the alternative, a separate component that such an editor would keep and write back unread, was set aside because it would draw the Author's holes filled in and let the collaborator edit around them unseen.
