@@ -71,6 +71,7 @@ impl Plugin for EditorPlugin {
             .add_systems(
                 EguiPrimaryContextPass,
                 (
+                    viewport::let_go_of_fields_on_press,
                     panels::draw,
                     walls::tool_strip,
                     paint::keep_selection,

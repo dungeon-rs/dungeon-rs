@@ -19,7 +19,7 @@ use bevy::ecs::entity::Entity;
 use bevy::ecs::hierarchy::Children;
 use bevy::ecs::message::{MessageReader, MessageWriter};
 use bevy::ecs::query::With;
-use bevy::ecs::system::{Query, Res, ResMut, Single, SystemParam};
+use bevy::ecs::system::{Local, Query, Res, ResMut, Single, SystemParam};
 use bevy::gizmos::gizmos::Gizmos;
 use bevy::input::ButtonInput;
 use bevy::input::gestures::PinchGesture;
@@ -28,6 +28,7 @@ use bevy::input::mouse::{AccumulatedMouseScroll, MouseButton, MouseScrollUnit};
 use bevy::math::{Isometry2d, Rect, Vec2, ops};
 use bevy::time::{Real, Time};
 use bevy::window::{PrimaryWindow, Window};
+use bevy_egui::EguiContexts;
 use bevy_egui::input::EguiWantsInput;
 use drs_model::{
     Anchoring, Apply, DrawnAs, EditElement, Element, ElementChange, ElementId, ElementKindRegistry,
@@ -249,6 +250,17 @@ impl LevelView<'_, '_> {
     }
 }
 
+/// Makes egui let go of a field with the keyboard as soon as the pointer is pressed elsewhere,
+/// rather than once the click ends, so that what was typed is sent in the frame a press on the
+/// viewport waits for, and a drag that starts there is not held up.
+pub(crate) fn let_go_of_fields_on_press(mut contexts: EguiContexts) {
+    if let Ok(ctx) = contexts.ctx_mut() {
+        ctx.options_mut(|options| {
+            options.input_options.surrender_focus_on = egui::SurrenderFocusOn::Presses;
+        });
+    }
+}
+
 /// Ends what is under way once the pointer has left the window: a stroke or a rectangle whose
 /// button is released, a drag of an Element or a handle, or a slide.
 fn pointer_gone(
@@ -275,8 +287,9 @@ fn pointer_gone(
 /// a modified scroll zooms around the pointer. An Asset chosen while the Wall tool is chosen
 /// leaves the tool, discarding the Wall being drawn.
 ///
-/// A gesture starts only with the pointer over the viewport and egui not using it; one under
-/// way ends wherever the button is released, so no Begin is left without its End. While an
+/// A gesture starts only with the pointer over the viewport and egui not using it, a frame late
+/// while a field has the keyboard; one under way ends wherever the button is released, so no
+/// Begin is left without its End. While an
 /// Export runs the pointer is ignored, so the image is of the Level as it was asked for.
 pub(crate) fn pointer(
     mut input: Input,
@@ -285,6 +298,7 @@ pub(crate) fn pointer(
     level: LevelView,
     mut apply: MessageWriter<Apply>,
     time: Res<Time<Real>>,
+    mut waiting: Local<Option<(Vec2, bool)>>,
 ) {
     if state.exporting {
         return;
@@ -304,17 +318,13 @@ pub(crate) fn pointer(
         || (input.buttons.pressed(MouseButton::Left) && input.keys.pressed(KeyCode::Space));
     match state.interaction {
         Interaction::Idle => {
-            if !over {
-                return;
-            }
-            let pan_pressed = input.buttons.just_pressed(MouseButton::Middle)
-                || (input.buttons.just_pressed(MouseButton::Left)
-                    && input.keys.pressed(KeyCode::Space));
-            if pan_pressed {
-                state.interaction = Interaction::Panning { last: cursor };
-            } else if input.buttons.just_pressed(MouseButton::Left) {
-                let double = state.walls.double_click(time.elapsed_secs_f64(), cursor);
-                press(&mut state, &mut apply, &viewport, &level, cursor, double);
+            if let Some((at, double)) = waiting.take() {
+                press(&mut state, &mut apply, &viewport, &level, at, double);
+            } else if over {
+                let now = time.elapsed_secs_f64();
+                *waiting = start(
+                    &input, &mut state, &mut apply, &viewport, &level, cursor, now,
+                );
             }
         }
         Interaction::Painting => {
@@ -386,6 +396,38 @@ pub(crate) fn pointer(
             }
         }
     }
+}
+
+/// Starts what a press over the viewport begins while nothing is under way: a drag of the view
+/// with the middle button or Space, or a left press, carried out at once, or returned to be carried
+/// out a frame late while a field has the keyboard. Such a field sends what was typed into it as
+/// egui lets go of it, in this frame's pass, to what the strip shows then, so the press waits until
+/// the selection it may change has had what was typed for it.
+fn start(
+    input: &Input,
+    state: &mut EditorState,
+    apply: &mut MessageWriter<Apply>,
+    viewport: &Viewport,
+    level: &LevelView,
+    cursor: Vec2,
+    now: f64,
+) -> Option<(Vec2, bool)> {
+    let left = input.buttons.just_pressed(MouseButton::Left);
+    if input.buttons.just_pressed(MouseButton::Middle)
+        || (left && input.keys.pressed(KeyCode::Space))
+    {
+        state.interaction = Interaction::Panning { last: cursor };
+        return None;
+    }
+    if !left {
+        return None;
+    }
+    let double = state.walls.double_click(now, cursor);
+    if input.egui.wants_any_keyboard_input() {
+        return Some((cursor, double));
+    }
+    press(state, apply, viewport, level, cursor, double);
+    None
 }
 
 /// The Edit Element sliding the set Portal `element` to the nearest point of its Wall's line
