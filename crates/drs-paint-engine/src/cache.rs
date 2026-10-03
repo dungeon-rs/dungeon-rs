@@ -1065,7 +1065,10 @@ mod tests {
 
         let (changed, drawn) = on_a_gpu(&mut cache, &mut images, &strokes, &far);
         assert!(changed);
-        assert!(drawn.is_empty(), "the base is resident");
+        assert!(
+            drawn.is_empty(),
+            "the base is shown as it was, nothing drawn"
+        );
         assert_eq!(cache.coverage().band, BASE);
         assert_eq!(cache.coverage().tiles, revisions);
     }
