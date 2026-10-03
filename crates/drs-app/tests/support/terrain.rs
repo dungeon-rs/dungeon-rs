@@ -4,18 +4,18 @@
 //! coverage, and the Project's Asset References, saving and opening the Project on the way.
 
 use super::{
-    add_folder, apply, edit, editor, first_layer, history, order, png, redo, try_apply, undo,
+    add_folder, apply, edit, editor, first_layer, history, look, order, png, redo, try_apply, undo,
 };
 use bevy::app::App;
 use bevy::ecs::entity::Entity;
 use bevy::ecs::hierarchy::Children;
 use bevy::ecs::message::Messages;
-use bevy::math::{Rect, UVec2, Vec2};
+use bevy::math::{UVec2, Vec2};
 use drs_model::{
     Apply, AssetAddress, AssetReferenceRow, AssetReferences, BrushSettings,
     COVERAGE_PIXELS_PER_CELL, COVERAGE_TILE_PIXELS, CanonicalName, Colour, Element, ElementChange,
     ElementId, FolderKey, Gesture, OpenProject, Paint, PlaceElement, Placement, ProjectOpened,
-    ProjectRefused, ProjectSaved, SaveProject, Stroke, Terrain, TerrainCoverage, TileKey, Viewport,
+    ProjectRefused, ProjectSaved, SaveProject, Stroke, Terrain, TerrainCoverage, TileKey,
 };
 use std::collections::BTreeMap;
 use std::path::PathBuf;
@@ -265,15 +265,7 @@ impl Fixture {
     /// Writes the Viewport as the Editor does, showing an area of `area` screen pixels around
     /// `centre` at `zoom`, and runs one update.
     pub fn look(&mut self, centre: Vec2, zoom: f32, area: Vec2) {
-        let mut viewport = self
-            .app
-            .world_mut()
-            .get_resource_mut::<Viewport>()
-            .expect("the Viewport");
-        viewport.centre = centre;
-        viewport.zoom = zoom;
-        viewport.area = Rect::from_corners(Vec2::ZERO, area);
-        self.app.update();
+        look(&mut self.app, centre, zoom, area);
     }
 
     /// The pixels of every tile of the one Terrain's coverage.

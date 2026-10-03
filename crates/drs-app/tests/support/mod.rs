@@ -21,14 +21,14 @@ use bevy::app::App;
 use bevy::ecs::entity::Entity;
 use bevy::ecs::hierarchy::Children;
 use bevy::ecs::message::Messages;
-use bevy::math::{UVec2, Vec2};
+use bevy::math::{Rect, UVec2, Vec2};
 use drs_authoring_manager::AuthoringManagerPlugin;
 use drs_history::{History, HistoryPlugin};
 use drs_library_access::LibraryAccessPlugin;
 use drs_library_manager::LibraryManagerPlugin;
 use drs_model::{
     AddFolder, Apply, CanonicalName, CommandFailed, EditElement, EditorDirectories, ElementChange,
-    ElementId, FolderAdded, FolderRefused, Gesture, ModelPlugin, Project, Redo, Undo,
+    ElementId, FolderAdded, FolderRefused, Gesture, ModelPlugin, Project, Redo, Undo, Viewport,
 };
 use drs_paint_engine::PaintEnginePlugin;
 use drs_project_manager::ProjectManagerPlugin;
@@ -131,6 +131,19 @@ pub fn edit(element: ElementId, change: ElementChange, gesture: Gesture) -> Appl
         change,
         gesture,
     })
+}
+
+/// Writes the Viewport as the Editor does, showing an area of `area` screen pixels around
+/// `centre` at `zoom`, and runs one update.
+pub fn look(app: &mut App, centre: Vec2, zoom: f32, area: Vec2) {
+    let mut viewport = app
+        .world_mut()
+        .get_resource_mut::<Viewport>()
+        .expect("the Viewport");
+    viewport.centre = centre;
+    viewport.zoom = zoom;
+    viewport.area = Rect::from_corners(Vec2::ZERO, area);
+    app.update();
 }
 
 /// Sends Undo and runs one update.

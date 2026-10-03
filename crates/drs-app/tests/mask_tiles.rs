@@ -19,22 +19,20 @@ mod support;
 
 use bevy::app::App;
 use bevy::asset::{AssetId, AssetIndex, Assets};
-use bevy::ecs::entity::Entity;
-use bevy::ecs::message::Messages;
 use bevy::ecs::observer::On;
 use bevy::image::Image;
 use bevy::math::{Rect, UVec2, Vec2};
 use bevy::render::gpu_readback::{Readback, ReadbackComplete};
 use drs_model::{
-    Apply, AssetAddress, BrushSettings, CommandFailed, EditElement, ElementChange, ElementId,
-    FolderKey, Gesture, GpuTile, Layer, Paint, Redo, Stroke, StrokeChange, Terrain,
-    TerrainCoverage, TileKey, Undo, Viewport, tile_cells,
+    Apply, AssetAddress, BrushSettings, ElementChange, ElementId, FolderKey, Gesture, GpuTile,
+    Paint, Stroke, StrokeChange, Terrain, TerrainCoverage, TileKey, tile_cells,
 };
 use drs_paint_engine::rasterize;
 use std::collections::{BTreeMap, BTreeSet};
 use std::sync::{Arc, Mutex};
 use support::offscreen::editor;
 use support::png;
+use support::terrain::{brush, stroke as paint};
 use tempfile::TempDir;
 
 /// The texture every stroke paints with, two cells a side at the Grid's 256 pixels per cell.
@@ -54,24 +52,6 @@ struct Fixture {
     key: FolderKey,
     /// The headless editor.
     app: App,
-}
-
-/// A Brush of `size`, `hardness`, and `strength`.
-fn brush(size: f32, hardness: f32, strength: f32) -> BrushSettings {
-    BrushSettings {
-        size,
-        hardness,
-        strength,
-    }
-}
-
-/// A stroke that paints through `points` with `brush`.
-fn paint(points: &[Vec2], brush: BrushSettings) -> Stroke {
-    Stroke {
-        points: points.to_vec(),
-        brush,
-        erase: false,
-    }
 }
 
 /// An erase through `points` with `brush`.
@@ -239,47 +219,24 @@ impl Fixture {
     /// Writes the Viewport, showing `area` screen pixels around `centre` at `zoom`, and runs one
     /// update.
     fn look_over(&mut self, centre: Vec2, zoom: f32, area: Vec2) {
-        let mut viewport = self
-            .app
-            .world_mut()
-            .get_resource_mut::<Viewport>()
-            .expect("the Viewport");
-        viewport.centre = centre;
-        viewport.zoom = zoom;
-        viewport.area = Rect::from_corners(Vec2::ZERO, area);
-        self.app.update();
-    }
-
-    /// Sends a Command and runs one update, failing the test if it was refused.
-    fn apply(&mut self, command: Apply) {
-        self.app.world_mut().write_message(command);
-        self.app.update();
-        let failed: Vec<CommandFailed> = self
-            .app
-            .world_mut()
-            .resource_mut::<Messages<CommandFailed>>()
-            .drain()
-            .collect();
-        assert!(failed.is_empty(), "the Command failed: {failed:?}");
+        support::look(&mut self.app, centre, zoom, area);
     }
 
     /// Lays `stroke` on the one Layer with the flagstones.
     fn paint(&mut self, stroke: Stroke) {
-        let world = self.app.world_mut();
-        let layer = world
-            .query::<(Entity, &Layer)>()
-            .single(world)
-            .expect("exactly one Layer")
-            .0;
+        let layer = support::first_layer(&mut self.app);
         let asset = AssetAddress {
             folder: self.key.clone(),
             place: FLAGSTONES.to_owned(),
         };
-        self.apply(Apply::Paint(Paint {
-            layer,
-            stroke,
-            asset: Some(asset),
-        }));
+        support::apply(
+            &mut self.app,
+            Apply::Paint(Paint {
+                layer,
+                stroke,
+                asset: Some(asset),
+            }),
+        );
     }
 
     /// Lays every stroke of `strokes` in order.
@@ -292,23 +249,24 @@ impl Fixture {
     /// Changes stroke `stroke` of the one Terrain as one step.
     fn edit(&mut self, stroke: usize, change: StrokeChange) {
         let (element, _) = self.terrain().expect("a Terrain");
-        self.apply(Apply::EditElement(EditElement {
-            element,
-            change: ElementChange::Stroke { stroke, change },
-            gesture: Gesture::Single,
-        }));
+        support::apply(
+            &mut self.app,
+            support::edit(
+                element,
+                ElementChange::Stroke { stroke, change },
+                Gesture::Single,
+            ),
+        );
     }
 
     /// Sends Undo and runs one update.
     fn undo(&mut self) {
-        self.app.world_mut().write_message(Undo);
-        self.app.update();
+        support::undo(&mut self.app);
     }
 
     /// Sends Redo and runs one update.
     fn redo(&mut self) {
-        self.app.world_mut().write_message(Redo);
-        self.app.update();
+        support::redo(&mut self.app);
     }
 
     /// The one Terrain's identity and strokes, if there is one.
