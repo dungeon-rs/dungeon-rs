@@ -3,6 +3,7 @@
 **Capabilities**:
 - composing: Place Element, Edit Element, Remove Element, Set Portal into Wall, Free Portal
 - projects: none of its Commands; saving and opening Rooms that cut
+- export: none of its Commands; exporting combined and cut Rooms
 
 ## Problem Statement
 
@@ -166,6 +167,7 @@ The Rules named here are those the composing and projects specs hold now that Wa
 - composing — **The floor fills the outline**: modified to "a Room's floor covers every place its outline winds around, including every part of an outline whose edges cross, up to the outline's line, except what a Room that cuts after it on its Layer takes away; a Room that cuts has no floor", because cuts take floor away (Each Room keeps its floor).
 - composing — **The Walls close around the floor**: replaced by Walls run where the floor ends, Shared edges keep their Wall, Walled once, Each Wall in its Room's look, and The Walls close round the combination, because a Room's Walls now run only where the combined floor ends.
 - composing — **The floor lies under its Walls**: modified to "a Room's floor is drawn at its place in the stacking order and its Walls with its combination's (Walls over the combination); every Element before the Room is drawn under its floor, and every Element after the last Room of its combination over its floor and Walls", because a combination's Walls lie over all of its floors.
+- export — **Drawn as in the editor**: modified so that a Room appears "as its floor and its Walls are drawn with its combination (Walls over the combination), the Walls left out along the stretches Portals cover", because a combination's Walls lie over all of its floors.
 - projects — **Saved as its outline**: modified to "a saved Room holds its points, which edges are curved and their control points, its wall thickness, its wall colour, its floor colour, and whether it cuts, and reopens the same; an editor that does not know the Room kind keeps it as a placeholder of its size and writes it back unchanged", because whether a Room cuts is saved.
 - composing — **Portals set into Rooms**: modified so that a Portal "can be set into a Room's Walls at a place on its edges where a Wall runs (Portals go where a Wall runs)", because a Room's edge carries a Wall only where the combined floor ends.
 - composing — **A stretch runs round the Room**: replaced by A stretch follows the Walls, because a Portal's Wall may now continue onto another Room's edge, and a shared edge's Wall has ends.

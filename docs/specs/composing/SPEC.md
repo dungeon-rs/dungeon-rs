@@ -574,7 +574,7 @@ The automated seam is a headless Bevy App of the real plugins of `model`, `histo
 - **A Project to start with**: `crates/drs-project-manager/tests/new_project.rs::a_project_to_start_with`
 - **Placed where clicked**: `crates/drs-app/tests/composing.rs::placed_where_clicked` (the Command's centring; the mapping from the click to cells and the tools that turn a click into something else are checked by hand)
 - **Natural size**: `crates/drs-app/tests/composing.rs::natural_size`
-- **Placed on top**: `crates/drs-app/tests/composing.rs::placed_on_top`, `crates/drs-app/tests/walls.rs::walls_are_placed_on_top`, `crates/drs-app/tests/portals.rs::portals_are_placed_on_top`, `crates/drs-app/tests/terrain.rs::terrain_goes_under` (the exception)
+- **Placed on top**: `crates/drs-app/tests/composing.rs::placed_on_top`, `crates/drs-app/tests/walls.rs::walls_are_placed_on_top`, `crates/drs-app/tests/portals.rs::portals_are_placed_on_top`, `crates/drs-app/tests/export.rs::a_rooms_floor_lies_under_its_walls` (a Room drawn over the Prop placed before it), `crates/drs-app/tests/terrain.rs::terrain_goes_under` (the exception)
 - **Placement records a reference**: `crates/drs-app/tests/composing.rs::placement_records_a_reference`, `crates/drs-app/tests/portals.rs::portals_record_a_reference`, `crates/drs-app/tests/terrain.rs::painting_records_a_reference`
 - **Placement records the folder**: `crates/drs-app/tests/composing.rs::placement_records_the_folder`, `crates/drs-app/tests/portals.rs::portals_record_the_folder`, `crates/drs-app/tests/terrain.rs::painting_records_the_folder`
 - **Anywhere on the Level**: `crates/drs-app/tests/composing.rs::anywhere_on_the_level`, `crates/drs-app/tests/walls.rs::walls_lie_anywhere_on_the_level`, `crates/drs-app/tests/rooms.rs::rooms_lie_anywhere_on_the_level`, `crates/drs-app/tests/terrain.rs::strokes_lie_anywhere_on_the_level` (a stroke outside the Bounds and at negative cells, with its tiles)
@@ -582,7 +582,7 @@ The automated seam is a headless Bevy App of the real plugins of `model`, `histo
 - **Escape stops placing**: by hand: no automated seam for the egui UI; verified by driving the editor with the dev-only input script
 - **Topmost is selected**: by hand: no automated seam for the egui UI; verified by driving the editor with the dev-only input script
 - **A drag is one step**: `crates/drs-app/tests/composing.rs::a_drag_is_one_step`, `crates/drs-app/tests/walls.rs::a_wall_drag_is_one_step`, `crates/drs-app/tests/portals.rs::a_freestanding_portal_drag_is_one_step`
-- **Removal is reversible in place**: `crates/drs-app/tests/composing.rs::removal_is_reversible_in_place`, `crates/drs-app/tests/walls.rs::wall_removal_is_reversible_in_place`
+- **Removal is reversible in place**: `crates/drs-app/tests/composing.rs::removal_is_reversible_in_place`, `crates/drs-app/tests/walls.rs::wall_removal_is_reversible_in_place`, `crates/drs-app/tests/rooms.rs::gone_with_the_room` (a Room back in its place in the stacking order)
 - **Identity survives undo**: `crates/drs-app/tests/composing.rs::identity_survives_undo`
 - **Redo repeats exactly**: `crates/drs-app/tests/composing.rs::redo_repeats_exactly`, `crates/drs-app/tests/portals.rs::portal_commands_redo_exactly`, `crates/drs-app/tests/terrain.rs::paint_redoes_exactly`
 - **A new step clears redo**: `crates/drs-app/tests/composing.rs::a_new_step_clears_redo`
