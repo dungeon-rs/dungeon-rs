@@ -6,7 +6,7 @@ use bevy_ecs::hierarchy::Children;
 use bevy_ecs::lifecycle::RemovedComponents;
 use bevy_ecs::query::{Changed, Or, With};
 use bevy_ecs::system::{Query, Res, ResMut};
-use drs_model::{ElementId, Layer, Level, PointOf, Pointer, Room, SnappedPoint, Wall};
+use drs_model::{ElementId, Layer, Level, PointOf, Pointer, Room, SnappedPoint, Snapping, Wall};
 use drs_shape_engine::{SnapTarget, snap};
 
 /// The Walls and Rooms as snapping reads their points.
@@ -21,8 +21,9 @@ type Outlines<'w, 's> = Query<
 >;
 
 /// Derives the snapped point whenever the Pointer changed or a Wall or Room was placed, edited,
-/// or removed: Snap is given the points of every Wall and Room on the Pointer's Level, its Layers
-/// and their Elements in stacking order, the bottom first. The snapped point is written only
+/// or removed: Snap is given, for a point, the points of every Wall and Room on the Pointer's
+/// Level, its Layers and their Elements in stacking order, the bottom first, and for a move or
+/// nothing, no point at all, so the Level is read only when a point snaps. The snapped point is written only
 /// when its answer differs, or when it answers another Pointer apart from where the pointer is,
 /// so a reader's change detection means a real change.
 #[expect(
@@ -44,11 +45,18 @@ pub(crate) fn derive_snapped_point(
     if !pointer.is_changed() && changed.is_empty() && !removed {
         return;
     }
-    let targets = pointer
-        .level
-        .map(|level| targets(&levels, &layers, &outlines, level))
-        .unwrap_or_default();
-    let answer = snap(&pointer, &targets);
+    // Only a point goes to other points: nothing and a move need none read.
+    let answer = match pointer.snapping {
+        Snapping::Nothing => None,
+        Snapping::Move { .. } => snap(&pointer, &[]),
+        Snapping::Point { .. } => {
+            let targets = pointer
+                .level
+                .map(|level| targets(&levels, &layers, &outlines, level))
+                .unwrap_or_default();
+            snap(&pointer, &targets)
+        }
+    };
     if answer != snapped.snapped || !snapped.pointer.same_but_for_position(&pointer) {
         *snapped = SnappedPoint {
             snapped: answer,
