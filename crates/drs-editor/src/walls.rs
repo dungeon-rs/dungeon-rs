@@ -28,6 +28,9 @@ use drs_model::{
 pub(crate) const DEFAULT_THICKNESS: f32 = 0.125;
 /// The colour the first Wall is drawn with: a dark grey.
 pub(crate) const DEFAULT_COLOUR: Colour = Colour::rgb(64, 64, 64);
+/// How far the tool strip keeps from the viewport's edges, in screen pixels; it wraps onto
+/// further rows rather than growing past the viewport's right edge.
+const MARGIN: f32 = 8.0;
 /// How close to the last point, in screen pixels, a click adds no point.
 pub(crate) const NEAR_THE_LAST: f32 = 4.0;
 /// How soon after a click, in seconds, a second click is a double-click.
@@ -347,13 +350,14 @@ pub(crate) fn tool_strip(
     let portal = level
         .selected_portal(state.selected)
         .map(|(id, element, portal)| (id, element.clone(), portal.clone()));
-    let corner = egui::pos2(viewport.area.min.x + 8.0, viewport.area.min.y + 8.0);
+    let corner = egui::pos2(viewport.area.min.x, viewport.area.min.y) + egui::Vec2::splat(MARGIN);
     egui::Area::new(egui::Id::new("tool-strip"))
         .fixed_pos(corner)
         .order(egui::Order::Foreground)
         .show(&ctx, |ui| {
             egui::Frame::popup(ui.style()).show(ui, |ui| {
-                ui.horizontal(|ui| {
+                ui.set_max_width(strip_width(&viewport, ui.style()));
+                ui.horizontal_wrapped(|ui| {
                     let tool = state.tool;
                     let enabled = !state.exporting;
                     if ui
@@ -433,6 +437,13 @@ pub(crate) fn tool_strip(
                 });
             });
         });
+}
+
+/// The width the tool strip's rows may take before they wrap: the viewport's, less the margin
+/// either side and the strip's own frame.
+fn strip_width(viewport: &Viewport, style: &egui::Style) -> f32 {
+    let frame = egui::Frame::popup(style).total_margin().sum().x;
+    (viewport.area.width() - 2.0 * MARGIN - frame).max(0.0)
 }
 
 /// The thickness and colour options, of the selected Wall or of the next one.
