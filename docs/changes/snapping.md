@@ -2,6 +2,7 @@
 
 **Capabilities**:
 - composing: Place Element, Edit Element (the points the Editor sends with them, and a whole Wall or Room moved by an amount)
+- export: none of its Commands; the Grid's lines and the snapping marker stay out of an Export
 
 ## Problem Statement
 
@@ -110,11 +111,9 @@ The viewport shows the Grid as faint lines. While the Author draws a Wall or a R
 
 **The Grid is shown**: the viewport draws a thin, faint line along every edge of every Grid cell in view, at every whole number of cells in each direction, over the Elements, whether or not snapping is on, while a cell is at least eight logical pixels across, and no line while it is smaller.
 
-**The Grid is never exported**: no line of the Grid appears in an Export.
-
 ## Changes to existing behaviour
 
-The Rules named here are those the composing spec holds now that Rooms have landed, which this change builds on.
+The composing Rules named here are those the composing spec holds now that Rooms have landed, which this change builds on.
 
 - composing — **Drawing with the Wall tool**: modified so that "each click on the Level adds the point snapping puts it at (Drawing snaps) unless that point lies within a few pixels of the last one; the Wall in progress is previewed with a segment from its last point to that point", because the point a click adds is the snapped one.
 - composing — **Drawing with the Room tool**: modified so that "each click on the Level adds the point snapping puts it at unless that point lies within a few pixels of the last one; the outline in progress is previewed with a line from the last point to that point and from it to the first point; a click whose point lies within a few pixels of the first point, with three or more points placed, or Enter, closes it", because the closing click is judged by where it lands, as every other click is.
@@ -123,6 +122,7 @@ The Rules named here are those the composing spec holds now that Rooms have land
 - composing — **Handles of the selected Room**: modified in the same way, and so that "dragging its floor or Walls moves the Room whole, by whole cells with snapping (Moving by whole cells)", because a Room's points snap.
 - composing — **Moving the Wall moves every point**: modified to "an Edit Element that changes a Wall's position, or moves it by an amount, moves every point and control point by the same amount", because a whole Wall is now dragged by an amount (Implementation Decisions).
 - composing — **Moving the Room moves every point**: modified in the same way, for the same reason.
+- export — **Only the Level is exported**: modified to "the Export shows nothing the editor draws over the Level: no Grid line, snapping marker, selection outline, handle, guide line, Wall or Room preview, Portal marker, Brush circle, or stroke band", because the viewport now draws the Grid and the marker over the Level and neither may reach an Export.
 
 ## Implementation Decisions
 
@@ -149,7 +149,7 @@ The architecture's split is used as written there: hit-testing, the Element and 
   - **Moving by whole cells**: `crates/drs-app/tests/snapping.rs::moving_by_whole_cells` (a move's travel rounded per coordinate, halfway away from zero)
   - **Whole cells stay whole**: `crates/drs-app/tests/snapping.rs::whole_cells_stay_whole` (a Room with a curved edge whose control point lies off the Grid, moved by whole amounts over a gesture of several steps: every point exactly whole, the control point moved by the same amount, one history step), with the modified **Moving the Wall moves every point** and **Moving the Room moves every point** by the same test and `crates/drs-app/tests/snapping.rs::a_wall_moves_by_an_amount`
   - **What does not snap**, as far as the seam reaches: by `what_a_point_snaps_to` above (control points, Props, and Portals never reached); what the Editor's tools do not snap is checked by hand.
-- **By hand**: **Drawing snaps**, **Dragged points snap**, **Alt places freely**, **The Snap switch**, **The marker shows where a click lands**, **What does not snap** for the Editor's tools, **The Grid is shown**, and **The Grid is never exported**, with the modified **Drawing with the Wall tool**, **Drawing with the Room tool**, **A drag draws a rectangle**, **Handles of the selected Wall**, and **Handles of the selected Room**: no automated seam for the egui interface or the viewport's drawing, the accepted deviation of the composing spec; verified by driving the editor with the development-only input script (its `key` step already holds Alt), whose `describe` step logs the Snap switch, the Pointer, and the snapped point, and by exporting a Level while the Grid is shown and finding no Grid line in the image.
+- **By hand**: **Drawing snaps**, **Dragged points snap**, **Alt places freely**, **The Snap switch**, **The marker shows where a click lands**, **What does not snap** for the Editor's tools, and **The Grid is shown**, with the modified **Drawing with the Wall tool**, **Drawing with the Room tool**, **A drag draws a rectangle**, **Handles of the selected Wall**, **Handles of the selected Room**, and **Only the Level is exported**: no automated seam for the egui interface or the viewport's drawing, the accepted deviation of the composing spec; verified by driving the editor with the development-only input script (its `key` step already holds Alt), whose `describe` step logs the Snap switch, the Pointer, and the snapped point, and by exporting a Level while the Grid and the marker are shown and finding neither in the image.
 - ShapeEngine's own unit tests check what the Rules rest on, as functions of the Engine alone, and are the coverage of no Rule: rounding to the nearest corner on either side of zero and halfway, the nearest point within reach against the Grid, a tie going to the later point, the left-out point skipped, and a move's travel rounded (`crates/drs-shape-engine/src/snap.rs::tests::rounds_to_the_nearest_corner`, `crates/drs-shape-engine/src/snap.rs::tests::the_nearest_point_within_reach_wins`, `crates/drs-shape-engine/src/snap.rs::tests::a_tie_goes_to_the_later_point`, `crates/drs-shape-engine/src/snap.rs::tests::the_left_out_point_is_skipped`, `crates/drs-shape-engine/src/snap.rs::tests::a_move_rounds_its_travel`).
 
 ## Out of Scope
