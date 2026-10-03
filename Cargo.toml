@@ -172,6 +172,11 @@ opt-level = 0
 [profile.fast.package.drs-catalog-engine]
 opt-level = 1
 
+# The paint Engine's main-thread work is timed by its tests against bounds meant for the dev build
+# too, so it is built as the dev build builds it.
+[profile.fast.package.drs-paint-engine]
+opt-level = 1
+
 [profile.fast.package.memchr]
 opt-level = 3
 

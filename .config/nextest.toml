@@ -7,6 +7,6 @@ fail-fast = { max-fail = 5 }
 timed = { max-threads = 1 }
 
 [[profile.default.overrides]]
-filter = 'package(drs-catalog-engine) and test(=answered_within_a_keystroke)'
+filter = '(package(drs-catalog-engine) and test(=answered_within_a_keystroke)) or (package(drs-paint-engine) and binary(budget))'
 test-group = 'timed'
 threads-required = 'num-test-threads'
