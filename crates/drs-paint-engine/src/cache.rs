@@ -168,10 +168,10 @@ fn bring_up(cache: &mut PaintCache, strokes: &[Stroke]) -> Applied {
         .take_while(|(before, now)| before == now)
         .count();
     let end = cache.strokes.len() - ending;
-    let is = &strokes[kept..strokes.len() - ending];
+    let between = &strokes[kept..strokes.len() - ending];
     applied.touched = cache.strokes[kept..end]
         .iter()
-        .chain(is)
+        .chain(between)
         .flat_map(tiles_of)
         .collect();
     let spans: Vec<(TileKey, TileKey)> = strokes.iter().map(tile_span).collect();
@@ -188,7 +188,7 @@ fn bring_up(cache: &mut PaintCache, strokes: &[Stroke]) -> Applied {
     }
     let shared_end = cache.strokes.split_off(end);
     cache.strokes.truncate(kept);
-    cache.strokes.extend_from_slice(is);
+    cache.strokes.extend_from_slice(between);
     cache.strokes.extend(shared_end);
     applied
 }
