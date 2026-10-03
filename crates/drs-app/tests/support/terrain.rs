@@ -167,6 +167,36 @@ impl Fixture {
         *self.order().last().expect("the Wall is on top")
     }
 
+    /// Places a grey Room with a light floor through `points`, returning its identity.
+    pub fn room(&mut self, points: &[Vec2]) -> ElementId {
+        let layer = self.layer();
+        self.apply(Apply::PlaceElement(PlaceElement {
+            layer,
+            placement: Placement::Room {
+                points: points.to_vec(),
+                thickness: 0.25,
+                wall_colour: Colour::rgb(60, 60, 60),
+                floor_colour: Colour::rgb(200, 200, 200),
+            },
+        }));
+        *self.order().last().expect("the Room is on top")
+    }
+
+    /// Places a freestanding Portal of the table centred on `position`, returning its identity.
+    pub fn portal(&mut self, position: Vec2) -> ElementId {
+        let layer = self.layer();
+        let asset = self.asset(TABLE);
+        self.apply(Apply::PlaceElement(PlaceElement {
+            layer,
+            placement: Placement::Portal {
+                position,
+                asset,
+                anchor: None,
+            },
+        }));
+        *self.order().last().expect("the Portal is on top")
+    }
+
     /// Sends an Edit Element on its own and returns the refusals.
     pub fn try_edit(&mut self, element: ElementId, change: ElementChange) -> Vec<String> {
         try_apply(&mut self.app, edit(element, change, Gesture::Single))

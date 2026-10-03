@@ -584,13 +584,20 @@ fn the_material_stays_editable() {
 }
 
 /// An Edit Element of a Terrain that changes anything but its Material or one of its strokes, its
-/// position and every change only a Wall or a Portal has included, and an Edit Element setting
-/// the Material or changing a stroke of an Element that is not a Terrain, are answered with the
-/// reason, change nothing, and record no history step.
+/// position and every change only a Wall, a Room, or a Portal has included, and an Edit Element
+/// setting the Material or changing a stroke of a Prop, a Wall, a Room, or a Portal, none of them a
+/// Terrain, are answered with the reason, change nothing, and record no history step.
 #[test]
 fn terrain_changes_only_its_material_and_strokes() {
     let mut fixture = Fixture::new();
     let prop = fixture.prop(Vec2::new(8.0, 8.0));
+    let wall = fixture.wall(&[Vec2::new(20.0, 0.0), Vec2::new(24.0, 0.0)]);
+    let room = fixture.room(&[
+        Vec2::new(30.0, 0.0),
+        Vec2::new(34.0, 0.0),
+        Vec2::new(34.0, 4.0),
+    ]);
+    let portal = fixture.portal(Vec2::new(40.0, 2.0));
     fixture.flagstones(stroke(&[Vec2::new(1.0, 1.0), Vec2::new(5.0, 2.0)], SOFT));
     let terrain = fixture.terrain();
     let depth = fixture.steps();
@@ -610,6 +617,7 @@ fn terrain_changes_only_its_material_and_strokes() {
         ElementChange::RemovePoint { index: 0 },
         ElementChange::Thickness(0.5),
         ElementChange::Colour(Colour::rgb(1, 2, 3)),
+        ElementChange::FloorColour(Colour::rgb(4, 5, 6)),
         ElementChange::Width(2.0),
         ElementChange::Rotation(1.0),
         ElementChange::Mirrored(true),
@@ -647,9 +655,16 @@ fn terrain_changes_only_its_material_and_strokes() {
             change: StrokeChange::Remove,
         },
     ] {
-        let refused = fixture.try_edit(prop, change.clone());
-        assert_eq!(refused.len(), 1, "{change:?}");
-        assert!(refused[0].contains("not a Terrain"), "{}", refused[0]);
+        for (element, what) in [
+            (prop, "Prop"),
+            (wall, "Wall"),
+            (room, "Room"),
+            (portal, "Portal"),
+        ] {
+            let refused = fixture.try_edit(element, change.clone());
+            assert_eq!(refused.len(), 1, "{change:?} of the {what}");
+            assert!(refused[0].contains("not a Terrain"), "{}", refused[0]);
+        }
     }
 
     assert_eq!(fixture.terrain(), terrain);
