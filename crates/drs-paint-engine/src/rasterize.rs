@@ -17,8 +17,10 @@ use drs_model::Stroke;
 /// in the region) divided by the pixels per cell once per axis, so a pixel has the same value in
 /// every region that holds it. Each stroke's coverage at the centre is its strength where the
 /// distance to its path is within the hardness of its radius, falls off smoothly to nothing at
-/// the radius, and is the same however many of its segments pass near; the region's coverage is
-/// the largest any stroke has there. A value is the coverage times 255, rounded half up.
+/// the radius, and is the same however many of its segments pass near. The region starts empty
+/// and the strokes are composited in order: a stroke that paints raises a pixel to its coverage
+/// where that is higher, and an erase lowers it to one minus its coverage where that is lower. A
+/// value is the coverage, or one minus an erase's, times 255, rounded half up.
 #[must_use]
 pub fn rasterize(strokes: &[Stroke], corner: Vec2, size: UVec2, pixels_per_cell: u32) -> Vec<u8> {
     let mut pixels = vec![0; size.x as usize * size.y as usize];
@@ -163,9 +165,11 @@ fn byte(coverage: f32) -> u8 {
     value
 }
 
-/// Raises each pixel of `pixels`, the region's coverage, to `stroke`'s coverage where that is
-/// larger. Only the pixels inside the stroke's box are visited, and for each only the segments
-/// whose own box holds its centre.
+/// Composites `stroke` onto `pixels`, the region's coverage: a stroke that paints raises each
+/// pixel to its coverage where that is larger, and an erase lowers each to one minus its coverage
+/// where that is smaller, its coverage the largest any of its segments gives before it is
+/// applied. Only the pixels inside the stroke's box are visited, an erase's too, and for each
+/// only the segments whose own box holds its centre.
 pub(crate) fn composite(pixels: &mut [u8], stroke: &Stroke, region: &Region) {
     let segments = segments(stroke);
     let Some((low, high)) = segments
@@ -204,15 +208,18 @@ pub(crate) fn composite(pixels: &mut [u8], stroke: &Stroke, region: &Region) {
             let Some(nearest) = nearest else {
                 continue;
             };
-            let value = byte(stamp(stroke, nearest.sqrt()));
+            let coverage = stamp(stroke, nearest.sqrt());
             let Ok(offset) = usize::try_from(column - region.origin[0]) else {
                 continue;
             };
-            if let Some(pixel) = pixels.get_mut(start + offset)
-                && value > *pixel
-            {
-                *pixel = value;
-            }
+            let Some(pixel) = pixels.get_mut(start + offset) else {
+                continue;
+            };
+            *pixel = if stroke.erase {
+                (*pixel).min(byte(1.0 - coverage))
+            } else {
+                (*pixel).max(byte(coverage))
+            };
         }
     }
 }
@@ -239,6 +246,14 @@ mod tests {
                 strength,
             },
             erase: false,
+        }
+    }
+
+    /// The same stroke, erasing.
+    fn erasing(stroke: Stroke) -> Stroke {
+        Stroke {
+            erase: true,
+            ..stroke
         }
     }
 
@@ -360,5 +375,73 @@ mod tests {
                 }
             }
         }
+    }
+
+    /// An erase lowers each pixel to one minus its coverage, times 255 rounded half up, where that
+    /// is lower than what the strokes before it left, and leaves the rest: the smaller of the two
+    /// bytes everywhere, the very byte a half-strength erase finds over half-strength paint, and
+    /// nothing added where nothing was painted.
+    #[test]
+    fn an_erase_takes_the_minimum() {
+        let size = UVec2::splat(64);
+        let path = [
+            Vec2::new(1.0, 4.0 + 1.0 / 16.0),
+            Vec2::new(7.0, 4.0 + 1.0 / 16.0),
+        ];
+        let across = [
+            Vec2::new(4.0 + 1.0 / 16.0, 1.0),
+            Vec2::new(4.0 + 1.0 / 16.0, 7.0),
+        ];
+        for (paint, erase) in [
+            (stroke(&path, 2.0, 0.5, 1.0), stroke(&across, 3.0, 0.3, 1.0)),
+            (stroke(&path, 2.0, 1.0, 0.5), stroke(&across, 3.0, 1.0, 0.5)),
+            (stroke(&path, 4.0, 0.0, 0.8), stroke(&across, 2.5, 0.2, 0.6)),
+        ] {
+            let painted = rasterize(std::slice::from_ref(&paint), Vec2::ZERO, size, 8);
+            let erased = rasterize(
+                &[paint.clone(), erasing(erase.clone())],
+                Vec2::ZERO,
+                size,
+                8,
+            );
+            for row in 0..size.y {
+                for column in 0..size.x {
+                    #[expect(clippy::cast_precision_loss, reason = "small whole numbers")]
+                    let centre = Vec2::new(column as f32 + 0.5, row as f32 + 0.5) / 8.0;
+                    let distance = if (across[0].y..=across[1].y).contains(&centre.y) {
+                        (centre.x - across[0].x).abs()
+                    } else {
+                        across[0].distance(centre).min(across[1].distance(centre))
+                    };
+                    let left = byte(1.0 - stamp(&erase, distance));
+                    let found = at(&painted, size, column, row);
+                    assert_eq!(
+                        at(&erased, size, column, row),
+                        found.min(left),
+                        "pixel ({column}, {row}) under {erase:?}"
+                    );
+                }
+            }
+        }
+        let half = rasterize(
+            &[
+                stroke(&path, 2.0, 1.0, 0.5),
+                erasing(stroke(&across, 3.0, 1.0, 0.5)),
+            ],
+            Vec2::ZERO,
+            size,
+            8,
+        );
+        assert_eq!(at(&half, size, 32, 32), byte(0.5), "half over half");
+        let alone = rasterize(
+            &[erasing(stroke(&across, 3.0, 1.0, 1.0))],
+            Vec2::ZERO,
+            size,
+            8,
+        );
+        assert!(
+            alone.iter().all(|pixel| *pixel == 0),
+            "an erase adds nothing"
+        );
     }
 }

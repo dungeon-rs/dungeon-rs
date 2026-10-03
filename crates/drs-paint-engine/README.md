@@ -10,8 +10,10 @@ whole-pixel index in the Level's pixel plane, so it is the same in every region
 that holds it, and only square roots and arithmetic go into it, so it is the same
 on every machine. A stroke's coverage is its strength within the hardness of its
 radius of its path and falls off smoothly to nothing at the radius, the same
-however many of its segments pass near a point; strokes composite by the
-strongest.
+however many of its segments pass near a point. Strokes composite in order onto
+nothing: a stroke that paints raises the coverage to its own where that is
+higher, and an erase lowers it to one minus its own where that is lower, so an
+erase is exact in one pass and takes only from the strokes laid before it.
 
 A [`PaintCache`](crate::PaintCache) holds one Terrain's coverage at 32 pixels per
 cell in tiles of 512 pixels a side, keyed by their place in the Level's pixel
