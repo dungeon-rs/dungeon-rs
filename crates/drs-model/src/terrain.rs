@@ -235,9 +235,6 @@ pub const COVERAGE_BANDS: [u32; 4] = [COVERAGE_PIXELS_PER_CELL, 64, 128, 256];
 /// How many pixels a side a tile of a [`TerrainCoverage`] has.
 pub const COVERAGE_TILE_PIXELS: u32 = 512;
 
-/// How many Grid cells a side a tile of a [`TerrainCoverage`] covers at the base band.
-pub const COVERAGE_TILE_CELLS: u32 = COVERAGE_TILE_PIXELS / COVERAGE_PIXELS_PER_CELL;
-
 /// The position of a coverage tile in the Level's pixel plane at a band: the tile `(x, y)` covers
 /// the cells from `(x, y)` times its side up to the next tile's, negative positions included; at
 /// the base band a side is 16 cells.
