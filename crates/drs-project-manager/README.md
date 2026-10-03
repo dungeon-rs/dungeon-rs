@@ -14,8 +14,10 @@ that has no file yet is refused, so the Editor asks where. Open
 ([`OpenProject`](drs_model::OpenProject)) asks `ProjectAccess` to read the file
 and, only once the whole Project has been materialised from it, replaces the
 current Project, clears the history, and resolves every Asset Reference; a file
-that cannot be read, is not a Project, is newer than this editor, or is
-malformed is refused with the reason and nothing changes. Both record the file
+that cannot be read, is not a Project, is newer than this editor, is
+malformed, or holds Bounds with a width or a height of no cell is refused with
+the reason and nothing changes; Bounds larger or farther from the origin than a
+Resize Bounds may make are opened and saved as they are. Both record the file
 and the history's position in the [`SavedMark`](drs_model::SavedMark), which
 says whether the Project has unsaved changes. Answers are
 [`ProjectSaved`](drs_model::ProjectSaved),

@@ -6,7 +6,7 @@ use bevy_ecs::entity::Entity;
 use bevy_ecs::hierarchy::{ChildOf, Children};
 use bevy_ecs::world::World;
 use drs_model::{
-    Element, ElementId, Envelopes, Layer, LayerSnapshot, Level, LevelSnapshot, Project,
+    Bounds, Element, ElementId, Envelopes, Layer, LayerSnapshot, Level, LevelSnapshot, Project,
     ProjectSnapshot, SerialisationRegistry, Tier,
 };
 use std::collections::{BTreeMap, BTreeSet};
@@ -108,7 +108,8 @@ pub(crate) fn gather(
 /// component cannot be read or sits on an entity of another tier than its own, or
 /// [`ProjectManagerError::Malformed`] when the snapshot's parts do not fit together: a Level or
 /// Layer without its component, an Element without its common component, an Element listed on
-/// no Layer or on more than one, or a listed identity the snapshot does not hold.
+/// no Layer or on more than one, a listed identity the snapshot does not hold, or Bounds with a
+/// width or a height of no cell.
 pub(crate) fn materialise(
     world: &mut World,
     path: &Path,
@@ -147,6 +148,16 @@ fn build(
         let mut entity = world.entity_mut(project);
         registry.read_all(&mut entity, &snapshot.project, Tier::Project)?;
         entity.insert(Project { name });
+        // Bounds of no cell export nothing and no Command can make them; Bounds beyond what a
+        // Resize Bounds may make are kept as they are, for an editor that allows them.
+        if let Some(bounds) = entity.get::<Bounds>()
+            && (bounds.size.x == 0 || bounds.size.y == 0)
+        {
+            return Err(malformed(format!(
+                "the Bounds are {} by {} cells; they need a width and a height of at least one cell",
+                bounds.size.x, bounds.size.y
+            )));
+        }
     }
     let mut placed: BTreeSet<ElementId> = BTreeSet::new();
     for (level_index, level_snapshot) in snapshot.levels.iter().enumerate() {

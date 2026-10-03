@@ -25,8 +25,9 @@ use drs_model::{
     ElementKindRegistry, FolderKey, FreePortal, Gesture, Grid, Layer, Level, MissingAsset,
     MissingReason, OpenProject, PORTAL, PlaceElement, Placement, Portal, PortalAnchor, Project,
     ProjectOpened, ProjectRefused, ProjectRequest, ProjectSaved, Prop, ROOM, RemoveElement,
-    Resolution, ResolutionTable, Room, RoomShape, SaveProject, SavedMark, Serialisable,
-    SerialisationRegistry, Side, UnknownComponents, UnknownKind, Viewport, WALL, Wall, WallShape,
+    ResizeBounds, Resolution, ResolutionTable, Room, RoomShape, SaveProject, SavedMark,
+    Serialisable, SerialisationRegistry, Side, UnknownComponents, UnknownKind, Viewport, WALL,
+    Wall, WallShape,
 };
 use drs_model::{BrushSettings, Paint, Stroke, TERRAIN, Terrain, TerrainCoverage, TileKey};
 use serde_json::{Value, json};
@@ -3295,4 +3296,120 @@ fn a_portal_without_its_wall_stands() {
         "set into its Wall again"
     );
     assert_eq!(shape_of(&mut other, hall).stretches.len(), 1);
+}
+
+/// The Resize Bounds that sets `bounds` on its own.
+fn resize(bounds: Bounds) -> Apply {
+    Apply::ResizeBounds(ResizeBounds {
+        bounds,
+        gesture: Gesture::Single,
+    })
+}
+
+/// The file holds the Bounds as they were resized, opening it yields those Bounds, and saving
+/// what was opened writes the same file byte for byte.
+#[test]
+fn resized_bounds_are_saved() {
+    let mut saved = Saved::new();
+    let resized = Bounds {
+        origin: IVec2::new(-3, -2),
+        size: UVec2::new(12, 8),
+    };
+    saved.device.apply(resize(resized));
+    let file = saved
+        .device
+        .save_as(&saved.device.root().join("resized.dungeon"));
+    assert_eq!(
+        json(&file)["project"]["bounds"]["data"]["origin"],
+        json!([-3, -2])
+    );
+    assert_eq!(
+        json(&file)["project"]["bounds"]["data"]["size"],
+        json!([12, 8])
+    );
+    let first = fs::read(&file).expect("the file");
+
+    let mut other = Device::new();
+    other.opens(&file);
+    assert_eq!(other.project().2, resized);
+    let elsewhere = other.save_as(&other.root().join("again.dungeon"));
+    assert_eq!(fs::read(&elsewhere).expect("the second file"), first);
+}
+
+/// A resize gives the Project unsaved changes, and undoing back to where it was saved takes
+/// them away again.
+#[test]
+fn a_resize_is_an_unsaved_change() {
+    let mut saved = Saved::new();
+    assert!(!saved.device.has_unsaved_changes());
+
+    saved.device.apply(resize(Bounds {
+        origin: IVec2::new(5, 5),
+        size: UVec2::new(10, 10),
+    }));
+    assert!(saved.device.has_unsaved_changes());
+    saved.device.undo();
+    assert!(!saved.device.has_unsaved_changes());
+    saved.device.redo();
+    assert!(saved.device.has_unsaved_changes());
+}
+
+/// A Project opened with Bounds wider or higher than 1,000 cells, or reaching more than 10,000
+/// cells from the Level's origin, keeps them as they are, and saving writes them unchanged.
+#[test]
+fn opened_bounds_are_kept() {
+    let mut saved = Saved::new();
+    let mut file = json(&saved.file);
+    file["project"]["bounds"]["data"] =
+        json!({ "origin": [-20_000, 18_000], "size": [2_000, 2_000] });
+    let large = saved.device.root().join("large.dungeon");
+    write_json(&large, &file);
+
+    saved.device.opens(&large);
+    assert_eq!(
+        saved.device.project().2,
+        Bounds {
+            origin: IVec2::new(-20_000, 18_000),
+            size: UVec2::splat(2_000),
+        }
+    );
+    let again = saved.device.save(None).expect("saved").path;
+    assert_eq!(again, large);
+    assert_eq!(json(&again), file, "written unchanged");
+    let bytes = fs::read(&again).expect("the file");
+    saved.device.opens(&again);
+    saved.device.save(None).expect("saved again");
+    assert_eq!(fs::read(&again).expect("the file"), bytes);
+}
+
+/// A file whose Bounds have a width or a height of no cell is refused with the reason, and the
+/// current Project and its history are untouched.
+#[test]
+fn bounds_of_no_cell_are_refused() {
+    let mut saved = Saved::new();
+    let elements = saved.device.elements();
+    let depth = saved.device.history().undo_depth();
+    let bounds = saved.device.project().2;
+
+    for (name, size) in [("narrow.dungeon", [0, 30]), ("flat.dungeon", [30, 0])] {
+        let mut file = json(&saved.file);
+        file["project"]["bounds"]["data"]["size"] = json!(size);
+        let path = saved.device.root().join(name);
+        write_json(&path, &file);
+
+        let refused = saved
+            .device
+            .open(&path)
+            .expect_err("Bounds of no cell are refused");
+        assert_eq!(refused.request, ProjectRequest::Open { path });
+        assert!(
+            refused.reason.contains("at least one cell"),
+            "the reason is given: {}",
+            refused.reason
+        );
+        assert_eq!(saved.device.elements(), elements);
+        assert_eq!(saved.device.project().2, bounds);
+        assert_eq!(saved.device.history().undo_depth(), depth);
+        assert_eq!(saved.device.mark().file, Some(saved.file.clone()));
+    }
 }
