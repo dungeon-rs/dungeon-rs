@@ -43,3 +43,5 @@ Spec-level decisions parked during domain work. The spec skill picks these up; r
 - Doc-comment line length: rustfmt does not wrap comments, so a doc line can run past the 100 columns the code keeps; a `ci` check or `comment_width` with `wrap_comments` (nightly rustfmt) would hold them to it.
 - Routing Element changes on purpose: clippy's `wildcard_enum_match_arm` does not see inside `matches!` or an if-let with an `else`, so a fallback over `ElementChange` in the authoring Manager slips past it; the `ci` tool could look for either there.
 - Migrating every older version: the `ci` tool could check that each `Serialisable` whose `VERSION` is above 1 has a `read` arm for every version below it, so a version is never read as another.
+- Writers of the `Pointer` and the `SnappedPoint`: the Editor alone writes the one and the authoring Manager alone the other; the `ci` tool could look for `ResMut` or `resource_mut` of either outside its owner's non-test sources.
+- Loops that step a float by adding to it stop advancing far from zero and never end; the `ci` tool could look for a float `+= 1.0` inside a loop, so loops over cells count with integers.
