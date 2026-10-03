@@ -47,14 +47,29 @@ pub(crate) fn draw(
         viewport.cells_at(viewport.area.max),
     );
     let (low, high) = (a.min(b), a.max(b));
-    let mut x = low.x.ceil();
-    while x <= high.x {
+    for x in whole_numbers(low.x, high.x) {
         gizmos.line_2d(Vec2::new(x, low.y), Vec2::new(x, high.y), LINES);
-        x += 1.0;
     }
-    let mut y = low.y.ceil();
-    while y <= high.y {
+    for y in whole_numbers(low.y, high.y) {
         gizmos.line_2d(Vec2::new(low.x, y), Vec2::new(high.x, y), LINES);
-        y += 1.0;
     }
+}
+
+/// Every whole number from `low` to `high`, counted rather than stepped by adding one, since
+/// adding one to a float stops changing it far from zero and the count would never end.
+fn whole_numbers(low: f32, high: f32) -> impl Iterator<Item = f32> {
+    let first = low.ceil();
+    #[expect(
+        clippy::cast_possible_truncation,
+        clippy::cast_sign_loss,
+        reason = "the lines in view number at most the viewport's pixels over eight, and a \
+                  negative span saturates to none"
+    )]
+    let count = (high.floor() - first + 1.0).max(0.0) as u32;
+    #[expect(
+        clippy::cast_precision_loss,
+        reason = "far from zero two whole numbers may round to one float, which draws one \
+                  line twice"
+    )]
+    (0..count).map(move |index| first + index as f32)
 }
