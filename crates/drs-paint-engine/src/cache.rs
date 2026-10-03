@@ -461,14 +461,15 @@ fn carry_out(
     drawn: &mut Vec<Drawn>,
 ) -> bool {
     let mut changed = !plan.dropped.is_empty();
-    let mut revisions = Vec::new();
-    for _ in 0..plan.afresh.len() + plan.appended.len() {
-        revisions.push(cache.next_revision());
-    }
-    let mut revisions = revisions.into_iter();
+    let PaintCache {
+        base,
+        overlay,
+        revision,
+        ..
+    } = cache;
     let band = match which {
-        Which::Base => &mut cache.base,
-        Which::Overlay => match cache.overlay.as_mut() {
+        Which::Base => base,
+        Which::Overlay => match overlay.as_mut() {
             Some(overlay) => overlay,
             None => return false,
         },
@@ -496,8 +497,9 @@ fn carry_out(
             );
             image
         };
-        if let (Some(held), Some(revision)) = (band.tiles.get_mut(&key), revisions.next()) {
-            held.tile.revision = revision;
+        if let Some(held) = band.tiles.get_mut(&key) {
+            *revision += 1;
+            held.tile.revision = *revision;
         }
         drawn.push(Drawn {
             image,
