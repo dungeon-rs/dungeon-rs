@@ -2,7 +2,6 @@
 
 ## I can build and export a simple dungeon: Walls, doors, Rooms, painted Terrain, and Layers, from a library I can actually browse
 
-- **[Rooms](changes/rooms.md)**: a Room outline generates its floor and its Walls, and its points stay editable. Commands: none.
 - **[Snapping](changes/snapping.md)**: points of Walls and Rooms snap to the Grid and to each other's points while they are placed or dragged, so Rooms can share edges exactly; holding a modifier places freely. Commands: none.
 - **[Rooms combine and cut](changes/rooms-combine-and-cut.md)**: overlapping Room outlines combine into one, a Room cuts another, their Walls follow, and Portals set into them stay anchored. Commands: none.
 - **[Erase and reshape strokes](changes/erase-and-reshape-strokes.md)**: an erase is a stroke like any other, and every stroke's path and Brush settings stay editable after it is laid down. Commands: none.

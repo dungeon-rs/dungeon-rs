@@ -114,7 +114,7 @@ The viewport shows the Grid as faint lines. While the Author draws a Wall or a R
 
 ## Changes to existing behaviour
 
-The Rules named here are those the composing spec holds once Rooms land, which this change builds on.
+The Rules named here are those the composing spec holds now that Rooms have landed, which this change builds on.
 
 - composing — **Drawing with the Wall tool**: modified so that "each click on the Level adds the point snapping puts it at (Drawing snaps) unless that point lies within a few pixels of the last one; the Wall in progress is previewed with a segment from its last point to that point", because the point a click adds is the snapped one.
 - composing — **Drawing with the Room tool**: modified so that "each click on the Level adds the point snapping puts it at unless that point lies within a few pixels of the last one; the outline in progress is previewed with a line from the last point to that point and from it to the first point; a click whose point lies within a few pixels of the first point, with three or more points placed, or Enter, closes it", because the closing click is judged by where it lands, as every other click is.
