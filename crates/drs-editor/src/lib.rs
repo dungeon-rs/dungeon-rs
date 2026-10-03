@@ -112,6 +112,7 @@ impl Plugin for EditorPlugin {
                         viewport::outline_selection,
                         walls::draw_overlays,
                         handles::draw,
+                        rooms::draw_cuts,
                         rooms::draw_overlays,
                         portals::draw_marker,
                         snapping::draw_marker,

@@ -108,9 +108,10 @@ an outline previewed with rubber bands from the last point to the pointer and
 from the pointer back to the first; a click on the first point or Enter closes
 it as one Place Element once it has three points, and with no point placed a
 drag draws a rectangle, placed on release unless it is only a few pixels wide or
-high. The strip then shows the wall thickness, the wall colour, and the floor
-colour of the next Room, or of the selected Room, a change to it sent as one
-Edit Element. Choosing the tool drops the chosen Asset and the selection and
+high. The strip then shows the wall thickness, the wall colour, the floor
+colour, and the Cut switch of the next Room, or of the selected Room, a change
+to it sent as one Edit Element. Every Room that cuts is drawn with a thin guide
+line along its whole outline, never in an Export. Choosing the tool drops the chosen Asset and the selection and
 leaves the Wall, the Portal, or the Paint tool, discarding a stroke being drawn;
 choosing an Asset or another tool leaves it, discarding the outline. A selected Room is outlined along its whole outline and
 has a Wall's handles round it, the edge from the last point to the first and
