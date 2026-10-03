@@ -23,8 +23,8 @@ use bevy::math::{UVec2, Vec2};
 use drs_model::{
     Apply, AssetAddress, Colour, Element, ElementChange, ElementId, FolderKey, Gesture, Layer,
     Level, OpenProject, PlaceElement, Placement, PointOf, Pointer, Project, ProjectOpened,
-    ProjectRefused, ProjectRequest, ProjectSaved, RemoveElement, Room, SaveProject, Snapped,
-    SnappedPoint, Snapping, Wall,
+    ProjectRefused, ProjectRequest, ProjectSaved, RemoveElement, Room, SaveProject, SavedMark,
+    Snapped, SnappedPoint, Snapping, Wall,
 };
 use std::path::{Path, PathBuf};
 use support::edit;
@@ -655,6 +655,8 @@ fn snapped_exactly() {
 fn snapping_is_not_a_step() {
     let mut fixture = Fixture::new();
     let room = fixture.room(&FREE);
+    fixture.save("still.dungeon");
+    let mark = fixture.app.world().resource::<SavedMark>().clone();
     let depth = support::history(&fixture.app).undo_depth();
     let before = fixture.rooms();
     let (level, _) = fixture.level();
@@ -679,6 +681,12 @@ fn snapping_is_not_a_step() {
         fixture.rooms(),
         before,
         "writing the Pointer changes no Room"
+    );
+    let world = fixture.app.world();
+    assert_eq!(*world.resource::<SavedMark>(), mark);
+    assert!(
+        !mark.unsaved(support::history(&fixture.app)),
+        "the Project is still saved"
     );
 
     let dragged = Some(PointOf {
