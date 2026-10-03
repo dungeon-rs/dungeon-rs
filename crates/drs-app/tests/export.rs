@@ -27,7 +27,10 @@ use drs_model::{
     PlaceElement, Placement, PortalAnchor, ProjectOpened, ProjectRefused, ProjectSaved, Prop,
     SaveProject, SavedMark, Side, Viewport,
 };
-use drs_model::{Bounds, BrushSettings, Paint, Resolution, ResolutionTable, Stroke, StrokeChange};
+use drs_model::{
+    Bounds, BrushSettings, Paint, Resolution, ResolutionTable, Stroke, StrokeChange,
+    TerrainCoverage,
+};
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::time::Instant;
@@ -531,6 +534,20 @@ impl Fixture {
             .single_mut(world)
             .expect("the Project's Bounds");
         *bounds = Bounds { origin, size };
+    }
+
+    /// Writes the Viewport as the Editor does, showing 1024 by 768 screen pixels around `centre`
+    /// at `zoom`, and runs one update.
+    fn look(&mut self, centre: Vec2, zoom: f32) {
+        let mut viewport = self
+            .app
+            .world_mut()
+            .get_resource_mut::<Viewport>()
+            .expect("the Viewport");
+        viewport.centre = centre;
+        viewport.zoom = zoom;
+        viewport.area = bevy::math::Rect::new(0.0, 0.0, 1024.0, 768.0);
+        self.app.update();
     }
 
     /// Exports at [`PIXELS_PER_CELL`] with tiles of [`TILE`] and decodes the image.
@@ -1683,6 +1700,47 @@ fn painted_levels_export_the_same() {
     let first = fs::read(first.path).expect("the first Export");
     let second = fs::read(second.path).expect("the second Export");
     assert!(first == second, "the two Exports differ");
+}
+
+/// The Export computes Terrain on the CPU at its own resolution, never from the tiles the editor
+/// shows: the same Level exported with the view at the base band and at the band of 256 is
+/// byte-identical.
+#[test]
+fn the_export_keeps_the_cpu_rasterizer() {
+    let mut fixture = Fixture::new();
+    fixture.look(Vec2::new(10.0, 10.0), 40.0);
+    fixture.paint(
+        QUARTERS,
+        &[
+            Vec2::new(3.0, 3.0),
+            Vec2::new(16.0, 14.0),
+            Vec2::new(22.0, 5.0),
+        ],
+        brush(3.0, 1.0, 0.9),
+    );
+    fixture.erase(
+        &[Vec2::new(4.0, 12.0), Vec2::new(20.0, 6.0)],
+        brush(1.5, 0.4, 0.7),
+    );
+
+    let at_the_base = fixture
+        .export(32, "terrain-base.png", 256)
+        .expect("the Export is written");
+    fixture.look(Vec2::new(12.0, 9.0), 300.0);
+    let world = fixture.app.world_mut();
+    let shown = world
+        .query::<&TerrainCoverage>()
+        .single(world)
+        .expect("the Terrain's coverage")
+        .band;
+    assert_eq!(shown, 256, "the editor shows the band of 256");
+    let close_up = fixture
+        .export(32, "terrain-close.png", 256)
+        .expect("the Export is written");
+
+    let at_the_base = fs::read(at_the_base.path).expect("the first Export");
+    let close_up = fs::read(close_up.path).expect("the second Export");
+    assert!(at_the_base == close_up, "the two Exports differ");
 }
 
 /// A Terrain whose image is Missing, or cannot be decoded, is drawn as its coverage in the
