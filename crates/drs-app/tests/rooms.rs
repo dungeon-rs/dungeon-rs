@@ -585,6 +585,45 @@ fn moving_the_room_moves_every_point() {
     assert_eq!(fixture.element(id).position, before + offset);
 }
 
+/// Moving an Element by dragging records a single undo step however long the drag, and undo
+/// returns the Element to where the drag began, a Room moved whole by its floor or its Walls as a
+/// Prop, every point and control point with it.
+#[test]
+fn a_room_drag_is_one_step() {
+    let mut fixture = Fixture::new();
+    let id = fixture.room(&RECTANGLE);
+    let control = Vec2::new(4.0, 8.0);
+    fixture.edit(
+        id,
+        ElementChange::Control {
+            segment: 2,
+            position: Some(control),
+        },
+    );
+    let start = (fixture.element(id), fixture.room_of(id));
+    let depth = fixture.history().undo_depth();
+    let centre = start.0.position;
+
+    for (offset, gesture) in [
+        (Vec2::new(0.5, 0.5), Gesture::Begin),
+        (Vec2::new(1.0, 2.0), Gesture::Continue),
+        (Vec2::new(3.0, 2.0), Gesture::Continue),
+        (Vec2::new(4.0, -1.0), Gesture::End),
+    ] {
+        fixture.apply(edit(id, ElementChange::Position(centre + offset), gesture));
+    }
+
+    let offset = Vec2::new(4.0, -1.0);
+    let moved: Vec<Vec2> = RECTANGLE.iter().map(|point| *point + offset).collect();
+    assert_eq!(fixture.room_of(id).points, moved);
+    assert_eq!(fixture.room_of(id).edges[2].control, Some(control + offset));
+    assert_eq!(fixture.history().undo_depth(), depth + 1);
+    fixture.undo();
+    assert_eq!((fixture.element(id), fixture.room_of(id)), start);
+    fixture.redo();
+    assert_eq!(fixture.room_of(id).points, moved);
+}
+
 /// Moving a point of a Room changes that point and nothing else: every other point and every
 /// control point stays where it was, so the two edges meeting at the point keep their curves.
 #[test]
