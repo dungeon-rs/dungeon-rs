@@ -7,6 +7,7 @@ mod place;
 mod portal;
 mod remove;
 mod room;
+mod snap;
 mod terrain;
 mod wall;
 
@@ -20,7 +21,7 @@ use drs_history::History;
 use drs_library_access::LibraryError;
 use drs_model::{
     Apply, CanonicalName, CommandFailed, ElementId, FolderKey, HistoryFailed, ManagerSystems,
-    PortalsRemoved, Redo, Undo,
+    PortalsRemoved, Redo, SnapSystems, Undo,
 };
 use drs_shape_engine::ShapeError;
 
@@ -218,6 +219,10 @@ impl Plugin for AuthoringManagerPlugin {
                 // Likewise a Terrain painted, undone, redone, or opened has its coverage before
                 // anything draws it.
                 terrain::derive_coverage.after(ManagerSystems::Redo),
+                // And a point placed or dragged snaps among the Walls and Rooms as they stand.
+                snap::derive_snapped_point
+                    .in_set(SnapSystems)
+                    .after(ManagerSystems::Redo),
             ),
         );
     }

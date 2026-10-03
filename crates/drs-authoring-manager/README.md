@@ -35,6 +35,12 @@ part its host lacks, stands where it was saved and is moved, turned, and mirrore
 freestanding one, and a point added to its host moves its anchor past the new part, so it goes
 on standing there.
 
+After the frame's Commands, Undo, and Redo, too, whenever the Editor's `Pointer` changed or a
+Wall or Room was placed, edited, or removed, the Manager derives the `SnappedPoint` through the
+shape Engine's Snap from the points of every Wall and Room on the Pointer's Level, in stacking
+order, writing it only when its answer, or the Pointer it answers apart from where the pointer
+is, differs. Snapping records nothing: a Command applies the points it carries as they are.
+
 A Paint lays one stroke on the topmost Terrain of its Layer as one step that undo takes off the end
 again; on a Layer with no Terrain it places one of the chosen Asset's image under every Element on
 the Layer, holding the stroke, in the same step. A Paint naming no Asset paints with the Terrain's
