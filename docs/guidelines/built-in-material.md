@@ -1,13 +1,13 @@
 # Built-in Material with a fixed-handle Shader
 
-**Use when**: RenderEngine draws something with a Shader of its own that ships with the editor (the masked tiled image a Terrain is drawn with). **Not when**: the Shader comes from an Asset or a Plugin (an author Shader, which the Shader contract and naga validation at load time govern), or a Material Bevy already has does the job (`ColorMaterial` for a Wall's flat colour).
+**Use when**: an Engine draws with a Shader of its own that ships with the editor, under a fixed handle: RenderEngine's Material (the masked tiled image a Terrain is drawn with) or a render-world pipeline (PaintEngine's stroke Shader, which follows the Shader rules here and leaves the Material ones aside). **Not when**: the Shader comes from an Asset or a Plugin (an author Shader, which the Shader contract and naga validation at load time govern), or a Material Bevy already has does the job (`ColorMaterial` for a Wall's flat colour).
 **Exemplar**: `crates/drs-render-engine/src/terrain.rs`
 
 ## Rules
 
 - The Shader is a Bundled File: plain WGSL with no Bevy imports in `src/shaders/<name>.wgsl`, compiled in with `include_str!`. Its fragment input names the Bevy struct it mirrors and declares only the fields it reads at their locations; its `Params` mirrors the Rust `Params` field by field in the same order. The `wgsl-shaders` check of `just workspace` parses and validates every such file with naga.
 - The Shader has a fixed handle, a `const` made with `uuid_handle!` from a fresh UUID, and the Material's `fragment_shader` returns `ShaderRef::Handle` of it, so nothing loads it through the asset server.
-- The plugin inserts the Shader into `Assets<Shader>` in `Plugin::finish`, not `build`, through a function that takes `Option<&mut Assets<Shader>>` and logs when there are none, since `build` runs before the render plugins have made the shader assets when the plugin is added first.
+- The plugin inserts the Shader into `Assets<Shader>` in `Plugin::finish`, not `build`, through an `add_shader` function that takes `Option<&mut Assets<Shader>>` and logs when there are none, since `build` runs before the render plugins have made the shader assets when the plugin is added first. An Engine that can do without the Shader has it return whether it was added and falls back in `finish` when it was not (PaintEngine then hands no work to the render world and rasterizes on the CPU).
 - The Material derives `Asset`, `TypePath`, and `AsBindGroup`, keeps its bind group at group 2 with the uniform at binding 0, and is registered with `Material2dPlugin::<M>` in `build`; it blends (`AlphaMode2d::Blend`) when it must sort with the sprites and meshes by depth.
 - When an image a Material binds is replaced in `Assets<Image>`, the Material is marked changed too (`get_mut(..)` and `into_inner()`), since its bind group keeps the texture it was prepared with.
 

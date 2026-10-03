@@ -2,7 +2,7 @@
 
 - [Atomic file replacement](./atomic-file-replacement.md): use when a ResourceAccess writes a file the Author must never find half-written.
 - [Background worker pool in a ResourceAccess](./background-worker-pool.md): use when a ResourceAccess runs a queue of jobs a Manager feeds, on threads of its own.
-- [Built-in Material with a fixed-handle Shader](./built-in-material.md): use when RenderEngine draws with a Shader of its own that ships with the editor.
+- [Built-in Material with a fixed-handle Shader](./built-in-material.md): use when an Engine draws with a Shader of its own that ships with the editor.
 - [Component migration](./component-migration.md): use when the data of a serialisable component changes shape, so older files hold an older version of it.
 - [Derived model component](./derived-model-component.md): use when a Client or an Engine needs a value computed from the model by an Engine it may not depend on.
 - [Development switch](./development-switch.md): use when adding a switch the editor needs only for development or autonomous verification.

@@ -71,25 +71,38 @@ impl Plugin for PaintEnginePlugin {
         if app.world().get_resource::<StrokeJobs>().is_none() {
             return;
         }
-        let Some(mut shaders) = app.world_mut().get_resource_mut::<Assets<Shader>>() else {
-            log::warn!(
-                "there are no shader assets to add the stroke Shader to, so Terrain is \
-                 rasterized on the CPU"
-            );
-            app.world_mut().remove_resource::<StrokeJobs>();
-            return;
-        };
-        if shaders
-            .insert(
-                &SHADER,
-                Shader::from_wgsl(SHADER_SOURCE, "drs-paint-engine/stroke.wgsl"),
-            )
-            .is_err()
-        {
-            log::warn!("the stroke Shader could not be added, so Terrain is rasterized on the CPU");
+        let added = add_shader(
+            app.world_mut()
+                .get_resource_mut::<Assets<Shader>>()
+                .as_deref_mut(),
+        );
+        if !added {
             app.world_mut().remove_resource::<StrokeJobs>();
         }
     }
+}
+
+/// Adds the stroke Shader to the shader assets, or says that Terrain is rasterized on the CPU
+/// when there are none; whether it was added.
+fn add_shader(shaders: Option<&mut Assets<Shader>>) -> bool {
+    let Some(shaders) = shaders else {
+        log::warn!(
+            "there are no shader assets to add the stroke Shader to, so Terrain is rasterized on \
+             the CPU"
+        );
+        return false;
+    };
+    if shaders
+        .insert(
+            &SHADER,
+            Shader::from_wgsl(SHADER_SOURCE, "drs-paint-engine/stroke.wgsl"),
+        )
+        .is_err()
+    {
+        log::warn!("the stroke Shader could not be added, so Terrain is rasterized on the CPU");
+        return false;
+    }
+    true
 }
 
 /// A segment of a stroke's path as the stroke Shader reads it.
