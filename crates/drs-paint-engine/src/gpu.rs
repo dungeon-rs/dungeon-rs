@@ -7,6 +7,7 @@ use bevy_asset::{AssetId, Assets, Handle, RenderAssetUsages, uuid_handle};
 use bevy_ecs::resource::Resource;
 use bevy_ecs::schedule::IntoScheduleConfigs;
 use bevy_ecs::system::{Commands, Res, ResMut, SystemParam};
+use bevy_ecs::world::World;
 use bevy_image::{Image, ImageSampler};
 use bevy_math::{IVec2, Vec2};
 use bevy_render::render_asset::RenderAssets;
@@ -148,7 +149,7 @@ pub(crate) struct Pass {
 /// render world takes it once a frame; a Terrain's cache adds to it through
 /// [`StrokeRasterizer`].
 #[derive(Resource, Debug, Default)]
-pub struct StrokeJobs {
+pub(crate) struct StrokeJobs {
     /// The segments of every stroke the passes draw.
     segments: Vec<SegmentData>,
     /// The tiles to draw into, in the order they are drawn.
@@ -245,6 +246,15 @@ pub(crate) struct Drawn {
     pub(crate) clear: bool,
     /// The strokes drawn into it, by number, in order.
     pub(crate) strokes: Vec<usize>,
+}
+
+/// Readies `world` to rasterize on the GPU as the editor's main world is where it renders, with
+/// the images the tiles are and the work handed to the render world, so a test can time bringing
+/// a cache up there without a renderer.
+#[doc(hidden)]
+pub fn ready_to_rasterize_on_gpu(world: &mut World) {
+    world.init_resource::<Assets<Image>>();
+    world.init_resource::<StrokeJobs>();
 }
 
 /// What rasterizes coverage tiles: the GPU when the editor renders, through the work handed to

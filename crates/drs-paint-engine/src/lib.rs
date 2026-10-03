@@ -6,5 +6,5 @@ mod gpu;
 mod rasterize;
 
 pub use cache::{PaintCache, apply_stroke};
-pub use gpu::{PaintEnginePlugin, StrokeJobs, StrokeRasterizer};
+pub use gpu::{PaintEnginePlugin, StrokeRasterizer, ready_to_rasterize_on_gpu};
 pub use rasterize::rasterize;

@@ -9,13 +9,11 @@
     reason = "a test stops at the first thing that is not as expected"
 )]
 
-use bevy_asset::Assets;
 use bevy_ecs::system::SystemState;
 use bevy_ecs::world::World;
-use bevy_image::Image;
 use bevy_math::{Rect, Vec2, ops};
 use drs_model::{BrushSettings, Stroke, Viewport};
-use drs_paint_engine::{PaintCache, StrokeJobs, StrokeRasterizer, apply_stroke};
+use drs_paint_engine::{PaintCache, StrokeRasterizer, apply_stroke, ready_to_rasterize_on_gpu};
 use std::time::{Duration, Instant};
 
 /// The side of the Level the strokes lie on, in cells.
@@ -93,8 +91,7 @@ impl Bench {
     /// A fresh World with `cache`.
     fn new(cache: PaintCache) -> Self {
         let mut world = World::new();
-        world.init_resource::<Assets<Image>>();
-        world.init_resource::<StrokeJobs>();
+        ready_to_rasterize_on_gpu(&mut world);
         let state = SystemState::new(&mut world);
         Self {
             world,
@@ -106,8 +103,7 @@ impl Bench {
     /// A fresh World with a cache of no stroke made for its GPU.
     fn fresh() -> Self {
         let mut world = World::new();
-        world.init_resource::<Assets<Image>>();
-        world.init_resource::<StrokeJobs>();
+        ready_to_rasterize_on_gpu(&mut world);
         let mut state = SystemState::<StrokeRasterizer<'static>>::new(&mut world);
         let cache = PaintCache::new(&state.get_mut(&mut world).expect("the rasterizer"));
         Self {
