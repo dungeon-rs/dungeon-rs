@@ -33,11 +33,6 @@ impl Drag {
         self.pressed_at
     }
 
-    /// Whether the press has become a drag.
-    pub(crate) fn begun(self) -> bool {
-        self.sent.is_some()
-    }
-
     /// What the last step sent, once the drag has begun.
     pub(crate) fn sent(self) -> Option<Vec2> {
         self.sent

@@ -740,9 +740,10 @@ fn moving_by_whole_cells() {
 }
 
 /// Moving a Wall or a Room by a whole number of cells in each direction leaves every point that
-/// lay on a Grid corner exactly on a Grid corner; an Edit Element that moves a Room by an amount
-/// moves every point and control point by the same amount, and a drag of several such moves is
-/// one history step.
+/// lay on a Grid corner exactly on a Grid corner, however the drag travelled before, through
+/// amounts that are not whole while snapping was off included; an Edit Element that moves a Room
+/// by an amount moves every point and control point by the same amount, and a drag of several
+/// such moves is one history step.
 #[test]
 fn whole_cells_stay_whole() {
     let mut fixture = Fixture::new();
@@ -765,17 +766,20 @@ fn whole_cells_stay_whole() {
     let start = fixture.room_of(room);
     let depth = support::history(&fixture.app).undo_depth();
 
+    // Each step carries the travel since the press; the second and third are a stretch of the
+    // drag with snapping off, which moved it by amounts no Grid corner is at.
     let steps = [
         (Vec2::new(1.0, 0.0), Gesture::Begin),
-        (Vec2::new(2.0, -1.0), Gesture::Continue),
-        (Vec2::new(-7.0, 3.0), Gesture::Continue),
-        (Vec2::new(0.0, 0.0), Gesture::End),
+        (Vec2::new(2.37, -0.61), Gesture::Continue),
+        (Vec2::new(-5.13, 1.71), Gesture::Continue),
+        (Vec2::new(3.0, -1.0), Gesture::Continue),
+        (Vec2::new(-4.0, 2.0), Gesture::Continue),
+        (Vec2::new(-4.0, 2.0), Gesture::End),
     ];
-    let mut moved_control = control;
-    for (amount, gesture) in steps {
-        fixture.edit(room, ElementChange::MoveBy(amount), gesture);
-        moved_control += amount;
+    for (travel, gesture) in steps {
+        fixture.edit(room, ElementChange::MoveBy(travel), gesture);
     }
+    let moved_control = control + Vec2::new(-4.0, 2.0);
 
     let moved = fixture.room_of(room);
     let expected: Vec<Vec2> = points
@@ -795,8 +799,8 @@ fn whole_cells_stay_whole() {
 }
 
 /// An Edit Element that moves a Wall by an amount moves every point and control point by the
-/// same amount, and its box with them; a drag of several such moves is one history step, which
-/// undo returns to where the drag began.
+/// same amount, and its box with them; a drag of several such moves, each the travel since the
+/// press, is one history step, which undo returns to where the drag began.
 #[test]
 fn a_wall_moves_by_an_amount() {
     let mut fixture = Fixture::new();
@@ -818,12 +822,12 @@ fn a_wall_moves_by_an_amount() {
     let depth = support::history(&fixture.app).undo_depth();
     let amount = Vec2::new(-2.5, 1.25);
 
-    for (step, gesture) in [
+    for (travel, gesture) in [
         (Vec2::new(-1.0, 0.0), Gesture::Begin),
-        (Vec2::new(-1.5, 1.25), Gesture::Continue),
-        (Vec2::ZERO, Gesture::End),
+        (amount, Gesture::Continue),
+        (amount, Gesture::End),
     ] {
-        fixture.edit(wall, ElementChange::MoveBy(step), gesture);
+        fixture.edit(wall, ElementChange::MoveBy(travel), gesture);
     }
 
     let moved = fixture.wall_of(wall);

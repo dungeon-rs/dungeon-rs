@@ -602,9 +602,11 @@ fn drag_handle(
 }
 
 /// Moves the Wall or the Room being dragged with the pointer, once it has travelled far enough to
-/// be a drag, by the amount the pointer travelled since the step before, in whole cells while it
-/// snaps: the first move begins the gesture, even by nothing, and every later move that goes
-/// anywhere continues it, as soon as the snapped travel changes, even with the pointer still.
+/// be a drag, by the amount the pointer travelled since the press, in whole cells while it snaps:
+/// the first move begins the gesture, even by nothing, and every later move that goes anywhere
+/// continues it, as soon as the snapped travel changes, even with the pointer still. Each step
+/// carries the whole travel, which the Manager counts from where the gesture began, so a point on
+/// a Grid corner lands on one whenever the travel is whole, whatever went before.
 fn drag_whole(
     state: &mut EditorState,
     apply: &mut MessageWriter<Apply>,
@@ -620,14 +622,13 @@ fn drag_whole(
     else {
         return;
     };
-    let moved = drag.sent().unwrap_or(Vec2::ZERO);
     let travel = shown.travel_or(viewport.cells_at(cursor) - from);
     let Some(gesture) = drag.step(cursor, travel) else {
         return;
     };
     apply.write(Apply::EditElement(EditElement {
         element,
-        change: ElementChange::MoveBy(travel - moved),
+        change: ElementChange::MoveBy(travel),
         gesture,
     }));
     state.interaction = Interaction::Moving {
@@ -727,9 +728,9 @@ fn press(
 }
 
 /// Ends a drag that is under way once its button is up: the position the pointer last moved the
-/// Element or the handle to is sent again as the end of the gesture, or for a whole Wall or Room
-/// a move by nothing, so the whole drag is one history step and ends where it was last shown. A
-/// press that never became a drag just ends.
+/// Element or the handle to, or the travel a whole Wall or Room was last moved by, is sent again
+/// as the end of the gesture, so the whole drag is one history step and ends where it was last
+/// shown. A press that never became a drag just ends.
 fn finish_gesture(state: &mut EditorState, apply: &mut MessageWriter<Apply>, input: &Input) {
     match state.interaction {
         // A slide ends through `finish_slide`, which knows the Portal's Wall, and a rectangle
@@ -767,10 +768,10 @@ fn finish_gesture(state: &mut EditorState, apply: &mut MessageWriter<Apply>, inp
             if input.buttons.pressed(MouseButton::Left) {
                 return;
             }
-            if drag.begun() {
+            if let Some(travel) = drag.sent() {
                 apply.write(Apply::EditElement(EditElement {
                     element,
-                    change: ElementChange::MoveBy(Vec2::ZERO),
+                    change: ElementChange::MoveBy(travel),
                     gesture: Gesture::End,
                 }));
             }
