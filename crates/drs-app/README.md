@@ -8,7 +8,8 @@ locates the Bundled Files and roots the default asset source where the Utility
 says, registers the `lib://` and `thumb://` asset sources before Bevy's asset
 plugin builds, sets the window title, adds the model, the history, the library
 access, the library Manager, the project Manager, the authoring Manager, the
-render Engine, and the Editor with what the start found, hands the crash
+paint Engine's rasterizing on the GPU, the render Engine, and the Editor with
+what the start found, hands the crash
 handler's marker for caught panics to the background threads through
 [`CaughtPanics`](drs_model::CaughtPanics), and runs the App under the crash
 handler's guard.

@@ -11,6 +11,7 @@ use drs_history::HistoryPlugin;
 use drs_library_access::{LibraryAccessPlugin, register_library_source, register_thumbnail_source};
 use drs_library_manager::LibraryManagerPlugin;
 use drs_model::{CaughtPanics, EditorDirectories, ModelPlugin};
+use drs_paint_engine::PaintEnginePlugin;
 use drs_project_manager::ProjectManagerPlugin;
 use drs_render_engine::RenderEnginePlugin;
 
@@ -70,6 +71,7 @@ fn main() -> AppExit {
         LibraryManagerPlugin,
         ProjectManagerPlugin,
         AuthoringManagerPlugin,
+        PaintEnginePlugin,
         RenderEnginePlugin,
         EditorPlugin::new(started),
     ));
