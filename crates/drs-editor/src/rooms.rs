@@ -17,17 +17,20 @@ use bevy::color::Color;
 use bevy::ecs::entity::Entity;
 use bevy::ecs::message::MessageWriter;
 use bevy::ecs::query::With;
-use bevy::ecs::system::{Res, Single};
+use bevy::ecs::system::{Query, Res, Single};
 use bevy::gizmos::gizmos::Gizmos;
 use bevy::math::{Isometry2d, Vec2};
 use bevy::window::{PrimaryWindow, Window};
 use drs_model::{
-    Apply, Colour, ElementChange, ElementId, LinePoint, PlaceElement, Placement, Pointer, Room,
-    RoomShape, SnappedPoint, Viewport,
+    Apply, Colour, EditElement, ElementChange, ElementId, Gesture, LinePoint, PlaceElement,
+    Placement, Pointer, Room, RoomShape, SnappedPoint, Viewport,
 };
 
 /// The floor colour the first Room is drawn with: a light grey.
 const DEFAULT_FLOOR: Colour = Colour::rgb(200, 200, 200);
+/// The colour of the thin guide line a Room that cuts is drawn with: an orange that no floor or
+/// Wall is likely to share.
+const CUT_GUIDE: Color = Color::srgba(1.0, 0.55, 0.1, 0.8);
 /// How close to the first point, in screen pixels, a click closes the outline.
 const NEAR_THE_FIRST: f32 = 4.0;
 /// How wide and how high, in screen pixels, a dragged rectangle must be to place a Room.
@@ -281,7 +284,7 @@ pub(crate) fn on_walls(room: &Room, shape: &RoomShape, cells: Vec2, zoom: f32) -
     on_wall(room.thickness, &Lines::of_room(shape), cells, zoom)
 }
 
-/// The wall thickness, wall colour, and floor colour options, of the selected Room or of the
+/// The wall thickness, wall colour, floor colour, and Cut options, of the selected Room or of the
 /// next one, a change to a selected Room sent as one Edit Element and a held widget as one
 /// gesture.
 pub(crate) fn options(
@@ -290,17 +293,28 @@ pub(crate) fn options(
     selected: Option<&(ElementId, Room)>,
     apply: &mut MessageWriter<Apply>,
 ) {
-    let (thickness, walls, floor) = selected.map_or(
+    let (thickness, walls, floor, cuts) = selected.map_or(
         (
             state.rooms.thickness,
             state.rooms.wall_colour,
             state.rooms.floor_colour,
+            state.rooms.cuts,
         ),
-        |(_, room)| (room.thickness, room.wall_colour, room.floor_colour),
+        |(_, room)| {
+            (
+                room.thickness,
+                room.wall_colour,
+                room.floor_colour,
+                room.cuts,
+            )
+        },
     );
     let (thickness, drag) = thickness_option(ui, thickness);
     let (picked_walls, picking_walls) = colour_option(ui, "Walls", walls);
     let (picked_floor, picking_floor) = colour_option(ui, "Floor", floor);
+    let mut picked_cuts = cuts;
+    ui.checkbox(&mut picked_cuts, "Cut")
+        .on_hover_text("A Room that cuts takes floor away from the Rooms before it on its Layer");
 
     let Some((element, room)) = selected else {
         // A thickness no Room could have leaves the next Room's as it was.
@@ -309,10 +323,18 @@ pub(crate) fn options(
         }
         state.rooms.wall_colour = picked_walls;
         state.rooms.floor_colour = picked_floor;
+        state.rooms.cuts = picked_cuts;
         end_option(&mut state.rooms.option, apply);
         return;
     };
-    if drag.changed() {
+    if picked_cuts != room.cuts {
+        end_option(&mut state.rooms.option, apply);
+        apply.write(Apply::EditElement(EditElement {
+            element: *element,
+            change: ElementChange::Cuts(picked_cuts),
+            gesture: Gesture::Single,
+        }));
+    } else if drag.changed() {
         send_option(
             &mut state.rooms.option,
             apply,
@@ -344,6 +366,24 @@ pub(crate) fn options(
 /// Ends a Room option's gesture left open when its Room is no longer shown in the strip.
 pub(crate) fn end_options(state: &mut EditorState, apply: &mut MessageWriter<Apply>) {
     end_option(&mut state.rooms.option, apply);
+}
+
+/// Draws every Room that cuts as a thin guide line along its whole outline, whether or not it
+/// takes floor away, so a cut is found where nothing else shows it. Nothing is drawn while an
+/// Export runs, so no Export holds it.
+pub(crate) fn draw_cuts(
+    mut gizmos: Gizmos,
+    state: Res<EditorState>,
+    rooms: Query<(&Room, &RoomShape)>,
+) {
+    if state.exporting {
+        return;
+    }
+    for (room, shape) in &rooms {
+        if room.cuts {
+            gizmos.linestrip_2d(shape.outline.iter().map(|point| point.position), CUT_GUIDE);
+        }
+    }
 }
 
 /// Draws what the Room tool shows over the Level: the outline being drawn as a thin line through
