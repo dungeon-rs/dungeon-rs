@@ -1,6 +1,6 @@
 # Export-only content through render layers
 
-**Use when**: RenderEngine draws one thing two ways, a stand-in in the viewport and an exact version the Export computes for the region it captures (a Terrain's coverage tiles at 32 pixels per cell, and its coverage rasterized at the Export's resolution). **Not when**: the content is the Editor's own overlay (the selection outline, a Wall's handles, the Portal marker): the Editor's systems stop drawing it while `EditorState::exporting`, as `outline_selection` does. Nor when both cameras draw the same thing (sprites, Wall meshes): it stays on the default layer with no `RenderLayers`.
+**Use when**: RenderEngine draws one thing two ways, a stand-in in the viewport and an exact version the Export computes for the region it captures (a Terrain's coverage tiles at the active band, and its coverage rasterized at the Export's resolution). **Not when**: the content is the Editor's own overlay (the selection outline, a Wall's handles, the Portal marker): the Editor's systems stop drawing it while `EditorState::exporting`, as `outline_selection` does. Nor when both cameras draw the same thing (sprites, Wall meshes): it stays on the default layer with no `RenderLayers`.
 **Exemplar**: `crates/drs-render-engine/src/region.rs`
 
 ## Rules

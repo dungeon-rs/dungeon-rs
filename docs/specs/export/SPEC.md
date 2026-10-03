@@ -29,7 +29,7 @@ A map is made to be put in front of players, at the table or on a virtual tablet
 19. As an Author, I can rely on the image having no visible seams, so that a large export is one picture.
 20. As an Author, I am proposed a file name from the Project's and Level's names, so that my exports are findable.
 21. As an Author, I can rely on the exported image having an opaque background, so that it displays the same in every tabletop and printer.
-22. As an Author sharing a Project with a collaborator on a different computer and graphics card, I can rely on the same Level exporting to the same image on both, so that a re-export by either of us changes only what we changed.
+22. As an Author sharing a Project with a collaborator on a different computer, I can rely on the painted ground of the same Level being computed the same in both our Exports, whatever either editor shows, so that a re-export by either of us changes only what we changed.
 
 ## Rules
 
