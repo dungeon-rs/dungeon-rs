@@ -113,8 +113,11 @@ pub(crate) const FREE_OR_SET: &[Binding] = &[Binding::new(Modifiers::NONE, Key::
 /// Flip the side the selected Portal faces, or its mirroring.
 pub(crate) const FLIP: &[Binding] = &[Binding::new(Modifiers::NONE, Key::X, KeyCode::KeyX)];
 
-/// Choose the Paint tool.
+/// Choose the Paint tool painting.
 pub(crate) const PAINT_TOOL: &[Binding] = &[Binding::new(Modifiers::NONE, Key::B, KeyCode::KeyB)];
+
+/// Choose the Paint tool erasing.
+pub(crate) const ERASE_TOOL: &[Binding] = &[Binding::new(Modifiers::NONE, Key::E, KeyCode::KeyE)];
 
 /// Finish the Wall or close the Room being drawn.
 pub(crate) const FINISH: &[Binding] = &[

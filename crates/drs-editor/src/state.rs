@@ -88,13 +88,13 @@ impl EditorState {
     }
 
     /// Whether a step is still being made, by a drag, by a Wall, a Room, or a stroke being drawn,
-    /// by a press that may begin a Room's rectangle, or by an option held while it changes, so
-    /// undo and redo wait.
+    /// by a point or a stroke being dragged, by a press that may begin a Room's rectangle, or by an
+    /// option held while it changes, so undo and redo wait.
     pub fn step_under_way(&self) -> bool {
         self.dragging()
             || matches!(self.interaction, Interaction::Outlining { .. })
             || self.walls.drawing_in_progress()
-            || self.paint.drawing_in_progress()
+            || self.paint.step_in_progress()
             || self.rooms.drawing_in_progress()
             || self.walls.option_in_progress()
             || self.rooms.option_in_progress()
@@ -202,7 +202,8 @@ pub(crate) enum Interaction {
     /// Nothing is under way.
     #[default]
     Idle,
-    /// A stroke is being drawn with the Paint tool; the release lays it.
+    /// The Paint tool's gesture is under way: a stroke being drawn, or a press on a stroke or a
+    /// handle of one, which a drag reshapes; the release lays or ends it.
     Painting,
     /// The view is being dragged.
     Panning {

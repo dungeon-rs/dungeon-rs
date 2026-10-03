@@ -323,7 +323,7 @@ pub(crate) fn pointer(
         Interaction::Painting => {
             let cells = viewport.cells_at(cursor);
             if input.buttons.pressed(MouseButton::Left) {
-                paint::extend(&mut state, cells);
+                paint::moved(&mut state, &mut apply, &viewport, cursor);
             } else {
                 paint::release(&mut state, &mut apply, level.current_layer(), Some(cells));
             }
@@ -520,8 +520,7 @@ fn press(
     double: bool,
 ) {
     if state.tool == Tool::Paint {
-        let terrain = level.current_terrain().is_some();
-        paint::press(state, terrain, viewport.cells_at(cursor));
+        paint::press(state, level.current_terrain(), viewport, cursor);
         return;
     }
     if state.tool == Tool::Wall {
@@ -677,16 +676,17 @@ fn zoom_and_scroll(input: &mut Input, viewport: &mut Viewport, cursor: Vec2) {
     }
 }
 
-/// The keys: `W` chooses the Wall tool, `P` the Portal tool, `R` the Room tool, and `B` the Paint
-/// tool, Enter finishes the Wall or closes the Room being drawn, Escape stops placing or leaves the
-/// Wall, the Portal, the Room, or the Paint tool, discarding what is being drawn, `X` flips and
-/// `F` frees or sets the selected Portal, Delete (and Backspace on macOS) removes the selected
-/// point, straightens the selected control point's segment or edge, or removes the selected
-/// Element, and the platform's usual shortcuts undo and redo. Nothing happens while egui has the
-/// keyboard, so a text field keeps its own editing keys, nor while an Export runs, and undo, redo,
-/// flipping, and freeing or setting wait while an Element or a handle is being dragged, a Wall, a
-/// Room, or a stroke is being drawn, or an option is held while it changes, since each is one step
-/// that is still being made.
+/// The keys: `W` chooses the Wall tool, `P` the Portal tool, `R` the Room tool, `B` the Paint tool
+/// painting and `E` erasing, Enter finishes the Wall or closes the Room being drawn, Escape stops
+/// placing or leaves the Wall, the Portal, the Room, or the Paint tool, discarding what is being
+/// drawn, `X` flips and `F` frees or sets the selected Portal, Delete (and Backspace on macOS)
+/// removes the selected point, straightens the selected control point's segment or edge, removes
+/// the selected Element, or with the Paint tool editing strokes removes the selected stroke, and
+/// the platform's usual shortcuts undo and redo. Nothing happens while egui has the keyboard, so a
+/// text field keeps its own editing keys, nor while an Export runs, and undo, redo, flipping, and
+/// freeing or setting wait while an Element or a handle is being dragged, a Wall, a Room, or a
+/// stroke is being drawn, or an option is held while it changes, since each is one step that is
+/// still being made.
 pub(crate) fn keys(
     keys: Res<ButtonInput<KeyCode>>,
     egui: Res<EguiWantsInput>,
@@ -730,6 +730,9 @@ pub(crate) fn keys(
     if bindings::any_pressed(bindings::PAINT_TOOL, &keys) {
         paint::choose_paint_tool(&mut state);
     }
+    if bindings::any_pressed(bindings::ERASE_TOOL, &keys) {
+        paint::choose_erasing(&mut state);
+    }
     if bindings::any_pressed(bindings::FINISH, &keys) {
         match state.tool {
             Tool::Wall => walls::finish(&mut state, &mut apply, level.current_layer()),
@@ -745,6 +748,9 @@ pub(crate) fn keys(
             walls::leave_tool(&mut state);
         }
         paint::leave_paint_tool(&mut state);
+    }
+    if bindings::any_pressed(bindings::REMOVE, &keys) {
+        paint::remove_selected(&mut state, &mut apply);
     }
     if bindings::any_pressed(bindings::REMOVE, &keys)
         && let Some(element) = state.selected
