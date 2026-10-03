@@ -7,6 +7,7 @@
 //! selected stroke are the Editor's too, never a history step and never saved.
 
 use crate::bindings;
+use crate::handles::{self, Outline, OutlineHandle};
 use crate::state::{EditorState, Interaction, Tool};
 use crate::viewport::LevelView;
 use crate::walls::{self, OptionGesture};
@@ -39,12 +40,6 @@ const LARGEST: f32 = 64.0;
 const WEAKEST: f32 = 1.0;
 /// How far the pointer moves, as a part of the Brush's size, before it adds a point to the path.
 const SPACING: f32 = 1.0 / 8.0;
-/// How far the pointer travels, in pixels, before a press on a stroke or a handle becomes a drag.
-const DRAG_THRESHOLD: f32 = 3.0;
-/// How close to a handle, in screen pixels, the pointer is on it; the size handles are drawn at.
-const HANDLE_PIXELS: f32 = 6.0;
-/// How close to a stroke's path, in screen pixels, the pointer is on it however narrow it is.
-const PATH_PIXELS: f32 = 4.0;
 /// The colour of the Brush's circle and a stroke's path while painting.
 const CIRCLE: egui::Color32 = egui::Color32::from_rgb(90, 190, 255);
 /// The colour of the band a stroke that paints is shown as: translucent.
@@ -53,8 +48,6 @@ const BAND: egui::Color32 = egui::Color32::from_rgba_unmultiplied_const(90, 190,
 const ERASE_CIRCLE: egui::Color32 = egui::Color32::from_rgb(255, 110, 80);
 /// The colour of the band an erase is shown as: translucent.
 const ERASE_BAND: egui::Color32 = egui::Color32::from_rgba_unmultiplied_const(255, 110, 80, 90);
-/// The colour of the handle being dragged.
-const PICKED: egui::Color32 = egui::Color32::from_rgb(255, 217, 51);
 
 /// What the Paint tool does with the pointer.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
@@ -95,12 +88,26 @@ pub(crate) struct StrokeDrag {
     dragged: Dragged,
     /// Where the point, or the centre of the stroke's points, was when the button went down.
     origin: Vec2,
-    /// The pointer, in cells, when the button went down.
-    pointer: Vec2,
     /// The pointer, on screen, when the button went down.
-    screen: Vec2,
-    /// The change last sent; `None` until the drag begins.
-    sent: Option<ElementChange>,
+    pointer: Vec2,
+    /// The pointer, on screen, when the stroke or the point was last moved; `None` until the drag
+    /// begins.
+    moved_at: Option<Vec2>,
+}
+
+impl StrokeDrag {
+    /// The change that puts the point or the stroke where the pointer at `cursor` has carried it
+    /// from the press.
+    fn change_at(&self, viewport: &Viewport, cursor: Vec2) -> ElementChange {
+        let position = self.origin + (viewport.cells_at(cursor) - viewport.cells_at(self.pointer));
+        ElementChange::Stroke {
+            stroke: self.target.stroke,
+            change: match self.dragged {
+                Dragged::Point(index) => StrokeChange::Point { index, position },
+                Dragged::Stroke => StrokeChange::Position(position),
+            },
+        }
+    }
 }
 
 /// The Paint tool's state.
@@ -256,14 +263,8 @@ fn distance_to_path(points: &[Vec2], cells: Vec2) -> f32 {
         points => points
             .windows(2)
             .map(|pair| {
-                let (from, along) = (pair[0], pair[1] - pair[0]);
-                let length = along.length_squared();
-                let t = if length > 0.0 {
-                    ((cells - from).dot(along) / length).clamp(0.0, 1.0)
-                } else {
-                    0.0
-                };
-                (from + along * t).distance(cells)
+                let t = walls::parameter_on_segment(pair[0], pair[1], cells);
+                pair[0].lerp(pair[1], t).distance(cells)
             })
             .fold(f32::INFINITY, f32::min),
     }
@@ -279,23 +280,10 @@ fn stroke_at(terrain: &Terrain, cells: Vec2, zoom: f32) -> Option<usize> {
         .enumerate()
         .rev()
         .find(|(_, stroke)| {
-            let reach = stroke.brush.radius().max(PATH_PIXELS / zoom);
+            let reach = stroke.brush.radius().max(walls::LINE_PIXELS / zoom);
             distance_to_path(&stroke.points, cells) <= reach
         })
         .map(|(index, _)| index)
-}
-
-/// The point of a stroke's path nearest a point in cells within a handle's reach at `zoom`.
-fn handle_at(stroke: &Stroke, cells: Vec2, zoom: f32) -> Option<(usize, Vec2)> {
-    stroke
-        .points
-        .iter()
-        .copied()
-        .enumerate()
-        .map(|(index, point)| (index, point, point.distance(cells)))
-        .filter(|(_, _, distance)| distance * zoom <= HANDLE_PIXELS)
-        .min_by(|a, b| a.2.total_cmp(&b.2))
-        .map(|(index, point, _)| (index, point))
 }
 
 /// The selected stroke, when it is a stroke of `terrain`, the current Layer's topmost Terrain.
@@ -341,7 +329,11 @@ pub(crate) fn press(
         }
         Mode::EditingStrokes => {
             let handle = selected_in(state, terrain).and_then(|(target, stroke)| {
-                handle_at(stroke, cells, viewport.zoom).map(|(index, at)| (target, index, at))
+                let outline = Outline::of_stroke(stroke);
+                match handles::handle_at(&outline, cells, viewport.zoom)? {
+                    (OutlineHandle::Point(index), at) => Some((target, index, at)),
+                    (OutlineHandle::Control(_) | OutlineHandle::Middle(_), _) => None,
+                }
             });
             let (target, dragged, origin) = if let Some((target, index, at)) = handle {
                 (target, Dragged::Point(index), at)
@@ -362,9 +354,8 @@ pub(crate) fn press(
                 target,
                 dragged,
                 origin,
-                pointer: cells,
-                screen: cursor,
-                sent: None,
+                pointer: cursor,
+                moved_at: None,
             });
             state.interaction = Interaction::Painting;
         }
@@ -382,35 +373,18 @@ pub(crate) fn moved(
     viewport: &Viewport,
     cursor: Vec2,
 ) {
-    let cells = viewport.cells_at(cursor);
     if let Some(drag) = &mut state.paint.drag {
-        let dragging = drag.sent.is_some() || (cursor - drag.screen).length() > DRAG_THRESHOLD;
-        if !dragging {
-            return;
+        if let Some(gesture) = handles::drag_gesture(drag.pointer, drag.moved_at, cursor) {
+            apply.write(Apply::EditElement(EditElement {
+                element: drag.target.terrain,
+                change: drag.change_at(viewport, cursor),
+                gesture,
+            }));
+            drag.moved_at = Some(cursor);
         }
-        let position = drag.origin + (cells - drag.pointer);
-        let change = ElementChange::Stroke {
-            stroke: drag.target.stroke,
-            change: match drag.dragged {
-                Dragged::Point(index) => StrokeChange::Point { index, position },
-                Dragged::Stroke => StrokeChange::Position(position),
-            },
-        };
-        if drag.sent.as_ref() == Some(&change) {
-            return;
-        }
-        apply.write(Apply::EditElement(EditElement {
-            element: drag.target.terrain,
-            change: change.clone(),
-            gesture: if drag.sent.is_some() {
-                Gesture::Continue
-            } else {
-                Gesture::Begin
-            },
-        }));
-        drag.sent = Some(change);
         return;
     }
+    let cells = viewport.cells_at(cursor);
     let spacing = state.paint.brush.size * SPACING;
     let far_enough = state
         .paint
@@ -422,24 +396,26 @@ pub(crate) fn moved(
     }
 }
 
-/// Ends the Paint tool's gesture once the button is up. A drag of a stroke or a point sends its
-/// last change again as the gesture's end, so the whole drag is one step; a press that never
-/// became a drag just ends. A stroke being drawn ends at the release point, when there is one
-/// and it does not lie on the last point, and is sent as one Paint onto `layer` with the Brush's
-/// settings and whether it erases, a stroke that paints naming the chosen Asset or, with none,
-/// no image, and an erase naming none. The tool stays chosen in the mode it is in.
+/// Ends the Paint tool's gesture once the button is up. A drag of a stroke or a point sends the
+/// change at the pointer's last position again as the gesture's end, so the whole drag is one
+/// step; a press that never became a drag just ends. A stroke being drawn ends at the release
+/// point, when there is one and it does not lie on the last point, and is sent as one Paint onto
+/// `layer` with the Brush's settings and whether it erases, a stroke that paints naming the
+/// chosen Asset or, with none, no image, and an erase naming none. The tool stays chosen in the
+/// mode it is in.
 pub(crate) fn release(
     state: &mut EditorState,
     apply: &mut MessageWriter<Apply>,
+    viewport: &Viewport,
     layer: Option<Entity>,
     at: Option<Vec2>,
 ) {
     state.interaction = Interaction::Idle;
     if let Some(drag) = state.paint.drag.take() {
-        if let Some(change) = drag.sent {
+        if let Some(last) = drag.moved_at {
             apply.write(Apply::EditElement(EditElement {
                 element: drag.target.terrain,
-                change,
+                change: drag.change_at(viewport, last),
                 gesture: Gesture::End,
             }));
         }
@@ -810,13 +786,20 @@ pub(crate) fn overlay(
                 egui::Stroke::new(1.5, line),
             ));
         }
-        let dragged = state
-            .paint
-            .dragged_point()
-            .and_then(|(target, index)| (target == selected).then_some(index));
-        for (index, point) in path.iter().enumerate() {
-            let handle = if dragged == Some(index) { PICKED } else { line };
-            canvas.circle_stroke(*point, HANDLE_PIXELS, egui::Stroke::new(1.5, handle));
+        let dragged = state.paint.dragged_point().and_then(|(target, index)| {
+            (target == selected).then_some(OutlineHandle::Point(index))
+        });
+        for (handle, at) in handles::handles(&Outline::of_stroke(stroke)) {
+            let colour = if dragged == Some(handle) {
+                handles::on_egui(handles::PICKED)
+            } else {
+                line
+            };
+            canvas.circle_stroke(
+                on_screen(at),
+                handles::HANDLE_PIXELS,
+                egui::Stroke::new(1.5, colour),
+            );
         }
     }
     if state.paint.mode == Mode::EditingStrokes {

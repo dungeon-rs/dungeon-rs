@@ -34,8 +34,9 @@ pub(crate) const NEAR_THE_LAST: f32 = 4.0;
 const DOUBLE_CLICK_SECONDS: f64 = 0.5;
 /// How close to a click, in screen pixels, a second click is a double-click.
 const DOUBLE_CLICK_PIXELS: f32 = 5.0;
-/// How close to a Wall's line, in screen pixels, the pointer is on it however thin the Wall.
-const LINE_PIXELS: f32 = 4.0;
+/// How close to a line, in screen pixels, the pointer is on it however thin the Wall or the stroke
+/// drawn along it.
+pub(crate) const LINE_PIXELS: f32 = 4.0;
 /// The thinnest Wall a drag of the thickness reaches, in cells; a typed thickness is sent as
 /// typed, so one not above zero is refused with the reason.
 const THINNEST_DRAGGED: f32 = 0.01;
@@ -184,6 +185,17 @@ pub(crate) struct NearestPoint {
     pub along: Vec2,
 }
 
+/// Where along the segment from `from` to `to` the point nearest `cells` lies, from zero at `from`
+/// to one at `to`; zero for a segment of no length.
+pub(crate) fn parameter_on_segment(from: Vec2, to: Vec2, cells: Vec2) -> f32 {
+    let along = to - from;
+    if along.length_squared() > 0.0 {
+        ((cells - from).dot(along) / along.length_squared()).clamp(0.0, 1.0)
+    } else {
+        0.0
+    }
+}
+
 /// The point of a Wall's flattened line nearest `cells`.
 pub(crate) fn nearest_on_line(shape: &WallShape, cells: Vec2) -> Option<NearestPoint> {
     shape
@@ -192,11 +204,7 @@ pub(crate) fn nearest_on_line(shape: &WallShape, cells: Vec2) -> Option<NearestP
         .map(|pair| {
             let (from, to) = (pair[0], pair[1]);
             let along = to.position - from.position;
-            let s = if along.length_squared() > 0.0 {
-                ((cells - from.position).dot(along) / along.length_squared()).clamp(0.0, 1.0)
-            } else {
-                0.0
-            };
+            let s = parameter_on_segment(from.position, to.position, cells);
             let end = if to.segment == from.segment {
                 to.t
             } else {

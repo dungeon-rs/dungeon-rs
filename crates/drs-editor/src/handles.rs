@@ -1,23 +1,27 @@
-//! The handles of a selected Wall or Room: its points, control points, and the middles of its
-//! straight segments or edges, seen through one view of its outline, hit before any Element,
-//! dragged as one gesture, and removed or straightened with Delete.
+//! The handles of a selected Wall, Room, or stroke: the points of its line or path, and a Wall's or
+//! a Room's control points and the middles of its straight segments or edges, seen through one
+//! view of its outline, hit before any Element, dragged as one gesture, and removed or
+//! straightened with Delete.
 //!
 //! Every change a handle makes is an Edit Element; which handle is selected is the Editor's own
 //! state.
 
 use crate::state::EditorState;
 use crate::walls::{nearest_on_line, on_wall};
-use bevy::color::{Alpha, Color};
+use bevy::color::{Alpha, Color, ColorToPacked};
 use bevy::ecs::message::MessageWriter;
 use bevy::ecs::system::{Query, Res};
 use bevy::gizmos::gizmos::Gizmos;
 use bevy::math::{Isometry2d, Vec2};
 use drs_model::{
-    Apply, EditElement, ElementChange, ElementId, Gesture, Room, Viewport, Wall, WallShape,
+    Apply, EditElement, ElementChange, ElementId, Gesture, Room, Stroke, Viewport, Wall, WallShape,
 };
 
 /// How close to a handle, in screen pixels, the pointer is on it; the size handles are drawn at.
 pub(crate) const HANDLE_PIXELS: f32 = 6.0;
+/// How far the pointer travels, in pixels, before a press on an Element, a handle, or a stroke
+/// becomes a drag.
+pub(crate) const DRAG_THRESHOLD: f32 = 3.0;
 /// How wide a control point's square is drawn, against a point's radius.
 const CONTROL_SIDE: f32 = 1.6;
 /// How opaque the guide lines from a control point to its segment's or edge's points are drawn.
@@ -27,8 +31,8 @@ const GUIDE_ALPHA: f32 = 0.5;
 const NEAREST_TO_AN_END: f32 = 0.001;
 /// The colour of the handles and the guide lines.
 pub(crate) const HANDLES: Color = Color::srgb(0.35, 0.75, 1.0);
-/// The colour of the selected handle.
-const PICKED: Color = Color::srgb(1.0, 0.85, 0.2);
+/// The colour of the selected handle, or of the one being dragged.
+pub(crate) const PICKED: Color = Color::srgb(1.0, 0.85, 0.2);
 
 /// A handle of the selected Wall or Room.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -41,9 +45,9 @@ pub(crate) enum OutlineHandle {
     Middle(usize),
 }
 
-/// A Wall or a Room as its handles and its line are seen: its points, one control point or none
-/// per segment or edge, whether its line closes from the last point back to the first, and how
-/// thick it is drawn.
+/// A Wall, a Room, or a stroke as its handles and its line are seen: its points, one control point
+/// or none per segment or edge, whether its line closes from the last point back to the first, and
+/// how thick it is drawn.
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) struct Outline<'a> {
     /// The points, in order.
@@ -82,6 +86,16 @@ impl<'a> Outline<'a> {
         }
     }
 
+    /// A stroke's path: open, with no control points, so its only handles are its points.
+    pub(crate) fn of_stroke(stroke: &'a Stroke) -> Self {
+        Self {
+            points: &stroke.points,
+            controls: Vec::new(),
+            closed: false,
+            thickness: stroke.brush.size,
+        }
+    }
+
     /// The two points the segment or edge `part` runs between, if it has one.
     pub(crate) fn ends(&self, part: usize) -> Option<(Vec2, Vec2)> {
         let start = *self.points.get(part)?;
@@ -94,8 +108,9 @@ impl<'a> Outline<'a> {
     }
 }
 
-/// The handles of a Wall or a Room in the order they are hit: its points, then its control
-/// points, then the middles of its straight segments or edges, the closing edge's included.
+/// The handles of a Wall, a Room, or a stroke in the order they are hit: its points, then its
+/// control points, then the middles of its straight segments or edges, the closing edge's
+/// included.
 pub(crate) fn handles(outline: &Outline) -> Vec<(OutlineHandle, Vec2)> {
     let points = outline
         .points
@@ -119,11 +134,44 @@ pub(crate) fn handles(outline: &Outline) -> Vec<(OutlineHandle, Vec2)> {
     points.chain(controls).chain(middles).collect()
 }
 
-/// The first handle of a Wall or a Room within a handle's reach of a point in cells.
-fn handle_at(outline: &Outline, cells: Vec2, zoom: f32) -> Option<(OutlineHandle, Vec2)> {
+/// The handle of a Wall, a Room, or a stroke within a handle's reach of a point in cells at
+/// `zoom`: of the first kind in the order [`handles`] lists them, points before control points
+/// before middles, the nearest of that kind.
+pub(crate) fn handle_at(
+    outline: &Outline,
+    cells: Vec2,
+    zoom: f32,
+) -> Option<(OutlineHandle, Vec2)> {
+    let kind = |handle: OutlineHandle| match handle {
+        OutlineHandle::Point(_) => 0,
+        OutlineHandle::Control(_) => 1,
+        OutlineHandle::Middle(_) => 2,
+    };
     handles(outline)
         .into_iter()
-        .find(|(_, at)| at.distance(cells) * zoom <= HANDLE_PIXELS)
+        .filter(|(_, at)| at.distance(cells) * zoom <= HANDLE_PIXELS)
+        .min_by(|(a, at_a), (b, at_b)| {
+            kind(*a)
+                .cmp(&kind(*b))
+                .then(at_a.distance(cells).total_cmp(&at_b.distance(cells)))
+        })
+}
+
+/// Where a press stands with the pointer at `cursor`, the pointer having gone down at `pointer`
+/// and last moved what it drags at `moved_at`: `None` while it is still a click or the pointer has
+/// not moved since, the gesture's Begin once the pointer first travels past [`DRAG_THRESHOLD`],
+/// and Continue after, so a drag from press to release is one step.
+pub(crate) fn drag_gesture(pointer: Vec2, moved_at: Option<Vec2>, cursor: Vec2) -> Option<Gesture> {
+    match moved_at {
+        Some(last) => (last != cursor).then_some(Gesture::Continue),
+        None => ((cursor - pointer).length() > DRAG_THRESHOLD).then_some(Gesture::Begin),
+    }
+}
+
+/// A colour of the handles as egui spells it, for handles drawn over the viewport by egui.
+pub(crate) fn on_egui(colour: Color) -> egui::Color32 {
+    let [red, green, blue, alpha] = colour.to_srgba().to_u8_array();
+    egui::Color32::from_rgba_unmultiplied(red, green, blue, alpha)
 }
 
 /// A left press with the Select tool on the selected Wall or Room, which is hit before any

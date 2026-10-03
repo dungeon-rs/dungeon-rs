@@ -35,9 +35,6 @@ use drs_model::{
     Terrain, Undo, Viewport, Wall, WallShape,
 };
 
-/// How far the pointer travels, in pixels, before a press on an Element or a handle becomes a
-/// drag.
-const DRAG_THRESHOLD: f32 = 3.0;
 /// The zoom factor of one line of a mouse wheel.
 const WHEEL_STEP: f32 = 1.1;
 /// The zoom factor of one pixel of a modified trackpad scroll.
@@ -263,7 +260,7 @@ fn pointer_gone(
 ) {
     let released = !input.buttons.pressed(MouseButton::Left);
     if state.interaction == Interaction::Painting && released {
-        paint::release(state, apply, level.current_layer(), None);
+        paint::release(state, apply, viewport, level.current_layer(), None);
     }
     finish_gesture(state, apply, viewport, input);
     finish_slide(state, apply, viewport, level);
@@ -325,7 +322,13 @@ pub(crate) fn pointer(
             if input.buttons.pressed(MouseButton::Left) {
                 paint::moved(&mut state, &mut apply, &viewport, cursor);
             } else {
-                paint::release(&mut state, &mut apply, level.current_layer(), Some(cells));
+                paint::release(
+                    &mut state,
+                    &mut apply,
+                    &viewport,
+                    level.current_layer(),
+                    Some(cells),
+                );
             }
         }
         Interaction::Panning { last } => {
@@ -352,7 +355,7 @@ pub(crate) fn pointer(
         }
         Interaction::Outlining { .. } => {
             if input.buttons.pressed(MouseButton::Left) {
-                rooms::track(&mut state, cursor, DRAG_THRESHOLD);
+                rooms::track(&mut state, cursor, handles::DRAG_THRESHOLD);
             } else {
                 rooms::release(&mut state, &mut apply, level.current_layer(), &viewport);
             }
@@ -367,17 +370,12 @@ pub(crate) fn pointer(
                 finish_gesture(&mut state, &mut apply, &viewport, &input);
                 return;
             }
-            let dragging = moved_at.is_some() || (cursor - pointer).length() > DRAG_THRESHOLD;
-            if dragging && moved_at != Some(cursor) {
+            if let Some(gesture) = handles::drag_gesture(pointer, moved_at, cursor) {
                 let position = origin + (viewport.cells_at(cursor) - viewport.cells_at(pointer));
                 apply.write(Apply::EditElement(EditElement {
                     element,
                     change: ElementChange::Position(position),
-                    gesture: if moved_at.is_some() {
-                        Gesture::Continue
-                    } else {
-                        Gesture::Begin
-                    },
+                    gesture,
                 }));
                 state.interaction = Interaction::Pressed {
                     element,
@@ -416,14 +414,8 @@ fn drag_slide(
     else {
         return;
     };
-    let dragging = moved_at.is_some() || (cursor - pointer).length() > DRAG_THRESHOLD;
-    if !dragging || moved_at == Some(cursor) {
+    let Some(gesture) = handles::drag_gesture(pointer, moved_at, cursor) else {
         return;
-    }
-    let gesture = if moved_at.is_some() {
-        Gesture::Continue
-    } else {
-        Gesture::Begin
     };
     if let Some(slide) = slid(level, element, viewport.cells_at(cursor), gesture) {
         apply.write(slide);
@@ -475,19 +467,14 @@ fn drag_handle(
     else {
         return;
     };
-    let dragging = moved_at.is_some() || (cursor - pointer).length() > DRAG_THRESHOLD;
-    if !dragging || moved_at == Some(cursor) {
+    let Some(gesture) = handles::drag_gesture(pointer, moved_at, cursor) else {
         return;
-    }
+    };
     let position = origin + (viewport.cells_at(cursor) - viewport.cells_at(pointer));
     apply.write(Apply::EditElement(EditElement {
         element,
         change: handles::handle_change(handle, position),
-        gesture: if moved_at.is_some() {
-            Gesture::Continue
-        } else {
-            Gesture::Begin
-        },
+        gesture,
     }));
     // A straight segment's middle, once dragged, is the segment's control point.
     let handle = match handle {
