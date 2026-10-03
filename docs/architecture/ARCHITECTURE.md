@@ -49,7 +49,7 @@ Contract: CombineOutlines, GenerateWalls, SplitWall, AnchorPortals, Snap.
 
 ### PaintEngine
 Volatility: painting.
-Contract: ApplyStroke, BlendWeights, Rasterize.
+Contract: ApplyStroke, BlendWeights, Rasterize, and its render-world pass (scheduled systems that rasterize the GPU tiles ApplyStroke plans).
 
 ### CatalogEngine
 Volatility: cataloguing.
