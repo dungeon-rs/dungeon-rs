@@ -25,7 +25,7 @@ const REACH_PIXELS: f32 = 8.0;
 /// The radius of the marker's ring, in screen pixels.
 const MARKER_PIXELS: f32 = 5.0;
 /// The keys that place freely while held: Alt, Option on macOS, on either side.
-const FREE: [KeyCode; 2] = [KeyCode::AltLeft, KeyCode::AltRight];
+const PLACE_FREELY_KEYS: [KeyCode; 2] = [KeyCode::AltLeft, KeyCode::AltRight];
 
 /// The Snap switch on the tool strip: on when the editor starts, never a history step, and kept
 /// neither in the Project nor between runs.
@@ -124,7 +124,7 @@ pub(crate) fn write_pointer(
     let cursor = window.cursor_position().filter(|cursor| {
         under_way || (viewport.contains(*cursor) && !egui.wants_any_pointer_input())
     });
-    let free = !egui.wants_any_keyboard_input() && keys.any_pressed(FREE);
+    let free = !egui.wants_any_keyboard_input() && keys.any_pressed(PLACE_FREELY_KEYS);
     let snapping = if switch.on && !free && !state.exporting && (under_way || cursor.is_some()) {
         what_snaps(&state)
     } else {
