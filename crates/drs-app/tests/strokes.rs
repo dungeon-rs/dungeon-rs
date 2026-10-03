@@ -182,8 +182,9 @@ fn erasing_caps_what_remains() {
 }
 
 /// An erase lowers the coverage at a point by the same however many of its segments pass near
-/// the point, at a joint or a self-crossing alike, and passing over ground again with an erase
-/// never lowers it below what the strongest erase there leaves.
+/// the point, at a joint, a self-crossing, or a path that turns back over itself alike, and
+/// passing over ground again with an erase never lowers it below what the strongest erase there
+/// leaves.
 #[test]
 fn no_build_up_along_an_erase() {
     let mut fixture = Fixture::new();
@@ -230,6 +231,23 @@ fn no_build_up_along_an_erase() {
         at(&crossed, Vec2::new(13.0, 5.0)),
         byte(0.5),
         "the self-crossing left at half"
+    );
+
+    let there_and_back = [
+        Vec2::new(4.0, 5.0),
+        Vec2::new(12.0, 5.0),
+        Vec2::new(4.0, 5.0),
+    ];
+    let looped = alone(&mut fixture, &there_and_back);
+    let legs: Vec<Tiles> = there_and_back
+        .windows(2)
+        .map(|pair| alone(&mut fixture, pair))
+        .collect();
+    assert_eq!(looped, smallest(&legs));
+    assert_eq!(
+        at(&looped, Vec2::new(8.0 + HALF_PIXEL, 5.0 + HALF_PIXEL)),
+        byte(0.5),
+        "the path gone over twice left at half"
     );
 
     let across = [Vec2::new(1.0, 10.0), Vec2::new(19.0, 10.0)];
