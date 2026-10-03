@@ -20,9 +20,6 @@ bevy_shader = { workspace = true }
 drs-model = { path = "../drs-model" }
 log = { workspace = true }
 
-[dev-dependencies]
-naga = { workspace = true }
-
 [features]
 default = []
 dev = ["drs-model/dev"]

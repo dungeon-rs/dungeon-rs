@@ -2569,7 +2569,6 @@ dependencies = [
  "bevy_shader",
  "drs-model",
  "log",
- "naga",
 ]
 
 [[package]]
