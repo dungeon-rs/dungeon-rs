@@ -1,6 +1,7 @@
 //! What the seam tests of the Host share: the headless editor of every Manager with no window
-//! and no render Engine, the one with offscreen rendering, fixture images, adding an Asset Folder, sending Commands, Undo, and
-//! Redo to the editor and reading back what they did, and comparing the geometry it derives.
+//! and no render Engine, the one with offscreen rendering, fixture images, adding an Asset
+//! Folder, sending Commands, Undo, and Redo to the editor and reading back what they did, and
+//! comparing the geometry it derives.
 #![allow(
     dead_code,
     reason = "each test file uses the part of the fixture it needs, so which part is unused \
@@ -29,6 +30,7 @@ use drs_model::{
     AddFolder, Apply, CanonicalName, CommandFailed, EditElement, EditorDirectories, ElementChange,
     ElementId, FolderAdded, FolderRefused, Gesture, ModelPlugin, Project, Redo, Undo,
 };
+use drs_paint_engine::PaintEnginePlugin;
 use drs_project_manager::ProjectManagerPlugin;
 use std::fs;
 use std::path::Path;
@@ -46,7 +48,8 @@ pub fn png(folder: &Path, place: &str, size: UVec2, colour: [u8; 4]) {
 
 /// A headless editor whose configuration and cache directories live under `root`, started once:
 /// the real plugins of the model, the history, `LibraryAccess`, `LibraryManager`,
-/// `ProjectManager`, and `AuthoringManager`.
+/// `ProjectManager`, `AuthoringManager`, and the paint Engine's, which has no renderer to
+/// rasterize on here.
 pub fn editor(root: &Path) -> App {
     let mut app = App::new();
     app.insert_resource(EditorDirectories::under(root));
@@ -57,6 +60,7 @@ pub fn editor(root: &Path) -> App {
         LibraryManagerPlugin,
         ProjectManagerPlugin,
         AuthoringManagerPlugin,
+        PaintEnginePlugin,
     ));
     app.update();
     app
