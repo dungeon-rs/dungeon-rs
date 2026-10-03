@@ -6,7 +6,7 @@
 - **[Strokes rasterize on the GPU](changes/gpu-strokes.md)**: painting stays smooth at any zoom, as strokes rasterize into the mask tiles on the GPU and only the touched tiles recompute; the Export keeps the CPU rasterizer. Commands: none.
 - **Blend any number of Materials**: Terrain blends as many Materials as the Author paints. Commands: none.
 - **[Layers](changes/layers.md)**: the Author adds, removes, and orders the Layers of a Level, picks the current one, and restacks Elements within and across them. Commands: Add Layer, Remove Layer, Reorder Layers, Restack.
-- **Layer compositing**: Layers can be hidden, locked, faded, and blended, and hidden Layers leave the Export. Commands: Edit Layer.
+- **Layer compositing**: Layers can be hidden, locked, faded, and blended, hidden Layers leave the Export, and the points of hidden or locked Layers leave snapping's reach. Commands: Edit Layer.
 - **Layer Groups**: Layers nest in Layer Groups whose visibility, lock, opacity, and blend mode apply to everything inside. Commands: Group Layers.
 - **Bounds**: the Author resizes the Bounds, which are always visible in the editor. Commands: Resize Bounds.
 - **Levels**: the Author adds, removes, and orders Levels, switches between them, and exports the one chosen. Commands: Add Level, Remove Level, Reorder Levels.
