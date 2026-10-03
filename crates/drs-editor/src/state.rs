@@ -91,6 +91,7 @@ impl EditorState {
             || self.walls.option_in_progress()
             || self.rooms.option_in_progress()
             || self.portals.option_in_progress()
+            || self.paint.option_in_progress()
     }
 }
 
@@ -194,8 +195,9 @@ pub(crate) enum Interaction {
     /// Nothing is under way.
     #[default]
     Idle,
-    /// The Paint tool's gesture is under way: a stroke being drawn, or a press on a stroke or a
-    /// handle of one, which a drag reshapes; the release lays or ends it.
+    /// The Paint tool's gesture is under way, in whichever mode it is: a stroke being drawn while
+    /// painting or erasing, or, editing strokes, a press on a stroke or a handle of one, which a
+    /// drag reshapes; the release lays the stroke or ends the drag.
     Painting,
     /// The view is being dragged.
     Panning {
