@@ -559,6 +559,7 @@ impl Fixture {
             stroke: Stroke {
                 points: points.to_vec(),
                 brush,
+                erase: false,
             },
             asset: Some(AssetAddress {
                 folder: self.key.clone(),

@@ -1186,6 +1186,17 @@ fn a_newer_file_is_refused() {
 
     assert_eq!(saved.device.elements(), elements);
     assert_eq!(saved.device.counts(), (1, 1, 1));
+
+    let mut painted = SavedTerrain::new();
+    let terrain = painted.device.terrain();
+    let mut newer = json(&painted.file);
+    newer["elements"][painted.terrain.as_raw().to_string()]["terrain"]["version"] = json!(3);
+    let path = painted.device.root().join("terrain-3.dungeon");
+    write_json(&path, &newer);
+    let refused = painted.device.open(&path).expect_err("a newer Terrain");
+    assert!(refused.reason.contains("terrain"), "{}", refused.reason);
+    assert!(refused.reason.contains('3'), "{}", refused.reason);
+    assert_eq!(painted.device.terrain(), terrain);
 }
 
 /// Data in an Element under a component name this editor does not know is kept with the Element
@@ -2170,7 +2181,8 @@ impl Device {
     }
 }
 
-/// A device that saved a Terrain of three strokes under the fixture's Props.
+/// A device that saved a Terrain of three strokes and an erase across the first under the
+/// fixture's Props.
 struct SavedTerrain {
     /// The device.
     device: Device,
@@ -2181,8 +2193,8 @@ struct SavedTerrain {
 }
 
 impl SavedTerrain {
-    /// Places the Props of [`Saved`], paints three strokes of the table image under them, and
-    /// saves.
+    /// Places the Props of [`Saved`], paints three strokes of the table image under them and an
+    /// erase across the first, and saves.
     fn new() -> Self {
         let mut saved = Saved::new();
         for stroke in [
@@ -2193,6 +2205,7 @@ impl SavedTerrain {
                     hardness: 0.5,
                     strength: 1.0,
                 },
+                erase: false,
             },
             Stroke {
                 points: vec![Vec2::new(3.25, -1.5)],
@@ -2201,6 +2214,7 @@ impl SavedTerrain {
                     hardness: 1.0,
                     strength: 0.75,
                 },
+                erase: false,
             },
             Stroke {
                 points: vec![
@@ -2213,6 +2227,16 @@ impl SavedTerrain {
                     hardness: 0.0,
                     strength: 0.5,
                 },
+                erase: false,
+            },
+            Stroke {
+                points: vec![Vec2::new(0.0, 0.5), Vec2::new(2.0, 1.5)],
+                brush: BrushSettings {
+                    size: 1.0,
+                    hardness: 1.0,
+                    strength: 1.0,
+                },
+                erase: true,
             },
         ] {
             saved.device.paint(&saved.key, TABLE, stroke);
@@ -2230,7 +2254,7 @@ impl SavedTerrain {
 }
 
 /// A saved Terrain holds its image's Asset Reference and every stroke in order with its points,
-/// size, hardness, and strength, and reopens the same, with the same coverage.
+/// size, hardness, strength, and whether it erases, and reopens the same, with the same coverage.
 #[test]
 fn terrain_is_saved_as_its_strokes() {
     let mut saved = SavedTerrain::new();
@@ -2251,21 +2275,29 @@ fn terrain_is_saved_as_its_strokes() {
     assert_eq!(
         saved_terrain["terrain"],
         json!({
-            "version": 1,
+            "version": 2,
             "data": {
                 "image": table,
                 "strokes": [
                     {
                         "points": [[-1.0, 0.5], [4.0, 2.0]],
-                        "brush": { "size": 2.0, "hardness": 0.5, "strength": 1.0 }
+                        "brush": { "size": 2.0, "hardness": 0.5, "strength": 1.0 },
+                        "erase": false
                     },
                     {
                         "points": [[3.25, -1.5]],
-                        "brush": { "size": 3.0, "hardness": 1.0, "strength": 0.75 }
+                        "brush": { "size": 3.0, "hardness": 1.0, "strength": 0.75 },
+                        "erase": false
                     },
                     {
                         "points": [[0.0, -3.0], [18.5, -3.0], [18.5, 1.0]],
-                        "brush": { "size": 1.5, "hardness": 0.0, "strength": 0.5 }
+                        "brush": { "size": 1.5, "hardness": 0.0, "strength": 0.5 },
+                        "erase": false
+                    },
+                    {
+                        "points": [[0.0, 0.5], [2.0, 1.5]],
+                        "brush": { "size": 1.0, "hardness": 1.0, "strength": 1.0 },
+                        "erase": true
                     }
                 ]
             }
@@ -2284,6 +2316,64 @@ fn terrain_is_saved_as_its_strokes() {
         fs::read(&again).expect("the file saved again"),
         fs::read(&saved.file).expect("the file")
     );
+
+    saved.device.undo();
+    let unerased = saved
+        .device
+        .terrain()
+        .expect("the Terrain without its erase");
+    assert_ne!(
+        unerased.3, reopened.3,
+        "the reopened erase takes ground away"
+    );
+}
+
+/// A file holding a Terrain saved before strokes could erase opens with every stroke painting and
+/// the coverage those strokes give, and is saved again with the Terrain at version two, every
+/// stroke written as not erasing.
+#[test]
+fn an_older_terrain_opens() {
+    let mut saved = SavedTerrain::new();
+    saved.device.undo();
+    let painted = saved
+        .device
+        .terrain()
+        .expect("the three strokes that paint");
+    let id = saved.terrain.as_raw().to_string();
+    let mut older = json(&saved.file);
+    let envelope = &mut older["elements"][&id]["terrain"];
+    envelope["version"] = json!(1);
+    let strokes = envelope["data"]["strokes"]
+        .as_array_mut()
+        .expect("the strokes");
+    strokes.pop();
+    for stroke in strokes.iter_mut() {
+        stroke
+            .as_object_mut()
+            .expect("a stroke")
+            .remove("erase")
+            .expect("written at version two");
+    }
+    let path = saved.device.root().join("older.dungeon");
+    write_json(&path, &older);
+
+    let mut other = Device::new();
+    other.opens(&path);
+    let opened = other.terrain().expect("the older Terrain opens");
+    assert!(
+        opened.2.strokes.iter().all(|stroke| !stroke.erase),
+        "every stroke paints"
+    );
+    assert_eq!(opened, painted);
+
+    let again = json(&other.save_as(&other.root().join("again.dungeon")));
+    let terrain = &again["elements"][&id]["terrain"];
+    assert_eq!(terrain["version"], json!(2));
+    let strokes = terrain["data"]["strokes"].as_array().expect("the strokes");
+    assert_eq!(strokes.len(), 3);
+    for stroke in strokes {
+        assert_eq!(stroke["erase"], json!(false), "{stroke}");
+    }
 }
 
 /// An editor that does not know the Terrain kind keeps a saved Terrain as a placeholder of its
@@ -2388,7 +2478,7 @@ fn a_malformed_terrain_is_refused() {
     for (case, points, brush, named) in cases {
         let mut malformed = json(&saved.file);
         malformed["elements"][&id]["terrain"]["data"]["strokes"][1] =
-            json!({ "points": points, "brush": brush });
+            json!({ "points": points, "brush": brush, "erase": false });
         let path = saved.device.root().join("malformed.dungeon");
         write_json(&path, &malformed);
         let refused = saved.device.open(&path).expect_err(case);

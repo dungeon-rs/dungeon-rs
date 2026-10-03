@@ -63,7 +63,7 @@ impl BrushSettings {
     }
 }
 
-/// One pass of a Brush along a path, from press to release.
+/// One pass of a Brush along a path, from press to release, that paints or erases.
 #[derive(Reflect, Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Stroke {
     /// The path: one or more points in Grid cells, a straight segment from each to the next; a
@@ -71,9 +71,26 @@ pub struct Stroke {
     pub points: Vec<Vec2>,
     /// The settings it was laid with.
     pub brush: BrushSettings,
+    /// Whether it erases: an erase lowers the coverage the strokes laid before it give, where a
+    /// stroke that paints raises it.
+    pub erase: bool,
 }
 
 impl Stroke {
+    /// The centre of the smallest box holding every point of the path: where a stroke is when it
+    /// is moved whole, or the origin for a path of no point.
+    #[must_use]
+    pub fn centre(&self) -> Vec2 {
+        let mut points = self.points.iter().copied();
+        let Some(first) = points.next() else {
+            return Vec2::ZERO;
+        };
+        let (min, max) = points.fold((first, first), |(min, max), point| {
+            (min.min(point), max.max(point))
+        });
+        min.midpoint(max)
+    }
+
     /// The smallest box holding every point of the path, grown by the Brush's radius on every
     /// side: outside it, the stroke covers nothing.
     #[must_use]
@@ -106,11 +123,13 @@ impl Stroke {
     }
 }
 
-/// Painted ground: one Material and the strokes painted with it, in the order they were laid.
+/// Painted ground: one Material and the strokes painted and erased with it, in the order they
+/// were laid.
 ///
 /// A Terrain keeps its strokes, never pixels: its coverage at a point, how much of the Material
-/// shows there, is the largest any of its strokes has there, computed afresh at whatever
-/// resolution it is drawn at.
+/// shows there, starts at none and is composited from its strokes in order, a stroke that paints
+/// raising it to its own coverage where that is higher and an erase lowering it to one minus its
+/// own where that is lower, computed afresh at whatever resolution it is drawn at.
 #[derive(Component, Reflect, Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[reflect(Component)]
 pub struct Terrain {
@@ -146,13 +165,60 @@ impl Terrain {
     }
 }
 
+/// A Terrain as version one of its data holds it, before strokes could erase.
+#[derive(Deserialize)]
+struct TerrainVersionOne {
+    /// The row of its image.
+    image: AssetReferenceRow,
+    /// The strokes, every one painting.
+    strokes: Vec<StrokeVersionOne>,
+}
+
+/// A stroke as version one of a Terrain's data holds it: a path and Brush settings.
+#[derive(Deserialize)]
+struct StrokeVersionOne {
+    /// The path.
+    points: Vec<Vec2>,
+    /// The settings it was laid with.
+    brush: BrushSettings,
+}
+
+impl From<TerrainVersionOne> for Terrain {
+    /// The same Terrain with every stroke painting.
+    fn from(old: TerrainVersionOne) -> Self {
+        Self {
+            image: old.image,
+            strokes: old
+                .strokes
+                .into_iter()
+                .map(|stroke| Stroke {
+                    points: stroke.points,
+                    brush: stroke.brush,
+                    erase: false,
+                })
+                .collect(),
+        }
+    }
+}
+
 impl Serialisable for Terrain {
     const NAME: &'static str = "terrain";
-    const VERSION: u32 = 1;
+    const VERSION: u32 = 2;
     const TIER: Tier = Tier::Element;
 
+    /// Reads version two, and version one, from before strokes could erase, with every stroke
+    /// painting; either is refused for the reason the Terrain's own check gives.
     fn read(version: u32, data: &RawValue) -> Result<Self, SerialisationError> {
-        let terrain: Self = read_only_version(version, data)?;
+        let terrain: Self = if version == 1 {
+            serde_json::from_str::<TerrainVersionOne>(data.get())
+                .map(Self::from)
+                .map_err(|error| SerialisationError::Malformed {
+                    component: Self::NAME.to_owned(),
+                    reason: error.to_string(),
+                })?
+        } else {
+            read_only_version(version, data)?
+        };
         match terrain.malformation() {
             Some(reason) => Err(SerialisationError::Malformed {
                 component: Self::NAME.to_owned(),

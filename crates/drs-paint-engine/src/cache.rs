@@ -199,10 +199,12 @@ mod tests {
             Stroke {
                 points: vec![Vec2::new(-3.0, 2.0), Vec2::new(18.0, 5.5)],
                 brush: brush(2.0, 0.5, 1.0),
+                erase: false,
             },
             Stroke {
                 points: vec![Vec2::new(15.5, 15.5)],
                 brush: brush(3.0, 0.0, 0.6),
+                erase: false,
             },
             Stroke {
                 points: vec![
@@ -211,10 +213,12 @@ mod tests {
                     Vec2::new(37.0, 1.0),
                 ],
                 brush: brush(1.0, 1.0, 0.8),
+                erase: false,
             },
             Stroke {
                 points: vec![Vec2::new(2.0, 4.0), Vec2::new(9.0, 6.0)],
                 brush: brush(4.0, 0.3, 0.4),
+                erase: false,
             },
         ]
     }

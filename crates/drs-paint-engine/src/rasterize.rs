@@ -238,6 +238,7 @@ mod tests {
                 hardness,
                 strength,
             },
+            erase: false,
         }
     }
 

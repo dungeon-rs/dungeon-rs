@@ -183,6 +183,7 @@ pub(crate) fn release(
             stroke: Stroke {
                 points,
                 brush: state.paint.brush,
+                erase: false,
             },
             asset: state.chosen.as_ref().map(|chosen| chosen.asset.clone()),
         }));

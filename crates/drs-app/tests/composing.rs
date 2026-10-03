@@ -500,6 +500,7 @@ fn a_failed_command_is_reported() {
                     hardness: 0.5,
                     strength: 1.0,
                 },
+                erase: false,
             },
             asset: Some(AssetAddress {
                 folder: fixture.key.clone(),

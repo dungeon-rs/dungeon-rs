@@ -66,6 +66,7 @@ fn stroke(points: &[Vec2], brush: BrushSettings) -> Stroke {
     Stroke {
         points: points.to_vec(),
         brush,
+        erase: false,
     }
 }
 
