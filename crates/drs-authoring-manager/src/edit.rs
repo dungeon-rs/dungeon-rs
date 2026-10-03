@@ -19,7 +19,8 @@ use std::any::Any;
 /// A gesture ([`Gesture::Begin`] through [`Gesture::End`]) is recorded as one history group, so
 /// undoing it returns the Element to where the gesture began; a [`Gesture::Single`] change is a
 /// step on its own and closes any gesture left open. Adding and removing a point are always a
-/// step of their own.
+/// step of their own. A gesture that leaves a Wall or a Room exactly as it began records
+/// nothing.
 ///
 /// # Errors
 ///
@@ -57,7 +58,8 @@ pub(crate) fn edit_element(
 }
 
 /// An Edit Element of the Wall or the Room on `entity`: its first step remembers the outline as
-/// the gesture began, and a move by an amount counts from it.
+/// the gesture began, a move by an amount counts from it, and the last step records nothing when
+/// the outline is back where it began.
 ///
 /// # Errors
 ///
@@ -87,7 +89,12 @@ fn edit_outline<H: OutlineHost>(
         return outcome.map(|()| None);
     }
     world.get_resource_or_insert_with(GestureStart::default).0 = None;
-    crate::history(world)?.end_group();
+    if outcome.is_ok() && began.is_some() && began.as_ref() == world.get::<H>(entity) {
+        drs_history::abandon_group(world)
+            .map_err(|error| AuthoringError::History(error.to_string()))?;
+    } else {
+        crate::history(world)?.end_group();
+    }
     outcome.map(|()| None)
 }
 
