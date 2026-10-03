@@ -15,31 +15,23 @@
 
 mod support;
 
-use bevy::app::{App, PluginGroup, PluginsState};
-use bevy::asset::{AssetMetaCheck, AssetPlugin};
+use bevy::app::App;
 use bevy::ecs::entity::Entity;
 use bevy::ecs::hierarchy::Children;
 use bevy::ecs::message::Messages;
 use bevy::math::{UVec2, Vec2};
-use bevy::render::RenderPlugin;
-use bevy::window::{ExitCondition, WindowPlugin};
-use bevy::winit::WinitPlugin;
-use drs_authoring_manager::AuthoringManagerPlugin;
-use drs_history::{History, HistoryPlugin};
-use drs_library_access::{LibraryAccessPlugin, register_library_source};
-use drs_library_manager::LibraryManagerPlugin;
+use drs_history::History;
 use drs_model::{
-    Apply, AssetAddress, Colour, CommandFailed, EditElement, EditorDirectories, Element,
-    ElementChange, ElementId, ExportLevel, ExportRefused, FolderKey, Gesture, Layer, Level,
-    LevelExported, ModelPlugin, OpenProject, PlaceElement, Placement, PortalAnchor, ProjectOpened,
-    ProjectRefused, ProjectSaved, Prop, SaveProject, SavedMark, Side, Viewport,
+    Apply, AssetAddress, Colour, CommandFailed, EditElement, Element, ElementChange, ElementId,
+    ExportLevel, ExportRefused, FolderKey, Gesture, Layer, Level, LevelExported, OpenProject,
+    PlaceElement, Placement, PortalAnchor, ProjectOpened, ProjectRefused, ProjectSaved, Prop,
+    SaveProject, SavedMark, Side, Viewport,
 };
 use drs_model::{Bounds, BrushSettings, Paint, Resolution, ResolutionTable, Stroke, StrokeChange};
-use drs_project_manager::ProjectManagerPlugin;
-use drs_render_engine::RenderEnginePlugin;
 use std::fs;
 use std::path::{Path, PathBuf};
-use std::time::{Duration, Instant};
+use std::time::Instant;
+use support::offscreen::editor;
 use support::png;
 use tempfile::TempDir;
 
@@ -105,8 +97,6 @@ const PIXELS_PER_CELL: u32 = 8;
 const TILE: u32 = 128;
 /// How many frames an Export may take before the test gives up.
 const MOST_FRAMES: u32 = 2_000;
-/// How long the renderer may take to initialise before the test gives up.
-const RENDERER_START: Duration = Duration::from_secs(60);
 
 /// The Asset Folder every test places from, the headless editor with it added, and where the
 /// Exports go.
@@ -117,58 +107,6 @@ struct Fixture {
     key: FolderKey,
     /// The headless editor with the folder added.
     app: App,
-}
-
-/// A headless editor with offscreen rendering whose configuration and cache directories live
-/// under `root`, started once: Bevy's default plugins without a window or winit, the `lib://`
-/// asset source, and every plugin of the editor but the Editor's own panels.
-///
-/// The renderer initialises asynchronously and the render thread is set up when the plugins
-/// are finished and cleaned up, which `App::run` would do; a test driving `update` by hand
-/// does it here.
-fn editor(root: &Path) -> App {
-    let mut app = App::new();
-    app.insert_resource(EditorDirectories::under(root));
-    register_library_source(&mut app);
-    app.add_plugins(
-        bevy::DefaultPlugins
-            .set(AssetPlugin {
-                meta_check: AssetMetaCheck::Never,
-                ..AssetPlugin::default()
-            })
-            .set(WindowPlugin {
-                primary_window: None,
-                exit_condition: ExitCondition::DontExit,
-                close_when_requested: false,
-                ..WindowPlugin::default()
-            })
-            .set(RenderPlugin {
-                synchronous_pipeline_compilation: true,
-                ..RenderPlugin::default()
-            })
-            .disable::<WinitPlugin>(),
-    );
-    app.add_plugins((
-        ModelPlugin,
-        HistoryPlugin,
-        LibraryAccessPlugin,
-        LibraryManagerPlugin,
-        ProjectManagerPlugin,
-        AuthoringManagerPlugin,
-        RenderEnginePlugin,
-    ));
-    let deadline = Instant::now() + RENDERER_START;
-    while app.plugins_state() == PluginsState::Adding {
-        assert!(
-            Instant::now() < deadline,
-            "the renderer did not initialise within {RENDERER_START:?}; is there a GPU adapter?"
-        );
-        bevy::tasks::tick_global_task_pools_on_main_thread();
-    }
-    app.finish();
-    app.cleanup();
-    app.update();
-    app
 }
 
 /// A decoded Export.

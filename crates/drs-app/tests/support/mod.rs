@@ -1,5 +1,5 @@
 //! What the seam tests of the Host share: the headless editor of every Manager with no window
-//! and no render Engine, fixture images, adding an Asset Folder, sending Commands, Undo, and
+//! and no render Engine, the one with offscreen rendering, fixture images, adding an Asset Folder, sending Commands, Undo, and
 //! Redo to the editor and reading back what they did, and comparing the geometry it derives.
 #![allow(
     dead_code,
@@ -13,6 +13,7 @@
     reason = "a fixture stops at the first thing that is not as expected"
 )]
 
+pub mod offscreen;
 pub mod terrain;
 
 use bevy::app::App;
