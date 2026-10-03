@@ -79,7 +79,7 @@ fn coverage(corner: Corner) -> f32 {
     let segment = segments[corner.segment];
     let column = i32(floor(corner.position.x));
     let row = i32(floor(corner.position.y));
-    let index = vec2<i32>(tile.origin.x + column, tile.origin.y + 511 - row);
+    let index = vec2<i32>(tile.origin.x + column, tile.origin.y + i32(SIDE) - 1 - row);
     let centre = (vec2<f32>(index) + 0.5) / tile.band;
     let along = segment.end - segment.start;
     let to = centre - segment.start;
