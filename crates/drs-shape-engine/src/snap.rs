@@ -49,15 +49,22 @@ pub fn snap(pointer: &Pointer, targets: &[SnapTarget]) -> Option<Snapped> {
                     on: Some(target.point.element),
                 },
                 None => Snapped::Point {
-                    position: pointer.cells.round(),
+                    position: whole(pointer.cells),
                     on: None,
                 },
             })
         }
         Snapping::Move { from } => Some(Snapped::Move {
-            travel: (pointer.cells - from).round(),
+            travel: whole(pointer.cells - from),
         }),
     }
+}
+
+/// Each coordinate rounded to the nearest whole number, halfway away from zero, a zero rounded
+/// from a negative coordinate made positive, so every whole position has one spelling.
+fn whole(point: Vec2) -> Vec2 {
+    // Adding zero is exact and turns a negative zero into a positive one.
+    point.round() + Vec2::ZERO
 }
 
 #[cfg(test)]
@@ -103,14 +110,19 @@ mod tests {
         for (cells, expected) in [
             (Vec2::new(2.3, 4.7), Vec2::new(2.0, 5.0)),
             (Vec2::new(-2.3, -4.7), Vec2::new(-2.0, -5.0)),
-            (Vec2::new(0.4, -0.4), Vec2::new(0.0, 0.0)),
+            (Vec2::new(-0.4, -0.4), Vec2::new(0.0, 0.0)),
             (Vec2::new(2.5, -2.5), Vec2::new(3.0, -3.0)),
             (Vec2::new(-0.5, 0.5), Vec2::new(-1.0, 1.0)),
         ] {
+            let found = snapped(cells, 0.125, &[]);
+            assert_eq!(found, Some(corner(expected)), "{cells}");
+            let Some(Snapped::Point { position, .. }) = found else {
+                continue;
+            };
             assert_eq!(
-                snapped(cells, 0.125, &[]),
-                Some(corner(expected)),
-                "{cells}"
+                position.to_array().map(f32::to_bits),
+                expected.to_array().map(f32::to_bits),
+                "{cells}: no zero is negative"
             );
         }
     }
