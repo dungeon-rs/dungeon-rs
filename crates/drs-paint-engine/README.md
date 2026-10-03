@@ -20,9 +20,12 @@ cell in tiles of 512 pixels a side, keyed by their place in the Level's pixel
 plane, negative places included, an absent tile being empty, and publishes them
 as the model's coverage without copying a pixel; no one else looks inside it.
 [`apply_stroke`](crate::apply_stroke) brings it up to the Terrain's strokes and
-says whether any tile changed: appended strokes are composited onto the tiles
-they touch, and when earlier strokes changed or went, only the tiles the
-differing strokes touch are rasterized again from every stroke. Both are plain
+says whether any tile changed. It compares the strokes it holds with the
+Terrain's from both ends: appended strokes, erases included, are composited onto
+the tiles they touch, and otherwise only the tiles the strokes between the
+shared ends touch, as they were and as they are, are rasterized again from
+every stroke, so editing or removing one stroke recomputes that stroke's tiles
+alone. Both are plain
 functions over the model's types; the Manager that owns the cache keeps it.
 
 ## Features
