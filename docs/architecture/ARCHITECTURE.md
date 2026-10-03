@@ -284,7 +284,6 @@ Fits by: a new source in LibraryAccess; CatalogEngine classifies and resolves as
 - Dropping files from the operating system does nothing on native Wayland (ignored for now): winit 0.30 emits no dropped-file event there; winit 0.31 (beta) fixes it, and XWayland is the workaround.
 - 2D lighting is deferred.
 - GPU stroke rasterization and the mask tile bands are measured on one Apple M4 Max only; weaker GPUs and Vulkan or DirectX 12 are unmeasured, draw counts beyond 200 strokes are unmeasured, and Bevy applies no GPU back-pressure (slow frames queue silently).
-- Editing a stroke on dense Terrain rasterizes again, on the CPU, every stroke reaching the tiles it touches on each frame of a drag: about 20 ms a frame for one of 200 dense strokes on one Apple M4 Max, until stroke edits rasterize on the GPU.
 - Mask tile caches cost per Material: where six Materials all reach every tile of a 4096-pixel view, a Terrain holds thirteen masks, about 260 MiB of overlays and 52 MiB of base on a 60 by 60 cell Level, and pays the band switch for each; where Materials do not meet, one mask each. Budgeting recomputes per frame and evicting hidden Materials come later, inside PaintEngine.
 - Thumbnail scrolling is measured on Metal with a warm disk only; cold-disk reads are unmeasured, and a PNG thumbnail (needed for cut-outs) costs 84 µs and 30 KB against the JPEG figures.
 - Party walls are verified for two coincident Room edges; three or more coincident sources are unverified.
