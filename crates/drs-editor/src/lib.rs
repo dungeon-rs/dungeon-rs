@@ -7,6 +7,7 @@ mod crash_test;
 mod diagnostics;
 mod export;
 mod files;
+mod grid;
 mod handles;
 mod outcomes;
 mod paint;
@@ -24,6 +25,7 @@ mod window;
 
 use bevy::app::{App, Plugin, Startup, Update};
 use bevy::ecs::schedule::IntoScheduleConfigs;
+use bevy::gizmos::AppGizmoBuilder;
 use bevy::window::{Window, WindowPlugin};
 use bevy_egui::{EguiPlugin, EguiPrimaryContextPass};
 use drs_diagnostics::Started;
@@ -68,6 +70,7 @@ impl Plugin for EditorPlugin {
             .init_resource::<state::EditorState>()
             .init_resource::<browser::Browser>()
             .init_resource::<panels::Layout>()
+            .insert_gizmo_config(grid::GridGizmos, grid::config())
             .add_systems(
                 EguiPrimaryContextPass,
                 (
@@ -95,6 +98,7 @@ impl Plugin for EditorPlugin {
                     // The overlays are drawn from the Level as this frame's Commands, Undo, and
                     // Redo leave it, so an outline or a marker never shows the frame before.
                     (
+                        grid::draw,
                         viewport::outline_selection,
                         walls::draw_overlays,
                         handles::draw,
