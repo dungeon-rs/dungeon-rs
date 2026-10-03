@@ -127,10 +127,14 @@ fn revisions(coverage: &TerrainCoverage) -> BTreeMap<TileKey, u64> {
 
 /// The tiles whose revision differs from `before`, or that are new.
 fn rasterized(before: &BTreeMap<TileKey, u64>, after: &TerrainCoverage) -> BTreeSet<TileKey> {
+    changed(before, &revisions(after))
+}
+
+/// The tiles of `after` whose revision differs from `before`, or that are new.
+fn changed(before: &BTreeMap<TileKey, u64>, after: &BTreeMap<TileKey, u64>) -> BTreeSet<TileKey> {
     after
-        .tiles
         .iter()
-        .filter(|(key, tile)| before.get(key) != Some(&tile.revision))
+        .filter(|(key, revision)| before.get(key) != Some(revision))
         .map(|(key, _)| *key)
         .collect()
 }
@@ -386,6 +390,16 @@ impl Fixture {
             covered += pixels.iter().filter(|pixel| **pixel > 0).count();
         }
         assert!(covered > 0, "{what}: some pixel is covered");
+    }
+
+    /// The revision of each base tile while the view is at `zoom` around `centre`, read by
+    /// dropping the zoom to the base and bringing it back, which rasterizes no base tile.
+    fn base_revisions(&mut self, centre: Vec2, zoom: f32) -> BTreeMap<TileKey, u64> {
+        self.look(centre, 40.0);
+        let base = self.coverage();
+        assert_eq!(base.band, 32, "the base is shown at a zoom of 40");
+        self.look(centre, zoom);
+        revisions(&base)
     }
 
     /// Whether an image the paint Engine named is still held anywhere.
@@ -712,7 +726,8 @@ fn edited_tiles_match_the_reference() {
 
 /// A new stroke, a moved stroke, and the move undone each rasterize exactly the tiles of the
 /// band shown that the stroke reaches, as it was and as it is, at the base and at an overlay,
-/// and leave every other tile's revision as it was.
+/// and leave every other tile's revision as it was; while an overlay is shown, the base's tiles
+/// the stroke reaches are rasterized too, and no other.
 #[test]
 fn only_the_touched_tiles_recompute() {
     let mut fixture = Fixture::new();
@@ -747,6 +762,7 @@ fn only_the_touched_tiles_recompute() {
             }
         };
 
+        let base = fixture.base_revisions(centre, zoom);
         let before = revisions(&fixture.coverage());
         fixture.paint(new.clone());
         let after = fixture.coverage();
@@ -758,34 +774,57 @@ fn only_the_touched_tiles_recompute() {
             shown(std::slice::from_ref(&new)),
             "the new stroke at band {band}"
         );
+        let base_after = fixture.base_revisions(centre, zoom);
+        assert_eq!(
+            changed(&base, &base_after),
+            reached_by(std::slice::from_ref(&new), 32),
+            "the new stroke at the base while band {band} is shown"
+        );
 
-        let before = revisions(&after);
+        let base = base_after;
+        let before = revisions(&fixture.coverage());
         fixture.edit(2, StrokeChange::Position(moved));
         let after = fixture.coverage();
         let now = fixture.strokes()[2].clone();
         // A tile only the stroke reached is let go rather than rasterized.
-        let touched = |after: &TerrainCoverage| -> BTreeSet<TileKey> {
+        let touched = |after: &BTreeMap<TileKey, u64>,
+                       shown: &dyn Fn(&[Stroke]) -> BTreeSet<TileKey>|
+         -> BTreeSet<TileKey> {
             shown(std::slice::from_ref(&new))
                 .union(&shown(std::slice::from_ref(&now)))
-                .filter(|key| after.tiles.contains_key(key))
+                .filter(|key| after.contains_key(key))
                 .copied()
                 .collect()
         };
+        let at_base = |strokes: &[Stroke]| reached_by(strokes, 32);
         assert_eq!(
             rasterized(&before, &after),
-            touched(&after),
+            touched(&revisions(&after), &shown),
             "the move at band {band}"
         );
+        let base_after = fixture.base_revisions(centre, zoom);
+        assert_eq!(
+            changed(&base, &base_after),
+            touched(&base_after, &at_base),
+            "the move at the base while band {band} is shown"
+        );
 
-        let before = revisions(&after);
+        let base = base_after;
+        let before = revisions(&fixture.coverage());
         fixture.undo();
         let after = fixture.coverage();
         assert_eq!(
             rasterized(&before, &after),
-            touched(&after),
+            touched(&revisions(&after), &shown),
             "the undo at band {band}"
         );
         fixture.assert_matches_the_reference(&format!("the undo at band {band}"));
+        let base_after = fixture.base_revisions(centre, zoom);
+        assert_eq!(
+            changed(&base, &base_after),
+            touched(&base_after, &at_base),
+            "the undo at the base while band {band} is shown"
+        );
 
         while fixture.terrain().is_some() {
             fixture.undo();
