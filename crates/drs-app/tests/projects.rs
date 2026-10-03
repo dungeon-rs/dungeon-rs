@@ -3086,3 +3086,213 @@ fn older_rooms_do_not_cut() {
         assert_eq!(envelope["data"]["cuts"], json!(false));
     }
 }
+
+/// Places a Room that cuts through `points` on the device's Layer, its Walls an eighth of a cell
+/// thick, and returns its identity.
+fn cut_room(device: &mut Device, points: &[Vec2]) -> ElementId {
+    let layer = device.layer();
+    device.apply(Apply::PlaceElement(PlaceElement {
+        layer,
+        placement: Placement::Room {
+            points: points.to_vec(),
+            thickness: 0.125,
+            wall_colour: Colour::rgb(90, 40, 40),
+            floor_colour: Colour::rgb(200, 190, 170),
+            cuts: true,
+        },
+    }));
+    device
+        .elements()
+        .last()
+        .map(|placed| placed.id)
+        .expect("the placed Room is the last child of the Layer")
+}
+
+/// The rectangle from `low` to `high`, counter-clockwise from its lower-left corner.
+fn rectangle(low: [f32; 2], high: [f32; 2]) -> Vec<Vec2> {
+    vec![
+        Vec2::new(low[0], low[1]),
+        Vec2::new(high[0], low[1]),
+        Vec2::new(high[0], high[1]),
+        Vec2::new(low[0], high[1]),
+    ]
+}
+
+/// A saved Room holds only its own points, edges, wall thickness, colours, and whether it cuts:
+/// overlapping, adjacent, and cutting Rooms with doors on a shared edge and on a hole's Wall
+/// reopen with every derived shape and every door as they were, and save again to the same bytes.
+#[test]
+fn combined_rooms_reopen_the_same() {
+    let mut saved = Saved::new();
+    let device = &mut saved.device;
+    let hall = device.room(&rectangle([0.0, 0.0], [8.0, 6.0]), &[], 0.25);
+    let _wing = device.room(
+        &rectangle([6.0, 2.0], [12.0, 10.0]),
+        &[None, None, Some(Vec2::new(9.0, 12.0))],
+        0.5,
+    );
+    let side = device.room(&rectangle([-6.0, 0.0], [0.0, 6.0]), &[], 0.125);
+    let pit = cut_room(device, &rectangle([2.0, 2.0], [4.0, 4.0]));
+    let anchor = |host, index| {
+        Some(PortalAnchor {
+            host,
+            index,
+            t: 0.5,
+            side: Side::Left,
+        })
+    };
+    device.portal(&saved.key, TABLE, Vec2::ZERO, anchor(side, 1));
+    device.portal(&saved.key, TABLE, Vec2::ZERO, anchor(pit, 0));
+    let rooms = device.rooms();
+    let portals = device.portals();
+    assert!(rooms.iter().all(|(.., shape)| shape.is_some()));
+    let file = device.save_as(&device.root().join("combined.dungeon"));
+
+    let written = json(&file);
+    for (id, ..) in &rooms {
+        let data = &written["elements"][id.as_raw().to_string()]["room"]["data"];
+        let mut keys: Vec<&str> = data
+            .as_object()
+            .expect("the Room's data")
+            .keys()
+            .map(String::as_str)
+            .collect();
+        keys.sort_unstable();
+        assert_eq!(
+            keys,
+            vec![
+                "cuts",
+                "edges",
+                "floor_colour",
+                "points",
+                "thickness",
+                "wall_colour"
+            ],
+            "nothing combined is saved"
+        );
+    }
+    assert_eq!(
+        written["elements"][hall.as_raw().to_string()]["room"]["data"]["cuts"],
+        json!(false)
+    );
+
+    let mut other = Device::new();
+    other.opens(&file);
+    assert_eq!(other.rooms(), rooms, "every Room and its derived shape");
+    assert_eq!(other.portals(), portals, "every door where it was");
+    let again = other.save_as(&other.root().join("again.dungeon"));
+    assert_eq!(
+        fs::read(&again).expect("the file saved again"),
+        fs::read(&file).expect("the file")
+    );
+}
+
+/// A Portal set into a place of a Room's edge where no Wall runs at its centre, as an editor that
+/// does not combine Rooms leaves it inside another Room's floor, stands where it was saved with
+/// no stretch, is kept through an edit of another Room, is saved back unchanged, can be freed,
+/// and is set into its Wall again when the Room over it moves away.
+#[test]
+fn a_portal_without_its_wall_stands() {
+    let mut saved = Saved::new();
+    let device = &mut saved.device;
+    let hall = device.room(&rectangle([0.0, 0.0], [8.0, 6.0]), &[], 0.25);
+    let door = device.portal(
+        &saved.key,
+        TABLE,
+        Vec2::ZERO,
+        Some(PortalAnchor {
+            host: hall,
+            index: 1,
+            t: 0.5,
+            side: Side::Right,
+        }),
+    );
+    let over = device.room(&rectangle([20.0, 0.0], [26.0, 6.0]), &[], 0.25);
+    let file = device.save_as(&device.root().join("set.dungeon"));
+    // As an editor that does not combine Rooms writes it: the second Room lies over the door.
+    let mut older = json(&file);
+    older["elements"][over.as_raw().to_string()]["room"]["data"]["points"] =
+        json!([[6.0, 0.0], [12.0, 0.0], [12.0, 6.0], [6.0, 6.0]]);
+    let path = saved.device.root().join("door-inside.dungeon");
+    write_json(&path, &older);
+
+    let mut other = Device::new();
+    other.opens(&path);
+    let standing = other
+        .portals()
+        .into_iter()
+        .find(|(id, ..)| *id == door)
+        .expect("the door is kept");
+    let shape_of = |device: &mut Device, room: ElementId| {
+        device
+            .rooms()
+            .into_iter()
+            .find(|(id, ..)| *id == room)
+            .and_then(|(.., shape)| shape)
+            .expect("the Room has its shape")
+    };
+    assert!(
+        shape_of(&mut other, hall).stretches.is_empty(),
+        "no Wall gives way for it"
+    );
+    let saved_portal = &older["elements"][door.as_raw().to_string()];
+    let saved_at = &saved_portal["element"]["data"]["position"];
+    assert_eq!(
+        json!([standing.1.position.x, standing.1.position.y]),
+        *saved_at,
+        "drawn at its saved position"
+    );
+
+    other.apply(Apply::EditElement(EditElement {
+        element: over,
+        change: ElementChange::Thickness(0.5),
+        gesture: Gesture::Single,
+    }));
+    let kept = other
+        .portals()
+        .into_iter()
+        .find(|(id, ..)| *id == door)
+        .expect("kept through an edit of another Room");
+    assert_eq!(kept, standing);
+
+    other.apply(Apply::EditElement(EditElement {
+        element: over,
+        change: ElementChange::Thickness(0.25),
+        gesture: Gesture::Single,
+    }));
+    let back = json(&other.save_as(&other.root().join("back.dungeon")));
+    assert_eq!(
+        back["elements"][door.as_raw().to_string()],
+        *saved_portal,
+        "saved back unchanged"
+    );
+
+    let mut freeing = Device::new();
+    freeing.opens(&path);
+    freeing.apply(Apply::FreePortal(FreePortal { portal: door }));
+    let freed = freeing
+        .portals()
+        .into_iter()
+        .find(|(id, ..)| *id == door)
+        .expect("the door");
+    assert_eq!(freed.2.anchor, None, "freed");
+    assert_eq!(freed.1.position, standing.1.position, "where it stood");
+
+    other.apply(Apply::EditElement(EditElement {
+        element: over,
+        change: ElementChange::MoveBy(Vec2::new(10.0, 0.0)),
+        gesture: Gesture::Single,
+    }));
+    let set = other
+        .portals()
+        .into_iter()
+        .find(|(id, ..)| *id == door)
+        .expect("the door");
+    assert_eq!(set.2.anchor, standing.2.anchor);
+    assert_eq!(
+        set.1.position,
+        Vec2::new(8.0, 3.0),
+        "set into its Wall again"
+    );
+    assert_eq!(shape_of(&mut other, hall).stretches.len(), 1);
+}
