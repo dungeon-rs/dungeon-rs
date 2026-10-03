@@ -55,7 +55,7 @@ A Terrain carries [`Terrain`](crate::Terrain): the Asset Reference row of the
 image its built-in Material tiles, and its strokes in the order they were laid,
 each a [`Stroke`](crate::Stroke): a path of one or more points in Grid cells
 with the [`BrushSettings`](crate::BrushSettings) it was laid with, a size, a
-hardness, and a strength. A Terrain's
+hardness, and a strength, and whether it erases. A Terrain's
 [`TerrainCoverage`](crate::TerrainCoverage), how much of its Material shows
 where, is derived from its strokes and never saved: tiles of 512 by 512 pixels at
 32 pixels per cell, keyed by their [`TileKey`](crate::TileKey) in the Level's
