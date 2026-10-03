@@ -2,7 +2,7 @@
 //! words while it is outside the limits, the size of the image it makes, a warning about
 //! placeholders, then the platform's save dialog and the Export request.
 
-use crate::files::{ProjectView, choose_save_file};
+use crate::files::{ProjectView, choose_export_file};
 use crate::outcomes::counted;
 use crate::panels::Outgoing;
 use crate::state::{EditorState, ExportDialog};
@@ -97,7 +97,7 @@ pub(crate) fn dialog(
         let pixels_per_cell = dialog.pixels_per_cell;
         let proposed = format!("{} - {}.png", view.name(), level_name.name);
         state.export = None;
-        let Some(path) = choose_save_file("Export Level", "PNG image", "png", &proposed) else {
+        let Some(path) = choose_export_file(&proposed) else {
             return;
         };
         state.exporting = true;

@@ -335,6 +335,15 @@ pub(crate) fn choose_save_file(
     })
 }
 
+/// The platform's save dialog for an Export, proposing `proposed`, or in development builds the
+/// file `DRS_EXPORT_FILE` names when it is set, and otherwise the one `DRS_SAVE_FILE` names, so
+/// one script can both save a Project and export it.
+pub(crate) fn choose_export_file(proposed: &str) -> Option<PathBuf> {
+    choose("DRS_EXPORT_FILE", || {
+        choose_save_file("Export Level", "PNG image", "png", proposed)
+    })
+}
+
 /// What a platform dialog chooses, or in development builds what the environment variable
 /// `variable` stands in for it with: unset, the dialog opens; set but empty, the dialog was
 /// cancelled; set to a path, that path was chosen.

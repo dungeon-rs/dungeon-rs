@@ -156,8 +156,10 @@ tool discard a stroke being drawn.
   its rectangle.
   With `DRS_PICK_FOLDER` set, Add Asset Folder… takes that folder instead of opening
   the dialog; with `DRS_PICK_FILE` set, Open… takes that file; with `DRS_SAVE_FILE`
-  set, Save As… and Export Level… write to that path (the extension is added when it
-  lacks one). An empty value stands for a cancelled dialog. With `DRS_CRASH_TEST` set
-  to `main`, `thread`, or `startup`, the editor panics on purpose on the main thread
-  on its second frame, on a spawned thread on its second frame, or while its plugins
-  build before any window exists, so the crash handler can be seen at work.
+  set, Save As… writes to that path (the extension is added when it lacks one), and so
+  does Export Level… unless `DRS_EXPORT_FILE` is set, whose path it writes to instead, so
+  one script can both save and export. An empty value stands for a cancelled dialog.
+  With `DRS_CRASH_TEST` set to `main`, `thread`, or `startup`, the editor panics on
+  purpose on the main thread on its second frame, on a spawned thread on its second
+  frame, or while its plugins build before any window exists, so the crash handler can
+  be seen at work.
