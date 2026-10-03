@@ -231,6 +231,7 @@ pub(crate) fn paint(world: &mut World, command: &Paint) -> Result<(), AuthoringE
         return Err(AuthoringError::NotALayer);
     }
     well_formed(&command.stroke)?;
+    let project = project_of(world, command.layer)?;
     if command.stroke.erase {
         let (element, _) =
             topmost_terrain(world, command.layer).ok_or(AuthoringError::NothingToErase)?;
@@ -242,7 +243,6 @@ pub(crate) fn paint(world: &mut World, command: &Paint) -> Result<(), AuthoringE
             },
         );
     }
-    let project = project_of(world, command.layer)?;
     match (topmost_terrain(world, command.layer), &command.asset) {
         (None, None) => Err(AuthoringError::NothingToPaintWith),
         (None, Some(asset)) => {
