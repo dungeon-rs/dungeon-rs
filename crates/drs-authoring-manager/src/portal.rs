@@ -404,11 +404,7 @@ pub(crate) fn portal_change(
         | ElementChange::Colour(_)
         | ElementChange::FloorColour(_)
         | ElementChange::Material(_)
-        | ElementChange::StrokePoint { .. }
-        | ElementChange::StrokePosition { .. }
-        | ElementChange::StrokeBrush { .. }
-        | ElementChange::StrokeErase { .. }
-        | ElementChange::RemoveStroke { .. } => return Ok(None),
+        | ElementChange::Stroke { .. } => return Ok(None),
     };
     field.map(Some).map_err(history)
 }

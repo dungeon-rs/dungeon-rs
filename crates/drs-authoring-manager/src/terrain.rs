@@ -14,7 +14,8 @@ use bevy_ecs::world::World;
 use drs_history::{ReversibleCommand, SetField, Target};
 use drs_model::{
     AssetAddress, AssetFolderReference, AssetReference, AssetReferenceRow, AssetReferences,
-    Element, ElementChange, ElementId, Paint, Stroke, TERRAIN, Terrain, TerrainCoverage,
+    Element, ElementChange, ElementId, Paint, Stroke, StrokeChange, TERRAIN, Terrain,
+    TerrainCoverage,
 };
 use drs_paint_engine::{PaintCache, apply_stroke};
 use unicode_normalization::UnicodeNormalization;
@@ -326,19 +327,8 @@ pub(crate) fn set_material(
     )
 }
 
-/// Whether a change is one of a stroke of a Terrain.
-pub(crate) fn is_stroke_change(change: &ElementChange) -> bool {
-    matches!(
-        change,
-        ElementChange::StrokePoint { .. }
-            | ElementChange::StrokePosition { .. }
-            | ElementChange::StrokeBrush { .. }
-            | ElementChange::StrokeErase { .. }
-            | ElementChange::RemoveStroke { .. }
-    )
-}
-
-/// The Terrain an Element is, as it stands, and its strokes' count.
+/// A copy of the Terrain an Element is, as it stands, to change and check before any change is
+/// recorded.
 ///
 /// # Errors
 ///
@@ -367,10 +357,10 @@ fn stroke_of(terrain: &mut Terrain, stroke: usize) -> Result<&mut Stroke, Author
         .ok_or(AuthoringError::NoStroke { stroke, strokes })
 }
 
-/// The field command of an Edit Element changing one stroke of a Terrain, a point of its path,
-/// its whole path, its Brush settings, or whether it erases, once the Terrain it would leave is
-/// checked; `None` when the change names what the stroke already does, which records nothing, or
-/// removes the stroke, which [`remove_stroke`] records as a step of its own.
+/// The field command of an Edit Element changing the stroke of number `stroke` of a Terrain: a
+/// point of its path, its whole path, its Brush settings, or whether it erases, once the Terrain
+/// it would leave is checked; `None` when the change names what the stroke already does, which
+/// records nothing, or removes the stroke, which [`remove_stroke`] records as a step of its own.
 ///
 /// # Errors
 ///
@@ -382,56 +372,54 @@ fn stroke_of(terrain: &mut Terrain, stroke: usize) -> Result<&mut Stroke, Author
 pub(crate) fn stroke_change(
     world: &mut World,
     element: ElementId,
-    change: &ElementChange,
+    stroke: usize,
+    change: &StrokeChange,
 ) -> Result<Option<SetField<ElementId>>, AuthoringError> {
     let mut terrain = terrain_of(world, element)?;
     let history = |error: drs_history::HistoryError| AuthoringError::History(error.to_string());
-    let field = if let ElementChange::StrokePoint {
-        stroke,
-        index,
-        position,
-    } = change
-    {
-        let points = &mut stroke_of(&mut terrain, *stroke)?.points;
-        let count = points.len();
-        *points
-            .get_mut(*index)
-            .ok_or(AuthoringError::NoStrokePoint {
-                index: *index,
-                points: count,
-            })? = *position;
-        SetField::new::<Terrain>(
-            element,
-            &format!("strokes[{stroke}].points[{index}]"),
-            *position,
-        )
-    } else if let ElementChange::StrokePosition { stroke, position } = change {
-        let moved = stroke_of(&mut terrain, *stroke)?;
-        let by = *position - moved.centre();
-        for point in &mut moved.points {
-            *point += by;
+    let field = match change {
+        StrokeChange::Point { index, position } => {
+            let points = &mut stroke_of(&mut terrain, stroke)?.points;
+            let count = points.len();
+            *points
+                .get_mut(*index)
+                .ok_or(AuthoringError::NoStrokePoint {
+                    index: *index,
+                    points: count,
+                })? = *position;
+            SetField::new::<Terrain>(
+                element,
+                &format!("strokes[{stroke}].points[{index}]"),
+                *position,
+            )
         }
-        SetField::new::<Terrain>(
-            element,
-            &format!("strokes[{stroke}].points"),
-            moved.points.clone(),
-        )
-    } else if let ElementChange::StrokeBrush { stroke, brush } = change {
-        stroke_of(&mut terrain, *stroke)?.brush = *brush;
-        SetField::new::<Terrain>(element, &format!("strokes[{stroke}].brush"), *brush)
-    } else if let ElementChange::StrokeErase { stroke, erase } = change {
-        let changed = stroke_of(&mut terrain, *stroke)?;
-        if changed.erase == *erase {
-            return Ok(None);
+        StrokeChange::Position(position) => {
+            let moved = stroke_of(&mut terrain, stroke)?;
+            let by = *position - moved.centre();
+            for point in &mut moved.points {
+                *point += by;
+            }
+            SetField::new::<Terrain>(
+                element,
+                &format!("strokes[{stroke}].points"),
+                moved.points.clone(),
+            )
         }
-        changed.erase = *erase;
-        SetField::new::<Terrain>(element, &format!("strokes[{stroke}].erase"), *erase)
-    } else if let ElementChange::RemoveStroke { stroke } = change {
-        return remove_stroke(world, element, terrain, *stroke).map(|()| None);
-    } else {
-        return Err(AuthoringError::TerrainChangesOnlyItsMaterialAndStrokes(
-            element,
-        ));
+        StrokeChange::Brush(brush) => {
+            stroke_of(&mut terrain, stroke)?.brush = *brush;
+            SetField::new::<Terrain>(element, &format!("strokes[{stroke}].brush"), *brush)
+        }
+        StrokeChange::Erase(erase) => {
+            let changed = stroke_of(&mut terrain, stroke)?;
+            if changed.erase == *erase {
+                return Ok(None);
+            }
+            changed.erase = *erase;
+            SetField::new::<Terrain>(element, &format!("strokes[{stroke}].erase"), *erase)
+        }
+        StrokeChange::Remove => {
+            return remove_stroke(world, element, terrain, stroke).map(|()| None);
+        }
     };
     if let Some(reason) = terrain.malformation() {
         return Err(AuthoringError::MalformedStroke(reason));
@@ -440,7 +428,7 @@ pub(crate) fn stroke_change(
 }
 
 /// Refuses an Edit Element of a Terrain that changes anything but its Material or one of its
-/// strokes.
+/// strokes. Every change is named, so a new one is routed here on purpose.
 ///
 /// # Errors
 ///
@@ -451,7 +439,22 @@ pub(crate) fn only_material_and_strokes(
     element: ElementId,
     change: &ElementChange,
 ) -> Result<(), AuthoringError> {
-    let allowed = matches!(change, ElementChange::Material(_)) || is_stroke_change(change);
+    let allowed = match change {
+        ElementChange::Material(_) | ElementChange::Stroke { .. } => true,
+        ElementChange::Position(_)
+        | ElementChange::Point { .. }
+        | ElementChange::Control { .. }
+        | ElementChange::AddPoint { .. }
+        | ElementChange::RemovePoint { .. }
+        | ElementChange::Thickness(_)
+        | ElementChange::Colour(_)
+        | ElementChange::FloorColour(_)
+        | ElementChange::Width(_)
+        | ElementChange::Rotation(_)
+        | ElementChange::Mirrored(_)
+        | ElementChange::Side(_)
+        | ElementChange::Along { .. } => false,
+    };
     if world.get::<Terrain>(entity).is_some() && !allowed {
         return Err(AuthoringError::TerrainChangesOnlyItsMaterialAndStrokes(
             element,

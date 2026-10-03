@@ -36,7 +36,7 @@ pub use messages::{
     FolderUnavailable, FreePortal, Gesture, HistoryFailed, LevelExported, ManagerSystems,
     MissingAsset, OpenProject, OpenReport, Paint, PlaceElement, Placement, PortalsRemoved,
     ProjectOpened, ProjectRefused, ProjectRequest, ProjectSaved, Redo, RemoveElement, SaveProject,
-    SetPortalIntoWall, ThumbnailsUnavailable, Undo, UnknownKind,
+    SetPortalIntoWall, StrokeChange, ThumbnailsUnavailable, Undo, UnknownKind,
 };
 pub use panics::CaughtPanics;
 pub use portal::{Anchoring, PORTAL, Portal, PortalAnchor, Side};

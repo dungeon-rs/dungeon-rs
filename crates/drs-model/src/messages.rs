@@ -276,44 +276,36 @@ pub enum ElementChange {
     },
     /// Make a Terrain's Material show the image of an Asset, every stroke kept as it is.
     Material(AssetAddress),
-    /// Move one point of a stroke of a Terrain, leaving every other point, the stroke's Brush
-    /// settings and whether it erases, and every other stroke as they are.
-    StrokePoint {
+    /// Change one stroke of a Terrain, named by its number.
+    Stroke {
         /// Which stroke, counted from zero, the first laid first.
         stroke: usize,
+        /// What changes of it.
+        change: StrokeChange,
+    },
+}
+
+/// A change of one stroke of a Terrain.
+#[derive(Debug, Clone, PartialEq)]
+pub enum StrokeChange {
+    /// Move one point of its path, leaving every other point, its Brush settings and whether it
+    /// erases, and every other stroke as they are.
+    Point {
         /// Which point of its path, counted from zero.
         index: usize,
         /// Where it goes, in Grid cells.
         position: Vec2,
     },
-    /// Move a stroke of a Terrain whole: every point of its path by the difference between the
-    /// position and the centre of the smallest box around its points.
-    StrokePosition {
-        /// Which stroke, counted from zero.
-        stroke: usize,
-        /// Where the centre of its points goes, in Grid cells.
-        position: Vec2,
-    },
-    /// Set the Brush settings of a stroke of a Terrain, all three together.
-    StrokeBrush {
-        /// Which stroke, counted from zero.
-        stroke: usize,
-        /// The settings it has from now on.
-        brush: BrushSettings,
-    },
-    /// Turn a stroke of a Terrain to erasing, or to painting.
-    StrokeErase {
-        /// Which stroke, counted from zero.
-        stroke: usize,
-        /// Whether it erases from now on.
-        erase: bool,
-    },
-    /// Remove a stroke of a Terrain, numbering each later stroke one lower; removing the only
-    /// stroke removes the Terrain.
-    RemoveStroke {
-        /// Which stroke, counted from zero.
-        stroke: usize,
-    },
+    /// Move it whole: every point of its path by the difference between the position, in Grid
+    /// cells, and the centre of the smallest box around its points.
+    Position(Vec2),
+    /// Set its Brush settings, all three together.
+    Brush(BrushSettings),
+    /// Turn it to erasing, or to painting.
+    Erase(bool),
+    /// Remove it, numbering each later stroke one lower; removing the only stroke removes the
+    /// Terrain.
+    Remove,
 }
 
 /// How an [`EditElement`] relates to the gesture it belongs to, so a drag is one history step.

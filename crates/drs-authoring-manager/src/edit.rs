@@ -104,12 +104,8 @@ fn element_change(
             return crate::terrain::set_material(world, id, asset)
                 .map(|()| OutlineEdit::Recorded(None));
         }
-        ElementChange::StrokePoint { .. }
-        | ElementChange::StrokePosition { .. }
-        | ElementChange::StrokeBrush { .. }
-        | ElementChange::StrokeErase { .. }
-        | ElementChange::RemoveStroke { .. } => {
-            match crate::terrain::stroke_change(world, id, change)? {
+        ElementChange::Stroke { stroke, change } => {
+            match crate::terrain::stroke_change(world, id, *stroke, change)? {
                 Some(field) => Ok(field),
                 None => return Ok(OutlineEdit::Recorded(None)),
             }

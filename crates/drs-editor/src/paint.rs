@@ -19,8 +19,8 @@ use bevy::window::{PrimaryWindow, Window};
 use bevy_egui::EguiContexts;
 use drs_model::{
     Apply, AssetAddress, AssetReferences, BrushSettings, EditElement, ElementChange, ElementId,
-    Gesture, Layer, Paint, Project, Redo, Resolution, ResolutionTable, Stroke, Terrain, Undo,
-    Viewport,
+    Gesture, Layer, Paint, Project, Redo, Resolution, ResolutionTable, Stroke, StrokeChange,
+    Terrain, Undo, Viewport,
 };
 
 /// The Brush a new editor starts with: two cells across, half hard, at full strength.
@@ -383,15 +383,11 @@ pub(crate) fn moved(
             return;
         }
         let position = drag.origin + (cells - drag.pointer);
-        let change = match drag.dragged {
-            Dragged::Point(index) => ElementChange::StrokePoint {
-                stroke: drag.target.stroke,
-                index,
-                position,
-            },
-            Dragged::Stroke => ElementChange::StrokePosition {
-                stroke: drag.target.stroke,
-                position,
+        let change = ElementChange::Stroke {
+            stroke: drag.target.stroke,
+            change: match drag.dragged {
+                Dragged::Point(index) => StrokeChange::Point { index, position },
+                Dragged::Stroke => StrokeChange::Position(position),
             },
         };
         if drag.sent.as_ref() == Some(&change) {
@@ -482,8 +478,9 @@ pub(crate) fn remove_selected(state: &mut EditorState, apply: &mut MessageWriter
     if let Some(selected) = state.paint.selected.take() {
         apply.write(Apply::EditElement(EditElement {
             element: selected.terrain,
-            change: ElementChange::RemoveStroke {
+            change: ElementChange::Stroke {
                 stroke: selected.stroke,
+                change: StrokeChange::Remove,
             },
             gesture: Gesture::Single,
         }));
@@ -660,9 +657,9 @@ fn stroke_options(
             &mut state.paint.option,
             apply,
             selected.terrain,
-            ElementChange::StrokeBrush {
+            ElementChange::Stroke {
                 stroke: selected.stroke,
-                brush,
+                change: StrokeChange::Brush(brush),
             },
             held,
         );
@@ -678,9 +675,9 @@ fn stroke_options(
         {
             apply.write(Apply::EditElement(EditElement {
                 element: selected.terrain,
-                change: ElementChange::StrokeErase {
+                change: ElementChange::Stroke {
                     stroke: selected.stroke,
-                    erase,
+                    change: StrokeChange::Erase(erase),
                 },
                 gesture: Gesture::Single,
             }));

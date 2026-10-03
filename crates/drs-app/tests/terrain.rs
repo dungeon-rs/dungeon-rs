@@ -25,8 +25,8 @@ use drs_model::{
     COVERAGE_PIXELS_PER_CELL, COVERAGE_TILE_PIXELS, CanonicalName, Colour, CommandFailed,
     EditElement, EditorDirectories, Element, ElementChange, ElementId, FolderAdded, FolderKey,
     Gesture, Layer, ModelPlugin, OpenProject, Paint, PlaceElement, Placement, ProjectOpened,
-    ProjectRefused, ProjectSaved, Redo, RemoveElement, SaveProject, Side, Stroke, TERRAIN, Terrain,
-    TerrainCoverage, TileKey, Undo,
+    ProjectRefused, ProjectSaved, Redo, RemoveElement, SaveProject, Side, Stroke, StrokeChange,
+    TERRAIN, Terrain, TerrainCoverage, TileKey, Undo,
 };
 use drs_project_manager::ProjectManagerPlugin;
 use std::collections::BTreeMap;
@@ -999,24 +999,29 @@ fn terrain_changes_only_its_material_and_strokes() {
     let grass = fixture.asset(GRASS);
     for change in [
         ElementChange::Material(grass),
-        ElementChange::StrokePoint {
+        ElementChange::Stroke {
             stroke: 0,
-            index: 0,
-            position: Vec2::ONE,
+            change: StrokeChange::Point {
+                index: 0,
+                position: Vec2::ONE,
+            },
         },
-        ElementChange::StrokePosition {
+        ElementChange::Stroke {
             stroke: 0,
-            position: Vec2::ONE,
+            change: StrokeChange::Position(Vec2::ONE),
         },
-        ElementChange::StrokeBrush {
+        ElementChange::Stroke {
             stroke: 0,
-            brush: SOFT,
+            change: StrokeChange::Brush(SOFT),
         },
-        ElementChange::StrokeErase {
+        ElementChange::Stroke {
             stroke: 0,
-            erase: true,
+            change: StrokeChange::Erase(true),
         },
-        ElementChange::RemoveStroke { stroke: 0 },
+        ElementChange::Stroke {
+            stroke: 0,
+            change: StrokeChange::Remove,
+        },
     ] {
         let refused = fixture.try_edit(prop, change.clone());
         assert_eq!(refused.len(), 1, "{change:?}");

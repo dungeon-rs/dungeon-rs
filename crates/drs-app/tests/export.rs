@@ -34,7 +34,7 @@ use drs_model::{
     LevelExported, ModelPlugin, OpenProject, PlaceElement, Placement, PortalAnchor, ProjectOpened,
     ProjectRefused, ProjectSaved, Prop, SaveProject, SavedMark, Side, Viewport,
 };
-use drs_model::{Bounds, BrushSettings, Paint, Resolution, ResolutionTable, Stroke};
+use drs_model::{Bounds, BrushSettings, Paint, Resolution, ResolutionTable, Stroke, StrokeChange};
 use drs_project_manager::ProjectManagerPlugin;
 use drs_render_engine::RenderEnginePlugin;
 use std::fs;
@@ -2166,16 +2166,16 @@ fn an_edited_stroke_exports_as_edited() {
     fixture.erase(&[Vec2::new(22.0, 8.0), Vec2::new(26.0, 8.0)], hard);
     fixture.edit(
         terrain,
-        ElementChange::StrokePosition {
+        ElementChange::Stroke {
             stroke: 1,
-            position: Vec2::new(20.0, 22.0),
+            change: StrokeChange::Position(Vec2::new(20.0, 22.0)),
         },
     );
     fixture.edit(
         terrain,
-        ElementChange::StrokeErase {
+        ElementChange::Stroke {
             stroke: 2,
-            erase: false,
+            change: StrokeChange::Erase(false),
         },
     );
 

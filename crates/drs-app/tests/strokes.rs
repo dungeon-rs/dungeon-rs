@@ -25,7 +25,7 @@ use drs_model::{
     COVERAGE_TILE_PIXELS, CanonicalName, Colour, CommandFailed, EditElement, EditorDirectories,
     Element, ElementChange, ElementId, FolderAdded, FolderKey, Gesture, Layer, ModelPlugin,
     OpenProject, Paint, PlaceElement, Placement, ProjectOpened, ProjectRefused, ProjectSaved, Redo,
-    SaveProject, Stroke, Terrain, TerrainCoverage, TileKey, Undo,
+    SaveProject, Stroke, StrokeChange, Terrain, TerrainCoverage, TileKey, Undo,
 };
 use drs_project_manager::ProjectManagerPlugin;
 use std::collections::BTreeMap;
@@ -67,6 +67,11 @@ fn stroke(points: &[Vec2], brush: BrushSettings) -> Stroke {
         brush,
         erase: false,
     }
+}
+
+/// The Edit Element change `change` of the stroke of number `stroke`.
+fn edit_of(stroke: usize, change: StrokeChange) -> ElementChange {
+    ElementChange::Stroke { stroke, change }
 }
 
 /// A stroke that erases through `points` with `brush`.
@@ -760,49 +765,41 @@ fn strokes_are_numbered() {
 
     fixture.edit(
         terrain,
-        ElementChange::StrokePoint {
-            stroke: 1,
-            index: 2,
-            position: Vec2::new(8.0, 0.0),
-        },
+        edit_of(
+            1,
+            StrokeChange::Point {
+                index: 2,
+                position: Vec2::new(8.0, 0.0),
+            },
+        ),
     );
     strokes[1].points[2] = Vec2::new(8.0, 0.0);
     fixture.edit(
         terrain,
-        ElementChange::StrokePosition {
-            stroke: 3,
-            position: Vec2::new(10.0, 3.0),
-        },
+        edit_of(3, StrokeChange::Position(Vec2::new(10.0, 3.0))),
     );
     strokes[3].points[0] = Vec2::new(10.0, 3.0);
     fixture.edit(
         terrain,
-        ElementChange::StrokeBrush {
-            stroke: 0,
-            brush: brush(2.5, 0.25, 0.75),
-        },
+        edit_of(0, StrokeChange::Brush(brush(2.5, 0.25, 0.75))),
     );
     strokes[0].brush = brush(2.5, 0.25, 0.75);
-    fixture.edit(
-        terrain,
-        ElementChange::StrokeErase {
-            stroke: 2,
-            erase: false,
-        },
-    );
+    fixture.edit(terrain, edit_of(2, StrokeChange::Erase(false)));
     strokes[2].erase = false;
     assert_eq!(fixture.strokes(), strokes, "every stroke at its number");
 
-    fixture.edit(terrain, ElementChange::RemoveStroke { stroke: 1 });
+    fixture.edit(terrain, edit_of(1, StrokeChange::Remove));
     strokes.remove(1);
     assert_eq!(fixture.strokes(), strokes, "each later one a number lower");
     fixture.edit(
         terrain,
-        ElementChange::StrokePoint {
-            stroke: 1,
-            index: 0,
-            position: Vec2::new(5.5, -2.0),
-        },
+        edit_of(
+            1,
+            StrokeChange::Point {
+                index: 0,
+                position: Vec2::new(5.5, -2.0),
+            },
+        ),
     );
     strokes[1].points[0] = Vec2::new(5.5, -2.0);
     assert_eq!(
@@ -823,11 +820,13 @@ fn a_strokes_point_moves_alone() {
 
     fixture.edit(
         terrain,
-        ElementChange::StrokePoint {
-            stroke: 1,
-            index: 1,
-            position: moved,
-        },
+        edit_of(
+            1,
+            StrokeChange::Point {
+                index: 1,
+                position: moved,
+            },
+        ),
     );
 
     strokes[1].points[1] = moved;
@@ -862,10 +861,7 @@ fn moving_a_stroke_moves_its_path() {
 
     fixture.edit(
         terrain,
-        ElementChange::StrokePosition {
-            stroke: 2,
-            position: Vec2::new(15.0, 9.5),
-        },
+        edit_of(2, StrokeChange::Position(Vec2::new(15.0, 9.5))),
     );
     let mut moved = dab.clone();
     moved.points = vec![Vec2::new(14.0, 8.0), Vec2::new(16.0, 11.0)];
@@ -883,10 +879,7 @@ fn moving_a_stroke_moves_its_path() {
 
     fixture.edit(
         terrain,
-        ElementChange::StrokePosition {
-            stroke: 1,
-            position: Vec2::new(x + 6.0, 4.0),
-        },
+        edit_of(1, StrokeChange::Position(Vec2::new(x + 6.0, 4.0))),
     );
     assert!(
         fixture.strokes()[1].erase,
@@ -912,13 +905,7 @@ fn a_strokes_brush_stays_editable() {
     let (terrain, mut strokes) = four_strokes(&mut fixture);
     let wider = brush(4.0, 1.0, 0.5);
 
-    fixture.edit(
-        terrain,
-        ElementChange::StrokeBrush {
-            stroke: 0,
-            brush: wider,
-        },
-    );
+    fixture.edit(terrain, edit_of(0, StrokeChange::Brush(wider)));
 
     strokes[0].brush = wider;
     assert_eq!(fixture.strokes(), strokes);
@@ -945,26 +932,14 @@ fn painting_or_erasing_stays_editable() {
     let (terrain, _, before) = fixture.terrain();
     let steps = fixture.steps();
 
-    fixture.edit(
-        terrain,
-        ElementChange::StrokeErase {
-            stroke: 1,
-            erase: true,
-        },
-    );
+    fixture.edit(terrain, edit_of(1, StrokeChange::Erase(true)));
     let mut erased = before.strokes.clone();
     erased[1].erase = true;
     assert_eq!(fixture.strokes(), erased);
     assert_eq!(fixture.coverage_at(Vec2::new(x, y)), 0, "now it erases");
     assert_eq!(fixture.steps(), steps + 1);
 
-    fixture.edit(
-        terrain,
-        ElementChange::StrokeErase {
-            stroke: 1,
-            erase: true,
-        },
-    );
+    fixture.edit(terrain, edit_of(1, StrokeChange::Erase(true)));
     assert_eq!(fixture.strokes(), erased, "already an erase");
     assert_eq!(
         fixture.steps(),
@@ -972,13 +947,7 @@ fn painting_or_erasing_stays_editable() {
         "no step for what it already does"
     );
 
-    fixture.edit(
-        terrain,
-        ElementChange::StrokeErase {
-            stroke: 1,
-            erase: false,
-        },
-    );
+    fixture.edit(terrain, edit_of(1, StrokeChange::Erase(false)));
     assert_eq!(fixture.terrain().2, before);
     assert_eq!(fixture.coverage_at(Vec2::new(x, 7.0)), 255, "paints again");
     assert_eq!(fixture.steps(), steps + 2);
@@ -997,10 +966,14 @@ fn a_stroke_edit_is_one_step() {
     fixture.gesture(
         terrain,
         (0..5_u8)
-            .map(|step| ElementChange::StrokePoint {
-                stroke: 1,
-                index: 0,
-                position: Vec2::new(2.0, -f32::from(step)),
+            .map(|step| {
+                edit_of(
+                    1,
+                    StrokeChange::Point {
+                        index: 0,
+                        position: Vec2::new(2.0, -f32::from(step)),
+                    },
+                )
             })
             .collect(),
     );
@@ -1012,9 +985,11 @@ fn a_stroke_edit_is_one_step() {
     fixture.gesture(
         terrain,
         (0..5_u8)
-            .map(|step| ElementChange::StrokePosition {
-                stroke: 0,
-                position: Vec2::new(5.0 + f32::from(step), 2.0),
+            .map(|step| {
+                edit_of(
+                    0,
+                    StrokeChange::Position(Vec2::new(5.0 + f32::from(step), 2.0)),
+                )
             })
             .collect(),
     );
@@ -1026,10 +1001,7 @@ fn a_stroke_edit_is_one_step() {
     fixture.gesture(
         terrain,
         (1..=5_u8)
-            .map(|step| ElementChange::StrokeBrush {
-                stroke: 3,
-                brush: brush(f32::from(step), 0.0, 0.9),
-            })
+            .map(|step| edit_of(3, StrokeChange::Brush(brush(f32::from(step), 0.0, 0.9))))
             .collect(),
     );
     assert_eq!(fixture.strokes()[3].brush, brush(5.0, 0.0, 0.9));
@@ -1038,24 +1010,17 @@ fn a_stroke_edit_is_one_step() {
     assert_eq!(fixture.strokes(), strokes);
 
     for change in [
-        ElementChange::StrokePoint {
-            stroke: 0,
-            index: 1,
-            position: Vec2::new(9.0, 3.0),
-        },
-        ElementChange::StrokePosition {
-            stroke: 1,
-            position: Vec2::new(4.0, 4.0),
-        },
-        ElementChange::StrokeBrush {
-            stroke: 2,
-            brush: brush(2.0, 0.5, 0.5),
-        },
-        ElementChange::StrokeErase {
-            stroke: 3,
-            erase: true,
-        },
-        ElementChange::RemoveStroke { stroke: 0 },
+        edit_of(
+            0,
+            StrokeChange::Point {
+                index: 1,
+                position: Vec2::new(9.0, 3.0),
+            },
+        ),
+        edit_of(1, StrokeChange::Position(Vec2::new(4.0, 4.0))),
+        edit_of(2, StrokeChange::Brush(brush(2.0, 0.5, 0.5))),
+        edit_of(3, StrokeChange::Erase(true)),
+        edit_of(0, StrokeChange::Remove),
     ] {
         let before = fixture.strokes();
         fixture.edit(terrain, change.clone());
@@ -1076,7 +1041,7 @@ fn removing_a_stroke_keeps_the_rest() {
     let steps = fixture.steps();
 
     for removed in [1, 2] {
-        fixture.edit(terrain, ElementChange::RemoveStroke { stroke: removed });
+        fixture.edit(terrain, edit_of(removed, StrokeChange::Remove));
         let mut rest = strokes.clone();
         rest.remove(removed);
         assert_eq!(fixture.strokes(), rest, "stroke {removed} taken out");
@@ -1091,7 +1056,7 @@ fn removing_a_stroke_keeps_the_rest() {
     }
 
     let x = 5.5 + HALF_PIXEL;
-    fixture.edit(terrain, ElementChange::RemoveStroke { stroke: 2 });
+    fixture.edit(terrain, edit_of(2, StrokeChange::Remove));
     assert_eq!(
         fixture.coverage_at(Vec2::new(x, 2.0 + HALF_PIXEL)),
         255,
@@ -1112,7 +1077,7 @@ fn the_last_stroke_takes_its_terrain() {
     let wall = fixture.wall(&[Vec2::new(0.0, 6.0), Vec2::new(5.0, 6.0)]);
     let steps = fixture.steps();
 
-    fixture.edit(terrain.0, ElementChange::RemoveStroke { stroke: 0 });
+    fixture.edit(terrain.0, edit_of(0, StrokeChange::Remove));
     assert!(fixture.terrains().is_empty(), "the Terrain goes");
     assert_eq!(fixture.order(), vec![prop, wall]);
     assert_eq!(fixture.steps(), steps + 1);
@@ -1139,24 +1104,17 @@ fn malformed_stroke_edits_are_refused() {
     let steps = fixture.steps();
     let every = |stroke: usize| {
         [
-            ElementChange::StrokePoint {
+            edit_of(
                 stroke,
-                index: 0,
-                position: Vec2::ONE,
-            },
-            ElementChange::StrokePosition {
-                stroke,
-                position: Vec2::ONE,
-            },
-            ElementChange::StrokeBrush {
-                stroke,
-                brush: SOFT,
-            },
-            ElementChange::StrokeErase {
-                stroke,
-                erase: true,
-            },
-            ElementChange::RemoveStroke { stroke },
+                StrokeChange::Point {
+                    index: 0,
+                    position: Vec2::ONE,
+                },
+            ),
+            edit_of(stroke, StrokeChange::Position(Vec2::ONE)),
+            edit_of(stroke, StrokeChange::Brush(SOFT)),
+            edit_of(stroke, StrokeChange::Erase(true)),
+            edit_of(stroke, StrokeChange::Remove),
         ]
     };
     let mut cases: Vec<(ElementId, ElementChange, &str)> = every(4)
@@ -1171,28 +1129,29 @@ fn malformed_stroke_edits_are_refused() {
     cases.extend([
         (
             terrain,
-            ElementChange::StrokePoint {
-                stroke: 1,
-                index: 3,
-                position: Vec2::ONE,
-            },
+            edit_of(
+                1,
+                StrokeChange::Point {
+                    index: 3,
+                    position: Vec2::ONE,
+                },
+            ),
             "point 3",
         ),
         (
             terrain,
-            ElementChange::StrokePoint {
-                stroke: 1,
-                index: 0,
-                position: Vec2::new(f32::NAN, 1.0),
-            },
+            edit_of(
+                1,
+                StrokeChange::Point {
+                    index: 0,
+                    position: Vec2::new(f32::NAN, 1.0),
+                },
+            ),
             "finite",
         ),
         (
             terrain,
-            ElementChange::StrokePosition {
-                stroke: 0,
-                position: Vec2::new(1.0, f32::INFINITY),
-            },
+            edit_of(0, StrokeChange::Position(Vec2::new(1.0, f32::INFINITY))),
             "finite",
         ),
     ]);
@@ -1206,14 +1165,7 @@ fn malformed_stroke_edits_are_refused() {
         (brush(1.0, 0.5, 0.0), "strength"),
         (brush(1.0, 0.5, 1.5), "strength"),
     ] {
-        cases.push((
-            terrain,
-            ElementChange::StrokeBrush {
-                stroke: 2,
-                brush: bad,
-            },
-            reason,
-        ));
+        cases.push((terrain, edit_of(2, StrokeChange::Brush(bad)), reason));
     }
 
     for (element, change, reason) in cases {
@@ -1229,24 +1181,17 @@ fn malformed_stroke_edits_are_refused() {
 /// One edit of each kind on the strokes [`four_strokes`] lays, each over others.
 fn one_of_each() -> [ElementChange; 5] {
     [
-        ElementChange::StrokePoint {
-            stroke: 1,
-            index: 1,
-            position: Vec2::new(5.0, 3.0),
-        },
-        ElementChange::StrokePosition {
-            stroke: 2,
-            position: Vec2::new(3.0, 2.0),
-        },
-        ElementChange::StrokeBrush {
-            stroke: 0,
-            brush: brush(3.0, 0.1, 0.5),
-        },
-        ElementChange::StrokeErase {
-            stroke: 3,
-            erase: true,
-        },
-        ElementChange::RemoveStroke { stroke: 2 },
+        edit_of(
+            1,
+            StrokeChange::Point {
+                index: 1,
+                position: Vec2::new(5.0, 3.0),
+            },
+        ),
+        edit_of(2, StrokeChange::Position(Vec2::new(3.0, 2.0))),
+        edit_of(0, StrokeChange::Brush(brush(3.0, 0.1, 0.5))),
+        edit_of(3, StrokeChange::Erase(true)),
+        edit_of(2, StrokeChange::Remove),
     ]
 }
 
@@ -1328,15 +1273,12 @@ fn stroke_edits_share_the_history() {
     let prop = fixture.prop(Vec2::new(3.0, 3.0));
     fixture.edit(
         terrain,
-        ElementChange::StrokePosition {
-            stroke: 0,
-            position: Vec2::new(3.0, 4.0),
-        },
+        edit_of(0, StrokeChange::Position(Vec2::new(3.0, 4.0))),
     );
     fixture.edit(prop, ElementChange::Position(Vec2::new(8.0, 8.0)));
     let erase = erasing(&[Vec2::new(3.0, 4.0)], SOFT);
     fixture.erase(erase.clone());
-    fixture.edit(terrain, ElementChange::RemoveStroke { stroke: 0 });
+    fixture.edit(terrain, edit_of(0, StrokeChange::Remove));
     let moved = stroke(&[Vec2::new(1.0, 4.0), Vec2::new(5.0, 4.0)], SOFT);
     assert_eq!(fixture.strokes(), vec![erase.clone()]);
 
