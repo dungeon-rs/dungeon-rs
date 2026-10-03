@@ -280,10 +280,26 @@ pub fn tile_cells(band: u32) -> f32 {
     cells
 }
 
-/// An image on the GPU that holds a coverage tile's pixels: an opaque identity the paint Engine
-/// gives and the render Engine maps to the image, so the model names it without holding it.
+/// An image on the GPU that holds a coverage tile's pixels, named by the bits of its index among
+/// the image assets, as Bevy's `AssetIndex::to_bits` gives them and `AssetIndex::from_bits` reads
+/// them: the paint Engine names an image it made by them and the render Engine finds the image by
+/// them, so the model names it without holding it or depending on the asset system.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
-pub struct GpuTile(pub u64);
+pub struct GpuTile(u64);
+
+impl GpuTile {
+    /// The tile whose image has the asset index whose bits are `bits`.
+    #[must_use]
+    pub const fn from_index_bits(bits: u64) -> Self {
+        Self(bits)
+    }
+
+    /// The bits of the asset index of the tile's image.
+    #[must_use]
+    pub const fn index_bits(self) -> u64 {
+        self.0
+    }
+}
 
 /// Where a coverage tile's pixels are held.
 #[derive(Debug, Clone, PartialEq, Eq)]

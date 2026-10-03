@@ -355,7 +355,7 @@ impl Fixture {
                 .app
                 .world_mut()
                 .resource_mut::<Assets<Image>>()
-                .get_strong_handle(AssetId::from(AssetIndex::from_bits(image.0)))
+                .get_strong_handle(AssetId::from(AssetIndex::from_bits(image.index_bits())))
                 .expect("the tile's image exists");
             let arrived = Arc::clone(&arrived);
             let key = *key;
@@ -435,7 +435,7 @@ impl Fixture {
         self.app
             .world_mut()
             .resource_mut::<Assets<Image>>()
-            .get(AssetId::from(AssetIndex::from_bits(image.0)))
+            .get(AssetId::from(AssetIndex::from_bits(image.index_bits())))
             .is_some()
     }
 }

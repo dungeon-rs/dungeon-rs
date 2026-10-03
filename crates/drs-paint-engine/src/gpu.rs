@@ -273,7 +273,8 @@ pub(crate) struct Gpu<'a> {
 }
 
 impl Gpu<'_> {
-    /// A new tile's image, on the GPU alone, and the identity the model names it by.
+    /// A new tile's image, on the GPU alone, and the identity the model names it by; `None`, with
+    /// a warning, should the image have no asset index to name it by.
     pub(crate) fn new_tile(&mut self) -> Option<(Handle<Image>, GpuTile)> {
         let mut image = Image::new_uninit(
             Extent3d {
@@ -292,8 +293,13 @@ impl Gpu<'_> {
         image.sampler = ImageSampler::linear();
         let handle = self.images.add(image);
         match handle.id() {
-            AssetId::Index { index, .. } => Some((handle, GpuTile(index.to_bits()))),
-            AssetId::Uuid { .. } => None,
+            AssetId::Index { index, .. } => {
+                Some((handle, GpuTile::from_index_bits(index.to_bits())))
+            }
+            AssetId::Uuid { .. } => {
+                log::warn!("a Terrain's tile image has no asset index to name it by");
+                None
+            }
         }
     }
 }

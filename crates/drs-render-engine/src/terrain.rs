@@ -612,7 +612,7 @@ fn show(kept: &mut TileDrawn, tile: &CoverageTile, assets: &mut TerrainAssets) -
 /// The image a tile rasterized on the GPU names, held while it is drawn, or `None` once the paint
 /// Engine let it go.
 fn gpu_image(images: &mut Assets<Image>, image: GpuTile) -> Option<Handle<Image>> {
-    let found = images.get_strong_handle(AssetId::from(AssetIndex::from_bits(image.0)));
+    let found = images.get_strong_handle(AssetId::from(AssetIndex::from_bits(image.index_bits())));
     if found.is_none() {
         log::debug!("a Terrain's tile on the GPU is gone before it was drawn");
     }
