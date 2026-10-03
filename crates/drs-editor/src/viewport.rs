@@ -17,6 +17,7 @@ use crate::snapping::Shown;
 use crate::state::{EditorState, Interaction, Tool};
 use crate::walls;
 use bevy::color::Color;
+use bevy::ecs::change_detection::DetectChangesMut;
 use bevy::ecs::entity::Entity;
 use bevy::ecs::hierarchy::{ChildOf, Children};
 use bevy::ecs::message::{MessageReader, MessageWriter};
@@ -361,7 +362,10 @@ pub(crate) fn pointer(
     };
     let over = viewport.contains(cursor) && !input.egui.wants_any_pointer_input();
     if over {
-        zoom_and_scroll(&mut input, &mut viewport, cursor);
+        // Written only when it moves, so the Managers derive nothing from a view left as it was.
+        let mut moved = *viewport;
+        zoom_and_scroll(&mut input, &mut moved, cursor);
+        viewport.set_if_neq(moved);
     }
     let pan_held = input.buttons.pressed(MouseButton::Middle)
         || (input.buttons.pressed(MouseButton::Left) && input.keys.pressed(KeyCode::Space));
@@ -386,7 +390,9 @@ pub(crate) fn pointer(
         }
         Interaction::Panning { last } => {
             if pan_held {
-                viewport.pan_by(cursor - last);
+                if cursor != last {
+                    viewport.pan_by(cursor - last);
+                }
                 state.interaction = Interaction::Panning { last: cursor };
             } else {
                 state.interaction = Interaction::Idle;

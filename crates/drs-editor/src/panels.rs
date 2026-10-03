@@ -428,8 +428,8 @@ fn name_prompt(ctx: &egui::Context, editor: &mut Editor) {
 struct Panels<'a, 'w, 's, 'cw, 'cs> {
     /// The Editor's own state.
     state: &'a mut EditorState,
-    /// Where the Author is looking.
-    viewport: &'a mut Viewport,
+    /// Where the Author is looking, written only when its area changes.
+    viewport: &'a mut ResMut<'w, Viewport>,
     /// The Asset Folders added on this device, as the Assets panel browses them.
     library: &'a mut browser::Library<'w, 's>,
     /// The egui contexts, which the Assets panel registers thumbnails with.
