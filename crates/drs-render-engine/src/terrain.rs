@@ -6,7 +6,8 @@ use crate::drawn_as;
 use crate::projection::VIEWPORT_LAYER;
 use crate::stacking::Stacking;
 use bevy_asset::{
-    Asset, AssetPath, AssetServer, Assets, Handle, LoadState, RenderAssetUsages, uuid_handle,
+    Asset, AssetId, AssetIndex, AssetPath, AssetServer, Assets, Handle, LoadState,
+    RenderAssetUsages, uuid_handle,
 };
 use bevy_camera::visibility::RenderLayers;
 use bevy_color::{Color, ColorToComponents, LinearRgba};
@@ -29,9 +30,9 @@ use bevy_sprite_render::{AlphaMode2d, Material2d, MeshMaterial2d};
 use bevy_transform::components::Transform;
 use drs_library_access::asset_path;
 use drs_model::{
-    AssetReferences, COVERAGE_TILE_CELLS, COVERAGE_TILE_PIXELS, DrawnAs, Element,
-    ElementKindRegistry, Grid, Layer as ModelLayer, Level, Project, Resolution, ResolutionTable,
-    Terrain, TerrainCoverage, TileKey,
+    AssetReferences, COVERAGE_PIXELS_PER_CELL, COVERAGE_TILE_PIXELS, CoverageTile, DrawnAs,
+    Element, ElementKindRegistry, GpuTile, Grid, Layer as ModelLayer, Level, Project, Resolution,
+    ResolutionTable, Terrain, TerrainCoverage, TileKey, tile_cells,
 };
 use std::collections::BTreeMap;
 
@@ -172,8 +173,10 @@ struct TileDrawn {
     revision: u64,
     /// The quad's Material.
     material: Handle<TerrainMaterial>,
-    /// The uploaded coverage.
+    /// The coverage sampled: the pixels uploaded, or the tile's image on the GPU.
     coverage: Handle<Image>,
+    /// The image on the GPU the coverage is, for a tile rasterized there.
+    image: Option<GpuTile>,
 }
 
 /// One Terrain as drawn.
@@ -190,7 +193,9 @@ struct TerrainDrawn {
     depth: f32,
     /// The look its tiles' Materials have.
     look: Look,
-    /// Its coverage tiles as drawn, by position.
+    /// The band its tiles are at.
+    band: u32,
+    /// Its coverage tiles as drawn, by position at the band.
     tiles: BTreeMap<TileKey, TileDrawn>,
 }
 
@@ -412,6 +417,7 @@ pub(crate) fn sync_terrains(
                 image_cells,
                 depth: stacked.depth,
                 look: Look::placeholder(),
+                band: COVERAGE_PIXELS_PER_CELL,
                 tiles: BTreeMap::new(),
             });
         if drawn.path != path {
@@ -460,9 +466,11 @@ struct Restyle {
     moved: bool,
 }
 
-/// Brings one Terrain's quads in step with its coverage: a tile whose revision changed is
-/// uploaded again and its Material marked changed, a new tile gets a quad, and the quads of tiles
-/// that are gone are removed.
+/// Brings one Terrain's quads in step with its coverage: a tile on the GPU is drawn from its
+/// image as it is, with no upload, its Material given the image only when the tile names
+/// another; a tile on the CPU whose revision changed is uploaded again and its Material marked
+/// changed; a new tile gets a quad of its band's size at its corner, and the quads of tiles that
+/// are gone, every one when the band changed, are removed.
 fn sync_tiles(
     drawn: &mut TerrainDrawn,
     coverage: &TerrainCoverage,
@@ -473,32 +481,31 @@ fn sync_tiles(
     transforms: &mut Query<&mut Transform, With<TerrainTile>>,
 ) {
     let mut tiles = std::mem::take(&mut drawn.tiles);
+    if drawn.band != coverage.band {
+        for gone in std::mem::take(&mut tiles).into_values() {
+            commands.entity(gone.entity).despawn();
+        }
+        drawn.band = coverage.band;
+    }
+    let extent = Vec2::splat(tile_cells(coverage.band));
     for (key, tile) in &coverage.tiles {
-        let origin = key.corner();
-        #[expect(clippy::cast_precision_loss, reason = "a tile is sixteen cells a side")]
-        let extent = Vec2::splat(COVERAGE_TILE_CELLS as f32);
+        let origin = key.corner_at(coverage.band);
         if let Some(mut kept) = tiles.remove(key) {
-            let replaced = kept.revision != tile.revision;
-            if replaced {
-                let image = coverage_image(
-                    tile.pixels.to_vec(),
-                    COVERAGE_TILE_PIXELS,
-                    ImageSampler::linear(),
-                );
-                if assets.images.insert(&kept.coverage, image).is_err() {
-                    log::warn!("the coverage of a Terrain could not be replaced");
-                }
-                kept.revision = tile.revision;
+            let shown = show(&mut kept, tile, assets);
+            if shown == Shown::Gone {
+                commands.entity(kept.entity).despawn();
+                continue;
             }
-            // The Material's bind group holds the coverage texture it was prepared with, so a
-            // replaced coverage shows only once the Material is marked changed too.
-            if (replaced || change.restyled)
+            if (shown == Shown::Rebound || change.restyled)
                 && let Some(material) = assets.materials.get_mut(&kept.material)
             {
-                let material = material.into_inner();
-                if change.restyled {
-                    *material = drawn.look.material(origin, extent, kept.coverage.clone());
-                }
+                *material.into_inner() = drawn.look.material(origin, extent, kept.coverage.clone());
+            } else if shown == Shown::Replaced
+                && let Some(material) = assets.materials.get_mut(&kept.material)
+            {
+                // The Material's bind group holds the coverage texture it was prepared with, so
+                // a replaced coverage shows only once the Material is marked changed too.
+                material.into_inner();
             }
             if change.moved
                 && let Ok(mut transform) = transforms.get_mut(kept.entity)
@@ -507,11 +514,20 @@ fn sync_tiles(
             }
             drawn.tiles.insert(*key, kept);
         } else {
-            let coverage = assets.images.add(coverage_image(
-                tile.pixels.to_vec(),
-                COVERAGE_TILE_PIXELS,
-                ImageSampler::linear(),
-            ));
+            let (coverage, image) = match tile.image {
+                Some(image) => match gpu_image(&mut assets.images, image) {
+                    Some(coverage) => (coverage, Some(image)),
+                    None => continue,
+                },
+                None => (
+                    assets.images.add(coverage_image(
+                        tile.pixels.to_vec(),
+                        COVERAGE_TILE_PIXELS,
+                        ImageSampler::linear(),
+                    )),
+                    None,
+                ),
+            };
             let material =
                 assets
                     .materials
@@ -532,6 +548,7 @@ fn sync_tiles(
                     revision: tile.revision,
                     material,
                     coverage,
+                    image,
                 },
             );
         }
@@ -539,6 +556,67 @@ fn sync_tiles(
     for gone in tiles.into_values() {
         commands.entity(gone.entity).despawn();
     }
+}
+
+/// What showing a tile's new state did to the coverage a quad samples.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Shown {
+    /// Nothing: the same pixels, or the same image on the GPU, drawn into or not.
+    Kept,
+    /// The pixels uploaded again into the same image.
+    Replaced,
+    /// Another image: the Material needs it.
+    Rebound,
+    /// The tile's image on the GPU is gone, so the tile cannot be drawn.
+    Gone,
+}
+
+/// Brings the coverage a drawn tile samples in step with the tile.
+fn show(kept: &mut TileDrawn, tile: &CoverageTile, assets: &mut TerrainAssets) -> Shown {
+    let shown = match (tile.image, kept.image) {
+        (Some(image), Some(before)) if image == before => Shown::Kept,
+        (Some(image), _) => match gpu_image(&mut assets.images, image) {
+            Some(coverage) => {
+                kept.coverage = coverage;
+                kept.image = Some(image);
+                Shown::Rebound
+            }
+            None => Shown::Gone,
+        },
+        (None, Some(_)) => {
+            kept.coverage = assets.images.add(coverage_image(
+                tile.pixels.to_vec(),
+                COVERAGE_TILE_PIXELS,
+                ImageSampler::linear(),
+            ));
+            kept.image = None;
+            Shown::Rebound
+        }
+        (None, None) if kept.revision != tile.revision => {
+            let image = coverage_image(
+                tile.pixels.to_vec(),
+                COVERAGE_TILE_PIXELS,
+                ImageSampler::linear(),
+            );
+            if assets.images.insert(&kept.coverage, image).is_err() {
+                log::warn!("the coverage of a Terrain could not be replaced");
+            }
+            Shown::Replaced
+        }
+        (None, None) => Shown::Kept,
+    };
+    kept.revision = tile.revision;
+    shown
+}
+
+/// The image a tile rasterized on the GPU names, held while it is drawn, or `None` once the paint
+/// Engine let it go.
+fn gpu_image(images: &mut Assets<Image>, image: GpuTile) -> Option<Handle<Image>> {
+    let found = images.get_strong_handle(AssetId::from(AssetIndex::from_bits(image.0)));
+    if found.is_none() {
+        log::debug!("a Terrain's tile on the GPU is gone before it was drawn");
+    }
+    found
 }
 
 /// Settles a Terrain whose image was loading: a loaded image is shown, a failed one gives way to

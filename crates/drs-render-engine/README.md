@@ -26,13 +26,17 @@ with the sprites by depth, and Walls of one colour share it. A Wall whose shape
 has not been derived yet is not drawn that frame.
 
 An Element drawn as a painted surface, a Terrain, is drawn as one quad per
-tile of its derived coverage, sixteen cells a side, with the masked tiled image
+tile of its derived coverage, 512 pixels of its band a side at the tile's
+corner, with the masked tiled image
 Material: its image repeated edge to edge across the Level at its natural size
 from the Level's origin, as opaque at each point as the coverage there. The
 Material's Shader is plain WGSL compiled into the Engine and added to the shader
 assets at startup; it samples the image with the image's own sampler, so a Prop
-and a Terrain share one loaded image. A tile's coverage is uploaded again when
-its revision changes, and the quads sit at the Terrain's depth in the same
+and a Terrain share one loaded image. A tile rasterized on the GPU is drawn from
+its image as it is, with no upload, and keeps its Material however often it is
+rasterized again; a tile rasterized on the CPU is uploaded again when its
+revision changes. A tile no longer published, every tile when the band changes,
+loses its quad and its Material, and the quads sit at the Terrain's depth in the same
 stacking order, blending so they sort with the sprites and meshes. While the
 image loads, is Missing, or failed, the placeholder's flat colour is drawn masked
 by the same coverage. A Terrain whose coverage has not been derived yet is not
