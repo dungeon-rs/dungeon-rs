@@ -9,8 +9,8 @@ use bevy_asset::Handle;
 use bevy_image::Image;
 use bevy_math::UVec2;
 use drs_model::{
-    COVERAGE_PIXELS_PER_CELL, COVERAGE_TILE_PIXELS, CoverageTile, Stroke, TerrainCoverage, TileKey,
-    Viewport,
+    COVERAGE_PIXELS_PER_CELL, COVERAGE_TILE_PIXELS, CoverageTile, Stroke, TerrainCoverage,
+    TileContent, TileKey, Viewport,
 };
 use std::collections::{BTreeMap, BTreeSet};
 use std::sync::Arc;
@@ -34,8 +34,6 @@ pub struct PaintCache {
     on_gpu: Option<bool>,
     /// The revision the last rasterized tile was given.
     revision: u64,
-    /// The pixels of a tile on the GPU as the model holds them: none.
-    no_pixels: Arc<[u8]>,
 }
 
 impl Default for PaintCache {
@@ -47,7 +45,6 @@ impl Default for PaintCache {
             overlay: None,
             on_gpu: None,
             revision: 0,
-            no_pixels: Arc::from(Vec::new()),
         }
     }
 }
@@ -118,7 +115,8 @@ impl PaintCache {
             .base
             .tiles
             .get(&key)
-            .is_some_and(|held| *held.tile.pixels == *pixels)
+            .and_then(|held| held.tile.pixels())
+            .is_some_and(|held| *held == *pixels)
         {
             return false;
         }
@@ -128,8 +126,7 @@ impl PaintCache {
             Held {
                 tile: CoverageTile {
                     revision,
-                    pixels: Arc::from(pixels),
-                    image: None,
+                    content: TileContent::Pixels(Arc::from(pixels)),
                 },
                 image: None,
             },
@@ -261,10 +258,15 @@ fn on_cpu(cache: &mut PaintCache, strokes: &[Stroke]) -> Applied {
         for stroke in &strokes[diff.kept..] {
             for key in reached(stroke, BASE).keys() {
                 let region = region(key);
-                let mut pixels = cache.base.tiles.get(&key).map_or_else(
-                    || vec![0; (COVERAGE_TILE_PIXELS * COVERAGE_TILE_PIXELS) as usize],
-                    |held| held.tile.pixels.to_vec(),
-                );
+                let mut pixels = cache
+                    .base
+                    .tiles
+                    .get(&key)
+                    .and_then(|held| held.tile.pixels())
+                    .map_or_else(
+                        || vec![0; (COVERAGE_TILE_PIXELS * COVERAGE_TILE_PIXELS) as usize],
+                        <[u8]>::to_vec,
+                    );
                 composite(&mut pixels, stroke, &region);
                 applied.changed |= cache.store(key, pixels);
                 applied.touched.insert(key);
@@ -460,7 +462,6 @@ fn carry_out(
     drawn: &mut Vec<Drawn>,
 ) -> bool {
     let mut changed = !plan.dropped.is_empty();
-    let no_pixels = cache.no_pixels.clone();
     let mut revisions = Vec::new();
     for _ in 0..plan.afresh.len() + plan.appended.len() {
         revisions.push(cache.next_revision());
@@ -489,8 +490,7 @@ fn carry_out(
                 Held {
                     tile: CoverageTile {
                         revision: 0,
-                        pixels: no_pixels.clone(),
-                        image: Some(identity),
+                        content: TileContent::Gpu(identity),
                     },
                     image: Some(image.clone()),
                 },
@@ -665,7 +665,7 @@ mod tests {
     fn pixels(cache: &PaintCache) -> BTreeMap<TileKey, Vec<u8>> {
         tiles(cache)
             .iter()
-            .map(|(key, tile)| (*key, tile.pixels.to_vec()))
+            .map(|(key, tile)| (*key, tile.pixels().expect("on the CPU").to_vec()))
             .collect()
     }
 

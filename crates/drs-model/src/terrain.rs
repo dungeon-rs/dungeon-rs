@@ -285,19 +285,44 @@ pub fn tile_cells(band: u32) -> f32 {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct GpuTile(pub u64);
 
+/// Where a coverage tile's pixels are held.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum TileContent {
+    /// On the CPU: one byte a pixel, `512 × 512` of them, rows from the tile's top; 255 is full
+    /// coverage. The buffer is shared with whoever computed it, so publishing it copies no pixels.
+    Pixels(Arc<[u8]>),
+    /// On the GPU, in this image; the pixels stay there.
+    Gpu(GpuTile),
+}
+
 /// One tile of a Terrain's coverage.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CoverageTile {
     /// A number that changes whenever the tile's pixels do, and only then; for a tile on the GPU,
     /// whenever its pixels are rasterized, as they never come back to be compared.
     pub revision: u64,
-    /// One byte a pixel, `512 × 512` of them, rows from the tile's top; 255 is full coverage.
-    /// The buffer is shared with whoever computed it, so publishing it copies no pixels. Empty
-    /// for a tile rasterized on the GPU, whose pixels stay there.
-    pub pixels: Arc<[u8]>,
-    /// The image on the GPU holding the tile's pixels, for a tile rasterized there; `None` for a
-    /// tile rasterized on the CPU.
-    pub image: Option<GpuTile>,
+    /// Where its pixels are held.
+    pub content: TileContent,
+}
+
+impl CoverageTile {
+    /// The tile's pixels, when they are held on the CPU.
+    #[must_use]
+    pub fn pixels(&self) -> Option<&[u8]> {
+        match &self.content {
+            TileContent::Pixels(pixels) => Some(pixels),
+            TileContent::Gpu(_) => None,
+        }
+    }
+
+    /// The tile's image, when its pixels are held on the GPU.
+    #[must_use]
+    pub fn image(&self) -> Option<GpuTile> {
+        match self.content {
+            TileContent::Pixels(_) => None,
+            TileContent::Gpu(image) => Some(image),
+        }
+    }
 }
 
 /// A Terrain's coverage as the editor shows it, derived from its strokes and never saved: the

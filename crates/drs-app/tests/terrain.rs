@@ -882,8 +882,7 @@ fn without_a_renderer_the_base_is_on_the_cpu() {
     assert_eq!(after, before);
     assert!(!after.tiles.is_empty());
     for tile in after.tiles.values() {
-        assert_eq!(tile.image, None);
-        assert_eq!(tile.pixels.len(), 512 * 512);
+        assert_eq!(tile.pixels().map(<[u8]>::len), Some(512 * 512));
     }
     assert!(fixture.coverage_at(Vec2::new(5.0 + HALF_PIXEL, 2.0 + HALF_PIXEL)) > 0);
 }

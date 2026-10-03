@@ -61,8 +61,9 @@ where, is derived from its strokes and never saved: tiles of 512 by 512 pixels a
 its active band, a number of pixels per cell, 32 for the base or 64, 128, or 256
 for a closer zoom, keyed by their [`TileKey`](crate::TileKey) in the Level's
 pixel plane at that band, negative keys included. Each tile has a revision that
-changes when its pixels do, and either holds its pixels, rasterized on the CPU,
-or names the image on the GPU that holds them by a plain
+changes when its pixels do, and its [`TileContent`](crate::TileContent) either
+holds its pixels, rasterized on the CPU, or names the image on the GPU that holds
+them by a plain
 [`GpuTile`](crate::GpuTile) identity the render Engine maps to the image. The
 authoring Manager writes it; the render Engine draws it.
 

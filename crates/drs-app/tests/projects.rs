@@ -2236,7 +2236,7 @@ impl Device {
                 .expect("an opened Terrain has its coverage")
                 .tiles
                 .iter()
-                .map(|(key, tile)| (*key, tile.pixels.to_vec()))
+                .map(|(key, tile)| (*key, tile.pixels().expect("on the CPU").to_vec()))
                 .collect();
             Some((
                 *world.get::<ElementId>(entity)?,

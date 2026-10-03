@@ -32,7 +32,7 @@ use drs_library_access::asset_path;
 use drs_model::{
     AssetReferences, COVERAGE_PIXELS_PER_CELL, COVERAGE_TILE_PIXELS, CoverageTile, DrawnAs,
     Element, ElementKindRegistry, GpuTile, Grid, Layer as ModelLayer, Level, Project, Resolution,
-    ResolutionTable, Terrain, TerrainCoverage, TileKey, tile_cells,
+    ResolutionTable, Terrain, TerrainCoverage, TileContent, TileKey, tile_cells,
 };
 use std::collections::BTreeMap;
 
@@ -514,14 +514,14 @@ fn sync_tiles(
             }
             drawn.tiles.insert(*key, kept);
         } else {
-            let (coverage, image) = match tile.image {
-                Some(image) => match gpu_image(&mut assets.images, image) {
-                    Some(coverage) => (coverage, Some(image)),
+            let (coverage, image) = match &tile.content {
+                TileContent::Gpu(image) => match gpu_image(&mut assets.images, *image) {
+                    Some(coverage) => (coverage, Some(*image)),
                     None => continue,
                 },
-                None => (
+                TileContent::Pixels(pixels) => (
                     assets.images.add(coverage_image(
-                        tile.pixels.to_vec(),
+                        pixels.to_vec(),
                         COVERAGE_TILE_PIXELS,
                         ImageSampler::linear(),
                     )),
@@ -573,28 +573,28 @@ enum Shown {
 
 /// Brings the coverage a drawn tile samples in step with the tile.
 fn show(kept: &mut TileDrawn, tile: &CoverageTile, assets: &mut TerrainAssets) -> Shown {
-    let shown = match (tile.image, kept.image) {
-        (Some(image), Some(before)) if image == before => Shown::Kept,
-        (Some(image), _) => match gpu_image(&mut assets.images, image) {
+    let shown = match (&tile.content, kept.image) {
+        (TileContent::Gpu(image), Some(before)) if *image == before => Shown::Kept,
+        (TileContent::Gpu(image), _) => match gpu_image(&mut assets.images, *image) {
             Some(coverage) => {
                 kept.coverage = coverage;
-                kept.image = Some(image);
+                kept.image = Some(*image);
                 Shown::Rebound
             }
             None => Shown::Gone,
         },
-        (None, Some(_)) => {
+        (TileContent::Pixels(pixels), Some(_)) => {
             kept.coverage = assets.images.add(coverage_image(
-                tile.pixels.to_vec(),
+                pixels.to_vec(),
                 COVERAGE_TILE_PIXELS,
                 ImageSampler::linear(),
             ));
             kept.image = None;
             Shown::Rebound
         }
-        (None, None) if kept.revision != tile.revision => {
+        (TileContent::Pixels(pixels), None) if kept.revision != tile.revision => {
             let image = coverage_image(
-                tile.pixels.to_vec(),
+                pixels.to_vec(),
                 COVERAGE_TILE_PIXELS,
                 ImageSampler::linear(),
             );
@@ -603,7 +603,7 @@ fn show(kept: &mut TileDrawn, tile: &CoverageTile, assets: &mut TerrainAssets) -
             }
             Shown::Replaced
         }
-        (None, None) => Shown::Kept,
+        (TileContent::Pixels(_), None) => Shown::Kept,
     };
     kept.revision = tile.revision;
     shown

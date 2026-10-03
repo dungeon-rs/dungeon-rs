@@ -350,7 +350,7 @@ impl Fixture {
         let arrived: Arc<Mutex<BTreeMap<TileKey, Vec<u8>>>> = Arc::default();
         let mut readers = Vec::new();
         for (key, tile) in &coverage.tiles {
-            let image = tile.image.expect("the tile is on the GPU");
+            let image = tile.image().expect("the tile is on the GPU");
             let handle = self
                 .app
                 .world_mut()
@@ -650,7 +650,7 @@ fn overlay_tiles_are_let_go_out_of_reach() {
         fixture.app.update();
     }
     for tile in first.tiles.values() {
-        let image = tile.image.expect("on the GPU");
+        let image = tile.image().expect("on the GPU");
         assert!(
             !fixture.image_exists(image),
             "a tile let go frees its image"
@@ -691,7 +691,7 @@ fn overlay_tiles_are_let_go_out_of_reach() {
         fixture.app.update();
     }
     for tile in before.tiles.values() {
-        let image = tile.image.expect("on the GPU");
+        let image = tile.image().expect("on the GPU");
         assert!(!fixture.image_exists(image), "the previous band is let go");
     }
 }

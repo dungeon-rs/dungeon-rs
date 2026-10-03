@@ -281,7 +281,7 @@ impl Fixture {
         self.coverage()
             .tiles
             .into_iter()
-            .map(|(key, tile)| (key, tile.pixels.to_vec()))
+            .map(|(key, tile)| (key, tile.pixels().expect("on the CPU").to_vec()))
             .collect()
     }
 
