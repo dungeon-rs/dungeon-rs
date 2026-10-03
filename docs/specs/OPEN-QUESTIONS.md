@@ -12,7 +12,7 @@ Spec-level decisions parked during domain work. The spec skill picks these up; r
 - Two editors open on the same Asset Folders: lock the on-disk index and thumbnail caches (`File::try_lock`) and report "already open in another editor".
 - An Asset Folder deleted while loaded: how the editor notices it and tells the Author (folder watching).
 - Plugin components not registered for reflection are lost by generic Remove and undo, so registration must be enforced in the Plugin API.
-- Dungeondraft compatibility and parity: import of existing `.dungeondraft_map` and `.dungeondraft_pack` libraries; recolouring of colourable Assets (red mask); tags and tag sets (merged by name) driving search; a Scatter brush (random rotation, scale, colour, spread; area scatter); alignment guides beyond snapping; map generation (Map Wizard); a maximum map size.
+- Dungeondraft compatibility and parity: import of existing `.dungeondraft_map` and `.dungeondraft_pack` libraries; recolouring of colourable Assets (red mask); tags and tag sets (merged by name) driving search; a Scatter brush (random rotation, scale, colour, spread; area scatter); alignment guides beyond snapping; map generation (Map Wizard).
 - Embedded Assets and vendor licences (warn when embedding a vendor Asset?).
 - Export formats beyond a plain image: Universal VTT, separate roof images, etc.
 - Grid presentation beyond faint lines in the viewport: dots, hiding the Grid, a colour the Author chooses, and the Grid drawn into an Export.

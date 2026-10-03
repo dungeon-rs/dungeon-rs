@@ -8,7 +8,7 @@
 - **[Layers](changes/layers.md)**: the Author adds, removes, and orders the Layers of a Level, picks the current one, and restacks Elements within and across them. Commands: Add Layer, Remove Layer, Reorder Layers, Restack.
 - **Layer compositing**: Layers can be hidden, locked, faded, and blended, hidden Layers leave the Export, and the points of hidden or locked Layers leave snapping's reach. Commands: Edit Layer.
 - **Layer Groups**: Layers nest in Layer Groups whose visibility, lock, opacity, and blend mode apply to everything inside. Commands: Group Layers.
-- **Bounds**: the Author resizes the Bounds, which are always visible in the editor. Commands: Resize Bounds.
+- **[Bounds](changes/bounds.md)**: the Author resizes the Bounds, which are always visible in the editor. Commands: Resize Bounds.
 - **Levels**: the Author adds, removes, and orders Levels, switches between them, and exports the one chosen. Commands: Add Level, Remove Level, Reorder Levels.
 
 ## My Projects travel: a Project opened on another device works, or says in plain terms what is missing, and I can relink, embed, and manage the Asset Folders it depends on
