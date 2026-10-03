@@ -101,9 +101,11 @@ fn what_snaps(state: &EditorState) -> Snapping {
 
 /// Writes the Pointer for the frame, after the tools have used the snapped point of the last:
 /// the Level the Author is working on, where the pointer is, the reach at the Viewport's zoom,
-/// and what snaps. Nothing snaps while the switch is off, Alt is held outside a text field, the
-/// pointer is off the viewport or over a panel, or an Export runs. The Pointer is written only
-/// when it changes.
+/// and what snaps. Nothing snaps while the switch is off, Alt is held outside a text field, or an
+/// Export runs, nor, with no gesture under way, while the pointer is off the viewport or over a
+/// panel. A gesture under way keeps snapping wherever the pointer goes in the window, over a
+/// panel included, and where it last was once it leaves the window, so a drag released there
+/// lands where it was shown. The Pointer is written only when it changes.
 #[expect(
     clippy::too_many_arguments,
     reason = "a Bevy system is spelled out by what it reads and writes"
@@ -118,11 +120,12 @@ pub(crate) fn write_pointer(
     level: LevelView,
     mut pointer: ResMut<Pointer>,
 ) {
-    let cursor = window
-        .cursor_position()
-        .filter(|cursor| viewport.contains(*cursor) && !egui.wants_any_pointer_input());
+    let under_way = state.interaction != Interaction::Idle;
+    let cursor = window.cursor_position().filter(|cursor| {
+        under_way || (viewport.contains(*cursor) && !egui.wants_any_pointer_input())
+    });
     let free = !egui.wants_any_keyboard_input() && keys.any_pressed(FREE);
-    let snapping = if switch.on && !free && !state.exporting && cursor.is_some() {
+    let snapping = if switch.on && !free && !state.exporting && (under_way || cursor.is_some()) {
         what_snaps(&state)
     } else {
         Snapping::Nothing

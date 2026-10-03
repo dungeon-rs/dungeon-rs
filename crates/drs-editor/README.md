@@ -98,6 +98,8 @@ moves by whole cells, each step sending the amount moved since the last. Control
 points, middles, the point a double-click adds, Props, and Portals never snap.
 The Snap switch, on at start and never saved, turns snapping off, and holding
 Alt, Option on macOS, places and drags freely while it is held, a drag included.
+Nothing else drops snapping from a drag: carried over a panel or out of the
+window, it keeps snapping until the button is released.
 
 With the Room tool, chosen in the strip or with `R`, each click adds a point of
 an outline previewed with rubber bands from the last point to the pointer and

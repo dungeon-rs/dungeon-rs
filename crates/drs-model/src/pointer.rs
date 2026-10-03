@@ -20,7 +20,7 @@ pub struct PointOf {
 #[derive(Debug, Clone, Copy, PartialEq, Default)]
 pub enum Snapping {
     /// Nothing: no tool or drag that snaps, snapping switched off, Alt held, or the pointer off
-    /// the view.
+    /// the view with no drag under way.
     #[default]
     Nothing,
     /// A point being placed or dragged, which goes to the nearest point of a Wall or a Room
