@@ -283,7 +283,12 @@ pub(crate) fn outline_edit<H: OutlineHost>(
         | ElementChange::Mirrored(_)
         | ElementChange::Side(_)
         | ElementChange::Along { .. } => return Err(AuthoringError::NotAPortal(id)),
-        ElementChange::Material(_) => return Err(AuthoringError::NotATerrain(id)),
+        ElementChange::Material(_)
+        | ElementChange::StrokePoint { .. }
+        | ElementChange::StrokePosition { .. }
+        | ElementChange::StrokeBrush { .. }
+        | ElementChange::StrokeErase { .. }
+        | ElementChange::RemoveStroke { .. } => return Err(AuthoringError::NotATerrain(id)),
     };
     field.map(OutlineEdit::Field).map_err(history)
 }

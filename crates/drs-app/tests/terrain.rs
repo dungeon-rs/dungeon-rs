@@ -25,8 +25,8 @@ use drs_model::{
     COVERAGE_PIXELS_PER_CELL, COVERAGE_TILE_PIXELS, CanonicalName, Colour, CommandFailed,
     EditElement, EditorDirectories, Element, ElementChange, ElementId, FolderAdded, FolderKey,
     Gesture, Layer, ModelPlugin, OpenProject, Paint, PlaceElement, Placement, ProjectOpened,
-    ProjectRefused, ProjectSaved, Redo, SaveProject, Stroke, TERRAIN, Terrain, TerrainCoverage,
-    TileKey, Undo,
+    ProjectRefused, ProjectSaved, Redo, RemoveElement, SaveProject, Side, Stroke, TERRAIN, Terrain,
+    TerrainCoverage, TileKey, Undo,
 };
 use drs_project_manager::ProjectManagerPlugin;
 use std::collections::BTreeMap;
@@ -454,8 +454,8 @@ fn terrain_is_its_strokes() {
 }
 
 /// A stroke's coverage at a point is its strength within the hardness of its radius of its path,
-/// nothing at or beyond the radius, and between them the smooth falloff of the distance; a
-/// one-point path is a round dab.
+/// nothing beyond the radius, and between them the smooth falloff of the distance, a hard
+/// Brush's full strength reaching its radius exactly; a one-point path is a round dab.
 #[test]
 fn shaped_by_a_soft_round_brush() {
     let mut fixture = Fixture::new();
@@ -509,6 +509,28 @@ fn shaped_by_a_soft_round_brush() {
         );
     }
     assert_eq!(fixture.coverage_at(dab + Vec2::new(0.5, 0.0)), 0, "its rim");
+
+    let y = 8.0 + HALF_PIXEL;
+    fixture.paint(
+        stroke(
+            &[
+                Vec2::new(2.0 + HALF_PIXEL, y),
+                Vec2::new(10.0 + HALF_PIXEL, y),
+            ],
+            brush(2.0, 1.0, 0.75),
+        ),
+        None,
+    );
+    assert_eq!(
+        fixture.coverage_at(Vec2::new(x, y + 1.0)),
+        byte(0.75),
+        "a hard Brush's pixel exactly at its radius"
+    );
+    assert_eq!(
+        fixture.coverage_at(Vec2::new(x, y + 1.0 + 1.0 / 32.0)),
+        0,
+        "the next one beyond"
+    );
 }
 
 /// A stroke's coverage at a point is the same however many of its segments pass near it: at a
@@ -938,11 +960,12 @@ fn the_material_stays_editable() {
     assert_eq!(fixture.terrain().2, changed);
 }
 
-/// An Edit Element of a Terrain that changes anything but its Material, and an Edit Element
-/// setting the Material of an Element that is not a Terrain, are answered with the reason, change
-/// nothing, and record no history step.
+/// An Edit Element of a Terrain that changes anything but its Material or one of its strokes, its
+/// position and every change only a Wall or a Portal has included, and an Edit Element setting
+/// the Material or changing a stroke of an Element that is not a Terrain, are answered with the
+/// reason, change nothing, and record no history step.
 #[test]
-fn terrain_changes_only_its_material() {
+fn terrain_changes_only_its_material_and_strokes() {
     let mut fixture = Fixture::new();
     let prop = fixture.prop(Vec2::new(8.0, 8.0));
     fixture.flagstones(stroke(&[Vec2::new(1.0, 1.0), Vec2::new(5.0, 2.0)], SOFT));
@@ -963,15 +986,42 @@ fn terrain_changes_only_its_material() {
         ElementChange::RemovePoint { index: 0 },
         ElementChange::Thickness(0.5),
         ElementChange::Colour(Colour::rgb(1, 2, 3)),
+        ElementChange::Width(2.0),
+        ElementChange::Rotation(1.0),
+        ElementChange::Mirrored(true),
+        ElementChange::Side(Side::Right),
+        ElementChange::Along { segment: 0, t: 0.5 },
     ] {
         let refused = fixture.try_edit(terrain.0, change.clone());
         assert_eq!(refused.len(), 1, "{change:?}");
         assert!(refused[0].contains("Terrain"), "{}", refused[0]);
     }
     let grass = fixture.asset(GRASS);
-    let refused = fixture.try_edit(prop, ElementChange::Material(grass));
-    assert_eq!(refused.len(), 1);
-    assert!(refused[0].contains("not a Terrain"), "{}", refused[0]);
+    for change in [
+        ElementChange::Material(grass),
+        ElementChange::StrokePoint {
+            stroke: 0,
+            index: 0,
+            position: Vec2::ONE,
+        },
+        ElementChange::StrokePosition {
+            stroke: 0,
+            position: Vec2::ONE,
+        },
+        ElementChange::StrokeBrush {
+            stroke: 0,
+            brush: SOFT,
+        },
+        ElementChange::StrokeErase {
+            stroke: 0,
+            erase: true,
+        },
+        ElementChange::RemoveStroke { stroke: 0 },
+    ] {
+        let refused = fixture.try_edit(prop, change.clone());
+        assert_eq!(refused.len(), 1, "{change:?}");
+        assert!(refused[0].contains("not a Terrain"), "{}", refused[0]);
+    }
 
     assert_eq!(fixture.terrain(), terrain);
     assert_eq!(fixture.steps(), depth);
@@ -980,6 +1030,29 @@ fn terrain_changes_only_its_material() {
         2,
         "the table and the flagstones"
     );
+}
+
+/// A Remove Element of a Terrain takes it off its Layer as one step, and undo restores it with its
+/// identity, its strokes, its place among the Layer's children, and its coverage derived afresh.
+#[test]
+fn terrain_removal_is_reversible_in_place() {
+    let mut fixture = Fixture::new();
+    let prop = fixture.prop(Vec2::new(3.0, 3.0));
+    fixture.flagstones(stroke(&[Vec2::new(1.0, 1.0), Vec2::new(14.0, 3.0)], SOFT));
+    fixture.paint(stroke(&[Vec2::new(17.0, 2.0)], brush(3.0, 0.2, 0.6)), None);
+    let terrain = fixture.terrain();
+    let tiles = fixture.tiles();
+    let steps = fixture.steps();
+
+    fixture.apply(Apply::RemoveElement(RemoveElement { element: terrain.0 }));
+    assert!(fixture.terrains().is_empty());
+    assert_eq!(fixture.order(), vec![prop]);
+    assert_eq!(fixture.steps(), steps + 1);
+
+    fixture.undo();
+    assert_eq!(fixture.terrain(), terrain);
+    assert_eq!(fixture.order(), vec![terrain.0, prop]);
+    assert_eq!(fixture.tiles(), tiles);
 }
 
 /// A Paint that makes a Terrain, and an Edit Element setting a Terrain's Material, record the

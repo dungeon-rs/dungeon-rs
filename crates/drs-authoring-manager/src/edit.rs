@@ -12,7 +12,8 @@ use drs_model::{
 };
 
 /// Edit Element: sets the changed property through the generic field command, or adds or
-/// removes a point of a Wall or a Room as a step of its own, carrying the Portals set into it.
+/// removes a point of a Wall or a Room as a step of its own, carrying the Portals set into it, or
+/// removes a stroke of a Terrain as a step of its own.
 ///
 /// A gesture ([`Gesture::Begin`] through [`Gesture::End`]) is recorded as one history group, so
 /// undoing it returns the Element to where the gesture began; a [`Gesture::Single`] change is a
@@ -25,8 +26,9 @@ use drs_model::{
 /// Wall or a Room reports, [`AuthoringError::NotAnOutline`] for a change only a Wall or a Room
 /// has, [`AuthoringError::NotARoom`] for a floor colour,
 /// [`AuthoringError::FollowsItsHost`] for the position of a Portal that follows its host, what a
-/// Portal's own changes report, or [`AuthoringError::History`] when the change could not be
-/// recorded.
+/// Portal's and a Terrain's own changes report,
+/// [`AuthoringError::TerrainChangesOnlyItsMaterialAndStrokes`] for any other change of a
+/// Terrain, or [`AuthoringError::History`] when the change could not be recorded.
 pub(crate) fn edit_element(
     world: &mut World,
     command: &EditElement,
@@ -35,11 +37,13 @@ pub(crate) fn edit_element(
     let entity = id
         .entity(world)
         .map_err(|_| AuthoringError::UnknownElement(id))?;
-    // No Edit Element moves or reshapes a Terrain's strokes: only its image changes.
+    // A Terrain is moved and reshaped through its strokes alone: its image and its strokes
+    // change, nothing else of it.
     if world.get::<Terrain>(entity).is_some()
         && !matches!(command.change, ElementChange::Material(_))
+        && !crate::terrain::is_stroke_change(&command.change)
     {
-        return Err(AuthoringError::TerrainChangesOnlyItsMaterial(id));
+        return Err(AuthoringError::TerrainChangesOnlyItsMaterialAndStrokes(id));
     }
     let edit = if world.get::<Wall>(entity).is_some() {
         outline_edit::<Wall>(world, id, &command.change)?
@@ -66,14 +70,15 @@ pub(crate) fn edit_element(
 }
 
 /// The edit of an Element that is neither a Wall nor a Room: the field command of its position,
-/// unless it is a Portal that follows its host, or of a change only a Portal has; or a Terrain's
-/// Material, recorded as a step of its own.
+/// unless it is a Portal that follows its host, of a change only a Portal has, or of a stroke of
+/// a Terrain; or a Terrain's Material or the removal of one of its strokes, recorded as a step of
+/// its own.
 ///
 /// # Errors
 ///
 /// [`AuthoringError::FollowsItsHost`] for the position of a Portal that follows its host,
 /// [`AuthoringError::NotAnOutline`] or [`AuthoringError::NotARoom`] for a change only a Wall or
-/// a Room has, what a Portal's own changes report, what setting a Terrain's Material reports, or
+/// a Room has, what a Portal's own changes report, what a Terrain's own changes report, or
 /// [`AuthoringError::History`] when the field cannot be addressed.
 fn element_change(
     world: &mut World,
@@ -106,6 +111,19 @@ fn element_change(
         ElementChange::Material(asset) => {
             return crate::terrain::set_material(world, id, asset)
                 .map(|()| OutlineEdit::Recorded(None));
+        }
+        ElementChange::RemoveStroke { stroke } => {
+            return crate::terrain::remove_stroke(world, id, *stroke)
+                .map(|()| OutlineEdit::Recorded(None));
+        }
+        ElementChange::StrokePoint { .. }
+        | ElementChange::StrokePosition { .. }
+        | ElementChange::StrokeBrush { .. }
+        | ElementChange::StrokeErase { .. } => {
+            match crate::terrain::stroke_field(world, id, change)? {
+                Some(field) => Ok(field),
+                None => return Ok(OutlineEdit::Recorded(None)),
+            }
         }
     };
     field.map(OutlineEdit::Field)

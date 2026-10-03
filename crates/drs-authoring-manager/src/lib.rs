@@ -115,6 +115,22 @@ pub enum AuthoringError {
     /// A Paint that erases was sent for a Layer that has no Terrain to erase from.
     #[error("there is nothing to erase: the Layer has no Terrain")]
     NothingToErase,
+    /// The Terrain has no stroke of that number.
+    #[error("the Terrain has no stroke {stroke}; it has {strokes}")]
+    NoStroke {
+        /// The stroke named.
+        stroke: usize,
+        /// How many strokes the Terrain has.
+        strokes: usize,
+    },
+    /// The stroke has no point of that number.
+    #[error("the stroke has no point {index}; it has {points}")]
+    NoStrokePoint {
+        /// The point named.
+        index: usize,
+        /// How many points the stroke's path has.
+        points: usize,
+    },
     /// A Paint named an Asset other than the one the Layer's Terrain shows.
     #[error(
         "the Layer's Terrain shows {shown}, not {painted}; change the Terrain's image to paint \
@@ -129,9 +145,12 @@ pub enum AuthoringError {
     /// The change is one only a Terrain has, and the Element is no Terrain.
     #[error("the Element {0:?} is not a Terrain")]
     NotATerrain(ElementId),
-    /// The change is not one a Terrain has: only its image can be changed.
-    #[error("only the image a Terrain shows can be changed, not its strokes or its place")]
-    TerrainChangesOnlyItsMaterial(ElementId),
+    /// The change is not one a Terrain has: only its image and its strokes can be changed.
+    #[error(
+        "only the image a Terrain shows and its strokes can be changed, not its place or what \
+         only a Wall, a Room, or a Portal has"
+    )]
+    TerrainChangesOnlyItsMaterialAndStrokes(ElementId),
     /// The shape Engine could not reshape the Wall or the Room.
     #[error(transparent)]
     Shape(#[from] ShapeError),

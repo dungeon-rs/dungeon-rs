@@ -37,9 +37,14 @@ on standing there.
 A Paint lays one stroke on the topmost Terrain of its Layer as one step that undo takes off the
 end again; on a Layer with no Terrain it places one of the chosen Asset's image under every
 Element on the Layer, holding the stroke, in the same step. A Paint naming no Asset paints with
-the Terrain's own image, and one naming another image than the Terrain's is refused. The only
-Edit Element a Terrain takes changes its image, every stroke kept; naming the image it already
-shows records nothing. After every Manager has handled the frame's Commands, Undo, and Redo, the
+the Terrain's own image, and one naming another image than the Terrain's is refused. A Paint
+whose stroke erases is laid on the topmost Terrain whatever image it names, and refused on a
+Layer with no Terrain. An Edit Element of a Terrain changes its image, every stroke kept, or one
+of its strokes, named by its number: a point of its path, its whole path moved to a new centre,
+its Brush settings, or whether it erases, each through the generic field command so a drag is one
+step; naming the image or the erasing it already has records nothing. Removing a stroke, the only
+edit that renumbers strokes, is a step of its own that puts it back at its number on undo, and
+removing the only stroke removes the Terrain. After every Manager has handled the frame's Commands, Undo, and Redo, the
 Manager brings each changed Terrain's tiled coverage up to its strokes through the paint Engine,
 keeping the Engine's cache, which only the Engine looks inside, in a component of its own; it
 publishes the coverage again when a tile changed, and sets the Element's box around the strokes.

@@ -1,6 +1,6 @@
 //! Terrain: Paint, which lays a stroke on a Layer's Terrain and makes the Terrain with the first
-//! one that paints, the Edit Element that changes the image a Terrain shows, and the coverage
-//! derived from its strokes.
+//! one that paints, the Edit Elements that change the image a Terrain shows and each of its
+//! strokes, and the coverage derived from its strokes.
 
 use crate::AuthoringError;
 use crate::place::{Resolved, indexed_asset, project_of, resolve, spawn_beneath, take_off};
@@ -11,10 +11,10 @@ use bevy_ecs::hierarchy::Children;
 use bevy_ecs::query::Changed;
 use bevy_ecs::system::{Commands, Query};
 use bevy_ecs::world::World;
-use drs_history::{ReversibleCommand, Target};
+use drs_history::{ReversibleCommand, SetField, Target};
 use drs_model::{
     AssetAddress, AssetFolderReference, AssetReference, AssetReferenceRow, AssetReferences,
-    Element, ElementId, Paint, Stroke, TERRAIN, Terrain, TerrainCoverage,
+    Element, ElementChange, ElementId, Paint, Stroke, TERRAIN, Terrain, TerrainCoverage,
 };
 use drs_paint_engine::{PaintCache, apply_stroke};
 use unicode_normalization::UnicodeNormalization;
@@ -322,6 +322,190 @@ pub(crate) fn set_material(
             reference,
             folder,
             previous: None,
+        },
+    )
+}
+
+/// Whether a change is one of a stroke of a Terrain.
+pub(crate) fn is_stroke_change(change: &ElementChange) -> bool {
+    matches!(
+        change,
+        ElementChange::StrokePoint { .. }
+            | ElementChange::StrokePosition { .. }
+            | ElementChange::StrokeBrush { .. }
+            | ElementChange::StrokeErase { .. }
+            | ElementChange::RemoveStroke { .. }
+    )
+}
+
+/// The Terrain an Element is, as it stands, and its strokes' count.
+///
+/// # Errors
+///
+/// [`AuthoringError::UnknownElement`] when no Element carries the identity, or
+/// [`AuthoringError::NotATerrain`] when it is no Terrain.
+fn terrain_of(world: &mut World, element: ElementId) -> Result<Terrain, AuthoringError> {
+    let entity = element
+        .entity(world)
+        .map_err(|_| AuthoringError::UnknownElement(element))?;
+    world
+        .get::<Terrain>(entity)
+        .cloned()
+        .ok_or(AuthoringError::NotATerrain(element))
+}
+
+/// The stroke of that number, to change in a copy of its Terrain.
+///
+/// # Errors
+///
+/// [`AuthoringError::NoStroke`] when the Terrain has no stroke of that number.
+fn stroke_of(terrain: &mut Terrain, stroke: usize) -> Result<&mut Stroke, AuthoringError> {
+    let strokes = terrain.strokes.len();
+    terrain
+        .strokes
+        .get_mut(stroke)
+        .ok_or(AuthoringError::NoStroke { stroke, strokes })
+}
+
+/// The field command of an Edit Element changing one stroke of a Terrain, a point of its path,
+/// its whole path, its Brush settings, or whether it erases, once the Terrain it would leave is
+/// checked; `None` when the change names what the stroke already does, which records nothing.
+///
+/// # Errors
+///
+/// [`AuthoringError::UnknownElement`], [`AuthoringError::NotATerrain`],
+/// [`AuthoringError::NoStroke`], or [`AuthoringError::NoStrokePoint`] for what the change names
+/// and the Terrain lacks, [`AuthoringError::MalformedStroke`] for the reason the Terrain's own
+/// check gives the Terrain it would leave, or [`AuthoringError::History`] when the field cannot
+/// be named.
+pub(crate) fn stroke_field(
+    world: &mut World,
+    element: ElementId,
+    change: &ElementChange,
+) -> Result<Option<SetField<ElementId>>, AuthoringError> {
+    let mut terrain = terrain_of(world, element)?;
+    let history = |error: drs_history::HistoryError| AuthoringError::History(error.to_string());
+    let field = match change {
+        ElementChange::StrokePoint {
+            stroke,
+            index,
+            position,
+        } => {
+            let points = &mut stroke_of(&mut terrain, *stroke)?.points;
+            let count = points.len();
+            *points
+                .get_mut(*index)
+                .ok_or(AuthoringError::NoStrokePoint {
+                    index: *index,
+                    points: count,
+                })? = *position;
+            SetField::new::<Terrain>(
+                element,
+                &format!("strokes[{stroke}].points[{index}]"),
+                *position,
+            )
+        }
+        ElementChange::StrokePosition { stroke, position } => {
+            let moved = stroke_of(&mut terrain, *stroke)?;
+            let by = *position - moved.centre();
+            for point in &mut moved.points {
+                *point += by;
+            }
+            SetField::new::<Terrain>(
+                element,
+                &format!("strokes[{stroke}].points"),
+                moved.points.clone(),
+            )
+        }
+        ElementChange::StrokeBrush { stroke, brush } => {
+            stroke_of(&mut terrain, *stroke)?.brush = *brush;
+            SetField::new::<Terrain>(element, &format!("strokes[{stroke}].brush"), *brush)
+        }
+        ElementChange::StrokeErase { stroke, erase } => {
+            let changed = stroke_of(&mut terrain, *stroke)?;
+            if changed.erase == *erase {
+                return Ok(None);
+            }
+            changed.erase = *erase;
+            SetField::new::<Terrain>(element, &format!("strokes[{stroke}].erase"), *erase)
+        }
+        _ => return Err(AuthoringError::NotATerrain(element)),
+    };
+    if let Some(reason) = terrain.malformation() {
+        return Err(AuthoringError::MalformedStroke(reason));
+    }
+    field.map(Some).map_err(history)
+}
+
+/// The recorded step of removing a stroke that is not its Terrain's only one: the stroke taken
+/// out of the order, and on revert put back at its number exactly as it was. It is the only edit
+/// that numbers strokes afresh.
+struct RemoveStroke {
+    /// The Terrain.
+    element: ElementId,
+    /// The stroke's number.
+    index: usize,
+    /// The stroke, once taken out.
+    removed: Option<Stroke>,
+}
+
+impl ReversibleCommand for RemoveStroke {
+    fn apply(&mut self, world: &mut World) -> Result<(), BevyError> {
+        let entity = self.element.entity(world)?;
+        let mut terrain = world
+            .get_mut::<Terrain>(entity)
+            .ok_or(AuthoringError::NotATerrain(self.element))?;
+        let strokes = terrain.strokes.len();
+        if self.index >= strokes {
+            return Err(AuthoringError::NoStroke {
+                stroke: self.index,
+                strokes,
+            }
+            .into());
+        }
+        self.removed = Some(terrain.strokes.remove(self.index));
+        Ok(())
+    }
+
+    fn revert(&mut self, world: &mut World) -> Result<(), BevyError> {
+        let Some(stroke) = self.removed.take() else {
+            return Ok(());
+        };
+        let entity = self.element.entity(world)?;
+        let mut terrain = world
+            .get_mut::<Terrain>(entity)
+            .ok_or(AuthoringError::NotATerrain(self.element))?;
+        let index = self.index.min(terrain.strokes.len());
+        terrain.strokes.insert(index, stroke);
+        Ok(())
+    }
+}
+
+/// Edit Element removing a stroke of a Terrain, as a step of its own that closes any gesture
+/// left open: every other stroke keeps its order, and the only stroke takes its Terrain with
+/// it, as a Remove Element of the Terrain would.
+///
+/// # Errors
+///
+/// [`AuthoringError::UnknownElement`], [`AuthoringError::NotATerrain`], or
+/// [`AuthoringError::NoStroke`] for what the change names and the Terrain lacks, or
+/// [`AuthoringError::History`] when the step could not be recorded.
+pub(crate) fn remove_stroke(
+    world: &mut World,
+    element: ElementId,
+    stroke: usize,
+) -> Result<(), AuthoringError> {
+    let mut terrain = terrain_of(world, element)?;
+    stroke_of(&mut terrain, stroke)?;
+    if terrain.strokes.len() == 1 {
+        return crate::record_step(world, crate::remove::Remove::of(element));
+    }
+    crate::record_step(
+        world,
+        RemoveStroke {
+            element,
+            index: stroke,
+            removed: None,
         },
     )
 }
