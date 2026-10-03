@@ -2,7 +2,8 @@
 //! derived from them for drawing and picking.
 
 use crate::{
-    Colour, ElementKindName, Serialisable, SerialisationError, Tier, WallShape, read_only_version,
+    Colour, ElementKindName, Serialisable, SerialisationError, Tier, WallShape,
+    read_current_version,
 };
 use bevy_ecs::component::Component;
 use bevy_ecs::reflect::ReflectComponent;
@@ -127,7 +128,7 @@ impl Serialisable for Room {
     const TIER: Tier = Tier::Element;
 
     fn read(version: u32, data: &RawValue) -> Result<Self, SerialisationError> {
-        let room: Self = read_only_version(version, data)?;
+        let room: Self = read_current_version(version, data)?;
         match room.malformation() {
             Some(reason) => Err(SerialisationError::Malformed {
                 component: Self::NAME.to_owned(),

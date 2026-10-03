@@ -3,7 +3,7 @@
 
 use crate::{
     AssetReferenceRow, ElementKindName, Serialisable, SerialisationError, Tier, parse_version,
-    read_only_version,
+    read_current_version,
 };
 use bevy_ecs::component::Component;
 use bevy_ecs::reflect::ReflectComponent;
@@ -212,7 +212,7 @@ impl Serialisable for Terrain {
     fn read(version: u32, data: &RawValue) -> Result<Self, SerialisationError> {
         let terrain: Self = match version {
             1 => parse_version::<Self, TerrainVersionOne>(data)?.into(),
-            _ => read_only_version(version, data)?,
+            _ => read_current_version(version, data)?,
         };
         match terrain.malformation() {
             Some(reason) => Err(SerialisationError::Malformed {

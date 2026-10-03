@@ -47,7 +47,7 @@ pub use resolution::{MissingReason, Resolution, ResolutionTable};
 pub use room::{Edge, FillMesh, ROOM, Room, RoomShape};
 pub use serialisation::{
     Envelope, Envelopes, Serialisable, SerialisableComponent, SerialisationError,
-    SerialisationRegistry, Tier, UnknownComponents, parse_version, read_only_version,
+    SerialisationRegistry, Tier, UnknownComponents, parse_version, read_current_version,
 };
 pub use snapshot::{LayerSnapshot, LevelSnapshot, ProjectSnapshot};
 pub use terrain::{

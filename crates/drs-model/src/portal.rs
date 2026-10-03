@@ -3,7 +3,7 @@
 
 use crate::{
     AssetReferenceRow, ElementId, ElementKindName, Serialisable, SerialisationError, Tier,
-    read_only_version,
+    read_current_version,
 };
 use bevy_ecs::component::Component;
 use bevy_ecs::reflect::ReflectComponent;
@@ -135,7 +135,7 @@ impl Serialisable for Portal {
     const TIER: Tier = Tier::Element;
 
     fn read(version: u32, data: &RawValue) -> Result<Self, SerialisationError> {
-        let portal: Self = read_only_version(version, data)?;
+        let portal: Self = read_current_version(version, data)?;
         match portal.malformation() {
             Some(reason) => Err(SerialisationError::Malformed {
                 component: Self::NAME.to_owned(),

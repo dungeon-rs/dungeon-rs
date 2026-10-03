@@ -53,7 +53,7 @@ impl Serialisable for Wall {
     const TIER: Tier = Tier::Element;
 
     fn read(version: u32, data: &RawValue) -> Result<Self, SerialisationError> {
-        let wall: Self = read_only_version(version, data)?;
+        let wall: Self = read_current_version(version, data)?;
         match wall.malformation() {
             Some(reason) => Err(SerialisationError::Malformed {
                 component: Self::NAME.to_owned(),

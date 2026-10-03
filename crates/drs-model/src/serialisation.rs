@@ -125,12 +125,15 @@ pub trait Serialisable: Component + Serialize + Sized {
     fn read(version: u32, data: &RawValue) -> Result<Self, SerialisationError>;
 }
 
-/// Reads the data of a component that has had one version only, its current one.
+/// Reads the data of a component at its current version, refusing a newer version and any other.
+///
+/// A component that has had one version reads through it alone; one with older versions reads
+/// each of them in an arm of its own and this last, so a version that never was is refused.
 ///
 /// # Errors
 ///
 /// As [`Serialisable::read`].
-pub fn read_only_version<C: Serialisable + DeserializeOwned>(
+pub fn read_current_version<C: Serialisable + DeserializeOwned>(
     version: u32,
     data: &RawValue,
 ) -> Result<C, SerialisationError> {
@@ -398,7 +401,7 @@ macro_rules! serialisable_at_version_one {
                 const TIER: Tier = $tier;
 
                 fn read(version: u32, data: &RawValue) -> Result<Self, SerialisationError> {
-                    read_only_version(version, data)
+                    read_current_version(version, data)
                 }
             }
         )*

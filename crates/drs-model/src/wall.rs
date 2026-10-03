@@ -1,7 +1,7 @@
 //! Walls: lines of straight and curved segments drawn at a thickness, and the shape derived from
 //! them for drawing and picking.
 
-use crate::{ElementKindName, Serialisable, SerialisationError, Tier, read_only_version};
+use crate::{ElementKindName, Serialisable, SerialisationError, Tier, read_current_version};
 use bevy_ecs::component::Component;
 use bevy_ecs::reflect::ReflectComponent;
 use bevy_math::{Rect, Vec2};
@@ -134,7 +134,7 @@ impl Serialisable for Wall {
     const TIER: Tier = Tier::Element;
 
     fn read(version: u32, data: &RawValue) -> Result<Self, SerialisationError> {
-        let wall: Self = read_only_version(version, data)?;
+        let wall: Self = read_current_version(version, data)?;
         match wall.malformation() {
             Some(reason) => Err(SerialisationError::Malformed {
                 component: Self::NAME.to_owned(),
