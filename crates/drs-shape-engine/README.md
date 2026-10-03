@@ -40,6 +40,15 @@ The floor is filled by `lyon_tessellation` over the same chords the Walls are
 stroked along, so the floor's edge and the Walls' centre line agree; it is given
 straight chords only, which it fills with arithmetic and comparisons.
 
+[`snap`](crate::snap) says where a point being placed or dragged goes: to the
+nearest of the given points of the Walls and Rooms of its Level within its
+reach, the later in the stacking order of two as near, leaving out the point
+being dragged, and taking that point's coordinates exactly; with none within
+reach, to the nearest Grid corner, each coordinate rounded to a whole number of
+cells, halfway away from zero. A whole Wall or Room being dragged moves by the
+pointer's travel rounded the same way. It compares squared distances and
+rounds, so it too answers the same on every machine.
+
 Strokes are tessellated by the Engine itself, with no trigonometry: a round join
 or cap is an arc subdivided by halving its angle until it is within the
 tolerance, which takes only square roots, so the same outline gives the same

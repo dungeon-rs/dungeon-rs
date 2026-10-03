@@ -80,7 +80,18 @@ carry.
 The [`Viewport`](crate::Viewport) is where the Author is looking: the cell at
 the centre of the view, the zoom, and the area of the window the Level is shown
 in. The Editor steers it and the render Engine follows it; its conversions
-between cells and screen points are the ones picking and drawing share.
+between cells and screen points are the ones picking and drawing share. The
+[`Pointer`](crate::Pointer), beside it, is where the pointer is on the Level the
+Author is working on, how far a point is within its reach, and what it is
+[`Snapping`](crate::Snapping): nothing, a point being placed or dragged with the
+[`PointOf`](crate::PointOf) to leave out, or a whole Wall or Room being moved
+from where its drag began. The Editor writes it each frame; neither is ever a
+Command, a history step, or saved. The [`SnappedPoint`](crate::SnappedPoint) is
+derived from it and never saved: the point snapping puts it at, on a Grid corner
+or exactly on another Element's point, or the travel of a move in whole cells,
+with the Pointer it answers. The authoring Manager writes it in the
+[`SnapSystems`](crate::SnapSystems) set, which the Editor writes the Pointer
+before and draws what it answers after.
 
 Each added Asset Folder is an entity carrying
 [`AssetFolder`](crate::AssetFolder) with its index of Assets, and

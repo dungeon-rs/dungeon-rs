@@ -7,6 +7,7 @@ mod file;
 mod matches;
 mod messages;
 mod panics;
+mod pointer;
 mod portal;
 mod project;
 mod resolution;
@@ -39,6 +40,7 @@ pub use messages::{
     SetPortalIntoWall, StrokeChange, ThumbnailsUnavailable, Undo, UnknownKind,
 };
 pub use panics::CaughtPanics;
+pub use pointer::{PointOf, Pointer, SnapSystems, Snapped, SnappedPoint, Snapping};
 pub use portal::{Anchoring, PORTAL, Portal, PortalAnchor, Side};
 pub use project::{Bounds, Grid, Layer, Level, Project};
 pub use resolution::{MissingReason, Resolution, ResolutionTable};
@@ -90,6 +92,8 @@ impl Plugin for ModelPlugin {
             .init_resource::<EditorDirectories>()
             .init_resource::<SearchMatches>()
             .init_resource::<Viewport>()
+            .init_resource::<Pointer>()
+            .init_resource::<SnappedPoint>()
             .init_resource::<ElementKindRegistry>()
             .add_message::<AddFolder>()
             .add_message::<FolderAdded>()
