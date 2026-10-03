@@ -2188,3 +2188,238 @@ fn an_edited_stroke_exports_as_edited() {
     assert_eq!(at(7.5, 10.0), RED_PIXEL, "the stroke left where it was");
     assert_eq!(at(24.0, 8.0), RED_PIXEL, "the erase turned to painting");
 }
+
+/// A red for a floor.
+const RED_COLOUR: Colour = Colour::rgb(255, 0, 0);
+/// A blue for Walls.
+const BLUE_COLOUR: Colour = Colour::rgb(0, 0, 255);
+/// A green for Walls.
+const GREEN_COLOUR: Colour = Colour::rgb(0, 255, 0);
+/// A magenta for the Walls round a hole.
+const MAGENTA_COLOUR: Colour = Colour::rgb(255, 0, 255);
+
+/// Exports at [`WALL_PIXELS_PER_CELL`] with tiles of [`TILE`] and decodes the image.
+fn exported(fixture: &mut Fixture, name: &str) -> Picture {
+    let exported = fixture
+        .export(WALL_PIXELS_PER_CELL, name, TILE)
+        .expect("the Export is written");
+    Picture::decode(&exported.path)
+}
+
+/// Places a Room through the rectangle from `low` to `high` with Walls `thickness` thick in
+/// `walls` and a floor in `floor`, cutting or not, and returns its identity.
+fn coloured_room(
+    fixture: &mut Fixture,
+    low: Vec2,
+    high: Vec2,
+    thickness: f32,
+    (walls, floor): (Colour, Colour),
+    cuts: bool,
+) -> ElementId {
+    let layer = fixture.layer();
+    fixture.run(Apply::PlaceElement(PlaceElement {
+        layer,
+        placement: Placement::Room {
+            points: vec![
+                low,
+                Vec2::new(high.x, low.y),
+                high,
+                Vec2::new(low.x, high.y),
+            ],
+            thickness,
+            wall_colour: walls,
+            floor_colour: floor,
+            cuts,
+        },
+    }));
+    fixture.last()
+}
+
+/// Two overlapping Rooms share one floor walled round its outside: the later Room's floor in the
+/// overlap, its floor where the earlier Room's edge runs inside it, and the wall colour on the
+/// outside.
+#[test]
+fn overlapping_rooms_share_one_floor() {
+    let mut fixture = Fixture::new();
+    let look = (YELLOW, WHITE);
+    coloured_room(
+        &mut fixture,
+        Vec2::new(5.0, 5.0),
+        Vec2::new(15.0, 13.0),
+        1.0,
+        look,
+        false,
+    );
+    let later = (YELLOW, RED_COLOUR);
+    coloured_room(
+        &mut fixture,
+        Vec2::new(11.0, 8.0),
+        Vec2::new(20.0, 16.0),
+        1.0,
+        later,
+        false,
+    );
+
+    let picture = exported(&mut fixture, "overlapping.png");
+    let at = |x: f32, y: f32| picture.at_point(Vec2::new(x, y), WALL_PIXELS_PER_CELL);
+    assert_eq!(at(13.0, 10.0), RED_PIXEL, "the later floor in the overlap");
+    assert_eq!(
+        at(15.0, 11.0),
+        RED_PIXEL,
+        "no Wall where the earlier edge runs inside"
+    );
+    assert_eq!(
+        at(11.0, 10.5),
+        RED_PIXEL,
+        "nor where the later edge runs inside"
+    );
+    assert_eq!(at(8.0, 9.0), WHITE_PIXEL, "the earlier floor");
+    assert_eq!(at(5.0, 9.0), YELLOW_PIXEL, "the Wall on the outside");
+    assert_eq!(at(20.0, 12.0), YELLOW_PIXEL, "round both");
+}
+
+/// Two Rooms meeting edge to edge keep one Wall between them, and a door set into it stands in
+/// its gap with each Room's floor on its own side.
+#[test]
+fn a_shared_edge_keeps_its_wall_and_door() {
+    let mut fixture = Fixture::new();
+    let first = coloured_room(
+        &mut fixture,
+        Vec2::new(5.0, 5.0),
+        Vec2::new(15.0, 15.0),
+        1.0,
+        (YELLOW, WHITE),
+        false,
+    );
+    coloured_room(
+        &mut fixture,
+        Vec2::new(15.0, 7.0),
+        Vec2::new(25.0, 13.0),
+        1.0,
+        (YELLOW, RED_COLOUR),
+        false,
+    );
+    fixture.portal(DOOR, Vec2::ZERO, Some(anchored(first, 1, 0.5, Side::Left)));
+
+    let picture = exported(&mut fixture, "shared.png");
+    let at = |x: f32, y: f32| picture.at_point(Vec2::new(x, y), WALL_PIXELS_PER_CELL);
+    assert_eq!(
+        at(15.0, 8.0),
+        YELLOW_PIXEL,
+        "the Wall along the shared edge"
+    );
+    assert_eq!(at(15.0, 12.5), YELLOW_PIXEL, "on both sides of the door");
+    assert_eq!(at(15.0, 10.0), CYAN_PIXEL, "the door at its centre");
+    assert_eq!(
+        at(14.6, 10.5),
+        WHITE_PIXEL,
+        "the first floor on its side of the gap"
+    );
+    assert_eq!(at(15.4, 10.5), RED_PIXEL, "the second floor on its side");
+}
+
+/// A Room that cuts leaves a hole showing the background, walled in the cut's own colour, with
+/// the Room's floor round it.
+#[test]
+fn a_cut_leaves_a_hole() {
+    let mut fixture = Fixture::new();
+    coloured_room(
+        &mut fixture,
+        Vec2::new(5.0, 5.0),
+        Vec2::new(25.0, 20.0),
+        1.0,
+        (YELLOW, WHITE),
+        false,
+    );
+    coloured_room(
+        &mut fixture,
+        Vec2::new(10.0, 9.0),
+        Vec2::new(16.0, 15.0),
+        1.0,
+        (MAGENTA_COLOUR, RED_COLOUR),
+        true,
+    );
+
+    let picture = exported(&mut fixture, "hole.png");
+    let at = |x: f32, y: f32| picture.at_point(Vec2::new(x, y), WALL_PIXELS_PER_CELL);
+    assert_eq!(at(13.0, 12.0), BLACK_PIXEL, "the background in the hole");
+    assert_eq!(
+        at(10.6, 12.0),
+        BLACK_PIXEL,
+        "beyond half the cut's thickness"
+    );
+    assert_eq!(
+        at(10.0, 12.0),
+        MAGENTA_PIXEL,
+        "the cut's Wall on its outline"
+    );
+    assert_eq!(at(13.0, 9.0), MAGENTA_PIXEL, "all round");
+    assert_eq!(at(8.0, 12.0), WHITE_PIXEL, "the Room's floor between");
+    assert_eq!(at(5.0, 12.0), YELLOW_PIXEL, "the Room's own Wall");
+    assert_eq!(picture.count(RED_PIXEL), 0, "a cut has no floor");
+}
+
+/// Each stretch of Wall of combined Rooms keeps the colour of the Room whose edge it runs along.
+#[test]
+fn each_wall_keeps_its_rooms_colour() {
+    let mut fixture = Fixture::new();
+    coloured_room(
+        &mut fixture,
+        Vec2::new(5.0, 5.0),
+        Vec2::new(15.0, 13.0),
+        1.0,
+        (YELLOW, WHITE),
+        false,
+    );
+    coloured_room(
+        &mut fixture,
+        Vec2::new(11.0, 8.0),
+        Vec2::new(20.0, 16.0),
+        1.0,
+        (GREEN_COLOUR, WHITE),
+        false,
+    );
+
+    let picture = exported(&mut fixture, "colours.png");
+    let at = |x: f32, y: f32| picture.at_point(Vec2::new(x, y), WALL_PIXELS_PER_CELL);
+    assert_eq!(at(5.0, 9.0), YELLOW_PIXEL, "the first Room's Wall");
+    assert_eq!(at(8.0, 5.0), YELLOW_PIXEL);
+    assert_eq!(at(20.0, 12.0), GREEN_PIXEL, "the second Room's Wall");
+    assert_eq!(at(16.0, 16.0), GREEN_PIXEL);
+}
+
+/// The Walls of a combination lie over every floor of it, drawn at its last Room's place: the
+/// earlier Room's Wall shows inside the later Room's floor near where their outlines cross, and a
+/// Prop placed between the two Rooms shows over the earlier floor and under the Walls.
+#[test]
+fn walls_lie_over_the_combinations_floors() {
+    let mut fixture = Fixture::new();
+    coloured_room(
+        &mut fixture,
+        Vec2::new(5.0, 5.0),
+        Vec2::new(15.0, 13.0),
+        1.0,
+        (YELLOW, WHITE),
+        false,
+    );
+    fixture.place(GREEN, Vec2::new(5.5, 9.0));
+    coloured_room(
+        &mut fixture,
+        Vec2::new(11.0, 8.0),
+        Vec2::new(20.0, 16.0),
+        0.25,
+        (BLUE_COLOUR, RED_COLOUR),
+        false,
+    );
+
+    let picture = exported(&mut fixture, "over.png");
+    let at = |x: f32, y: f32| picture.at_point(Vec2::new(x, y), WALL_PIXELS_PER_CELL);
+    assert_eq!(
+        at(11.3, 12.7),
+        YELLOW_PIXEL,
+        "the earlier Wall's round end over the later floor"
+    );
+    assert_eq!(at(12.0, 12.0), RED_PIXEL, "the later floor beyond it");
+    assert_eq!(at(5.3, 9.0), YELLOW_PIXEL, "the Wall over the Prop");
+    assert_eq!(at(5.8, 9.0), GREEN_PIXEL, "the Prop over the earlier floor");
+}
