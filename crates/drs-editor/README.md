@@ -66,7 +66,9 @@ worked on, where the pointer is, a reach of eight pixels, and what snaps.
 Clicking in the viewport places the chosen Asset or selects the topmost Element
 under the pointer, a Prop by its rectangle, a Portal by its turned rectangle,
 a Wall by its line outside the stretches its Portals cover, and a Room by its
-floor or by its Walls outside those stretches, never a Terrain, dragging a
+floor as it is drawn, anywhere inside its outline when it cuts, or by the Walls
+drawn in its look outside the stretches Portals cover, hit at the place of the
+last Room of its combination, never a Terrain, dragging a
 selected Element moves it as one gesture, Delete removes it, Escape stops
 placing, and the platform's usual shortcuts undo and redo. Scrolling pans, a
 wheel or a pinch zooms, and the middle button or Space with the left button
@@ -94,7 +96,7 @@ reach, or else on the nearest Grid corner. A small ring shows where the next cli
 of either tool lands, filled when it lies on another Element's point, and the
 rubber bands end at it; the point placed is the one shown, the snapped point
 derived from the Pointer written the frame before. A whole Wall or Room dragged
-moves by whole cells, each step sending the amount moved since the last. Control
+moves by whole cells, each step sending the whole travel since the press. Control
 points, middles, the point a double-click adds, Props, and Portals never snap.
 The Snap switch, on at start and never saved, turns snapping off, and holding
 Alt, Option on macOS, places and drags freely while it is held, a drag included.
@@ -110,18 +112,20 @@ high. The strip then shows the wall thickness, the wall colour, and the floor
 colour of the next Room, or of the selected Room, a change to it sent as one
 Edit Element. Choosing the tool drops the chosen Asset and the selection and
 leaves the Wall, the Portal, or the Paint tool, discarding a stroke being drawn;
-choosing an Asset or another tool leaves it, discarding the outline. A selected Room has a Wall's handles round its closed
-outline, the edge from the last point to the first included, and moves whole
-when dragged by its floor or its Walls.
+choosing an Asset or another tool leaves it, discarding the outline. A selected Room is outlined along its whole outline and
+has a Wall's handles round it, the edge from the last point to the first and
+the edges no Wall runs along included, a double-click on any of its edges adding
+a point, and moves whole when dragged by its floor or its Walls.
 
 With the Portal tool, chosen in the strip or with `P`, the chosen Asset is the
 Portal's image, kept when the tool is chosen; a marker across the nearest Wall
-or Room's Walls within half a cell or half its thickness of the pointer shows
+or Room's Walls drawn within half a cell or half its thickness of the pointer shows
 where the Portal will sit and which side it will face, and a click places it set
 into that line, or freestanding where none is in reach. Choosing the tool leaves
 the Wall and the Room tool and drops the selection; Escape goes back to Select. A
 selected Portal set into a Wall or a Room slides along its line when dragged, as
-one gesture, round a Room past its first point; `X` flips its side, or the
+one gesture, along the Walls that run along its Room's edges and round past its
+first point; `X` flips its side, or the
 mirroring of a freestanding Portal or of one whose Wall is gone, which is also
 dragged and turned as a freestanding one; `F` frees it where it stands, or sets
 a freestanding one into the nearest Wall or Room within reach of its centre; both wait,
@@ -129,7 +133,8 @@ as undo does, while a step is being made. Where two Walls are equally near, the
 marker, a click, and `F` all take the topmost. The strip shows a selected
 Portal's width, its rotation in degrees while freestanding, a Flip button, and a
 Free Portal or Set into Wall button. When a Wall edit removes Portals, the
-status line says how many, and so does a Room edit.
+status line says how many, and so does a Room edit, also of the Portals whose
+Wall it took away from another Room.
 
 The tool strip also offers Paint, chosen there or with `B` painting and with `E`
 erasing, which leaves the Wall or the Room tool, discarding what is being drawn,

@@ -10,7 +10,7 @@
 use crate::gesture::Drag;
 use crate::state::{EditorState, Interaction, Tool};
 use crate::viewport::LevelView;
-use crate::walls::{NearestPoint, OptionGesture, nearest_on_line};
+use crate::walls::{Lines, NearestPoint, OptionGesture, nearest_on_line};
 use bevy::color::Color;
 use bevy::ecs::entity::Entity;
 use bevy::ecs::message::MessageWriter;
@@ -21,7 +21,7 @@ use bevy::math::{Isometry2d, Rot2, Vec2, ops};
 use bevy::window::{PrimaryWindow, Window};
 use drs_model::{
     Apply, EditElement, Element, ElementChange, ElementId, FreePortal, Gesture, PlaceElement,
-    Placement, Portal, PortalAnchor, SetPortalIntoWall, Side, Viewport, WallShape,
+    Placement, Portal, PortalAnchor, SetPortalIntoWall, Side, Viewport,
 };
 
 /// How far from a Wall's line, in cells, the Portal tool reaches it however thin the Wall: half a
@@ -84,7 +84,7 @@ fn side_of(along: Vec2, at: Vec2, cells: Vec2) -> Side {
 /// half a cell or half its thickness, whichever is more. The side is the side of the line `cells`
 /// lies on, or `side` when given.
 pub(crate) fn line_under<'a>(
-    lines: impl IntoIterator<Item = (ElementId, f32, &'a WallShape)>,
+    lines: impl IntoIterator<Item = (ElementId, f32, Lines<'a>)>,
     cells: Vec2,
     side: Option<Side>,
 ) -> Option<LineUnderPointer> {
@@ -95,7 +95,7 @@ pub(crate) fn line_under<'a>(
             place,
             at,
             along,
-        }) = nearest_on_line(shape, cells)
+        }) = nearest_on_line(&shape, cells)
         else {
             continue;
         };
@@ -173,14 +173,14 @@ pub(crate) fn on_portal(element: &Element, portal: &Portal, cells: Vec2) -> bool
 }
 
 /// The Edit Element of a slide of a set Portal to the nearest point of its own Wall's line to
-/// `cells`.
+/// `cells`, or of the Walls that run along its own Room's edges.
 pub(crate) fn slide(
     element: ElementId,
-    shape: &WallShape,
+    lines: &Lines,
     cells: Vec2,
     gesture: Gesture,
 ) -> Option<Apply> {
-    let place = nearest_on_line(shape, cells)?.place;
+    let place = nearest_on_line(lines, cells)?.place;
     Some(Apply::EditElement(EditElement {
         element,
         change: ElementChange::Along {
@@ -215,7 +215,7 @@ pub(crate) fn free_or_set<'a>(
     element: ElementId,
     centre: Vec2,
     portal: &Portal,
-    lines: impl IntoIterator<Item = (ElementId, f32, &'a WallShape)>,
+    lines: impl IntoIterator<Item = (ElementId, f32, Lines<'a>)>,
 ) {
     if portal.anchor.is_some() {
         apply.write(Apply::FreePortal(FreePortal { portal: element }));
@@ -250,7 +250,7 @@ pub(crate) fn options<'a>(
     ui: &mut egui::Ui,
     state: &mut EditorState,
     selected: (ElementId, &Element, &Portal, bool),
-    lines: impl IntoIterator<Item = (ElementId, f32, &'a WallShape)>,
+    lines: impl IntoIterator<Item = (ElementId, f32, Lines<'a>)>,
     apply: &mut MessageWriter<Apply>,
 ) {
     let (id, element, portal, follows) = selected;
@@ -352,7 +352,7 @@ pub(crate) fn outline(element: &Element, portal: &Portal) -> Isometry2d {
 pub(crate) fn describe(
     state: &EditorState,
     portals: &bevy::ecs::system::Query<(&ElementId, &Element, &Portal)>,
-    shapes: &bevy::ecs::system::Query<(&ElementId, &WallShape)>,
+    shapes: &bevy::ecs::system::Query<(&ElementId, &drs_model::WallShape)>,
 ) {
     bevy::log::info!(
         "describe: portal tool {}, selected {:?}",

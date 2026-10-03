@@ -1,5 +1,5 @@
-//! `GenerateWalls` and `SplitWall`: the stroke of a combined outline's line, open or closed, and
-//! the exact split of a part.
+//! `GenerateWalls` and `SplitWall`: the stroke of the Walls a combined outline's look is drawn
+//! in, open or running round, and the exact split of a part.
 //!
 //! Everything is computed in double precision and handed to the model in single precision. No
 //! trigonometric function is called anywhere: the flattening counts come from square roots, and
@@ -7,10 +7,10 @@
 //! step, so the only operation beyond arithmetic is the correctly rounded square root and the
 //! mesh is the same on every machine.
 
+use crate::combine::CombinedOutline;
 use crate::path::{Path, TOLERANCE};
-use crate::room::CombinedOutline;
 use bevy_math::Vec2;
-use drs_model::{LinePlace, LinePoint, Stretch, StrokeMesh, WallShape};
+use drs_model::{LinePlace, LinePoint, Stretch, StrokeMesh};
 use kurbo::{Line, ParamCurve, Point, QuadBez};
 
 /// The most times an arc of a join or cap is halved: 2¹⁶ pieces is far finer than any Wall needs.
@@ -65,47 +65,121 @@ impl ShapeError {
     }
 }
 
-/// `GenerateWalls`: the shape a drawn Wall or a Room's Walls are drawn and picked by, from the
-/// line `CombineOutlines` flattened, `thickness` thick, left out along `stretches`.
+/// `GenerateWalls`: the stroke a drawn Wall or a Room's Walls are drawn and picked by, along the
+/// Walls `CombineOutlines` gives the outline, `thickness` thick, left out along `stretches`.
 ///
-/// The stroke covers everything within half the thickness of the line, with a round join on the
-/// outer side of every bend. An open line has a round cap at each end; a closed one joins its
-/// last chord to its first round the first point and has no caps. The stroke records the arc
-/// length of the line at each vertex.
+/// The stroke covers everything within half the thickness of each Wall's line, with a round join
+/// on the outer side of every bend. A Wall that runs round joins its last chord to its first
+/// round its first point and has no ends; any other has a round cap at each end, where a Room's
+/// Wall meets another Room's or where a Wall between two Rooms meets the others. The stroke
+/// records the arc length of its Wall's line at each vertex.
 ///
-/// The stroke leaves out every stretch, measured along the line: it ends squarely across the
-/// line at each end of a stretch, and an end of an open line that a stretch reaches has no cap.
-/// On a closed line a stretch whose start lies after its end runs on past the first point.
-/// Overlapping stretches leave out what either covers. The stretches are kept on the shape as
-/// given.
+/// The stroke leaves out every place of the outline's parts a stretch covers: it ends squarely
+/// across the line at each end of a stretch, and an end that a stretch reaches has no cap. On a
+/// closed outline a stretch whose start lies after its end runs on past the first point.
+/// Overlapping stretches leave out what either covers.
 #[must_use]
 pub fn generate_walls(
     outline: &CombinedOutline,
     thickness: f32,
     stretches: &[Stretch],
-) -> WallShape {
-    let line = outline.line.clone();
-    let measured = Measured::of(&line);
-    let gaps: Vec<(f64, f64)> = stretches
-        .iter()
-        .map(|stretch| {
-            (
-                measured.length_at(stretch.start),
-                measured.length_at(stretch.end),
-            )
-        })
-        .collect();
+) -> StrokeMesh {
+    let covered = covered_parts(stretches, outline.parts, outline.closed);
     let radius = f64::from(thickness) / 2.0;
-    let mesh = if outline.closed {
-        stroke_closed(&line, radius, &gaps)
-    } else {
-        stroke(&line, radius, &gaps)
-    };
-    WallShape {
-        line,
-        stretches: stretches.to_vec(),
-        mesh,
+    let mut mesh = StrokeMesh::default();
+    for wall in &outline.walls {
+        let gaps = gaps_along(&wall.line, &covered);
+        let stroke = if wall.closed {
+            stroke_closed(&wall.line, radius, &gaps)
+        } else {
+            stroke(&wall.line, radius, &gaps)
+        };
+        append(&mut mesh, stroke);
     }
+    mesh
+}
+
+/// Adds the triangles of `more` to `mesh`.
+fn append(mesh: &mut StrokeMesh, more: StrokeMesh) {
+    let offset = u32::try_from(mesh.vertices.len()).unwrap_or(u32::MAX);
+    mesh.vertices.extend(more.vertices);
+    mesh.arc_lengths.extend(more.arc_lengths);
+    mesh.indices.extend(
+        more.indices
+            .into_iter()
+            .map(|index| index.saturating_add(offset)),
+    );
+}
+
+/// The ranges of parameters `stretches` cover on each part of an outline of `parts` parts, by
+/// part: a stretch across points covers the end of its first part, every part between, and the
+/// start of its last, and on a closed outline a stretch whose start lies after its end runs on
+/// past the first point.
+fn covered_parts(stretches: &[Stretch], parts: usize, closed: bool) -> Vec<Vec<(f64, f64)>> {
+    let mut covered = vec![Vec::new(); parts];
+    let mut cover = |part: usize, from: f64, to: f64| {
+        if let Some(ranges) = covered.get_mut(part) {
+            ranges.push((from.min(to), from.max(to)));
+        }
+    };
+    for stretch in stretches {
+        let (start, end) = (stretch.start, stretch.end);
+        let (start_t, end_t) = (f64::from(start.t), f64::from(end.t));
+        let in_order = (start.segment, start.t) <= (end.segment, end.t);
+        if in_order || !closed {
+            if start.segment == end.segment {
+                cover(start.segment, start_t, end_t);
+                continue;
+            }
+            cover(start.segment, start_t, 1.0);
+            for part in start.segment + 1..end.segment {
+                cover(part, 0.0, 1.0);
+            }
+            cover(end.segment, 0.0, end_t);
+        } else {
+            cover(start.segment, start_t, 1.0);
+            for part in start.segment + 1..parts {
+                cover(part, 0.0, 1.0);
+            }
+            for part in 0..end.segment {
+                cover(part, 0.0, 1.0);
+            }
+            cover(end.segment, 0.0, end_t);
+        }
+    }
+    covered
+}
+
+/// The ranges of arc length along `line` that lie on covered places of its parts: each chord
+/// lies on the part of its first point, from that point's parameter to the second's, or to the
+/// end of the part when the second lies on the next one.
+fn gaps_along(line: &[LinePoint], covered: &[Vec<(f64, f64)>]) -> Vec<(f64, f64)> {
+    let mut gaps = Vec::new();
+    let mut travelled = 0.0;
+    for pair in line.windows(2) {
+        let (from, to) = (pair[0], pair[1]);
+        let chord = length(point(to.position) - point(from.position));
+        let start = f64::from(from.t);
+        let end = if to.segment == from.segment {
+            f64::from(to.t)
+        } else {
+            1.0
+        };
+        let span = end - start;
+        if chord > 0.0 && span != 0.0 {
+            for &(low, high) in covered.get(from.segment).map_or(&[][..], Vec::as_slice) {
+                let (lower, upper) = (start.min(end).max(low), start.max(end).min(high));
+                if upper < lower {
+                    continue;
+                }
+                let along = |t: f64| travelled + (t - start) / span * chord;
+                let (a, b) = (along(lower), along(upper));
+                gaps.push((a.min(b), a.max(b)));
+            }
+        }
+        travelled += chord;
+    }
+    gaps
 }
 
 /// A flattened line with the arc length at each of its points, for measuring along it.
@@ -643,7 +717,8 @@ mod tests {
     )]
 
     use super::*;
-    use crate::combine_outlines;
+    use crate::{Outline, combine_outlines};
+    use drs_model::WallShape;
 
     /// A Wall's open line through `points`, curved where a control is given.
     fn wall(points: &[Vec2], controls: &[Option<Vec2>]) -> Path {
@@ -656,7 +731,16 @@ mod tests {
 
     /// The shape of the Wall along `path`, a quarter of a cell thick, left out along `stretches`.
     fn walls(path: &Path, stretches: &[Stretch]) -> WallShape {
-        generate_walls(&combine_outlines(path), 0.25, stretches)
+        let combined = combine_outlines(&[Outline {
+            path: path.clone(),
+            cuts: false,
+        }]);
+        let outline = &combined.outlines[0];
+        WallShape {
+            line: outline.line.clone(),
+            stretches: stretches.to_vec(),
+            mesh: generate_walls(outline, 0.25, stretches),
+        }
     }
 
     /// The distance from `p` to the chord from `a` to `b`.

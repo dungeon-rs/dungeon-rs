@@ -8,79 +8,75 @@
 - The component lives in `drs-model` beside what it is derived from (`WallShape` in `wall.rs`, `ResolutionTable` in `resolution.rs`), documented as never saved and naming the Manager that writes it. It implements no `Serialisable`, so a Save leaves it out; `WallShape` derives no `Reflect` either, so a Remove Element snapshot leaves it out and the restored Wall is derived again.
 - Exactly one Manager writes it, calling the Engine directly, in a system added `.after(ManagerSystems::Redo)` in its plugin, so every Command, Undo, Redo, and Open of the frame is in before it runs and readers in `PostUpdate` see the result that frame.
 - The system is driven by change detection on the source (`Changed<Wall>`, a Portal changed or removed, `Changed<AssetReferences>`): it inserts through `Commands` the first time and assigns in place after.
-- It writes only when the result can differ: it remembers what it last derived from in a component private to the Manager (`DerivedFrom`) or compares before assigning (`write_table`), so a reader's `Ref::is_changed` means a real change and a recolour does not rebuild a mesh.
+- It writes only when the result can differ: it remembers what it last derived from in a component private to the Manager (`DerivedFrom`, kept for a batch that is derived together, such as the Rooms of a Layer, on the Layer) and compares before assigning (`write_table`, each shape of a batch), so a reader's `Ref::is_changed` means a real change and a recolour does not rebuild a mesh.
 - Readers only read it and treat its absence as not yet: RenderEngine skips the Element that frame and the Editor's hit test misses it.
 
 ## Example
 
 ```rust
-/// What a Wall's or a Room's shape was last derived from: its outline, its thickness, and where
-/// the Portals set into it are and how wide. A change that leaves them as they were, a new
-/// colour, keeps the shape.
+/// What the shapes of a batch of Walls or Rooms were last derived from: a Wall alone, or the
+/// Rooms of a Layer together, each one's identity, outline, thickness, and whether it cuts, in
+/// stacking order, and where the Portals set into them are and how wide. A change that leaves
+/// them as they were, a new colour, keeps the shapes. It is kept on the Wall, or on the Layer of
+/// the Rooms.
 #[derive(Component, Debug, Clone, PartialEq)]
-pub(crate) struct DerivedFrom {
-    /// The outline the shape was derived from.
-    path: Path,
-    /// The thickness it was derived at.
-    thickness: f32,
-    /// The Portals set into it, in the order of their identities.
-    portals: Vec<PortalSetting>,
+pub(crate) struct DerivedFrom<H: OutlineHost> {
+    /// The outlines the shapes were derived from, in stacking order.
+    outlines: Vec<(ElementId, Path, f32, bool)>,
+    /// The Portals set into them, each with the outline's number in the batch.
+    portals: Vec<(ElementId, PortalSetting)>,
+    /// The kind of the outlines.
+    kind: PhantomData<fn() -> H>,
 }
 
 pub(crate) fn derive_shapes(
     mut commands: Commands,
-    changed_outlines: Query<(), Or<(Changed<Wall>, Changed<Room>)>>,
+    mut edits: OutlineChanges,
     mut removed_portals: RemovedComponents<Portal>,
     mut walls: Outlines<Wall>,
     mut rooms: Outlines<Room>,
+    derived: (Query<&DerivedFrom<Wall>>, Query<&DerivedFrom<Room>>),
+    layers: Query<&Children, With<Layer>>,
     mut boxes: Boxes,
     mut portals: Portals,
-    parents: Query<&ChildOf>,
-    levels: Query<(), With<Level>>,
-    references: Query<&AssetReferences>,
 ) {
     let removed = removed_portals.read().count() > 0;
     // Looking at whether a Portal changed through the query that writes them marks nothing.
-    if changed_outlines.is_empty() && !portal_changed && !removed {
+    if !edits.any() && !portal_changed && !removed {
         return;
     }
-    let mut standings = reshape(&mut commands, &mut walls, &mut boxes, &set);
-    standings.append(&mut reshape(&mut commands, &mut rooms, &mut boxes, &set));
 }
 
 fn reshape<H: OutlineHost>(
     commands: &mut Commands,
     outlines: &mut Outlines<H>,
+    derived: &Query<&DerivedFrom<H>>,
+    layers: &Query<&Children, With<Layer>>,
     boxes: &mut Boxes,
     set: &BTreeMap<ElementId, Vec<Anchored>>,
-) -> BTreeMap<ElementId, Standing> {
+) -> BTreeMap<ElementId, Option<Standing>> {
     let mut standings = BTreeMap::new();
-    for (entity, id, outline, shape, derived_from) in outlines {
-        let into = set.get(id).map_or(&[][..], Vec::as_slice);
-        let geometry = DerivedFrom::of(outline, into);
-        if shape.is_some() && derived_from == Some(&geometry) {
+    for (key, members) in batches(outlines, layers) {
+        let geometry = DerivedFrom::of(&members, set);
+        if shaped && derived.get(key).is_ok_and(|last| *last == geometry) {
             continue;
         }
-        let placed = anchor_portals(&geometry.path, &geometry.portals);
-        let combined = combine_outlines(&geometry.path);
-        let walls = generate_walls(&combined, outline.thickness(), &stretches);
-        let derived = H::shape(walls, combined.floor);
-        match shape {
-            Some(mut shape) => *shape = derived,
-            None => {
-                commands.entity(entity).insert(derived);
+        for (index, (entity, _, outline)) in members.iter().enumerate() {
+            let shape = H::shape(combined, mesh, stretches[index].clone(), drawn_at);
+            if let Ok((_, _, _, current, _)) = outlines.get_mut(*entity) {
+                match current {
+                    Some(mut current) => {
+                        if *current != shape {
+                            *current = shape;
+                        }
+                    }
+                    None => {
+                        commands.entity(*entity).insert(shape);
+                    }
+                }
             }
         }
-        commands.entity(entity).insert(geometry);
-        let footprint = outline.element_box();
-        if let Ok(mut element) = boxes.get_mut(entity) {
-            if element.position != footprint.center() {
-                element.position = footprint.center();
-            }
-            if element.size != footprint.size() {
-                element.size = footprint.size();
-            }
-        }
+        commands.entity(key).insert(geometry);
     }
     standings
 }

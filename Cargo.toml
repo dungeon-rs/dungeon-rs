@@ -112,6 +112,7 @@ rfd = "=0.17.2"
 blake3 = "1.8"
 caseless = "0.2"
 directories = "6.0"
+i_overlay = { version = "9.0", default-features = false }
 kurbo = { version = "0.13", default-features = false, features = ["std"] }
 log = "0.4"
 lyon_tessellation = "1.0"
@@ -184,4 +185,55 @@ opt-level = 3
 opt-level = 3
 
 [profile.fast.package.unicode-normalization]
+opt-level = 3
+
+# Deriving a Layer of Rooms is timed by ShapeEngine's tests against a bound meant for the dev
+# build too, so ShapeEngine and the crates it combines, flattens, and fills with are built as the
+# dev build builds them.
+[profile.fast.package.drs-shape-engine]
+opt-level = 1
+
+[profile.fast.package.i_overlay]
+opt-level = 3
+
+[profile.fast.package.i_float]
+opt-level = 3
+
+[profile.fast.package.i_shape]
+opt-level = 3
+
+[profile.fast.package.i_tree]
+opt-level = 3
+
+[profile.fast.package.i_key_sort]
+opt-level = 3
+
+[profile.fast.package.libm]
+opt-level = 3
+
+[profile.fast.package.kurbo]
+opt-level = 3
+
+[profile.fast.package.arrayvec]
+opt-level = 3
+
+[profile.fast.package.smallvec]
+opt-level = 3
+
+[profile.fast.package.lyon_tessellation]
+opt-level = 3
+
+[profile.fast.package.lyon_path]
+opt-level = 3
+
+[profile.fast.package.lyon_geom]
+opt-level = 3
+
+[profile.fast.package.euclid]
+opt-level = 3
+
+[profile.fast.package.num-traits]
+opt-level = 3
+
+[profile.fast.package.float_next_after]
 opt-level = 3

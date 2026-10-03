@@ -1,46 +1,68 @@
 //! The shapes derived from every Wall and Room and from the Portals set into them: the line, the
-//! stroke, and a Room's floor through the shape Engine, the Element's box around its points, and
-//! where each Portal stands, whether it follows its host, and how large it is.
+//! stroke, and a Room's floor through the shape Engine, the Rooms of a Layer combined together,
+//! the Element's box around its points, and where each Portal stands, whether it follows its
+//! host, and how large it is.
 
 use crate::ancestor;
-use crate::outline::{OutlineHost, settings};
+use crate::outline::OutlineHost;
 use crate::portal::{Anchored, sets_into, stood};
 use bevy_ecs::change_detection::{DetectChanges, Mut};
 use bevy_ecs::component::Component;
 use bevy_ecs::entity::Entity;
-use bevy_ecs::hierarchy::ChildOf;
+use bevy_ecs::hierarchy::{ChildOf, Children};
 use bevy_ecs::lifecycle::RemovedComponents;
 use bevy_ecs::query::{Changed, Or, With, Without};
-use bevy_ecs::system::{Commands, Query};
+use bevy_ecs::system::{Commands, Query, SystemParam};
 use bevy_math::Vec2;
 use drs_model::{
-    Anchoring, AssetReferences, Element, ElementId, Level, Portal, PortalAnchor, Room, Wall,
+    Anchoring, AssetReferences, Element, ElementId, Layer, Level, Portal, PortalAnchor, Room,
+    Stretch, Wall,
 };
 use drs_shape_engine::{
-    Path, PortalSetting, Standing, anchor_portals, combine_outlines, generate_walls,
+    Outline, Path, PortalSetting, Standing, anchor_portals, combine_outlines, generate_walls,
 };
 use std::collections::BTreeMap;
+use std::marker::PhantomData;
 
-/// What a Wall's or a Room's shape was last derived from: its outline, its thickness, and where
-/// the Portals set into it are and how wide. A change that leaves them as they were, a new
-/// colour, keeps the shape.
+/// What the shapes of a batch of Walls or Rooms were last derived from: a Wall alone, or the
+/// Rooms of a Layer together, each one's identity, outline, thickness, and whether it cuts, in
+/// stacking order, and where the Portals set into them are and how wide. A change that leaves
+/// them as they were, a new colour, keeps the shapes. It is kept on the Wall, or on the Layer of
+/// the Rooms.
 #[derive(Component, Debug, Clone, PartialEq)]
-pub(crate) struct DerivedFrom {
-    /// The outline the shape was derived from.
-    path: Path,
-    /// The thickness it was derived at.
-    thickness: f32,
-    /// The Portals set into it, in the order of their identities.
-    portals: Vec<PortalSetting>,
+pub(crate) struct DerivedFrom<H: OutlineHost> {
+    /// The outlines the shapes were derived from, in stacking order.
+    outlines: Vec<(ElementId, Path, f32, bool)>,
+    /// The Portals set into them, each with the outline's number in the batch.
+    portals: Vec<(ElementId, PortalSetting)>,
+    /// The kind of the outlines.
+    kind: PhantomData<fn() -> H>,
 }
 
-impl DerivedFrom {
-    /// What `outline`'s shape is derived from, with the Portals set into it.
-    fn of<H: OutlineHost>(outline: &H, portals: &[Anchored]) -> Self {
+impl<H: OutlineHost> DerivedFrom<H> {
+    /// What `members`' shapes are derived from, with the Portals set into them.
+    fn of(members: &[(Entity, ElementId, H)], set: &BTreeMap<ElementId, Vec<Anchored>>) -> Self {
+        let mut portals = Vec::new();
+        for (index, (_, id, _)) in members.iter().enumerate() {
+            for (portal, anchor, width) in set.get(id).map_or(&[][..], Vec::as_slice) {
+                portals.push((
+                    *portal,
+                    PortalSetting {
+                        outline: index,
+                        segment: anchor.index,
+                        t: anchor.t,
+                        width: *width,
+                    },
+                ));
+            }
+        }
         Self {
-            path: outline.path(),
-            thickness: outline.thickness(),
-            portals: settings(portals),
+            outlines: members
+                .iter()
+                .map(|(_, id, outline)| (*id, outline.path(), outline.thickness(), outline.cuts()))
+                .collect(),
+            portals,
+            kind: PhantomData,
         }
     }
 }
@@ -54,7 +76,7 @@ type Outlines<'w, 's, H> = Query<
         &'static ElementId,
         &'static H,
         Option<&'static mut <H as OutlineHost>::Shape>,
-        Option<&'static DerivedFrom>,
+        Option<&'static ChildOf>,
     ),
 >;
 
@@ -75,27 +97,56 @@ type Portals<'w, 's> = Query<
     ),
 >;
 
-/// Derives the shape of every Wall and every Room whose outline or thickness changed since the
-/// last frame, or whose Portals were placed, edited, set, freed, or removed: the shape Engine
-/// combines its outline into its line and floor and strokes the line, and its Element's box is
-/// set around its points. Moves each Portal set into such a Wall or Room to where its anchor puts
-/// it, turned to the line's direction there and mirrored when it faces the right; says of every
-/// Portal whether it follows its host; and sets every changed Portal's size from its width and
-/// its image's recorded pixel size.
+/// What tells deriving that the Walls or the Rooms changed: one placed, edited, or removed, and
+/// a Layer's stacking order.
+#[expect(
+    clippy::type_complexity,
+    reason = "a Bevy query filter is spelled out by the components it watches"
+)]
+#[derive(SystemParam)]
+pub(crate) struct OutlineChanges<'w, 's> {
+    /// The Walls and Rooms placed or edited.
+    changed: Query<'w, 's, (), Or<(Changed<Wall>, Changed<Room>)>>,
+    /// The Walls removed.
+    removed_walls: RemovedComponents<'w, 's, Wall>,
+    /// The Rooms removed.
+    removed_rooms: RemovedComponents<'w, 's, Room>,
+    /// The Layers whose order changed.
+    orders: Query<'w, 's, (), (Changed<Children>, With<Layer>)>,
+}
+
+impl OutlineChanges<'_, '_> {
+    /// Whether any Wall or Room changed, came, or went, or any Layer's order changed.
+    fn any(&mut self) -> bool {
+        let removed = self.removed_walls.read().count() + self.removed_rooms.read().count();
+        !self.changed.is_empty() || !self.orders.is_empty() || removed > 0
+    }
+}
+
+/// Derives the shapes of the Walls and the Rooms whose outlines, thicknesses, or cuts changed
+/// since the last frame, or whose Portals were placed, edited, set, freed, or removed, a Room
+/// together with every Room of its Layer: the shape Engine combines the Layer's Rooms in
+/// stacking order into their floors and Walls, or a Wall alone into its line, says where each
+/// Portal set into them stands and which Walls it leaves out, and strokes each one's Walls; each
+/// Element's box is set around its points. Moves each Portal set into such a Wall or Room, where a
+/// Wall runs at its centre, to where its anchor puts it, turned to the line's direction there
+/// and mirrored when it faces the right; says of every Portal whether it follows its host; and
+/// sets every changed Portal's size from its width and its image's recorded pixel size.
 ///
-/// A Portal whose anchor names no Wall or Room of its Level, or a part its host lacks, is lost:
-/// it is left standing as it is and leaves no gap.
+/// A Portal whose anchor names no Wall or Room of its Level, or a part its host lacks, or a place
+/// on a Room's edge where no Wall runs, is lost: it is left standing as it is and leaves no gap.
 #[expect(
     clippy::too_many_arguments,
-    clippy::type_complexity,
     reason = "a Bevy system is spelled out by the components it reads and writes"
 )]
 pub(crate) fn derive_shapes(
     mut commands: Commands,
-    changed_outlines: Query<(), Or<(Changed<Wall>, Changed<Room>)>>,
+    mut edits: OutlineChanges,
     mut removed_portals: RemovedComponents<Portal>,
     mut walls: Outlines<Wall>,
     mut rooms: Outlines<Room>,
+    derived: (Query<&DerivedFrom<Wall>>, Query<&DerivedFrom<Room>>),
+    layers: Query<&Children, With<Layer>>,
     mut boxes: Boxes,
     mut portals: Portals,
     parents: Query<&ChildOf>,
@@ -107,7 +158,7 @@ pub(crate) fn derive_shapes(
     let portal_changed = portals
         .iter_mut()
         .any(|(_, _, portal, ..)| portal.is_changed());
-    if changed_outlines.is_empty() && !portal_changed && !removed {
+    if !edits.any() && !portal_changed && !removed {
         return;
     }
     let parent_of = |child: Entity| parents.get(child).ok().map(ChildOf::parent);
@@ -115,8 +166,22 @@ pub(crate) fn derive_shapes(
     let mut hosts = parts_of(&walls);
     hosts.append(&mut parts_of(&rooms));
     let set = set_by_host(&hosts, &portals, level_of);
-    let mut standings = reshape(&mut commands, &mut walls, &mut boxes, &set);
-    standings.append(&mut reshape(&mut commands, &mut rooms, &mut boxes, &set));
+    let mut standings = reshape(
+        &mut commands,
+        &mut walls,
+        &derived.0,
+        &layers,
+        &mut boxes,
+        &set,
+    );
+    standings.append(&mut reshape(
+        &mut commands,
+        &mut rooms,
+        &derived.1,
+        &layers,
+        &mut boxes,
+        &set,
+    ));
     let anchors: BTreeMap<ElementId, PortalAnchor> = set
         .values()
         .flatten()
@@ -125,12 +190,24 @@ pub(crate) fn derive_shapes(
 
     for (entity, id, mut portal, mut element, anchoring) in &mut portals {
         let changed = portal.is_changed();
-        let anchor = anchors.get(id);
-        if let Some(anchor) = anchor {
-            follow(&mut portal, &mut element, anchor, standings.get(id));
-        }
-        let derived = match (anchor, portal.anchor) {
-            (Some(_), _) => Anchoring::Set,
+        let had = anchoring.as_deref().copied();
+        let derived = match (anchors.get(id), portal.anchor) {
+            (Some(anchor), _) => match standings.get(id) {
+                Some(Some(standing)) if standing.stretches.is_some() => {
+                    follow(&mut portal, &mut element, anchor, Some(standing));
+                    Anchoring::Set
+                }
+                // No Wall runs at its centre: it stands where it stood.
+                Some(_) => Anchoring::Lost,
+                // Its host was not derived again: it stands as it last did.
+                None => match had {
+                    Some(Anchoring::Lost) => Anchoring::Lost,
+                    Some(Anchoring::Set | Anchoring::Freestanding) | None => {
+                        follow(&mut portal, &mut element, anchor, None);
+                        Anchoring::Set
+                    }
+                },
+            },
             (None, Some(_)) => Anchoring::Lost,
             (None, None) => Anchoring::Freestanding,
         };
@@ -163,54 +240,120 @@ fn parts_of<H: OutlineHost>(outlines: &Outlines<H>) -> BTreeMap<ElementId, (Enti
         .collect()
 }
 
-/// Derives again the shape of every Wall or every Room whose outline, thickness, or set Portals
-/// differ from what its shape was last derived from: `CombineOutlines` gives its line and
-/// floor, and `GenerateWalls` strokes the line, leaving out the stretches those Portals cover.
-/// Sets its Element's box around its points. Returns where each Portal set into those outlines
-/// stands.
+/// The Walls or the Rooms in the batches they are derived in, each batch with the entity its
+/// [`DerivedFrom`] is kept on and its members in stacking order: the Rooms of a Layer together,
+/// as a kind that combines is, and a Wall, or anything on no Layer, alone.
+fn batches<H: OutlineHost>(
+    outlines: &Outlines<H>,
+    layers: &Query<&Children, With<Layer>>,
+) -> BTreeMap<Entity, Vec<(Entity, ElementId, H)>> {
+    let mut batches: BTreeMap<Entity, Vec<(Entity, ElementId, H)>> = BTreeMap::new();
+    for (entity, id, outline, _, parent) in outlines {
+        let key = parent
+            .map(ChildOf::parent)
+            .filter(|parent| H::COMBINES && layers.contains(*parent))
+            .unwrap_or(entity);
+        batches
+            .entry(key)
+            .or_default()
+            .push((entity, *id, outline.clone()));
+    }
+    for (key, members) in &mut batches {
+        if let Ok(children) = layers.get(*key) {
+            let place = |entity: Entity| children.iter().position(|child| *child == entity);
+            members.sort_by_key(|(entity, ..)| place(*entity));
+        }
+    }
+    batches
+}
+
+/// Derives again the shapes of every batch of Walls or Rooms whose outlines, thicknesses, cuts,
+/// or set Portals differ from what its shapes were last derived from: `CombineOutlines` combines
+/// the batch, `AnchorPortals` places the Portals set into it and says which Walls each leaves
+/// out, and `GenerateWalls` strokes each one's Walls, leaving those out. A shape is written only
+/// where it differs. Sets each Element's box around its points. Returns where each Portal set
+/// into those outlines stands, `None` for one on a part or parameter its outline lacks.
 fn reshape<H: OutlineHost>(
     commands: &mut Commands,
     outlines: &mut Outlines<H>,
+    derived: &Query<&DerivedFrom<H>>,
+    layers: &Query<&Children, With<Layer>>,
     boxes: &mut Boxes,
     set: &BTreeMap<ElementId, Vec<Anchored>>,
-) -> BTreeMap<ElementId, Standing> {
+) -> BTreeMap<ElementId, Option<Standing>> {
     let mut standings = BTreeMap::new();
-    for (entity, id, outline, shape, derived_from) in outlines {
-        let into = set.get(id).map_or(&[][..], Vec::as_slice);
-        let geometry = DerivedFrom::of(outline, into);
-        if shape.is_some() && derived_from == Some(&geometry) {
+    for (key, members) in batches(outlines, layers) {
+        let geometry = DerivedFrom::of(&members, set);
+        let shaped = members.iter().all(|(entity, ..)| {
+            outlines
+                .get(*entity)
+                .is_ok_and(|(_, _, _, shape, _)| shape.is_some())
+        });
+        if shaped && derived.get(key).is_ok_and(|last| *last == geometry) {
             continue;
         }
-        let placed = anchor_portals(&geometry.path, &geometry.portals);
-        let stretches: Vec<_> = placed
+        let combination = combine_outlines(
+            &members
+                .iter()
+                .map(|(_, _, outline)| Outline {
+                    path: outline.path(),
+                    cuts: outline.cuts(),
+                })
+                .collect::<Vec<_>>(),
+        );
+        let settings: Vec<PortalSetting> = geometry
+            .portals
             .iter()
-            .flatten()
-            .map(|standing| standing.stretch)
+            .map(|(_, setting)| *setting)
             .collect();
-        for ((portal, ..), standing) in into.iter().zip(placed) {
-            if let Some(standing) = standing {
-                standings.insert(*portal, standing);
+        let mut stretches: Vec<Vec<Stretch>> = vec![Vec::new(); members.len()];
+        for ((portal, _), standing) in geometry
+            .portals
+            .iter()
+            .zip(anchor_portals(&combination, &settings))
+        {
+            if let Some(covered) = standing
+                .as_ref()
+                .and_then(|standing| standing.stretches.as_ref())
+            {
+                for (outline, stretch) in covered {
+                    if let Some(own) = stretches.get_mut(*outline) {
+                        own.push(*stretch);
+                    }
+                }
+            }
+            standings.insert(*portal, standing);
+        }
+        for (index, (entity, _, outline)) in members.iter().enumerate() {
+            let combined = &combination.outlines[index];
+            let mesh = generate_walls(combined, outline.thickness(), &stretches[index]);
+            let drawn_at = members
+                .get(combined.last)
+                .map_or(members[index].1, |last| last.1);
+            let shape = H::shape(combined, mesh, stretches[index].clone(), drawn_at);
+            if let Ok((_, _, _, current, _)) = outlines.get_mut(*entity) {
+                match current {
+                    Some(mut current) => {
+                        if *current != shape {
+                            *current = shape;
+                        }
+                    }
+                    None => {
+                        commands.entity(*entity).insert(shape);
+                    }
+                }
+            }
+            let footprint = outline.element_box();
+            if let Ok(mut element) = boxes.get_mut(*entity) {
+                if element.position != footprint.center() {
+                    element.position = footprint.center();
+                }
+                if element.size != footprint.size() {
+                    element.size = footprint.size();
+                }
             }
         }
-        let combined = combine_outlines(&geometry.path);
-        let walls = generate_walls(&combined, outline.thickness(), &stretches);
-        let derived = H::shape(walls, combined.floor);
-        match shape {
-            Some(mut shape) => *shape = derived,
-            None => {
-                commands.entity(entity).insert(derived);
-            }
-        }
-        commands.entity(entity).insert(geometry);
-        let footprint = outline.element_box();
-        if let Ok(mut element) = boxes.get_mut(entity) {
-            if element.position != footprint.center() {
-                element.position = footprint.center();
-            }
-            if element.size != footprint.size() {
-                element.size = footprint.size();
-            }
-        }
+        commands.entity(key).insert(geometry);
     }
     standings
 }

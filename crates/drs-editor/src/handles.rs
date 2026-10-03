@@ -8,14 +8,14 @@
 
 use crate::gesture::Drag;
 use crate::state::EditorState;
-use crate::walls::{nearest_on_line, on_wall};
+use crate::walls::{Lines, nearest_on_line, on_wall};
 use bevy::color::{Alpha, Color, ColorToPacked};
 use bevy::ecs::message::MessageWriter;
 use bevy::ecs::system::{Query, Res};
 use bevy::gizmos::gizmos::Gizmos;
 use bevy::math::{Isometry2d, Vec2};
 use drs_model::{
-    Apply, EditElement, ElementChange, ElementId, Gesture, Room, Stroke, Viewport, Wall, WallShape,
+    Apply, EditElement, ElementChange, ElementId, Gesture, Room, Stroke, Viewport, Wall,
 };
 
 /// How close to a handle, in screen pixels, the pointer is on it; the size handles are drawn at.
@@ -162,13 +162,14 @@ pub(crate) fn on_egui(colour: Color) -> egui::Color32 {
 }
 
 /// A left press with the Select tool on the selected Wall or Room, which is hit before any
-/// Element: a double-click on its line adds a point at the nearest place on it, and a press on a
-/// handle arms a drag of it and selects it, unless it is a straight segment's or edge's middle,
-/// which selects nothing more than the Element. Returns whether the press was the selection's.
+/// Element: a double-click on its line, any edge of a Room whether a Wall runs along it or not,
+/// adds a point at the nearest place on it, and a press on a handle arms a drag of it and selects
+/// it, unless it is a straight segment's or edge's middle, which selects nothing more than the
+/// Element. Returns whether the press was the selection's.
 pub(crate) fn press_selected(
     state: &mut EditorState,
     apply: &mut MessageWriter<Apply>,
-    selected: Option<(ElementId, Outline, Option<&WallShape>)>,
+    selected: Option<(ElementId, Outline, Option<Lines>)>,
     viewport: &Viewport,
     cursor: Vec2,
     double: bool,
@@ -184,8 +185,8 @@ pub(crate) fn press_selected(
             Some((OutlineHandle::Point(_) | OutlineHandle::Control(_), _))
         )
         && let Some(shape) = shape
-        && on_wall(outline.thickness, shape, cells, viewport.zoom)
-        && let Some(nearest) = nearest_on_line(shape, cells)
+        && on_wall(outline.thickness, &shape, cells, viewport.zoom)
+        && let Some(nearest) = nearest_on_line(&shape, cells)
     {
         apply.write(Apply::EditElement(EditElement {
             element,

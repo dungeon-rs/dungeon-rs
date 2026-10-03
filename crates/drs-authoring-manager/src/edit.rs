@@ -1,7 +1,8 @@
 //! Edit Element: a property change, grouped so that a gesture is one step.
 
 use crate::AuthoringError;
-use crate::outline::{OutlineEdit, OutlineHost, outline_edit};
+use crate::combined::{Walled, take_walls_away};
+use crate::outline::{OutlineEdit, OutlineHost, outline_edit, walls_before};
 use crate::portal::{follows_host, portal_change};
 use bevy_ecs::entity::Entity;
 use bevy_ecs::resource::Resource;
@@ -34,7 +35,7 @@ use std::any::Any;
 pub(crate) fn edit_element(
     world: &mut World,
     command: &EditElement,
-) -> Result<Option<PortalsRemoved>, AuthoringError> {
+) -> Result<Vec<PortalsRemoved>, AuthoringError> {
     let id = command.element;
     let entity = id
         .entity(world)
@@ -54,12 +55,27 @@ pub(crate) fn edit_element(
     if matches!(command.gesture, Gesture::End) {
         crate::history(world)?.end_group();
     }
-    outcome.map(|()| None)
+    outcome.map(|()| Vec::new())
+}
+
+/// Whether a change of a Wall or a Room can move where Walls run: a move, a point or a control
+/// point moved, or whether it cuts.
+fn takes_walls(change: &ElementChange) -> bool {
+    matches!(
+        change,
+        ElementChange::Position(_)
+            | ElementChange::MoveBy(_)
+            | ElementChange::Point { .. }
+            | ElementChange::Control { .. }
+            | ElementChange::Cuts(_)
+    )
 }
 
 /// An Edit Element of the Wall or the Room on `entity`: its first step remembers the outline as
 /// the gesture began, a move by an amount counts from it, and the last step records nothing when
-/// the outline is back where it began.
+/// the outline is back where it began. A change that can move where Walls run removes, in its
+/// own step or the last step of its gesture, every Portal set into another of its kind on its
+/// Layer that had a Wall at its centre before the change, or the gesture, and has none after.
 ///
 /// # Errors
 ///
@@ -69,33 +85,64 @@ fn edit_outline<H: OutlineHost>(
     world: &mut World,
     entity: Entity,
     command: &EditElement,
-) -> Result<Option<PortalsRemoved>, AuthoringError> {
+) -> Result<Vec<PortalsRemoved>, AuthoringError> {
     let id = command.element;
+    let walls_move = takes_walls(&command.change);
     if matches!(command.gesture, Gesture::Begin) {
         let began = world.get::<H>(entity).cloned();
-        world.get_resource_or_insert_with(GestureStart::default).0 =
-            began.map(|outline| (id, Box::new(outline) as Box<dyn Any + Send + Sync>));
+        let walls = walls_move.then(|| walls_before::<H>(world, id)).flatten();
+        world.get_resource_or_insert_with(GestureStart::default).0 = began.map(|outline| Started {
+            element: id,
+            outline: Box::new(outline),
+            walls,
+        });
     }
     let began = match command.gesture {
         Gesture::Single => None,
         Gesture::Begin | Gesture::Continue | Gesture::End => started::<H>(world, id),
     };
+    let walls = match command.gesture {
+        Gesture::Single => walls_move.then(|| walls_before::<H>(world, id)).flatten(),
+        Gesture::Begin | Gesture::Continue => None,
+        Gesture::End => world
+            .get_resource_mut::<GestureStart>()
+            .and_then(|mut start| start.0.take())
+            .and_then(|start| start.walls),
+    };
     let change = match outline_edit::<H>(world, id, &command.change, began.as_ref())? {
         OutlineEdit::Field(field) => field,
         OutlineEdit::Recorded(removed) => return Ok(removed),
     };
-    let outcome = record_in_gesture(world, command.gesture, change);
-    if !matches!(command.gesture, Gesture::End) {
-        return outcome.map(|()| None);
+    let walls = walls.filter(|(_, before)| !before.is_empty());
+    if matches!(command.gesture, Gesture::Single) {
+        let Some((layer, before)) = walls else {
+            return crate::record_step(world, change).map(|()| Vec::new());
+        };
+        crate::history(world)?.begin_group();
+        let mut taken = Vec::new();
+        let outcome = crate::record(world, change).and_then(|()| {
+            take_walls_away::<H>(world, layer, &before).map(|removed| taken = removed)
+        });
+        crate::close_group(world, outcome)?;
+        return Ok(taken);
     }
-    world.get_resource_or_insert_with(GestureStart::default).0 = None;
+    let mut outcome = record_in_gesture(world, command.gesture, change);
+    if !matches!(command.gesture, Gesture::End) {
+        return outcome.map(|()| Vec::new());
+    }
     if outcome.is_ok() && began.is_some() && began.as_ref() == world.get::<H>(entity) {
         drs_history::abandon_group(world)
             .map_err(|error| AuthoringError::History(error.to_string()))?;
-    } else {
-        crate::history(world)?.end_group();
+        return Ok(Vec::new());
     }
-    outcome.map(|()| None)
+    let mut taken = Vec::new();
+    if let Some((layer, before)) = walls {
+        outcome = outcome.and_then(|()| {
+            take_walls_away::<H>(world, layer, &before).map(|removed| taken = removed)
+        });
+    }
+    crate::history(world)?.end_group();
+    outcome.map(|()| taken)
 }
 
 /// Records a field command as the step of `gesture`: a change on its own closes any gesture left
@@ -118,15 +165,26 @@ fn record_in_gesture(
 }
 
 /// The Wall or the Room a gesture changes as it stood when the gesture began, kept from its first
-/// step to its last.
+/// step to its last, with the Portals set into the others of its kind on its Layer that had a
+/// Wall at their centre then, when the gesture can move where Walls run.
 #[derive(Resource, Default)]
-pub(crate) struct GestureStart(Option<(ElementId, Box<dyn Any + Send + Sync>)>);
+pub(crate) struct GestureStart(Option<Started>);
+
+/// What a gesture under way began from.
+pub(crate) struct Started {
+    /// The Wall or the Room it changes.
+    element: ElementId,
+    /// Its outline as the gesture began.
+    outline: Box<dyn Any + Send + Sync>,
+    /// Its Layer and the Portals with a Wall at their centre then.
+    walls: Option<(Entity, Walled)>,
+}
 
 /// The outline `id` had when the gesture under way began, if the gesture changes it.
 fn started<H: OutlineHost>(world: &World, id: ElementId) -> Option<H> {
-    let (element, outline) = world.get_resource::<GestureStart>()?.0.as_ref()?;
-    (*element == id)
-        .then(|| outline.downcast_ref::<H>().cloned())
+    let start = world.get_resource::<GestureStart>()?.0.as_ref()?;
+    (start.element == id)
+        .then(|| start.outline.downcast_ref::<H>().cloned())
         .flatten()
 }
 
@@ -172,12 +230,12 @@ fn element_change(
         }
         ElementChange::Material(asset) => {
             return crate::terrain::set_material(world, id, asset)
-                .map(|()| OutlineEdit::Recorded(None));
+                .map(|()| OutlineEdit::Recorded(Vec::new()));
         }
         ElementChange::Stroke { stroke, change } => {
             match crate::terrain::stroke_change(world, id, *stroke, change)? {
                 Some(field) => Ok(field),
-                None => return Ok(OutlineEdit::Recorded(None)),
+                None => return Ok(OutlineEdit::Recorded(Vec::new())),
             }
         }
     };

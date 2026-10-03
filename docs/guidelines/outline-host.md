@@ -5,10 +5,10 @@
 
 ## Rules
 
-- The kind implements `OutlineHost` (the authoring Manager's `outline.rs`) in a module of its own, and nothing else in the Manager: its `KIND`, the `OutlineKind` variant errors name it by, `FEWEST_POINTS`, the reflect paths of its colours and of a part's control point, its derived `Shape`, and the reading of its component as the shape Engine's `Path` and back (`path`, `with_path`, with `closed` set for an outline that runs back to its first point). `element_box` and `malformation` forward to the component's own, so the model's check stays the only one.
-- Placing (`place_outline`), every edit (`outline_edit`: position, point, control point, thickness, colours), adding and removing a point with the Portals it carries (`Reshape`, `anchor_portals_through`), removal with its Portals (`remove_with_portals`), and deriving (`derive::reshape`) are written once over the trait; a kind never copies them. A property only some kinds have is a trait constant that is `None` for the others (`FLOOR_COLOUR`, `CUTS`), refused with the reason where it is `None`.
-- Wiring a kind is one line in each dispatch: its `Placement` arm calls `place_outline`, `edit_element` tries `outline_edit::<Kind>`, `portal::host_path` chains `path_of::<Kind>` so Portals, removal, and anchors find it, `derive_shapes` gains an `Outlines<Kind>` query, its `parts_of`, its `reshape`, and `Changed<Kind>`, and `derive_snapped_point` gains a `SnapSources<Kind>` query chained in its `points_of`, `Changed<Kind>`, and `RemovedComponents<Kind>`, so its points are within reach of snapping.
-- The shape Engine is only ever handed the `Path`: `combine_outlines` gives the line and, for a closed outline, the floor, and `generate_walls` strokes that line; `shape` only assembles the kind's derived component from the two. Whether the outline closes decides joins, caps, wrapping stretches, and the remap of anchors inside the Engine; the Manager reads `closed` only where it changes the `Path` itself, as `without_point` joins a removed point's parts.
+- The kind implements `OutlineHost` (the authoring Manager's `outline.rs`) in a module of its own, and nothing else in the Manager: its `KIND`, the `OutlineKind` variant errors name it by, `FEWEST_POINTS`, the reflect paths of its colours and of a part's control point, whether it `COMBINES` with the others of its kind on its Layer and whether it `cuts`, its derived `Shape`, and the reading of its component as the shape Engine's `Path` and back (`path`, `with_path`, with `closed` set for an outline that runs back to its first point). `element_box` and `malformation` forward to the component's own, so the model's check stays the only one.
+- Placing (`place_outline`), every edit (`outline_edit`: position, point, control point, thickness, colours, cut), adding and removing a point with the Portals it carries (`Reshape`, `anchor_portals_through`), removal with its Portals (`remove_with_portals`), the removal of the Portals of the kind's other Elements on the Layer whose Wall a Command takes away (`combined::walled` before, `combined::take_walls_away` after), and deriving (`derive::reshape`, a kind that combines in one batch per Layer) are written once over the trait; a kind never copies them. A property only some kinds have is a trait constant that is `None` for the others (`FLOOR_COLOUR`, `CUTS`), refused with the reason where it is `None`.
+- Wiring a kind is one line in each dispatch: its `Placement` arm calls `place_outline`, `edit_element` tries `edit_outline::<Kind>`, `remove_element` tries `remove_with_portals::<Kind>`, `portal::host_path` chains `path_of::<Kind>` so Portals and anchors find it, `portal::standing_in` chains `standing_at::<Kind>`, `derive_shapes` gains an `Outlines<Kind>` query, its `parts_of`, its `reshape` with its `DerivedFrom<Kind>`, and `Changed<Kind>` and `RemovedComponents<Kind>` in `OutlineChanges`, and `derive_snapped_point` gains a `SnapSources<Kind>` query chained in its `points_of`, `Changed<Kind>`, and `RemovedComponents<Kind>`, so its points are within reach of snapping.
+- The shape Engine is only ever handed the `Path` and whether it cuts: `combine_outlines` combines a batch into each outline's line, floor, Walls, and combination, `anchor_portals` places the Portals and says which Walls each leaves out, and `generate_walls` strokes the outline's Walls; `shape` only assembles the kind's derived component from what they give. Whether the outline closes decides joins, caps, wrapping stretches, and the remap of anchors inside the Engine; the Manager reads `closed` only where it changes the `Path` itself, as `without_point` joins a removed point's parts.
 - The Editor sees the kind through `handles::Outline` (an `of_<kind>` constructor, per the editor-handles guideline), lists its line in `LevelView::lines_in_order` and `shape_of` so the Portal tool snaps to it and slides along it, picks it in `topmost_at` as a `Hit::Outline`, so a drag moves it whole, and has its tool snap in `snapping::what_snaps`; RenderEngine draws it by its descriptor's `drawn_as` (`StrokedPath`, `FilledOutline`).
 
 ## Example
@@ -20,6 +20,8 @@ impl OutlineHost for Room {
     const FEWEST_POINTS: usize = 3;
     const COLOUR: &'static str = "wall_colour";
     const FLOOR_COLOUR: Option<&'static str> = Some("floor_colour");
+    const CUTS: Option<&'static str> = Some("cuts");
+    const COMBINES: bool = true;
 
     type Shape = RoomShape;
 
@@ -51,8 +53,29 @@ impl OutlineHost for Room {
         Self::malformation(self)
     }
 
-    fn shape(walls: WallShape, floor: FillMesh) -> RoomShape {
-        RoomShape { walls, floor }
+    fn cuts(&self) -> bool {
+        self.cuts
+    }
+
+    fn shape(
+        combined: &CombinedOutline,
+        mesh: StrokeMesh,
+        stretches: Vec<Stretch>,
+        drawn_at: ElementId,
+    ) -> RoomShape {
+        RoomShape {
+            outline: combined.line.clone(),
+            walls: combined
+                .walls
+                .iter()
+                .map(|wall| wall.line.clone())
+                .collect(),
+            walled: combined.walled.clone(),
+            stretches,
+            mesh,
+            drawn_at,
+            floor: combined.floor.clone(),
+        }
     }
 }
 ```

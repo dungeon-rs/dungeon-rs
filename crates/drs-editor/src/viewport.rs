@@ -15,7 +15,7 @@ use crate::portals;
 use crate::rooms;
 use crate::snapping::Shown;
 use crate::state::{EditorState, Interaction, Tool};
-use crate::walls;
+use crate::walls::{self, Lines};
 use bevy::color::Color;
 use bevy::ecs::change_detection::DetectChangesMut;
 use bevy::ecs::entity::Entity;
@@ -38,6 +38,7 @@ use drs_model::{
     Gesture, Layer, Level, PlaceElement, Placement, Pointer, Portal, Redo, RemoveElement, Room,
     RoomShape, SnappedPoint, Terrain, Undo, Viewport, Wall, WallShape,
 };
+use std::collections::BTreeMap;
 
 /// The zoom factor of one line of a mouse wheel.
 const WHEEL_STEP: f32 = 1.1;
@@ -117,30 +118,52 @@ impl LevelView<'_, '_> {
 
     /// The topmost Element under a point in cells at `zoom`, as what a drag does with it: Layers
     /// from the top down, and each Layer's Elements from the last drawn back. A Wall is under the
-    /// point when its line is near enough outside the stretches its Portals cover, a Room when
-    /// the point is inside its floor or so near its Walls, a Portal when its turned rectangle
-    /// holds the point, and any other Element when its box does; an Element drawn as a painted
-    /// surface, a Terrain, never is, so the ground never gets in the way of what stands on it.
+    /// point when its line is near enough outside the stretches its Portals cover; a Room's Walls
+    /// are hit where they are drawn, at the place of the last Room of its combination, ahead of
+    /// every floor of the combination, a later Room's ahead of an earlier one's, and a Room's
+    /// floor at its own place, inside the floor as it is drawn, or anywhere inside the outline
+    /// of a Room that cuts; a Portal is under the point when its turned rectangle holds the
+    /// point, and any other Element when its box does; an Element drawn as a painted surface, a
+    /// Terrain, never is, so the ground never gets in the way of what stands on it.
     fn topmost_at(&self, cells: Vec2, zoom: f32) -> Option<Hit> {
         self.levels.iter().find_map(|layers| {
             layers.iter().rev().find_map(|&layer| {
                 let (_, elements) = self.layers.get(layer).ok()?;
+                let mut walls_at: BTreeMap<ElementId, Vec<(ElementId, &Room, &RoomShape)>> =
+                    BTreeMap::new();
+                for &element in elements {
+                    if let Ok((id, _, _, _, _, _, Some(room), Some(shape))) =
+                        self.elements.get(element)
+                    {
+                        walls_at
+                            .entry(shape.drawn_at)
+                            .or_default()
+                            .push((*id, room, shape));
+                    }
+                }
                 elements.iter().rev().find_map(|&element| {
                     let (id, element, wall, shape, portal, anchoring, room, room_shape) =
                         self.elements.get(element).ok()?;
+                    let walls_here = walls_at.get(id).map_or(&[][..], Vec::as_slice);
+                    if let Some((room, ..)) = walls_here
+                        .iter()
+                        .rev()
+                        .find(|(_, room, shape)| rooms::on_walls(room, shape, cells, zoom))
+                    {
+                        return Some(Hit::Outline(*room));
+                    }
                     if self.painted(element) {
                         return None;
                     }
                     let other = Hit::Other(*id, element.position);
                     match (wall, shape, portal, room, room_shape) {
                         (Some(wall), Some(shape), ..) => {
-                            walls::on_wall(wall.thickness, shape, cells, zoom)
+                            walls::on_wall(wall.thickness, &Lines::of_wall(shape), cells, zoom)
                                 .then_some(Hit::Outline(*id))
                         }
                         (Some(_), None, ..) | (None, _, _, Some(_), None) => None,
                         (None, _, _, Some(room), Some(room_shape)) => {
-                            rooms::on_room(room, room_shape, cells, zoom)
-                                .then_some(Hit::Outline(*id))
+                            rooms::on_floor(room, room_shape, cells).then_some(Hit::Outline(*id))
                         }
                         (None, _, Some(portal), None, _) => portals::on_portal(
                             element, portal, cells,
@@ -190,21 +213,22 @@ impl LevelView<'_, '_> {
             .and_then(|(id, .., room, _)| Some((*id, room?)))
     }
 
-    /// The selected Element when it is a Wall or a Room, as its handles see it, with the derived
-    /// shape of its line once it has one.
+    /// The selected Element when it is a Wall or a Room, as its handles see it, with its line
+    /// once it has its derived shape: a Wall's, or a Room's whole outline, every edge whether a
+    /// Wall runs along it or not.
     pub(crate) fn selected_outline(
         &self,
         selected: Option<ElementId>,
-    ) -> Option<(ElementId, Outline<'_>, Option<&WallShape>)> {
+    ) -> Option<(ElementId, Outline<'_>, Option<Lines<'_>>)> {
         let selected = selected?;
         let (id, _, wall, shape, _, _, room, room_shape) =
             self.elements.iter().find(|(id, ..)| **id == selected)?;
         match (wall, room) {
-            (Some(wall), _) => Some((*id, Outline::of_wall(wall), shape)),
+            (Some(wall), _) => Some((*id, Outline::of_wall(wall), shape.map(Lines::of_wall))),
             (None, Some(room)) => Some((
                 *id,
                 Outline::of_room(room),
-                room_shape.map(|shape| &shape.walls),
+                room_shape.map(Lines::round_room),
             )),
             (None, None) => None,
         }
@@ -235,19 +259,23 @@ impl LevelView<'_, '_> {
             })
     }
 
-    /// The derived shape of the line of the Wall or the Room with an identity, once it has one.
-    fn shape_of(&self, host: ElementId) -> Option<&WallShape> {
+    /// Where a Portal set into the Wall or the Room with an identity slides, once it has its
+    /// derived shape: along the Wall's line, or along the Walls that run along the Room's edges,
+    /// whichever Room's look they are drawn in.
+    fn shape_of(&self, host: ElementId) -> Option<Lines<'_>> {
         self.elements.iter().find(|(id, ..)| **id == host).and_then(
             |(_, _, _, shape, _, _, _, room_shape)| {
-                shape.or_else(|| room_shape.map(|shape| &shape.walls))
+                shape
+                    .map(Lines::of_wall)
+                    .or_else(|| room_shape.map(Lines::walled_room))
             },
         )
     }
 
-    /// Every Wall and every Room that has its derived shape, with its thickness and the shape of
-    /// its line, bottom first in the stacking order, as picking sees them, so whatever looks for
-    /// the nearest line breaks a tie as a click would.
-    pub(crate) fn lines_in_order(&self) -> Vec<(ElementId, f32, &WallShape)> {
+    /// Every Wall and every Room that has its derived shape, with its thickness and the lines
+    /// drawn in its look, bottom first in the stacking order, as picking sees them, so whatever
+    /// looks for the nearest line breaks a tie as a click would.
+    pub(crate) fn lines_in_order(&self) -> Vec<(ElementId, f32, Lines<'_>)> {
         self.levels
             .iter()
             .flat_map(|layers| layers.iter())
@@ -257,9 +285,11 @@ impl LevelView<'_, '_> {
                 let (id, _, wall, shape, _, _, room, room_shape) =
                     self.elements.get(element).ok()?;
                 match (wall, shape, room, room_shape) {
-                    (Some(wall), Some(shape), ..) => Some((*id, wall.thickness, shape)),
+                    (Some(wall), Some(shape), ..) => {
+                        Some((*id, wall.thickness, Lines::of_wall(shape)))
+                    }
                     (_, _, Some(room), Some(room_shape)) => {
-                        Some((*id, room.thickness, &room_shape.walls))
+                        Some((*id, room.thickness, Lines::of_room(room_shape)))
                     }
                     _ => None,
                 }
@@ -516,8 +546,8 @@ fn drag_element(
 /// to `cells`, as part of `gesture`.
 fn slid(level: &LevelView, element: ElementId, cells: Vec2, gesture: Gesture) -> Option<Apply> {
     let (_, _, portal) = level.selected_portal(Some(element))?;
-    let shape = level.shape_of(portal.anchor?.host)?;
-    portals::slide(element, shape, cells, gesture)
+    let lines = level.shape_of(portal.anchor?.host)?;
+    portals::slide(element, &lines, cells, gesture)
 }
 
 /// Slides the Portal being dragged to the nearest point of its Wall's line to the pointer, once
@@ -934,19 +964,21 @@ pub(crate) fn keys(
     }
 }
 
-/// What outlining the selection reads of an Element: its identity and box, and its Wall, Portal,
-/// or Room when it is one.
+/// What outlining the selection reads of an Element: its identity and box, its Wall, Portal, or
+/// Room when it is one, and a Room's derived shape.
 type Outlined = (
     &'static ElementId,
     &'static Element,
     Option<&'static Wall>,
     Option<&'static Portal>,
     Option<&'static Room>,
+    Option<&'static RoomShape>,
 );
 
-/// Outlines the selected Element, a Portal turned as it is drawn, drops a selection whose Element
-/// is gone, and lets go of a handle the selected Wall or Room no longer has. Nothing is drawn or
-/// dropped while an Export runs, so the outline never appears in the image.
+/// Outlines the selected Element, a Portal turned as it is drawn and a Room along every edge of
+/// its outline, those that carry no Wall included, drops a selection whose Element is gone, and
+/// lets go of a handle the selected Wall or Room no longer has. Nothing is drawn or dropped while
+/// an Export runs, so the outline never appears in the image.
 pub(crate) fn outline_selection(
     mut gizmos: Gizmos,
     mut state: ResMut<EditorState>,
@@ -962,7 +994,8 @@ pub(crate) fn outline_selection(
         }
         return;
     };
-    let Some((_, element, wall, portal, room)) = elements.iter().find(|(id, ..)| **id == selected)
+    let Some((_, element, wall, portal, room, room_shape)) =
+        elements.iter().find(|(id, ..)| **id == selected)
     else {
         state.selected = None;
         state.handle = None;
@@ -973,6 +1006,9 @@ pub(crate) fn outline_selection(
         |portal| portals::outline(element, portal),
     );
     gizmos.rect_2d(isometry, element.size, SELECTION);
+    if let Some(shape) = room_shape {
+        gizmos.linestrip_2d(shape.outline.iter().map(|point| point.position), SELECTION);
+    }
     let outline = wall
         .map(Outline::of_wall)
         .or_else(|| room.map(Outline::of_room));

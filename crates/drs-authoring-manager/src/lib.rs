@@ -1,5 +1,6 @@
 #![doc = include_str!("../README.md")]
 
+mod combined;
 mod derive;
 mod edit;
 mod outline;
@@ -96,6 +97,15 @@ pub enum AuthoringError {
     /// would stand at a position that is not finite.
     #[error("{0}")]
     MalformedPortal(String),
+    /// A Portal is to be set, or slid, to a place on a Room's edge where no Wall runs.
+    #[error(
+        "no Wall runs at that place of the Room's edge {edge}; a Portal is set only where a \
+         Wall is drawn"
+    )]
+    NoWallThere {
+        /// The edge named.
+        edge: usize,
+    },
     /// A Portal is to be set into a Wall or a Room on another Level than its own.
     #[error("the Wall or Room {0:?} is on another Level than the Portal")]
     OnAnotherLevel(ElementId),
@@ -228,9 +238,9 @@ impl Plugin for AuthoringManagerPlugin {
     }
 }
 
-/// Apply: carries an authoring Command out and records it in the history. Returns the answer
-/// naming the Portals the Command removed with the part of a Wall or a Room they were set into,
-/// when it removed any.
+/// Apply: carries an authoring Command out and records it in the history. Returns the answers
+/// naming the Portals the Command removed, one for each Wall or Room they were set into: with
+/// the part of a Wall or a Room the Command removed, or with a Wall it took away.
 ///
 /// # Errors
 ///
@@ -238,14 +248,16 @@ impl Plugin for AuthoringManagerPlugin {
 pub(crate) fn apply(
     world: &mut World,
     command: &Apply,
-) -> Result<Option<PortalsRemoved>, AuthoringError> {
+) -> Result<Vec<PortalsRemoved>, AuthoringError> {
     match command {
-        Apply::PlaceElement(place) => place::place_element(world, place).map(|()| None),
+        Apply::PlaceElement(place) => place::place_element(world, place),
         Apply::EditElement(edit) => edit::edit_element(world, edit),
         Apply::RemoveElement(remove) => remove::remove_element(world, remove),
-        Apply::SetPortalIntoWall(set) => portal::set_portal_into_wall(world, set).map(|()| None),
-        Apply::FreePortal(free) => portal::free_portal(world, free).map(|()| None),
-        Apply::Paint(paint) => terrain::paint(world, paint).map(|()| None),
+        Apply::SetPortalIntoWall(set) => {
+            portal::set_portal_into_wall(world, set).map(|()| Vec::new())
+        }
+        Apply::FreePortal(free) => portal::free_portal(world, free).map(|()| Vec::new()),
+        Apply::Paint(paint) => terrain::paint(world, paint).map(|()| Vec::new()),
     }
 }
 
@@ -355,10 +367,11 @@ fn handle_apply(world: &mut World, requests: &mut SystemState<MessageReader<Appl
     };
     for command in requests {
         match apply(world, &command) {
-            Ok(Some(removed)) => {
-                world.write_message(removed);
+            Ok(removed) => {
+                for answer in removed {
+                    world.write_message(answer);
+                }
             }
-            Ok(None) => {}
             Err(error) => {
                 world.write_message(CommandFailed {
                     command,

@@ -365,12 +365,12 @@ fn on_floor(shape: &RoomShape, p: Vec2) -> bool {
 
 /// Whether the Walls of a shape cover `p`.
 fn on_walls(shape: &RoomShape, p: Vec2) -> bool {
-    in_triangles(p, &shape.walls.mesh.vertices, &shape.walls.mesh.indices)
+    in_triangles(p, &shape.mesh.vertices, &shape.mesh.indices)
 }
 
 /// The edge numbers the derived closed line runs through, in order, each once.
 fn edges_of(shape: &RoomShape) -> Vec<usize> {
-    let mut edges: Vec<usize> = shape.walls.line.iter().map(|point| point.segment).collect();
+    let mut edges: Vec<usize> = shape.outline.iter().map(|point| point.segment).collect();
     edges.dedup();
     edges
 }
@@ -378,8 +378,7 @@ fn edges_of(shape: &RoomShape) -> Vec<usize> {
 /// The point of the derived line tagged with `edge` at `t`.
 fn line_point(shape: &RoomShape, edge: usize, t: f32) -> Vec2 {
     shape
-        .walls
-        .line
+        .outline
         .iter()
         .find(|point| point.segment == edge && point.t == t)
         .map(|point| point.position)
@@ -496,13 +495,12 @@ fn an_edge_curves_by_one_control_point() {
         quadratic(RECTANGLE[3], control, RECTANGLE[0], 0.5),
         "halfway along the closing edge",
     );
-    for point in shape.walls.line.iter().filter(|point| point.segment == 3) {
+    for point in shape.outline.iter().filter(|point| point.segment == 3) {
         let on_curve = quadratic(RECTANGLE[3], control, RECTANGLE[0], point.t);
         assert!(point.position.distance(on_curve) < CLOSE, "{point:?}");
     }
     let straight: Vec<Vec2> = shape
-        .walls
-        .line
+        .outline
         .iter()
         .filter(|point| point.segment == 0)
         .map(|point| point.position)
@@ -551,7 +549,7 @@ fn a_room_is_placed_as_one_step() {
     );
     assert_eq!(fixture.history().undo_depth(), depth + 1);
     let shape = fixture.shape(id);
-    assert!(!shape.floor.indices.is_empty() && !shape.walls.mesh.indices.is_empty());
+    assert!(!shape.floor.indices.is_empty() && !shape.mesh.indices.is_empty());
 
     fixture.undo();
     assert!(fixture.order().is_empty(), "undo takes the whole Room away");
@@ -1134,8 +1132,8 @@ fn a_stretch_runs_round_the_room() {
     let door = fixture.set_door(room, 0, 0.0625, Side::Left);
 
     let shape = fixture.shape(room);
-    assert_eq!(shape.walls.stretches.len(), 1, "one stretch");
-    let stretch = shape.walls.stretches[0];
+    assert_eq!(shape.stretches.len(), 1, "one stretch");
+    let stretch = shape.stretches[0];
     assert_eq!(stretch.start.segment, 3, "starting on the closing edge");
     assert_close(
         stretch.start.t,
@@ -1157,14 +1155,14 @@ fn a_stretch_runs_round_the_room() {
 
     fixture.edit(door, ElementChange::Width(30.0));
     let shape = fixture.shape(room);
-    assert_eq!(shape.walls.stretches.len(), 1, "one stretch");
-    let stretch = shape.walls.stretches[0];
+    assert_eq!(shape.stretches.len(), 1, "one stretch");
+    let stretch = shape.stretches[0];
     for segment in 0..4 {
         for t in [0.0, 0.5, 1.0] {
             assert!(stretch.covers(LinePlace { segment, t }), "{segment} at {t}");
         }
     }
-    assert!(shape.walls.mesh.indices.is_empty(), "no Wall is left");
+    assert!(shape.mesh.indices.is_empty(), "no Wall is left");
 }
 
 /// Moving a Room, moving a point, setting or unsetting a control point, and changing the wall

@@ -7,9 +7,11 @@ that it can be undone and redone.
 A Place Element puts a Prop or a Portal of a chosen Asset, or a Wall or a Room through given
 points, on top of its Layer; a Portal comes at its image's natural size, set into a Wall or a
 Room when the placement anchors it and freestanding otherwise. An Edit Element moves an Element,
-or a Wall or a Room by an amount, every point and control point with it, and on a Wall also moves
+or a Wall or a Room by an amount, every point and control point with it, the amount of each step
+of a drag counted from where the drag began, and on a Wall also moves
 a point, bends or straightens a segment, adds or removes a point, or sets the thickness or the
-colour; a drag sent as a gesture is one step. Moving a point, bending, and the properties go
+colour; a drag sent as a gesture is one step, and one that leaves a Wall or a Room as it began
+records nothing. Moving a point, bending, and the properties go
 through the history's generic field command; adding and removing a point, the only edits that
 renumber a Wall's segments, are a step of their own, and removing a point from a Wall of two
 points removes the Wall. A Room is edited as a Wall is, its edges in place of the segments, the
@@ -25,15 +27,25 @@ removal is answered with a `PortalsRemoved` message naming them. A Command recor
 steps that fails halfway is taken back whole.
 
 Once every Manager has handled the frame's Commands, Undo, and Redo, the Manager derives the shape
-of every Wall and every Room whose points, segments or edges, or thickness changed, or whose
-Portals changed, through the shape Engine, a Room's floor with its Walls, leaving out the
-stretches its Portals cover, and sets the Element's box around its points; a new colour keeps
-the shape. It moves each Portal set into such a Wall or Room to where its anchor puts it, turned
-to the line and mirrored when it faces the right, and sets every changed Portal's size from its
-width and its image's proportions. A Portal whose anchor names no Wall or Room of its Level, or a
-part its host lacks, stands where it was saved and is moved, turned, and mirrored as a
-freestanding one, and a point added to its host moves its anchor past the new part, so it goes
-on standing there.
+of every Wall whose points, segments, or thickness changed, or whose Portals changed, and of every
+Room of a Layer on which a Room was placed, edited, or removed, whose stacking order changed, or
+into whose Rooms a Portal was set, edited, or removed, through the shape Engine: the Rooms of a
+Layer combined together in stacking order into each one's floor, the Walls drawn in its look, and
+the Room at whose place they are drawn, leaving out the stretches the Portals cover, whichever Room
+they are set into, and sets each Element's box around its points; a new colour keeps the shape. It
+moves each Portal set into such a Wall or Room where a Wall runs at its centre to where its anchor
+puts it, turned to the line and mirrored when it faces the right, and sets every changed Portal's
+size from its width and its image's proportions. A Portal whose anchor names no Wall or Room of its
+Level, a part its host lacks, or a place on a Room's edge where no Wall runs, stands where it was
+saved and is moved, turned, and mirrored as a freestanding one, and a point added to its host
+moves its anchor past the new part, so it goes on standing there.
+
+A Room is placed, edited, or removed together with the removal of every Portal set into a Room of
+its Layer that had a Wall at its centre before and has none after, in the same step, worked out
+through the shape Engine from the Rooms as they stand; a drag decides only at its end, measured
+from where it began. A Room may cut, taking floor away from the Rooms before it on its Layer, and
+whether it does is placed with it and changed through an Edit Element of its own. Placing, setting,
+or sliding a Portal into a Room where no Wall runs is refused.
 
 After the frame's Commands, Undo, and Redo, too, whenever the Editor's `Pointer` changed or a
 Wall or Room was placed, edited, or removed, the Manager derives the `SnappedPoint` through the

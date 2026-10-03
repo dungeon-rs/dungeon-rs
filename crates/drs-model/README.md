@@ -32,10 +32,14 @@ colour, its floor colour, and whether it cuts, taking floor away from the Rooms
 before it on its Layer instead of adding its own; a file written before Rooms
 could cut holds version one of it, which opens as a Room that does not cut. The edges are numbered from the first point on,
 the closing edge last, and only adding or removing a point renumbers them. A
-Room's [`RoomShape`](crate::RoomShape) is derived from it and never saved: its
-Walls as a [`WallShape`](crate::WallShape) of the outline flattened into a
-closed line, whose stretches may run on past the first point, and its floor as
-a [`FillMesh`](crate::FillMesh) of what that line winds around.
+Room's [`RoomShape`](crate::RoomShape) is derived from it among the Rooms of
+its Layer and never saved: its whole outline flattened into a closed line, the
+Walls drawn in its look along the pieces of its edges where the Layer's
+combined floor ends or that it shares with another Room, the places on its
+edges where any Wall runs, the stretches the Portals leave out of its Walls,
+the stroke of those Walls, the Room at whose place in the stacking order they
+are drawn, and its floor as a [`FillMesh`](crate::FillMesh) of what its
+outline winds around less what later Rooms that cut take away.
 
 A Portal carries [`Portal`](crate::Portal): the Asset Reference row of its image,
 its width in Grid cells, its rotation, whether it is mirrored, and, when it is

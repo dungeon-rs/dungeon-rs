@@ -367,11 +367,11 @@ pub struct FreePortal {
     pub portal: ElementId,
 }
 
-/// A Command removed the Portals set into a part of a Wall or a Room that it removed, in the same
-/// step.
+/// A Command removed the Portals set into a part of a Wall or a Room that it removed, or into a
+/// Room whose Wall at their centre it took away, in the same step.
 ///
-/// Sent by the authoring Manager after the Command, for the Editor to tell the Author how many
-/// went.
+/// Sent by the authoring Manager after the Command, once for each Wall or Room the removed
+/// Portals were set into, for the Editor to tell the Author how many went.
 #[derive(Message, Debug, Clone, PartialEq, Eq)]
 pub struct PortalsRemoved {
     /// The Wall or the Room the Portals were set into.

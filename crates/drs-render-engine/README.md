@@ -42,12 +42,16 @@ image loads, is Missing, or failed, the placeholder's flat colour is drawn maske
 by the same coverage. A Terrain whose coverage has not been derived yet is not
 drawn that frame.
 
-An Element drawn as a filled outline, a Room, is drawn as two such meshes from
-its derived shape: its floor in its floor colour, half a depth unit below its
-Walls, which are stroked round its closed outline in its wall colour and
-already leave out the stretches its Portals cover. Everything else before the
-Room in the stacking order lies under both and everything after over both. A
-Room whose shape has not been derived yet is not drawn that frame.
+An Element drawn as a filled outline, a Room, is drawn as up to two such meshes
+from its derived shape: its floor in its floor colour, half a depth unit below
+its own place in the stacking order, unless it cuts and so has none, and the
+Walls drawn in its look, in its wall colour, which already leave out the
+stretches the Portals cover. Those Walls are drawn round the place of the last
+Room of its combination, which its shape names, a later Room's over an earlier
+one's, so a combination's Walls lie over every floor of it: everything before a
+Room lies under its floor, and everything after the combination's last Room
+over its floor and Walls. A Room whose shape has not been derived yet is not
+drawn that frame.
 
 One Grid cell is one world unit, `x` to the right and `y` upwards, so an
 Element's position and size in cells are its translation and size as drawn.

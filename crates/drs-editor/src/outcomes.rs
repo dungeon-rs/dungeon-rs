@@ -79,11 +79,17 @@ pub(crate) fn report(
     for HistoryFailed { reason } in history_failed.read() {
         state.status.clone_from(reason);
     }
-    for PortalsRemoved { portals, .. } in portals_removed.read() {
-        let stood = if portals.len() == 1 { "it" } else { "they" };
+    // A Command that took Walls from several Rooms answers once for each: the Author is told the
+    // total.
+    let removed: usize = portals_removed
+        .read()
+        .map(|PortalsRemoved { portals, .. }| portals.len())
+        .sum();
+    if removed > 0 {
+        let stood = if removed == 1 { "it" } else { "they" };
         state.status = format!(
             "Removed {} with the part of the Wall or Room {stood} stood in",
-            counted(portals.len(), "Portal", "Portals")
+            counted(removed, "Portal", "Portals")
         );
     }
     for ThumbnailsUnavailable { reason } in library.thumbnails.read() {

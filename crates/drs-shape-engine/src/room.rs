@@ -1,71 +1,55 @@
-//! `CombineOutlines`: an outline flattened into its line, and the floor a closed one winds
-//! around.
+//! A Room's floor: what its closed line, or the contours left of it once later Rooms cut it,
+//! winds around, filled by `lyon_tessellation` under the non-zero rule.
 //!
-//! The line is flattened as every operation of the Engine flattens it, so the floor's edge, the
-//! Walls' centre line, and the lengths Portals are measured by are the same chords. The floor is
-//! filled by `lyon_tessellation` over those chords under the non-zero rule; the tessellator is
-//! given straight chords only, which it fills with arithmetic and comparisons, so the floor too
-//! comes out the same on every machine.
+//! The tessellator is given straight chords only, which it fills with arithmetic and
+//! comparisons, so the floor comes out the same on every machine.
 
-use crate::path::{Path, TOLERANCE, flatten};
+use crate::path::TOLERANCE;
 use bevy_math::Vec2;
 use drs_model::{FillMesh, LinePoint};
 use lyon_tessellation::geometry_builder::{BuffersBuilder, VertexBuffers};
 use lyon_tessellation::math::point;
 use lyon_tessellation::{FillOptions, FillTessellator, FillVertex};
 
-/// What `CombineOutlines` derives from an outline: its line and, for a closed one, its floor.
-#[derive(Debug, Clone, Default, PartialEq)]
-pub struct CombinedOutline {
-    /// The outline flattened into a line, from the first point to the last, or round to the
-    /// first again on a closed outline, each point tagged with the part it lies on as its
-    /// segment and the parameter along that part.
-    pub line: Vec<LinePoint>,
-    /// Whether the line closes from its last point back to its first.
-    pub closed: bool,
-    /// What a closed line winds around, filled up to the line under the non-zero rule; an open
-    /// line encloses nothing.
-    pub floor: FillMesh,
-}
-
-/// `CombineOutlines` for one outline: its line, within a thousandth of a cell of every curved
-/// part, and, when it is closed, the floor filling everything the line winds around, every part
-/// of an outline whose edges cross included. It is given one outline at a time and combines it
-/// with none.
-///
-/// An outline the tessellator cannot fill, which takes coordinates far beyond any Level, has no
-/// floor rather than a wrong one.
-#[must_use]
-pub fn combine_outlines(path: &Path) -> CombinedOutline {
-    let line = flatten(path);
-    let floor = if path.closed {
-        fill(&line)
-    } else {
-        FillMesh::default()
+/// The triangles filling what a closed line, its last point its first again, winds around,
+/// under the non-zero rule. A line the tessellator cannot fill, which takes coordinates far
+/// beyond any Level, has no floor rather than a wrong one.
+pub(crate) fn fill(line: &[LinePoint]) -> FillMesh {
+    // The closing point is the first again, which closing the contour adds.
+    let Some((_, open)) = line.split_last() else {
+        return FillMesh::default();
     };
-    CombinedOutline {
-        line,
-        closed: path.closed,
-        floor,
-    }
+    let contour: Vec<Vec2> = open.iter().map(|point| point.position).collect();
+    fill_contours(&[contour])
 }
 
-/// The triangles filling what a closed line winds around, under the non-zero rule.
+/// The triangles filling what `contours`, each closed from its last point back to its first,
+/// wind around together, under the non-zero rule; a contour of fewer than three points adds
+/// nothing.
 #[expect(
     clippy::cast_possible_truncation,
     reason = "the tessellator works in single precision, as the model does"
 )]
-fn fill(line: &[LinePoint]) -> FillMesh {
-    // The closing point is the first again, which closing the path adds.
-    let Some((first, rest)) = line.split_last().and_then(|(_, open)| open.split_first()) else {
-        return FillMesh::default();
-    };
+pub(crate) fn fill_contours(contours: &[Vec<Vec2>]) -> FillMesh {
     let mut path = lyon_tessellation::path::Path::builder();
-    path.begin(point(first.position.x, first.position.y));
-    for line_point in rest {
-        path.line_to(point(line_point.position.x, line_point.position.y));
+    let mut any = false;
+    for contour in contours {
+        let Some((first, rest)) = contour.split_first() else {
+            continue;
+        };
+        if rest.len() < 2 {
+            continue;
+        }
+        path.begin(point(first.x, first.y));
+        for at in rest {
+            path.line_to(point(at.x, at.y));
+        }
+        path.end(true);
+        any = true;
     }
-    path.end(true);
+    if !any {
+        return FillMesh::default();
+    }
     let path = path.build();
     let mut buffers: VertexBuffers<Vec2, u32> = VertexBuffers::new();
     let options = FillOptions::non_zero().with_tolerance(TOLERANCE as f32);
@@ -93,9 +77,9 @@ mod tests {
         reason = "a test stops at the first thing that is not as expected"
     )]
 
-    use super::*;
-    use crate::generate_walls;
-    use drs_model::{Stretch, StrokeMesh, WallShape};
+    use crate::{Outline, Path, combine_outlines, generate_walls};
+    use bevy_math::Vec2;
+    use drs_model::{LinePlace, Stretch, StrokeMesh};
 
     /// A Room's closed outline through `points`, every edge straight.
     fn room(points: &[Vec2]) -> Path {
@@ -104,11 +88,6 @@ mod tests {
             controls: vec![None; points.len()],
             closed: true,
         }
-    }
-
-    /// The shape of the Walls round `path`, a quarter of a cell thick, left out along `stretches`.
-    fn walls(path: &Path, stretches: &[Stretch]) -> WallShape {
-        generate_walls(&combine_outlines(path), 0.25, stretches)
     }
 
     /// Whether `p` lies in a triangle of `vertices` and `indices`, edges included.
@@ -126,6 +105,16 @@ mod tests {
         inside(p, &mesh.vertices, &mesh.indices)
     }
 
+    /// The stroke of the Walls round `path` alone, a quarter of a cell thick, left out along
+    /// `stretches`.
+    fn walls(path: &Path, stretches: &[Stretch]) -> StrokeMesh {
+        let combined = combine_outlines(&[Outline {
+            path: path.clone(),
+            cuts: false,
+        }]);
+        generate_walls(&combined.outlines[0], 0.25, stretches)
+    }
+
     /// The floor covers both lobes of an outline whose edges cross, and nothing outside it.
     #[test]
     fn the_floor_fills_a_crossed_outline() {
@@ -137,7 +126,11 @@ mod tests {
             Vec2::new(0.0, 4.0),
             Vec2::new(4.0, 4.0),
         ]);
-        let floor = combine_outlines(&bow).floor;
+        let combined = combine_outlines(&[Outline {
+            path: bow,
+            cuts: false,
+        }]);
+        let floor = &combined.outlines[0].floor;
 
         assert!(inside(Vec2::new(2.0, 0.5), &floor.vertices, &floor.indices));
         assert!(inside(Vec2::new(2.0, 3.5), &floor.vertices, &floor.indices));
@@ -163,8 +156,7 @@ mod tests {
             Vec2::new(4.0, 4.0),
             Vec2::new(0.0, 4.0),
         ]);
-        let shape = walls(&square, &[]);
-        let mesh = &shape.mesh;
+        let mesh = walls(&square, &[]);
         let half = 0.125;
         let corner = half * std::f32::consts::FRAC_1_SQRT_2;
 
@@ -174,26 +166,26 @@ mod tests {
             (Vec2::new(4.0, 4.0), Vec2::new(1.0, 1.0)),
         ] {
             let near = point + outward * (corner - 0.01);
-            assert!(stroked(near, mesh), "the join at {point} reaches {near}");
+            assert!(stroked(near, &mesh), "the join at {point} reaches {near}");
             let past = point + outward * (corner + 0.01);
-            assert!(!stroked(past, mesh), "nothing past the join at {point}");
+            assert!(!stroked(past, &mesh), "nothing past the join at {point}");
         }
         assert!(
-            stroked(Vec2::new(-(half - 0.01), 2.0), mesh),
+            stroked(Vec2::new(-(half - 0.01), 2.0), &mesh),
             "the last edge"
         );
 
         let gap = Stretch {
-            start: drs_model::LinePlace {
+            start: LinePlace {
                 segment: 0,
                 t: 0.25,
             },
-            end: drs_model::LinePlace {
+            end: LinePlace {
                 segment: 0,
                 t: 0.75,
             },
         };
-        let mesh = walls(&square, &[gap]).mesh;
+        let mesh = walls(&square, &[gap]);
         assert!(!stroked(Vec2::new(2.0, 0.0), &mesh), "the gap");
         assert!(stroked(Vec2::new(0.99, half - 0.01), &mesh), "a square end");
         assert!(

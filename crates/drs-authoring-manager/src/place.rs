@@ -11,8 +11,8 @@ use drs_history::{ReversibleCommand, Target};
 use drs_library_access::load_asset;
 use drs_model::{
     AssetAddress, AssetFolder, AssetFolderReference, AssetReference, AssetReferences, Element,
-    ElementId, Grid, IndexedAsset, Layer, PORTAL, PROP, PlaceElement, Placement, Portal, Project,
-    Prop, Room, Wall,
+    ElementId, Grid, IndexedAsset, Layer, PORTAL, PROP, PlaceElement, Placement, Portal,
+    PortalsRemoved, Project, Prop, Room, Wall,
 };
 use std::path::PathBuf;
 use unicode_normalization::UnicodeNormalization;
@@ -170,7 +170,9 @@ pub(crate) fn take_off(world: &mut World, element: ElementId) -> Result<(), Bevy
 }
 
 /// Place Element: places a Prop or a Portal of the chosen Asset, or a Wall or a Room through the
-/// given points, on top of the Layer, as one history step.
+/// given points, on top of the Layer, as one history step. A Room is placed with the removal of
+/// every Portal set into another Room of the Layer that it leaves with no Wall at its centre,
+/// and the answers naming them are returned.
 ///
 /// # Errors
 ///
@@ -179,17 +181,20 @@ pub(crate) fn take_off(world: &mut World, element: ElementId) -> Result<(), Bevy
 pub(crate) fn place_element(
     world: &mut World,
     command: &PlaceElement,
-) -> Result<(), AuthoringError> {
+) -> Result<Vec<PortalsRemoved>, AuthoringError> {
     if world.get::<Layer>(command.layer).is_none() {
         return Err(AuthoringError::NotALayer);
     }
     match &command.placement {
-        Placement::Prop { position, asset } => place_prop(world, command.layer, *position, asset),
+        Placement::Prop { position, asset } => {
+            place_prop(world, command.layer, *position, asset).map(|()| Vec::new())
+        }
         Placement::Portal {
             position,
             asset,
             anchor,
-        } => crate::portal::place_portal(world, command.layer, *position, asset, *anchor),
+        } => crate::portal::place_portal(world, command.layer, *position, asset, *anchor)
+            .map(|()| Vec::new()),
         Placement::Wall {
             points,
             thickness,
