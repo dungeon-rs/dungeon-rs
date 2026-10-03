@@ -184,7 +184,8 @@ pub(crate) fn track(state: &mut EditorState, cursor: Vec2, threshold: f32) {
 /// Ends a press that may have begun a rectangle once its button is up: a drag sends one Place
 /// Element of a Room of the rectangle's four corners, from its lower-left corner
 /// counter-clockwise, unless it is less than a few pixels wide or high; a press that never
-/// became a drag is a click, which adds the first point.
+/// became a drag is a click, which adds the first point. A press whose tool was left before
+/// the release, by Escape, another tool, or a chosen Asset, sends and adds nothing.
 pub(crate) fn release(
     state: &mut EditorState,
     apply: &mut MessageWriter<Apply>,
@@ -195,6 +196,9 @@ pub(crate) fn release(
         return;
     };
     state.interaction = Interaction::Idle;
+    if state.tool != Tool::Room {
+        return;
+    }
     let Some(released) = moved_at else {
         click(state, apply, layer, viewport, pointer);
         return;
