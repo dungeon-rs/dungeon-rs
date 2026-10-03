@@ -36,8 +36,11 @@ for a Canonical Name.
 
 It also exports a Level: on an Export Level request it checks the resolution
 against the limits the request names and the tile size against what the Engine
-renders, opens a PNG through `OutputAccess` as many pixels as the Bounds are
-cells times the resolution, has the render Engine draw the Bounds tile by tile
+renders, refuses an image more than 100,000 pixels wide or high before any file
+exists, naming the largest resolution the Bounds allow, opens a PNG through
+`OutputAccess` as many pixels as the Bounds are cells times the resolution,
+keeping the Bounds as they stand when the request is handled for the whole
+Export, has the render Engine draw the Bounds tile by tile
 offscreen, each tile's Terrains rasterized afresh over it at the Export's
 resolution through the paint Engine and handed to the render Engine with the
 tile's request, writes each tile as its pixels come back, and closes the image,

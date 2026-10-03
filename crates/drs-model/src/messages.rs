@@ -568,6 +568,16 @@ impl ExportLevel {
     pub const PROPOSED_PIXELS_PER_CELL: u32 = 100;
     /// The tile size the Editor passes.
     pub const DEFAULT_TILE_SIZE: u32 = 1024;
+    /// The most pixels an Export's image may be wide or high.
+    pub const MOST_IMAGE_PIXELS: u32 = 100_000;
+
+    /// The highest whole resolution, up to [`ExportLevel::MOST_PIXELS_PER_CELL`], at which
+    /// `bounds` make an image no more than [`ExportLevel::MOST_IMAGE_PIXELS`] a side; zero when
+    /// not even one pixel per cell fits.
+    #[must_use]
+    pub fn largest_pixels_per_cell(bounds: Bounds) -> u32 {
+        (Self::MOST_IMAGE_PIXELS / bounds.size.max_element().max(1)).min(Self::MOST_PIXELS_PER_CELL)
+    }
 }
 
 /// An Export was written.
