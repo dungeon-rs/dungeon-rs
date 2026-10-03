@@ -8,6 +8,7 @@
 //! Manager.
 
 use crate::bindings;
+use crate::gesture::{DRAG_THRESHOLD, Drag};
 use crate::handles::{self, Outline};
 use crate::paint;
 use crate::portals;
@@ -289,10 +290,10 @@ fn pointer_gone(
 ) {
     let released = !input.buttons.pressed(MouseButton::Left);
     if state.interaction == Interaction::Painting && released {
-        paint::release(state, apply, viewport, level.current_layer(), None);
+        paint::release(state, apply, level.current_layer(), None);
     }
-    finish_gesture(state, apply, viewport, input);
-    finish_slide(state, apply, viewport, level);
+    finish_gesture(state, apply, input);
+    finish_slide(state, apply, level);
     if released {
         rooms::release(state, apply, level.current_layer(), viewport, shown);
     }
@@ -314,9 +315,7 @@ fn pointer_gone(
 /// Export runs the pointer is ignored, so the image is of the Level as it was asked for.
 #[expect(
     clippy::too_many_arguments,
-    clippy::too_many_lines,
-    reason = "a Bevy system is spelled out by what it reads and writes, and the gestures are one \
-              match over what is under way"
+    reason = "a Bevy system is spelled out by what it reads and writes"
 )]
 pub(crate) fn pointer(
     mut input: Input,
@@ -362,13 +361,7 @@ pub(crate) fn pointer(
             if input.buttons.pressed(MouseButton::Left) {
                 paint::moved(&mut state, &mut apply, &viewport, cursor);
             } else {
-                paint::release(
-                    &mut state,
-                    &mut apply,
-                    &viewport,
-                    level.current_layer(),
-                    Some(cells),
-                );
+                paint::release(&mut state, &mut apply, level.current_layer(), Some(cells));
             }
         }
         Interaction::Panning { last } => {
@@ -383,19 +376,19 @@ pub(crate) fn pointer(
             if input.buttons.pressed(MouseButton::Left) {
                 drag_handle(&mut state, &mut apply, &viewport, cursor, shown);
             } else {
-                finish_gesture(&mut state, &mut apply, &viewport, &input);
+                finish_gesture(&mut state, &mut apply, &input);
             }
         }
         Interaction::Sliding { .. } => {
             if input.buttons.pressed(MouseButton::Left) {
                 drag_slide(&mut state, &mut apply, &viewport, &level, cursor);
             } else {
-                finish_slide(&mut state, &mut apply, &viewport, &level);
+                finish_slide(&mut state, &mut apply, &level);
             }
         }
         Interaction::Outlining { .. } => {
             if input.buttons.pressed(MouseButton::Left) {
-                rooms::track(&mut state, cursor, handles::DRAG_THRESHOLD);
+                rooms::track(&mut state, cursor, DRAG_THRESHOLD);
             } else {
                 rooms::release(
                     &mut state,
@@ -410,32 +403,14 @@ pub(crate) fn pointer(
             if input.buttons.pressed(MouseButton::Left) {
                 drag_whole(&mut state, &mut apply, &viewport, cursor, shown);
             } else {
-                finish_gesture(&mut state, &mut apply, &viewport, &input);
+                finish_gesture(&mut state, &mut apply, &input);
             }
         }
-        Interaction::Pressed {
-            element,
-            origin,
-            pointer,
-            moved_at,
-        } => {
-            if !input.buttons.pressed(MouseButton::Left) {
-                finish_gesture(&mut state, &mut apply, &viewport, &input);
-                return;
-            }
-            if let Some(gesture) = handles::drag_gesture(pointer, moved_at, cursor) {
-                let position = origin + (viewport.cells_at(cursor) - viewport.cells_at(pointer));
-                apply.write(Apply::EditElement(EditElement {
-                    element,
-                    change: ElementChange::Position(position),
-                    gesture,
-                }));
-                state.interaction = Interaction::Pressed {
-                    element,
-                    origin,
-                    pointer,
-                    moved_at: Some(cursor),
-                };
+        Interaction::Pressed { .. } => {
+            if input.buttons.pressed(MouseButton::Left) {
+                drag_element(&mut state, &mut apply, &viewport, cursor);
+            } else {
+                finish_gesture(&mut state, &mut apply, &input);
             }
         }
     }
@@ -478,6 +453,39 @@ fn start(
     None
 }
 
+/// Moves the Element being dragged, neither a Wall nor a Room, with the pointer, once it has
+/// travelled far enough to be a drag: the first move begins the gesture and every later one that
+/// puts it elsewhere continues it.
+fn drag_element(
+    state: &mut EditorState,
+    apply: &mut MessageWriter<Apply>,
+    viewport: &Viewport,
+    cursor: Vec2,
+) {
+    let Interaction::Pressed {
+        element,
+        origin,
+        mut drag,
+    } = state.interaction
+    else {
+        return;
+    };
+    let position = origin + (viewport.cells_at(cursor) - viewport.cells_at(drag.pressed_at()));
+    let Some(gesture) = drag.step(cursor, position) else {
+        return;
+    };
+    apply.write(Apply::EditElement(EditElement {
+        element,
+        change: ElementChange::Position(position),
+        gesture,
+    }));
+    state.interaction = Interaction::Pressed {
+        element,
+        origin,
+        drag,
+    };
+}
+
 /// The Edit Element sliding the set Portal `element` to the nearest point of its Wall's line
 /// to `cells`, as part of `gesture`.
 fn slid(level: &LevelView, element: ElementId, cells: Vec2, gesture: Gesture) -> Option<Apply> {
@@ -496,43 +504,27 @@ fn drag_slide(
     level: &LevelView,
     cursor: Vec2,
 ) {
-    let Interaction::Sliding {
-        element,
-        pointer,
-        moved_at,
-    } = state.interaction
-    else {
+    let Interaction::Sliding { element, mut drag } = state.interaction else {
         return;
     };
-    let Some(gesture) = handles::drag_gesture(pointer, moved_at, cursor) else {
+    let cells = viewport.cells_at(cursor);
+    let Some(gesture) = drag.step(cursor, cells) else {
         return;
     };
-    if let Some(slide) = slid(level, element, viewport.cells_at(cursor), gesture) {
+    if let Some(slide) = slid(level, element, cells, gesture) {
         apply.write(slide);
     }
-    state.interaction = Interaction::Sliding {
-        element,
-        pointer,
-        moved_at: Some(cursor),
-    };
+    state.interaction = Interaction::Sliding { element, drag };
 }
 
 /// Ends a slide that is under way once its button is up: the place the pointer last slid the
 /// Portal to is sent again as the end of the gesture, so the whole slide is one history step.
-fn finish_slide(
-    state: &mut EditorState,
-    apply: &mut MessageWriter<Apply>,
-    viewport: &Viewport,
-    level: &LevelView,
-) {
-    let Interaction::Sliding {
-        element, moved_at, ..
-    } = state.interaction
-    else {
+fn finish_slide(state: &mut EditorState, apply: &mut MessageWriter<Apply>, level: &LevelView) {
+    let Interaction::Sliding { element, drag } = state.interaction else {
         return;
     };
-    if let Some(last) = moved_at
-        && let Some(slide) = slid(level, element, viewport.cells_at(last), Gesture::End)
+    if let Some(cells) = drag.sent()
+        && let Some(slide) = slid(level, element, cells, Gesture::End)
     {
         apply.write(slide);
     }
@@ -554,26 +546,20 @@ fn drag_handle(
         element,
         handle,
         origin,
-        pointer,
-        moved_to,
+        mut drag,
     } = state.interaction
     else {
         return;
     };
-    let dragging = moved_to.is_some() || (cursor - pointer).length() > handles::DRAG_THRESHOLD;
     let position =
-        shown.point_or(origin + (viewport.cells_at(cursor) - viewport.cells_at(pointer)));
-    if !dragging || moved_to == Some(position) {
+        shown.point_or(origin + (viewport.cells_at(cursor) - viewport.cells_at(drag.pressed_at())));
+    let Some(gesture) = drag.step(cursor, position) else {
         return;
-    }
+    };
     apply.write(Apply::EditElement(EditElement {
         element,
         change: handles::handle_change(handle, position),
-        gesture: if moved_to.is_some() {
-            Gesture::Continue
-        } else {
-            Gesture::Begin
-        },
+        gesture,
     }));
     // A straight segment's middle, once dragged, is the segment's control point.
     let handle = match handle {
@@ -585,8 +571,7 @@ fn drag_handle(
         element,
         handle,
         origin,
-        pointer,
-        moved_to: Some(position),
+        drag,
     };
 }
 
@@ -604,36 +589,25 @@ fn drag_whole(
     let Interaction::Moving {
         element,
         from,
-        pointer,
-        moved_at,
-        moved,
+        mut drag,
     } = state.interaction
     else {
         return;
     };
-    let dragging = moved_at.is_some() || (cursor - pointer).length() > handles::DRAG_THRESHOLD;
-    if !dragging {
-        return;
-    }
+    let moved = drag.sent().unwrap_or(Vec2::ZERO);
     let travel = shown.travel_or(viewport.cells_at(cursor) - from);
-    let amount = travel - moved;
-    if moved_at.is_none() || amount != Vec2::ZERO {
-        apply.write(Apply::EditElement(EditElement {
-            element,
-            change: ElementChange::MoveBy(amount),
-            gesture: if moved_at.is_some() {
-                Gesture::Continue
-            } else {
-                Gesture::Begin
-            },
-        }));
-    }
+    let Some(gesture) = drag.step(cursor, travel) else {
+        return;
+    };
+    apply.write(Apply::EditElement(EditElement {
+        element,
+        change: ElementChange::MoveBy(travel - moved),
+        gesture,
+    }));
     state.interaction = Interaction::Moving {
         element,
         from,
-        pointer,
-        moved_at: Some(cursor),
-        moved: travel,
+        drag,
     };
 }
 
@@ -712,17 +686,14 @@ fn press(
             state.interaction = Interaction::Moving {
                 element,
                 from: cells,
-                pointer: cursor,
-                moved_at: None,
-                moved: Vec2::ZERO,
+                drag: Drag::new(cursor),
             };
         }
         Some((element, origin, false)) => {
             state.interaction = Interaction::Pressed {
                 element,
                 origin,
-                pointer: cursor,
-                moved_at: None,
+                drag: Drag::new(cursor),
             };
         }
         None => {}
@@ -733,12 +704,7 @@ fn press(
 /// Element or the handle to is sent again as the end of the gesture, or for a whole Wall or Room
 /// a move by nothing, so the whole drag is one history step and ends where it was last shown. A
 /// press that never became a drag just ends.
-fn finish_gesture(
-    state: &mut EditorState,
-    apply: &mut MessageWriter<Apply>,
-    viewport: &Viewport,
-    input: &Input,
-) {
+fn finish_gesture(state: &mut EditorState, apply: &mut MessageWriter<Apply>, input: &Input) {
     match state.interaction {
         // A slide ends through `finish_slide`, which knows the Portal's Wall, and a rectangle
         // through `rooms::release`, which knows the Layer.
@@ -756,13 +722,13 @@ fn finish_gesture(
         Interaction::Handle {
             element,
             handle,
-            moved_to,
+            drag,
             ..
         } => {
             if input.buttons.pressed(MouseButton::Left) {
                 return;
             }
-            if let Some(position) = moved_to {
+            if let Some(position) = drag.sent() {
                 apply.write(Apply::EditElement(EditElement {
                     element,
                     change: handles::handle_change(handle, position),
@@ -771,13 +737,11 @@ fn finish_gesture(
             }
             state.interaction = Interaction::Idle;
         }
-        Interaction::Moving {
-            element, moved_at, ..
-        } => {
+        Interaction::Moving { element, drag, .. } => {
             if input.buttons.pressed(MouseButton::Left) {
                 return;
             }
-            if moved_at.is_some() {
+            if drag.begun() {
                 apply.write(Apply::EditElement(EditElement {
                     element,
                     change: ElementChange::MoveBy(Vec2::ZERO),
@@ -786,17 +750,11 @@ fn finish_gesture(
             }
             state.interaction = Interaction::Idle;
         }
-        Interaction::Pressed {
-            element,
-            origin,
-            pointer,
-            moved_at,
-        } => {
+        Interaction::Pressed { element, drag, .. } => {
             if input.buttons.pressed(MouseButton::Left) {
                 return;
             }
-            if let Some(last) = moved_at {
-                let position = origin + (viewport.cells_at(last) - viewport.cells_at(pointer));
+            if let Some(position) = drag.sent() {
                 apply.write(Apply::EditElement(EditElement {
                     element,
                     change: ElementChange::Position(position),

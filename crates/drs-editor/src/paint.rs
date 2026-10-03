@@ -7,6 +7,7 @@
 //! selected stroke are the Editor's too, never a history step and never saved.
 
 use crate::bindings;
+use crate::gesture::Drag;
 use crate::handles::{self, Outline, OutlineHandle};
 use crate::state::{EditorState, Interaction, Tool};
 use crate::viewport::LevelView;
@@ -88,18 +89,18 @@ pub(crate) struct StrokeDrag {
     dragged: Dragged,
     /// Where the point, or the centre of the stroke's points, was when the button went down.
     origin: Vec2,
-    /// The pointer, on screen, when the button went down.
-    pointer: Vec2,
-    /// The pointer, on screen, when the stroke or the point was last moved; `None` until the drag
-    /// begins.
-    moved_at: Option<Vec2>,
+    /// The press, and where the drag last moved the point or the stroke's centre to, in cells.
+    drag: Drag,
 }
 
 impl StrokeDrag {
-    /// The change that puts the point or the stroke where the pointer at `cursor` has carried it
-    /// from the press.
-    fn change_at(&self, viewport: &Viewport, cursor: Vec2) -> ElementChange {
-        let position = self.origin + (viewport.cells_at(cursor) - viewport.cells_at(self.pointer));
+    /// Where the pointer at `cursor` has carried the point or the stroke's centre from the press.
+    fn position_at(&self, viewport: &Viewport, cursor: Vec2) -> Vec2 {
+        self.origin + (viewport.cells_at(cursor) - viewport.cells_at(self.drag.pressed_at()))
+    }
+
+    /// The change that puts the point or the stroke's centre at `position`.
+    fn change_to(&self, position: Vec2) -> ElementChange {
         ElementChange::Stroke {
             stroke: self.target.stroke,
             change: match self.dragged {
@@ -354,8 +355,7 @@ pub(crate) fn press(
                 target,
                 dragged,
                 origin,
-                pointer: cursor,
-                moved_at: None,
+                drag: Drag::new(cursor),
             });
             state.interaction = Interaction::Painting;
         }
@@ -374,13 +374,13 @@ pub(crate) fn moved(
     cursor: Vec2,
 ) {
     if let Some(drag) = &mut state.paint.drag {
-        if let Some(gesture) = handles::drag_gesture(drag.pointer, drag.moved_at, cursor) {
+        let position = drag.position_at(viewport, cursor);
+        if let Some(gesture) = drag.drag.step(cursor, position) {
             apply.write(Apply::EditElement(EditElement {
                 element: drag.target.terrain,
-                change: drag.change_at(viewport, cursor),
+                change: drag.change_to(position),
                 gesture,
             }));
-            drag.moved_at = Some(cursor);
         }
         return;
     }
@@ -397,7 +397,7 @@ pub(crate) fn moved(
 }
 
 /// Ends the Paint tool's gesture once the button is up. A drag of a stroke or a point sends the
-/// change at the pointer's last position again as the gesture's end, so the whole drag is one
+/// change it last sent again as the gesture's end, so the whole drag is one
 /// step; a press that never became a drag just ends. A stroke being drawn ends at the release
 /// point, when there is one and it does not lie on the last point, and is sent as one Paint onto
 /// `layer` with the Brush's settings and whether it erases, a stroke that paints naming the
@@ -406,16 +406,15 @@ pub(crate) fn moved(
 pub(crate) fn release(
     state: &mut EditorState,
     apply: &mut MessageWriter<Apply>,
-    viewport: &Viewport,
     layer: Option<Entity>,
     at: Option<Vec2>,
 ) {
     state.interaction = Interaction::Idle;
     if let Some(drag) = state.paint.drag.take() {
-        if let Some(last) = drag.moved_at {
+        if let Some(position) = drag.drag.sent() {
             apply.write(Apply::EditElement(EditElement {
                 element: drag.target.terrain,
-                change: drag.change_at(viewport, last),
+                change: drag.change_to(position),
                 gesture: Gesture::End,
             }));
         }

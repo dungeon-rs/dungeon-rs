@@ -7,6 +7,7 @@
 //! Every change is a Command: a click places with one Place Element, a slide is an Edit Element
 //! gesture, and `F` and `X` send one Command each.
 
+use crate::gesture::Drag;
 use crate::state::{EditorState, Interaction, Tool};
 use crate::viewport::LevelView;
 use crate::walls::{NearestPoint, OptionGesture, nearest_on_line};
@@ -238,8 +239,7 @@ pub(crate) fn free_or_set<'a>(
 pub(crate) fn press_set(state: &mut EditorState, element: ElementId, cursor: Vec2) {
     state.interaction = Interaction::Sliding {
         element,
-        pointer: cursor,
-        moved_at: None,
+        drag: Drag::new(cursor),
     };
 }
 

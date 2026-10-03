@@ -6,6 +6,7 @@
 //! Every change a handle makes is an Edit Element; which handle is selected is the Editor's own
 //! state.
 
+use crate::gesture::Drag;
 use crate::state::EditorState;
 use crate::walls::{nearest_on_line, on_wall};
 use bevy::color::{Alpha, Color, ColorToPacked};
@@ -19,9 +20,6 @@ use drs_model::{
 
 /// How close to a handle, in screen pixels, the pointer is on it; the size handles are drawn at.
 pub(crate) const HANDLE_PIXELS: f32 = 6.0;
-/// How far the pointer travels, in pixels, before a press on an Element, a handle, or a stroke
-/// becomes a drag.
-pub(crate) const DRAG_THRESHOLD: f32 = 3.0;
 /// How wide a control point's square is drawn, against a point's radius.
 const CONTROL_SIDE: f32 = 1.6;
 /// How opaque the guide lines from a control point to its segment's or edge's points are drawn.
@@ -157,17 +155,6 @@ pub(crate) fn handle_at(
         })
 }
 
-/// Where a press stands with the pointer at `cursor`, the pointer having gone down at `pointer`
-/// and last moved what it drags at `moved_at`: `None` while it is still a click or the pointer has
-/// not moved since, the gesture's Begin once the pointer first travels past [`DRAG_THRESHOLD`],
-/// and Continue after, so a drag from press to release is one step.
-pub(crate) fn drag_gesture(pointer: Vec2, moved_at: Option<Vec2>, cursor: Vec2) -> Option<Gesture> {
-    match moved_at {
-        Some(last) => (last != cursor).then_some(Gesture::Continue),
-        None => ((cursor - pointer).length() > DRAG_THRESHOLD).then_some(Gesture::Begin),
-    }
-}
-
 /// A colour of the handles as egui spells it, for handles drawn over the viewport by egui.
 pub(crate) fn on_egui(colour: Color) -> egui::Color32 {
     let [red, green, blue, alpha] = colour.to_srgba().to_u8_array();
@@ -227,8 +214,7 @@ pub(crate) fn press_selected(
         element,
         handle,
         origin,
-        pointer: cursor,
-        moved_to: None,
+        drag: Drag::new(cursor),
     };
     true
 }

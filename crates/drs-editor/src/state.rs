@@ -3,6 +3,7 @@
 //! tool with the Wall, the Room, or the stroke being drawn and the options being changed. None of
 //! it is domain state.
 
+use crate::gesture::Drag;
 use crate::handles::OutlineHandle;
 use crate::paint::PaintTool;
 use crate::portals::PortalTool;
@@ -214,20 +215,16 @@ pub(crate) enum Interaction {
         handle: OutlineHandle,
         /// Where the handle was, in cells, when the button went down.
         origin: Vec2,
-        /// The pointer, on screen, when the button went down.
-        pointer: Vec2,
-        /// Where the handle was last moved to, in cells; `None` until the drag begins.
-        moved_to: Option<Vec2>,
+        /// The press, and where the drag last moved the handle to, in cells.
+        drag: Drag,
     },
     /// The left button went down on a Portal set into a Wall or a Room; a drag slides it along
     /// its line.
     Sliding {
         /// The Portal.
         element: ElementId,
-        /// The pointer, on screen, when the button went down.
-        pointer: Vec2,
-        /// The pointer, on screen, when the Portal was last slid; `None` until the drag begins.
-        moved_at: Option<Vec2>,
+        /// The press, and the pointer, in cells, the drag last slid the Portal towards.
+        drag: Drag,
     },
     /// The left button went down with the Room tool and no point placed; a drag draws a
     /// rectangle, and a release without one is a click.
@@ -248,12 +245,8 @@ pub(crate) enum Interaction {
         element: ElementId,
         /// Where the pointer was, in cells, when the button went down.
         from: Vec2,
-        /// The pointer, on screen, when the button went down.
-        pointer: Vec2,
-        /// The pointer, on screen, when the Element was last moved; `None` until the drag begins.
-        moved_at: Option<Vec2>,
-        /// How far it has been moved since the button went down, in cells.
-        moved: Vec2,
+        /// The press, and how far the drag has moved it since, in cells.
+        drag: Drag,
     },
     /// The left button went down on an Element that is neither a Wall nor a Room; a drag moves
     /// it.
@@ -262,9 +255,7 @@ pub(crate) enum Interaction {
         element: ElementId,
         /// The Element's centre, in cells, when the button went down.
         origin: Vec2,
-        /// The pointer, on screen, when the button went down.
-        pointer: Vec2,
-        /// The pointer, on screen, when the Element was last moved; `None` until the drag begins.
-        moved_at: Option<Vec2>,
+        /// The press, and where the drag last moved the Element's centre to, in cells.
+        drag: Drag,
     },
 }

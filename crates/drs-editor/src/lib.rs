@@ -7,6 +7,7 @@ mod crash_test;
 mod diagnostics;
 mod export;
 mod files;
+mod gesture;
 mod grid;
 mod handles;
 mod outcomes;
