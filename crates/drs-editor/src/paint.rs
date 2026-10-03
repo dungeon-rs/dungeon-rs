@@ -836,12 +836,19 @@ pub(crate) fn overlay(
 }
 
 /// Logs the Paint tool, its mode, the selected stroke, and the handle being dragged, and for
-/// every Terrain each stroke's number, whether it erases, its Brush settings, and its number of
-/// points, for a script to aim at a stroke and check what painting and editing did.
+/// every Terrain the band its coverage is shown at, how many tiles it holds at the base and at
+/// that band, and each stroke's number, whether it erases, its Brush settings, and its number of
+/// points, for a script to aim at a stroke and check what painting, editing, zooming, and
+/// panning did.
 #[cfg(feature = "dev")]
 pub(crate) fn describe(
     state: &EditorState,
-    terrains: &Query<(&ElementId, &drs_model::Element, &Terrain)>,
+    terrains: &Query<(
+        &ElementId,
+        &drs_model::Element,
+        &Terrain,
+        Option<&drs_model::TerrainCoverage>,
+    )>,
 ) {
     bevy::log::info!(
         "describe: paint tool chosen {}, mode {:?}, brush size {} hardness {} strength {}, \
@@ -859,14 +866,18 @@ pub(crate) fn describe(
             .map(|selected| (selected.terrain.as_raw(), selected.stroke)),
         state.paint.drag.as_ref().map(|drag| drag.dragged)
     );
-    for (id, element, terrain) in terrains {
+    for (id, element, terrain, coverage) in terrains {
         bevy::log::info!(
-            "describe: terrain {} at {} size {}, image row {}, {} strokes",
+            "describe: terrain {} at {} size {}, image row {}, {} strokes, band {:?}, {} tiles \
+             at the base, {} at the band",
             id.as_raw(),
             element.position,
             element.size,
             terrain.image.0,
-            terrain.strokes.len()
+            terrain.strokes.len(),
+            coverage.map(|coverage| coverage.band),
+            coverage.map_or(0, |coverage| coverage.base_tiles),
+            coverage.map_or(0, |coverage| coverage.tiles.len())
         );
         for (number, stroke) in terrain.strokes.iter().enumerate() {
             bevy::log::info!(

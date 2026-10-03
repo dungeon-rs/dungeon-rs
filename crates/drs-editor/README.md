@@ -168,8 +168,10 @@ tool discard a stroke being drawn.
   to a file, the editor is driven by its steps, one per frame (`wait`, `move`, `down`,
   `up`, `click`, `drag`, `key`, `hold`, `release`, `text`, `scroll`, `pinch`,
   `screenshot`, `describe`, which also logs the Wall and Room tools, every Wall
-  and Room and the stretches it gives way along, every Portal, the Snap switch,
-  the Pointer, and the snapped point, `close`,
+  and Room and the stretches it gives way along, every Portal, every Terrain with
+  its strokes, the band its coverage is shown at, and how many tiles it holds at
+  the base and at that band, the Snap switch, the Pointer, and the snapped point,
+  `close`,
   `quit`), fed in as the messages the window would send so egui and the viewport see
   them alike; `describe` logs every clickable widget and every cell of the grid with
   its rectangle.

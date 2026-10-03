@@ -20,9 +20,10 @@
 //! - `describe`: log the title, the status line, the dialog open, every clickable widget with its
 //!   rectangle, every cell of the Assets panel's grid with what it shows, the Wall and Room tools,
 //!   every Wall, Portal, and Room, the Paint tool with its Brush, its mode, the selected stroke,
-//!   and the handle being dragged, every Terrain with each stroke's number, whether it erases,
-//!   its Brush settings, and its points, and the Snap switch, the Pointer, and the snapped point,
-//!   so a script can be checked and aimed without
+//!   and the handle being dragged, every Terrain with the band its coverage is shown at, how many
+//!   tiles it holds at the base and at that band, and each stroke's number, whether it erases, its
+//!   Brush settings, and its points, and the Snap switch, the Pointer, and the snapped point, so a
+//!   script can be checked and aimed without
 //!   seeing the screen.
 //! - `close`: ask to close the window, as its close button does.
 //! - `quit`: exit the editor.
@@ -49,7 +50,9 @@ use bevy::reflect::enums::{DynamicEnum, DynamicVariant};
 use bevy::render::view::screenshot::{Screenshot, save_to_disk};
 use bevy::window::{CursorMoved, PrimaryWindow, Window, WindowCloseRequested, WindowEvent};
 use bevy_egui::EguiContexts;
-use drs_model::{Element, ElementId, Portal, Room, RoomShape, Terrain, Wall, WallShape};
+use drs_model::{
+    Element, ElementId, Portal, Room, RoomShape, Terrain, TerrainCoverage, Wall, WallShape,
+};
 use std::collections::VecDeque;
 use std::path::PathBuf;
 
@@ -172,8 +175,17 @@ pub(crate) struct Described<'w, 's> {
     portals: Query<'w, 's, (&'static ElementId, &'static Element, &'static Portal)>,
     /// Every Wall's derived shape.
     shapes: Query<'w, 's, (&'static ElementId, &'static WallShape)>,
-    /// Every Terrain.
-    terrains: Query<'w, 's, (&'static ElementId, &'static Element, &'static Terrain)>,
+    /// Every Terrain, with its coverage once derived.
+    terrains: Query<
+        'w,
+        's,
+        (
+            &'static ElementId,
+            &'static Element,
+            &'static Terrain,
+            Option<&'static TerrainCoverage>,
+        ),
+    >,
     /// The Snap switch.
     switch: Res<'w, crate::snapping::SnapSwitch>,
     /// The Pointer.
