@@ -203,7 +203,8 @@ pub enum Placement {
         /// The colour it is drawn in.
         colour: Colour,
     },
-    /// A Room through points, closed from the last back to the first, every edge straight.
+    /// A Room through points, closed from the last back to the first, every edge straight, that
+    /// cuts or not.
     Room {
         /// The points in Grid cells, in order; three or more.
         points: Vec<Vec2>,
@@ -213,6 +214,9 @@ pub enum Placement {
         wall_colour: Colour,
         /// The colour its floor is drawn in.
         floor_colour: Colour,
+        /// Whether it takes floor away from the Rooms before it on the Layer rather than adding
+        /// its own.
+        cuts: bool,
     },
 }
 
@@ -263,6 +267,8 @@ pub enum ElementChange {
     Colour(Colour),
     /// Set a Room's floor colour.
     FloorColour(Colour),
+    /// Make a Room take floor away from the Rooms before it on its Layer, or add floor of its own.
+    Cuts(bool),
     /// Set a Portal's width in Grid cells, its height following its image's proportions; above
     /// zero.
     Width(f32),

@@ -158,6 +158,7 @@ impl Fixture {
                 thickness,
                 wall_colour: GREY,
                 floor_colour: floor,
+                cuts: false,
             },
         })
     }
@@ -418,6 +419,7 @@ fn a_room_is_its_outline() {
             thickness: 0.125,
             wall_colour: GREY,
             floor_colour: LIGHT,
+            cuts: false,
         }
     );
 }

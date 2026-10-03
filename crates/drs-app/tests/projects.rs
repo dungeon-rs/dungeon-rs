@@ -1141,6 +1141,9 @@ fn refuses_malformed_outlines(saved: &mut Saved, root: &Path) {
         }
         data
     };
+    // A Room is checked at every version it was ever written at, the second adding whether it
+    // cuts.
+    let versions = |kind: &str| -> Vec<u32> { if kind == "room" { vec![1, 2] } else { vec![1] } };
     let straight = json!({ "control": null });
     for (name, kind, data, reason) in [
         (
@@ -1180,21 +1183,27 @@ fn refuses_malformed_outlines(saved: &mut Saved, root: &Path) {
             "finite",
         ),
     ] {
-        let mut outlined = json(&saved.file);
-        let envelopes = outlined["elements"][&id]
-            .as_object_mut()
-            .expect("the Element's envelopes");
-        envelopes.remove("prop");
-        envelopes["element"]["data"]["kind"] = json!(kind);
-        envelopes.insert(kind.to_owned(), json!({ "version": 1, "data": data }));
-        let path = root.join(format!("{name}.dungeon"));
-        write_json(&path, &outlined);
-        let refused = saved.device.open(&path).expect_err("a malformed outline");
-        assert!(
-            refused.reason.contains(kind) && refused.reason.contains(reason),
-            "{name}: {}",
-            refused.reason
-        );
+        for version in versions(kind) {
+            let mut data = data.clone();
+            if version == 2 {
+                data["cuts"] = json!(false);
+            }
+            let mut outlined = json(&saved.file);
+            let envelopes = outlined["elements"][&id]
+                .as_object_mut()
+                .expect("the Element's envelopes");
+            envelopes.remove("prop");
+            envelopes["element"]["data"]["kind"] = json!(kind);
+            envelopes.insert(kind.to_owned(), json!({ "version": version, "data": data }));
+            let path = root.join(format!("{name}-{version}.dungeon"));
+            write_json(&path, &outlined);
+            let refused = saved.device.open(&path).expect_err("a malformed outline");
+            assert!(
+                refused.reason.contains(kind) && refused.reason.contains(reason),
+                "{name} at version {version}: {}",
+                refused.reason
+            );
+        }
     }
 }
 
@@ -1276,6 +1285,17 @@ fn a_newer_file_is_refused() {
     assert!(refused.reason.contains("terrain"), "{}", refused.reason);
     assert!(refused.reason.contains('3'), "{}", refused.reason);
     assert_eq!(painted.device.terrain(), terrain);
+
+    let mut drawn = SavedRooms::new();
+    let rooms = drawn.device.rooms();
+    let mut newer = json(&drawn.file);
+    newer["elements"][drawn.rooms[0].as_raw().to_string()]["room"]["version"] = json!(3);
+    let path = drawn.device.root().join("room-3.dungeon");
+    write_json(&path, &newer);
+    let refused = drawn.device.open(&path).expect_err("a newer Room");
+    assert!(refused.reason.contains("room"), "{}", refused.reason);
+    assert!(refused.reason.contains('3'), "{}", refused.reason);
+    assert_eq!(drawn.device.rooms(), rooms);
 }
 
 /// Data in an Element under a component name this editor does not know is kept with the Element
@@ -2765,6 +2785,7 @@ impl Device {
                 thickness,
                 wall_colour: Colour::rgb(60, 60, 60),
                 floor_colour: Colour::rgb(200, 190, 170),
+                cuts: false,
             },
         }));
         let id = self
@@ -2891,8 +2912,8 @@ impl SavedRooms {
 }
 
 /// A saved Room holds its points, which edges are curved and their control points, its wall
-/// thickness, its wall colour, and its floor colour, and reopens the same, with every Portal set
-/// into the same place of the same Room.
+/// thickness, its wall colour, its floor colour, and whether it cuts, and reopens the same, with
+/// every Portal set into the same place of the same Room.
 #[test]
 fn rooms_are_saved_as_their_outline() {
     let mut saved = SavedRooms::new();
@@ -2906,7 +2927,7 @@ fn rooms_are_saved_as_their_outline() {
     assert_eq!(
         curved["room"],
         json!({
-            "version": 1,
+            "version": 2,
             "data": {
                 "points": [[-4.0, -4.0], [4.0, -4.0], [4.0, 2.0], [-4.0, 2.0]],
                 "edges": [
@@ -2917,7 +2938,8 @@ fn rooms_are_saved_as_their_outline() {
                 ],
                 "thickness": 0.5,
                 "wall_colour": { "red": 60, "green": 60, "blue": 60 },
-                "floor_colour": { "red": 200, "green": 190, "blue": 170 }
+                "floor_colour": { "red": 200, "green": 190, "blue": 170 },
+                "cuts": false
             }
         })
     );
@@ -3027,4 +3049,40 @@ fn unknown_rooms_round_trip() {
         .and_then(|(.., shape)| shape)
         .expect("the Room has its shape");
     assert_eq!(shape.walls.stretches.len(), 1, "the Room gives way again");
+}
+
+/// A Room saved by an editor that did not yet know Rooms that cut opens as a Room that does not
+/// cut, and is saved back with whether it cuts.
+#[test]
+fn older_rooms_do_not_cut() {
+    let mut saved = SavedRooms::new();
+    let rooms = saved.device.rooms();
+    let mut older = json(&saved.file);
+    for room in saved.rooms {
+        let envelope = &mut older["elements"][room.as_raw().to_string()]["room"];
+        envelope["version"] = json!(1);
+        envelope["data"]
+            .as_object_mut()
+            .expect("the Room's data")
+            .remove("cuts")
+            .expect("written at version two");
+    }
+    let path = saved.device.root().join("older.dungeon");
+    write_json(&path, &older);
+
+    let mut other = Device::new();
+    other.opens(&path);
+    let opened = other.rooms();
+    assert!(
+        opened.iter().all(|(_, _, room, _)| !room.cuts),
+        "no Room cuts"
+    );
+    assert_eq!(opened, rooms);
+
+    let again = json(&other.save_as(&other.root().join("again.dungeon")));
+    for room in saved.rooms {
+        let envelope = &again["elements"][room.as_raw().to_string()]["room"];
+        assert_eq!(envelope["version"], json!(2));
+        assert_eq!(envelope["data"]["cuts"], json!(false));
+    }
 }

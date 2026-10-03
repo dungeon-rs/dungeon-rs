@@ -28,7 +28,9 @@ it.
 A Room carries [`Room`](crate::Room): its points in Grid cells, one
 [`Edge`](crate::Edge) from each point to the next and from the last back to the
 first, straight or curved by a control point, its wall thickness, its wall
-colour, and its floor colour. The edges are numbered from the first point on,
+colour, its floor colour, and whether it cuts, taking floor away from the Rooms
+before it on its Layer instead of adding its own; a file written before Rooms
+could cut holds version one of it, which opens as a Room that does not cut. The edges are numbered from the first point on,
 the closing edge last, and only adding or removing a point renumbers them. A
 Room's [`RoomShape`](crate::RoomShape) is derived from it and never saved: its
 Walls as a [`WallShape`](crate::WallShape) of the outline flattened into a

@@ -157,6 +157,7 @@ impl Fixture {
                 thickness: 0.125,
                 wall_colour: GREY,
                 floor_colour: LIGHT,
+                cuts: false,
             },
         }));
         support::last_on(&mut self.app, layer)

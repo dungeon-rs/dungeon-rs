@@ -13,6 +13,7 @@ impl OutlineHost for Wall {
     const FEWEST_POINTS: usize = 2;
     const COLOUR: &'static str = "colour";
     const FLOOR_COLOUR: Option<&'static str> = None;
+    const CUTS: Option<&'static str> = None;
 
     type Shape = WallShape;
 

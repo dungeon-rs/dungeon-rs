@@ -404,6 +404,7 @@ pub(crate) fn portal_change(
         | ElementChange::Thickness(_)
         | ElementChange::Colour(_)
         | ElementChange::FloorColour(_)
+        | ElementChange::Cuts(_)
         | ElementChange::Material(_)
         | ElementChange::Stroke { .. } => return Ok(None),
     };

@@ -13,6 +13,7 @@ impl OutlineHost for Room {
     const FEWEST_POINTS: usize = 3;
     const COLOUR: &'static str = "wall_colour";
     const FLOOR_COLOUR: Option<&'static str> = Some("floor_colour");
+    const CUTS: Option<&'static str> = Some("cuts");
 
     type Shape = RoomShape;
 

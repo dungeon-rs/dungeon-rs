@@ -44,18 +44,22 @@ pub(crate) struct RoomTool {
     pub wall_colour: Colour,
     /// The floor colour the next Room is drawn with.
     pub floor_colour: Colour,
+    /// Whether the next Room cuts.
+    pub cuts: bool,
     /// The option being changed as a gesture, if one is.
     option: Option<OptionGesture>,
 }
 
 impl Default for RoomTool {
-    /// An eighth of a cell, the Wall tool's dark grey, and a light grey floor for the next Room.
+    /// An eighth of a cell, the Wall tool's dark grey, and a light grey floor for the next Room,
+    /// which does not cut.
     fn default() -> Self {
         Self {
             drawing: Vec::new(),
             thickness: DEFAULT_THICKNESS,
             wall_colour: DEFAULT_COLOUR,
             floor_colour: DEFAULT_FLOOR,
+            cuts: false,
             option: None,
         }
     }
@@ -100,6 +104,7 @@ fn place(
                 thickness: state.rooms.thickness,
                 wall_colour: state.rooms.wall_colour,
                 floor_colour: state.rooms.floor_colour,
+                cuts: state.rooms.cuts,
             },
         }));
     }
