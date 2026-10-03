@@ -60,7 +60,8 @@ never own domain state. The Editor writes only the model's `Viewport` (panning
 and zooming) and its own state: the chosen Asset, the thumbnails it holds, the
 selection, the search text, the prompt, question, report, or dialog in progress,
 whether an Export is being written, the tool, the Wall, the Room outline, or the
-stroke being drawn, the option being changed, and the Brush.
+stroke being drawn, the option being changed, the Brush, and the selected
+stroke.
 Clicking in the viewport places the chosen Asset or selects the topmost Element
 under the pointer, a Prop by its rectangle, a Portal by its turned rectangle,
 a Wall by its line outside the stretches its Portals cover, and a Room by its
@@ -112,21 +113,34 @@ Portal's width, its rotation in degrees while freestanding, a Flip button, and a
 Free Portal or Set into Wall button. When a Wall edit removes Portals, the
 status line says how many, and so does a Room edit.
 
-The tool strip also offers Paint, chosen there or with `B`, which leaves the
-Wall or the Room tool, discarding what is being drawn, and drops the selection
-but keeps a chosen Asset as the image the Brush paints with. A circle as large as the Brush follows the pointer; a press
-starts a stroke, moving adds the pointer to its path whenever it is more than an
-eighth of the Brush's size from the last point, the stroke is shown as a
-translucent band as wide as the Brush, and the release sends one Paint onto the
-current Layer with the path and the Brush's settings, naming the chosen Asset
-or, with none, no image; with no Asset chosen and no Terrain on the Layer, a
-press paints nothing and the status line asks for an Asset. The options show
-the Brush's size in cells, its hardness and strength as percentages, starting at
-two cells, 50 %, and 100 %, and the image it paints with; when an Asset is chosen
-and the Layer's Terrain shows another image, a button sends the Edit Element that
-makes the Terrain show it. The Brush is the Editor's own, never a history step
-and never saved. Escape and choosing the Wall or the Room tool discard a stroke
-being drawn.
+The tool strip also offers Paint, chosen there or with `B` painting and with `E`
+erasing, which leaves the Wall or the Room tool, discarding what is being drawn,
+and drops the selection but keeps a chosen Asset as the image the Brush paints
+with. Its options choose Paint, Erase, or Edit strokes. Painting or erasing, a
+circle as large as the Brush follows the pointer; a press starts a stroke that
+paints or erases as the tool did at the press, moving adds the pointer to its
+path whenever it is more than an eighth of the Brush's size from the last point,
+the stroke is shown as a translucent band as wide as the Brush, both in a warm
+red while erasing, and the release sends one Paint onto the current Layer with
+the path, the Brush's settings, and whether it erases, a stroke that paints
+naming the chosen Asset or, with none, no image, and an erase naming none; with
+no Asset chosen and no Terrain on the Layer a press paints nothing and the
+status line asks for an Asset, and with no Terrain a press erases nothing and
+the status line says there is nothing to erase. Editing strokes, a click picks
+the latest laid stroke of the current Layer's Terrain within its radius or four
+screen pixels of the pointer, shown as a band as wide as its Brush with its path
+and a handle at each point; dragging a handle moves that point and dragging the
+stroke moves it whole, each as one gesture, and Delete removes it. The options
+show the Brush's size in cells, its hardness and strength as percentages,
+starting at two cells, 50 %, and 100 %, or the selected stroke's, with whether
+it paints or erases, a change to a stroke sent as an Edit Element, a held drag
+as one gesture; and the image it paints with, with, when an Asset is chosen and
+the Layer's Terrain shows another image, a button that sends the Edit Element
+making the Terrain show it. The Brush, the mode, and the selected stroke are the
+Editor's own, never a history step and never saved; the selected stroke is let
+go on undo and redo, on leaving the tool or switching to painting or erasing,
+and when its Terrain no longer has it. Escape and choosing the Wall or the Room
+tool discard a stroke being drawn.
 
 ## Features
 
