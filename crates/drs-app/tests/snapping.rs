@@ -129,6 +129,20 @@ impl Fixture {
             .id()
     }
 
+    /// A second Layer on the first Level, above its first, returning it.
+    fn second_layer(&mut self) -> Entity {
+        let (level, _) = self.level();
+        self.app
+            .world_mut()
+            .spawn((
+                Layer {
+                    name: "Upper".to_owned(),
+                },
+                ChildOf(level),
+            ))
+            .id()
+    }
+
     /// Sends a Command and runs one update, failing the test if it was refused.
     fn apply(&mut self, command: Apply) {
         support::apply(&mut self.app, command);
@@ -457,6 +471,15 @@ fn what_a_point_snaps_to() {
     );
     fixture.prop(Vec2::new(20.1, 20.1));
     fixture.door(Vec2::new(30.1, 30.1));
+    let upper = fixture.second_layer();
+    let above = fixture.room_on(
+        upper,
+        &[
+            Vec2::new(50.1, 0.1),
+            Vec2::new(54.1, 0.1),
+            Vec2::new(54.1, 4.1),
+        ],
+    );
     let upstairs = fixture.second_level();
     fixture.room_on(
         upstairs,
@@ -479,6 +502,11 @@ fn what_a_point_snaps_to() {
         (Vec2::new(14.1, 0.1), Some(wall))
     );
     assert_eq!(fixture.point(Vec2::new(4.15, 3.25)), (FREE[2], Some(room)));
+    assert_eq!(
+        fixture.point(Vec2::new(54.05, 4.05)),
+        (Vec2::new(54.1, 4.1), Some(above)),
+        "a Room on another Layer of the Level"
+    );
     for (cells, what) in [
         (control, "a control point"),
         (Vec2::new(20.1, 20.1), "a Prop's centre"),
