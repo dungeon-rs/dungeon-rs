@@ -668,6 +668,50 @@ fn overlay_tiles_are_let_go_out_of_reach() {
     }
 }
 
+/// When the Terrain goes, the images of its tiles go with it, at the base and at an overlay.
+#[test]
+fn tiles_are_freed_with_the_terrain() {
+    let mut fixture = Fixture::new();
+    let centre = Vec2::new(4.0, 4.0);
+    fixture.look(centre, 40.0);
+    fixture.paint(paint(
+        &[Vec2::new(-3.0, 1.0), Vec2::new(20.0, 6.0)],
+        brush(1.5, 0.5, 1.0),
+    ));
+    let base: Vec<GpuTile> = fixture
+        .coverage()
+        .tiles
+        .values()
+        .map(|tile| tile.image().expect("on the GPU"))
+        .collect();
+    fixture.look(centre, 200.0);
+    let overlay: Vec<GpuTile> = fixture
+        .coverage()
+        .tiles
+        .values()
+        .map(|tile| tile.image().expect("on the GPU"))
+        .collect();
+    assert!(!base.is_empty() && !overlay.is_empty());
+    assert!(
+        base.iter()
+            .chain(&overlay)
+            .all(|image| fixture.image_exists(*image))
+    );
+
+    fixture.undo();
+    assert!(fixture.terrain().is_none(), "the Terrain is gone");
+    for _ in 0..5 {
+        fixture.app.update();
+    }
+
+    for image in base.iter().chain(&overlay) {
+        assert!(
+            !fixture.image_exists(*image),
+            "a tile of a Terrain gone frees its image"
+        );
+    }
+}
+
 /// Every tile of every band holds what the CPU rasterizes, within 1/255, for soft and hard
 /// strokes, a dab, an erase with a sharp joint and a self-crossing, overlapping erases, and a
 /// stroke beyond the Bounds.
