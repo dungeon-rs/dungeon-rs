@@ -879,6 +879,8 @@ fn edited_coverage_is_the_strokes_alone() {
     let tiles = fixture.tiles();
 
     let mut afresh = Fixture::new();
+    // The first stroke paints, as `four_strokes` lays it and no edit turns it, so painting it
+    // first makes the Terrain the rest are laid on; an erase would make none.
     afresh.flagstones(strokes[0].clone());
     for stroke in &strokes[1..] {
         afresh.paint(stroke.clone(), None);
@@ -891,13 +893,22 @@ fn edited_coverage_is_the_strokes_alone() {
 }
 
 /// Redo carries a stroke's edit or removal out exactly as it was first applied: the same
-/// strokes and the same coverage.
+/// strokes and the same coverage, an edit of a stroke that an earlier removal numbered afresh
+/// included.
 #[test]
 fn stroke_edits_redo_exactly() {
     let mut fixture = Fixture::new();
     let (terrain, _) = four_strokes(&mut fixture);
     let mut after = Vec::new();
-    for change in one_of_each() {
+    // The last of `one_of_each` removes stroke 2, so the stroke laid fourth is then stroke 2.
+    let renumbered = edit_of(
+        2,
+        StrokeChange::Point {
+            index: 0,
+            position: Vec2::new(7.0, 4.0),
+        },
+    );
+    for change in one_of_each().into_iter().chain([renumbered]) {
         fixture.edit(terrain, change);
         after.push((fixture.terrain(), fixture.tiles()));
     }
