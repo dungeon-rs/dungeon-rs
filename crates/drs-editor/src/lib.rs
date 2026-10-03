@@ -1,6 +1,7 @@
 #![doc = include_str!("../README.md")]
 
 mod bindings;
+mod bounds;
 mod browser;
 #[cfg(feature = "dev")]
 mod crash_test;
@@ -74,6 +75,7 @@ impl Plugin for EditorPlugin {
             .init_resource::<panels::Layout>()
             .init_resource::<snapping::SnapSwitch>()
             .insert_gizmo_config(grid::GridGizmos, grid::config())
+            .insert_gizmo_config(bounds::BoundsGizmos, bounds::config())
             .add_systems(
                 EguiPrimaryContextPass,
                 (
@@ -82,6 +84,7 @@ impl Plugin for EditorPlugin {
                     walls::tool_strip,
                     paint::keep_selection,
                     paint::overlay,
+                    bounds::pointer_icon,
                 )
                     .chain(),
             )
@@ -109,10 +112,12 @@ impl Plugin for EditorPlugin {
                     // Redo leave it, so an outline or a marker never shows the frame before.
                     (
                         grid::draw,
+                        bounds::draw_outline,
                         viewport::outline_selection,
                         walls::draw_overlays,
                         handles::draw,
                         rooms::draw_cuts,
+                        bounds::draw_handles,
                         rooms::draw_overlays,
                         portals::draw_marker,
                         snapping::draw_marker,

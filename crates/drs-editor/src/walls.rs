@@ -397,9 +397,10 @@ pub(crate) fn colour_option(ui: &mut egui::Ui, label: &str, colour: Colour) -> (
     )
 }
 
-/// The tool strip over the top-left corner of the viewport: Select, Wall, Portal, Room, and Paint,
-/// the Snap switch, shown selected while on and switched by a click that is no history step, then
-/// the options. With the Paint tool they are the Brush's; with a Portal selected they are
+/// The tool strip over the top-left corner of the viewport: Select, Wall, Portal, Room, Paint, and
+/// Bounds, the Snap switch, shown selected while on and switched by a click that is no history
+/// step, then the options. With the Bounds tool they are the Bounds' fields; with the Paint tool
+/// they are the Brush's; with a Portal selected they are
 /// the Portal's own; with a Room selected, or the Room tool chosen and none selected, they are the
 /// wall thickness, the wall colour, and the floor colour, of the Room or of the next one;
 /// otherwise they are the thickness and the colour, of the selected Wall, a change sent to it as
@@ -440,7 +441,15 @@ pub(crate) fn tool_strip(
                 ui.horizontal_wrapped(|ui| {
                     tools(ui, &mut state, &mut switch);
                     ui.separator();
-                    if state.tool == Tool::Paint {
+                    if state.tool != Tool::Bounds {
+                        crate::bounds::end_fields(&mut state, &mut apply);
+                    }
+                    if state.tool == Tool::Bounds {
+                        portals::end_options(&mut state, &mut apply);
+                        rooms::end_options(&mut state, &mut apply);
+                        end_option(&mut state.walls.option, &mut apply);
+                        crate::bounds::options(ui, &mut state, level.bounds(), &mut apply);
+                    } else if state.tool == Tool::Paint {
                         portals::end_options(&mut state, &mut apply);
                         rooms::end_options(&mut state, &mut apply);
                         let terrain = level.current_terrain();
@@ -475,8 +484,8 @@ fn strip_width(viewport: &Viewport, style: &egui::Style) -> f32 {
     (viewport.area.width() - 2.0 * MARGIN - frame).max(0.0)
 }
 
-/// The tools of the strip, Select, Wall, Portal, Room, and Paint, and the Snap switch after
-/// them, none of which can be used while an Export runs.
+/// The tools of the strip, Select, Wall, Portal, Room, Paint, and Bounds, and the Snap switch
+/// after them, none of which can be used while an Export runs.
 fn tools(ui: &mut egui::Ui, state: &mut EditorState, switch: &mut SnapSwitch) {
     let tool = state.tool;
     let enabled = !state.exporting;
@@ -529,6 +538,19 @@ fn tools(ui: &mut egui::Ui, state: &mut EditorState, switch: &mut SnapSwitch) {
         .clicked()
     {
         crate::paint::choose_paint_tool(state);
+    }
+    if ui
+        .add_enabled(
+            enabled,
+            egui::Button::selectable(tool == Tool::Bounds, "Bounds"),
+        )
+        .on_hover_text(crate::bindings::shortcut_text(
+            ui.ctx(),
+            crate::bindings::BOUNDS_TOOL,
+        ))
+        .clicked()
+    {
+        crate::bounds::choose_bounds_tool(state);
     }
     if ui
         .add_enabled(enabled, egui::Button::selectable(switch.on, "Snap"))

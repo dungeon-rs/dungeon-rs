@@ -35,8 +35,8 @@ use bevy_egui::EguiContexts;
 use bevy_egui::input::EguiWantsInput;
 use drs_model::{
     Anchoring, Apply, DrawnAs, EditElement, Element, ElementChange, ElementId, ElementKindRegistry,
-    Gesture, Layer, Level, PlaceElement, Placement, Pointer, Portal, Redo, RemoveElement, Room,
-    RoomShape, SnappedPoint, Terrain, Undo, Viewport, Wall, WallShape,
+    Gesture, Layer, Level, PlaceElement, Placement, Pointer, Portal, Project, Redo, RemoveElement,
+    Room, RoomShape, SnappedPoint, Terrain, Undo, Viewport, Wall, WallShape,
 };
 use std::collections::BTreeMap;
 
@@ -82,6 +82,8 @@ pub(crate) struct LevelView<'w, 's> {
     pub(crate) terrains: paint::Terrains<'w, 's>,
     /// How each known kind is drawn, which says what is never picked.
     kinds: Option<Res<'w, ElementKindRegistry>>,
+    /// The Project's Bounds.
+    bounds: Query<'w, 's, &'static drs_model::Bounds, With<Project>>,
 }
 
 /// What picking reads of an Element: its identity and box, its Wall and derived shape when it is
@@ -113,6 +115,11 @@ impl LevelView<'_, '_> {
     /// The Level a Layer lies on.
     pub(crate) fn level_of(&self, layer: Entity) -> Option<Entity> {
         self.layer_levels.get(layer).ok().map(ChildOf::parent)
+    }
+
+    /// The Project's Bounds, shared by every Level.
+    pub(crate) fn bounds(&self) -> Option<drs_model::Bounds> {
+        self.bounds.iter().next().copied()
     }
 
     /// The Terrain a Paint on the current Layer adds to, with its identity: the Layer's topmost.
@@ -388,7 +395,7 @@ pub(crate) fn pointer(
     if state.exporting {
         return;
     }
-    if matches!(state.tool, Tool::Wall | Tool::Room) && state.chosen.is_some() {
+    if matches!(state.tool, Tool::Wall | Tool::Room | Tool::Bounds) && state.chosen.is_some() {
         walls::leave_tool(&mut state);
     }
     let shown = Shown::of(&snapped, &written);
@@ -473,6 +480,13 @@ pub(crate) fn pointer(
         Interaction::Pressed { .. } => {
             if input.buttons.pressed(MouseButton::Left) {
                 drag_element(&mut state, &mut apply, &viewport, cursor);
+            } else {
+                finish_gesture(&mut state, &mut apply, &input);
+            }
+        }
+        Interaction::Resizing { .. } => {
+            if input.buttons.pressed(MouseButton::Left) {
+                crate::bounds::drag(&mut state, &mut apply, &viewport, cursor);
             } else {
                 finish_gesture(&mut state, &mut apply, &input);
             }
@@ -700,6 +714,10 @@ fn press(
         paint::press(state, level.current_terrain(), viewport, cursor);
         return;
     }
+    if state.tool == Tool::Bounds {
+        crate::bounds::press(state, level.bounds(), viewport, cursor);
+        return;
+    }
     if state.tool == Tool::Wall {
         let at = shown.point_or(viewport.cells_at(cursor));
         walls::draw_click(
@@ -831,6 +849,11 @@ fn finish_gesture(state: &mut EditorState, apply: &mut MessageWriter<Apply>, inp
             }
             state.interaction = Interaction::Idle;
         }
+        Interaction::Resizing { .. } => {
+            if !input.buttons.pressed(MouseButton::Left) {
+                crate::bounds::finish(state, apply);
+            }
+        }
     }
 }
 
@@ -868,10 +891,10 @@ fn zoom_and_scroll(input: &mut Input, viewport: &mut Viewport, cursor: Vec2) {
     }
 }
 
-/// The keys: `W` chooses the Wall tool, `P` the Portal tool, `R` the Room tool, `B` the Paint tool
-/// painting and `E` erasing, Enter finishes the Wall or closes the Room being drawn, Escape stops
-/// placing or leaves the Wall, the Portal, the Room, or the Paint tool, discarding what is being
-/// drawn, `X` flips and `F` frees or sets the selected Portal, Delete (and Backspace on macOS)
+/// The keys: `W` chooses the Wall tool, `P` the Portal tool, `R` the Room tool, `O` the Bounds
+/// tool, `B` the Paint tool painting and `E` erasing, Enter finishes the Wall or closes the Room
+/// being drawn, Escape stops placing or leaves the Wall, the Portal, the Room, the Bounds, or the
+/// Paint tool, discarding what is being drawn, `X` flips and `F` frees or sets the selected Portal, Delete (and Backspace on macOS)
 /// removes the selected point, straightens the selected control point's segment or edge, removes
 /// the selected Element, or with the Paint tool editing strokes removes the selected stroke, and
 /// the platform's usual shortcuts undo and redo. Nothing happens while egui has the keyboard, so a
@@ -899,6 +922,9 @@ pub(crate) fn keys(
     }
     if bindings::any_pressed(bindings::ROOM_TOOL, &keys) {
         rooms::choose_room_tool(&mut state);
+    }
+    if bindings::any_pressed(bindings::BOUNDS_TOOL, &keys) {
+        crate::bounds::choose_bounds_tool(&mut state);
     }
     // A flip or a freeing in the middle of a slide or an option's drag would land inside the
     // gesture's step, so both wait for it as undo does.
@@ -929,14 +955,17 @@ pub(crate) fn keys(
         match state.tool {
             Tool::Wall => walls::finish(&mut state, &mut apply, level.current_layer()),
             Tool::Room => rooms::close(&mut state, &mut apply, level.current_layer()),
-            Tool::Select | Tool::Portal | Tool::Paint => {}
+            Tool::Select | Tool::Portal | Tool::Paint | Tool::Bounds => {}
         }
     }
     if keys.just_pressed(KeyCode::Escape) {
         if state.chosen.is_some() {
             state.chosen = None;
         }
-        if matches!(state.tool, Tool::Wall | Tool::Portal | Tool::Room) {
+        if matches!(
+            state.tool,
+            Tool::Wall | Tool::Portal | Tool::Room | Tool::Bounds
+        ) {
             walls::leave_tool(&mut state);
         }
         paint::leave_paint_tool(&mut state);

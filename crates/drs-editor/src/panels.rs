@@ -331,6 +331,12 @@ fn status_line(root: &mut egui::Ui, state: &EditorState, set_portal: bool) {
                 };
             } else if state.tool == Tool::Paint {
                 crate::paint::status(ui, state);
+            } else if state.tool == Tool::Bounds {
+                ui.weak(
+                    "Drag an edge or a corner to resize the Bounds, or type in the fields; Escape \
+                     stops",
+                );
+                ui.label("resizing the Bounds");
             } else if let Some(chosen) = &state.chosen {
                 ui.weak("Escape stops placing");
                 ui.label(format!("placing {}", chosen.name));
