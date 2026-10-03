@@ -1,6 +1,6 @@
 //! Terrain: Paint, which lays a stroke on a Layer's Terrain and makes the Terrain with the first
-//! one, the Edit Element that changes the image a Terrain shows, and the coverage derived from
-//! its strokes.
+//! one that paints, the Edit Element that changes the image a Terrain shows, and the coverage
+//! derived from its strokes.
 
 use crate::AuthoringError;
 use crate::place::{Resolved, indexed_asset, project_of, resolve, spawn_beneath, take_off};
@@ -213,12 +213,14 @@ fn well_formed(stroke: &Stroke) -> Result<(), AuthoringError> {
 
 /// Paint: adds the stroke to the topmost Terrain on the Layer, or, on a Layer with none, places
 /// a Terrain of the chosen Asset's image holding it under every Element on the Layer, as one
-/// history step.
+/// history step. A stroke that erases is added to the topmost Terrain whatever image it names,
+/// or none, and makes no Terrain.
 ///
 /// # Errors
 ///
 /// [`AuthoringError::NotALayer`] or [`AuthoringError::NoProject`] for a Layer that is not one or
 /// belongs to no Project, [`AuthoringError::MalformedStroke`] for a stroke that is not one,
+/// [`AuthoringError::NothingToErase`] for an erase on a Layer with no Terrain,
 /// [`AuthoringError::NothingToPaintWith`] for a Paint naming no Asset on a Layer with no
 /// Terrain, [`AuthoringError::AnotherImage`] for an Asset other than the one the Terrain shows,
 /// the errors of resolving the Asset, or [`AuthoringError::History`] when the step could not be
@@ -228,6 +230,17 @@ pub(crate) fn paint(world: &mut World, command: &Paint) -> Result<(), AuthoringE
         return Err(AuthoringError::NotALayer);
     }
     well_formed(&command.stroke)?;
+    if command.stroke.erase {
+        let (element, _) =
+            topmost_terrain(world, command.layer).ok_or(AuthoringError::NothingToErase)?;
+        return crate::record_step(
+            world,
+            AppendStroke {
+                element,
+                stroke: command.stroke.clone(),
+            },
+        );
+    }
     let project = project_of(world, command.layer)?;
     match (topmost_terrain(world, command.layer), &command.asset) {
         (None, None) => Err(AuthoringError::NothingToPaintWith),

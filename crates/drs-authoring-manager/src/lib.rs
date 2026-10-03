@@ -112,6 +112,9 @@ pub enum AuthoringError {
     /// A Paint named no Asset on a Layer that has no Terrain to paint more onto.
     #[error("choose an Asset to paint with: the Layer has no Terrain yet")]
     NothingToPaintWith,
+    /// A Paint that erases was sent for a Layer that has no Terrain to erase from.
+    #[error("there is nothing to erase: the Layer has no Terrain")]
+    NothingToErase,
     /// A Paint named an Asset other than the one the Layer's Terrain shows.
     #[error(
         "the Layer's Terrain shows {shown}, not {painted}; change the Terrain's image to paint \

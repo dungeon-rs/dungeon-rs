@@ -339,15 +339,17 @@ pub struct PortalsRemoved {
     pub portals: Vec<ElementId>,
 }
 
-/// Add a stroke to the topmost Terrain on a Layer, making the Terrain when the Layer has none.
+/// Add a stroke to the topmost Terrain on a Layer, making the Terrain when the Layer has none
+/// and the stroke paints.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Paint {
     /// The Layer to paint on.
     pub layer: Entity,
-    /// The stroke: its path in Grid cells and the Brush settings it is laid with.
+    /// The stroke: its path in Grid cells, the Brush settings it is laid with, and whether it
+    /// erases.
     pub stroke: Stroke,
     /// The Asset whose image the stroke paints with, or `None` to paint with the Terrain's own
-    /// Material.
+    /// Material; an erase's is not looked at.
     pub asset: Option<AssetAddress>,
 }
 
