@@ -2,7 +2,7 @@
 //! derived from them for drawing and picking.
 
 use crate::{
-    Colour, ElementKindName, Serialisable, SerialisationError, Tier, WallShape,
+    Colour, ElementKindName, Serialisable, SerialisationError, Tier, WallShape, parse_version,
     read_current_version,
 };
 use bevy_ecs::component::Component;
@@ -25,7 +25,11 @@ pub struct Edge {
 
 /// A floor area with Walls generated around its outline: an ordered list of three or more points
 /// in Grid cells with an edge from each point to the next and from the last back to the first,
-/// a wall thickness, an opaque wall colour, and an opaque floor colour.
+/// a wall thickness, an opaque wall colour, an opaque floor colour, and whether it cuts.
+///
+/// A Room that cuts takes floor away from the Rooms before it on its Layer instead of adding
+/// floor of its own; it keeps its floor colour all the same, so switching it back changes
+/// nothing else.
 ///
 /// The edge from the first point to the second is the first edge, and so on, the edge from the
 /// last point back to the first being the last: what is set into a Room's Walls is anchored by
@@ -44,10 +48,42 @@ pub struct Room {
     pub wall_colour: Colour,
     /// The colour the floor is drawn in.
     pub floor_colour: Colour,
+    /// Whether it takes floor away from the Rooms before it on its Layer rather than adding its
+    /// own.
+    pub cuts: bool,
+}
+
+/// A Room as version one of its data holds it, before Rooms could cut.
+#[derive(Deserialize)]
+struct RoomVersionOne {
+    /// The points, in order.
+    points: Vec<Vec2>,
+    /// One entry per edge.
+    edges: Vec<Edge>,
+    /// How wide the Walls are drawn.
+    thickness: f32,
+    /// The colour the Walls are drawn in.
+    wall_colour: Colour,
+    /// The colour the floor is drawn in.
+    floor_colour: Colour,
+}
+
+impl From<RoomVersionOne> for Room {
+    /// The same Room, one that does not cut.
+    fn from(old: RoomVersionOne) -> Self {
+        Self {
+            points: old.points,
+            edges: old.edges,
+            thickness: old.thickness,
+            wall_colour: old.wall_colour,
+            floor_colour: old.floor_colour,
+            cuts: false,
+        }
+    }
 }
 
 impl Room {
-    /// A Room through `points` whose every edge is straight.
+    /// A Room through `points` whose every edge is straight, one that does not cut.
     #[must_use]
     pub fn straight(
         points: Vec<Vec2>,
@@ -62,6 +98,7 @@ impl Room {
             thickness,
             wall_colour,
             floor_colour,
+            cuts: false,
         }
     }
 
@@ -124,11 +161,14 @@ impl Room {
 
 impl Serialisable for Room {
     const NAME: &'static str = "room";
-    const VERSION: u32 = 1;
+    const VERSION: u32 = 2;
     const TIER: Tier = Tier::Element;
 
     fn read(version: u32, data: &RawValue) -> Result<Self, SerialisationError> {
-        let room: Self = read_current_version(version, data)?;
+        let room: Self = match version {
+            1 => parse_version::<Self, RoomVersionOne>(data)?.into(),
+            _ => read_current_version(version, data)?,
+        };
         match room.malformation() {
             Some(reason) => Err(SerialisationError::Malformed {
                 component: Self::NAME.to_owned(),

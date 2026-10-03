@@ -162,7 +162,7 @@ fn element_change(
         | ElementChange::RemovePoint { .. }
         | ElementChange::Thickness(_)
         | ElementChange::Colour(_) => Err(AuthoringError::NotAnOutline(id)),
-        ElementChange::FloorColour(_) => Err(AuthoringError::NotARoom(id)),
+        ElementChange::FloorColour(_) | ElementChange::Cuts(_) => Err(AuthoringError::NotARoom(id)),
         ElementChange::Width(_)
         | ElementChange::Rotation(_)
         | ElementChange::Mirrored(_)

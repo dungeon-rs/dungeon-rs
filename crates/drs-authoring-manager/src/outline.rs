@@ -40,6 +40,8 @@ pub(crate) trait OutlineHost:
     const COLOUR: &'static str;
     /// The reflect path of the colour its floor is drawn in, when it has one.
     const FLOOR_COLOUR: Option<&'static str>;
+    /// The reflect path of whether it cuts, when it can.
+    const CUTS: Option<&'static str>;
 
     /// The shape derived from it, which it is drawn and picked by.
     type Shape: Component<Mutability = Mutable>;
@@ -268,6 +270,10 @@ pub(crate) fn outline_edit<H: OutlineHost>(
         ElementChange::FloorColour(colour) => {
             let floor = H::FLOOR_COLOUR.ok_or(AuthoringError::NotARoom(id))?;
             SetField::<ElementId>::new::<H>(id, floor, *colour)
+        }
+        ElementChange::Cuts(cuts) => {
+            let field = H::CUTS.ok_or(AuthoringError::NotARoom(id))?;
+            SetField::<ElementId>::new::<H>(id, field, *cuts)
         }
         ElementChange::AddPoint { segment, t } => {
             return add_point(world, id, &outline, *segment, *t)

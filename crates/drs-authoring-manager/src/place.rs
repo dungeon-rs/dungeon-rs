@@ -204,10 +204,14 @@ pub(crate) fn place_element(
             thickness,
             wall_colour,
             floor_colour,
+            cuts,
         } => crate::outline::place_outline(
             world,
             command.layer,
-            Room::straight(points.clone(), *thickness, *wall_colour, *floor_colour),
+            Room {
+                cuts: *cuts,
+                ..Room::straight(points.clone(), *thickness, *wall_colour, *floor_colour)
+            },
         ),
     }
 }

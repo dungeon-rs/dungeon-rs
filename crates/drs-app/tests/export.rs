@@ -318,6 +318,7 @@ impl Fixture {
                 thickness,
                 wall_colour: YELLOW,
                 floor_colour: WHITE,
+                cuts: false,
             },
         }));
         let room = self.last();

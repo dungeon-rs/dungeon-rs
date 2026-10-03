@@ -450,6 +450,7 @@ pub(crate) fn only_material_and_strokes(
         | ElementChange::Thickness(_)
         | ElementChange::Colour(_)
         | ElementChange::FloorColour(_)
+        | ElementChange::Cuts(_)
         | ElementChange::Width(_)
         | ElementChange::Rotation(_)
         | ElementChange::Mirrored(_)
