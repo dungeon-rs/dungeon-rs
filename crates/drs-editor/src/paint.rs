@@ -137,12 +137,11 @@ impl Default for PaintTool {
 }
 
 impl PaintTool {
-    /// Whether a step is being made with the Paint tool: a stroke being drawn, a point or a
-    /// stroke being dragged, or an option of the selected stroke held while it changes.
+    /// Whether a step is being made with the Paint tool, or may be about to be: a stroke being
+    /// drawn, a press on a stroke or a handle of one, which names the stroke by its number, or
+    /// its drag, or an option of the selected stroke held while it changes.
     pub(crate) fn step_in_progress(&self) -> bool {
-        !self.stroke.is_empty()
-            || self.drag.as_ref().is_some_and(|drag| drag.sent.is_some())
-            || self.option.is_some()
+        !self.stroke.is_empty() || self.drag.is_some() || self.option.is_some()
     }
 
     /// The point being dragged, if a drag of a point is under way.

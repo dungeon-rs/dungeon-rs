@@ -684,9 +684,9 @@ fn zoom_and_scroll(input: &mut Input, viewport: &mut Viewport, cursor: Vec2) {
 /// the selected Element, or with the Paint tool editing strokes removes the selected stroke, and
 /// the platform's usual shortcuts undo and redo. Nothing happens while egui has the keyboard, so a
 /// text field keeps its own editing keys, nor while an Export runs, and undo, redo, flipping, and
-/// freeing or setting wait while an Element or a handle is being dragged, a Wall, a Room, or a
-/// stroke is being drawn, or an option is held while it changes, since each is one step that is
-/// still being made.
+/// freeing or setting wait while an Element, a handle, or a stroke is pressed or dragged, a Wall,
+/// a Room, or a stroke is being drawn, or an option is held while it changes, since each is one
+/// step that is, or may be about to be, still being made.
 pub(crate) fn keys(
     keys: Res<ButtonInput<KeyCode>>,
     egui: Res<EguiWantsInput>,

@@ -66,33 +66,25 @@ impl EditorState {
             .and_then(|(owner, handle)| (owner == element).then_some(handle))
     }
 
-    /// Whether an Element or a handle of a Wall or a Room is being dragged, a Portal slid along
-    /// its line, or a Room's rectangle dragged out: the pointer went down and has moved since.
-    pub fn dragging(&self) -> bool {
+    /// Whether the left button is down on an Element, a handle of a Wall or a Room, or a Portal
+    /// set into its host, or with the Room tool, whether or not the pointer has moved since: a
+    /// press names what it drags by identity and number, so nothing may renumber them before the
+    /// release.
+    pub fn pressing(&self) -> bool {
         matches!(
             self.interaction,
-            Interaction::Pressed {
-                moved_at: Some(_),
-                ..
-            } | Interaction::Handle {
-                moved_at: Some(_),
-                ..
-            } | Interaction::Sliding {
-                moved_at: Some(_),
-                ..
-            } | Interaction::Outlining {
-                moved_at: Some(_),
-                ..
-            }
+            Interaction::Pressed { .. }
+                | Interaction::Handle { .. }
+                | Interaction::Sliding { .. }
+                | Interaction::Outlining { .. }
         )
     }
 
-    /// Whether a step is still being made, by a drag, by a Wall, a Room, or a stroke being drawn,
-    /// by a point or a stroke being dragged, by a press that may begin a Room's rectangle, or by an
-    /// option held while it changes, so undo and redo wait.
+    /// Whether a step is still being made, or may be about to be, by a press or a drag, by a
+    /// Wall, a Room, or a stroke being drawn, by a press on a stroke or a handle of one or its
+    /// drag, or by an option held while it changes, so undo and redo wait.
     pub fn step_under_way(&self) -> bool {
-        self.dragging()
-            || matches!(self.interaction, Interaction::Outlining { .. })
+        self.pressing()
             || self.walls.drawing_in_progress()
             || self.paint.step_in_progress()
             || self.rooms.drawing_in_progress()
