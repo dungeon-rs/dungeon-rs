@@ -863,3 +863,27 @@ fn paint_redoes_exactly() {
     assert_eq!(fixture.terrain(), terrain);
     assert_eq!(fixture.tiles(), tiles);
 }
+
+/// Without a renderer a Terrain's coverage is the base band on the CPU whatever the zoom: a zoom
+/// that would show a closer band leaves it at the base, its tiles holding their pixels as before
+/// and naming no image on the GPU.
+#[test]
+fn without_a_renderer_the_base_is_on_the_cpu() {
+    let mut fixture = Fixture::new();
+    fixture.look(Vec2::new(3.0, 2.0), 40.0, Vec2::new(1024.0, 768.0));
+    fixture.flagstones(stroke(&[Vec2::new(1.0, 1.0), Vec2::new(9.0, 3.0)], SOFT));
+    let before = fixture.coverage();
+    assert_eq!(before.band, 32);
+
+    fixture.look(Vec2::new(3.0, 2.0), 256.0, Vec2::new(1024.0, 768.0));
+
+    let after = fixture.coverage();
+    assert_eq!(after.band, 32);
+    assert_eq!(after, before);
+    assert!(!after.tiles.is_empty());
+    for tile in after.tiles.values() {
+        assert_eq!(tile.image, None);
+        assert_eq!(tile.pixels.len(), 512 * 512);
+    }
+    assert!(fixture.coverage_at(Vec2::new(5.0 + HALF_PIXEL, 2.0 + HALF_PIXEL)) > 0);
+}

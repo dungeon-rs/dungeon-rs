@@ -10,12 +10,12 @@ use bevy::app::App;
 use bevy::ecs::entity::Entity;
 use bevy::ecs::hierarchy::Children;
 use bevy::ecs::message::Messages;
-use bevy::math::{UVec2, Vec2};
+use bevy::math::{Rect, UVec2, Vec2};
 use drs_model::{
     Apply, AssetAddress, AssetReferenceRow, AssetReferences, BrushSettings,
     COVERAGE_PIXELS_PER_CELL, COVERAGE_TILE_PIXELS, CanonicalName, Colour, Element, ElementChange,
     ElementId, FolderKey, Gesture, OpenProject, Paint, PlaceElement, Placement, ProjectOpened,
-    ProjectRefused, ProjectSaved, SaveProject, Stroke, Terrain, TerrainCoverage, TileKey,
+    ProjectRefused, ProjectSaved, SaveProject, Stroke, Terrain, TerrainCoverage, TileKey, Viewport,
 };
 use std::collections::BTreeMap;
 use std::path::PathBuf;
@@ -250,17 +250,35 @@ impl Fixture {
         terrains.remove(0)
     }
 
-    /// The pixels of every tile of the one Terrain's coverage.
-    pub fn tiles(&mut self) -> Tiles {
+    /// The one Terrain's coverage.
+    pub fn coverage(&mut self) -> TerrainCoverage {
         let (id, ..) = self.terrain();
         let world = self.app.world_mut();
-        let coverage = world
+        world
             .query::<(&ElementId, &TerrainCoverage)>()
             .iter(world)
             .find(|(element, _)| **element == id)
             .map(|(_, coverage)| coverage.clone())
-            .expect("the Terrain has its coverage");
-        coverage
+            .expect("the Terrain has its coverage")
+    }
+
+    /// Writes the Viewport as the Editor does, showing an area of `area` screen pixels around
+    /// `centre` at `zoom`, and runs one update.
+    pub fn look(&mut self, centre: Vec2, zoom: f32, area: Vec2) {
+        let mut viewport = self
+            .app
+            .world_mut()
+            .get_resource_mut::<Viewport>()
+            .expect("the Viewport");
+        viewport.centre = centre;
+        viewport.zoom = zoom;
+        viewport.area = Rect::from_corners(Vec2::ZERO, area);
+        self.app.update();
+    }
+
+    /// The pixels of every tile of the one Terrain's coverage.
+    pub fn tiles(&mut self) -> Tiles {
+        self.coverage()
             .tiles
             .into_iter()
             .map(|(key, tile)| (key, tile.pixels.to_vec()))
