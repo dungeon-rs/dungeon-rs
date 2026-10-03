@@ -2427,7 +2427,8 @@ fn unknown_terrain_round_trips() {
 
 /// A file holding a Terrain with a stroke of no point, a point that is not finite, a size not
 /// above zero or not finite, a hardness outside 0 to 1, or a strength not above 0 or above 1 is
-/// refused with the reason, and the current Project is untouched.
+/// refused with the reason, whether the Terrain was saved before strokes could erase or after,
+/// and the current Project is untouched.
 #[test]
 fn a_malformed_terrain_is_refused() {
     let mut saved = SavedTerrain::new();
@@ -2476,17 +2477,31 @@ fn a_malformed_terrain_is_refused() {
         ),
     ];
     for (case, points, brush, named) in cases {
-        let mut malformed = json(&saved.file);
-        malformed["elements"][&id]["terrain"]["data"]["strokes"][1] =
-            json!({ "points": points, "brush": brush, "erase": false });
-        let path = saved.device.root().join("malformed.dungeon");
-        write_json(&path, &malformed);
-        let refused = saved.device.open(&path).expect_err(case);
-        assert!(
-            refused.reason.contains("terrain") && refused.reason.contains(named),
-            "{case}: {}",
-            refused.reason
-        );
+        for version in [1, 2] {
+            let mut malformed = json(&saved.file);
+            let envelope = &mut malformed["elements"][&id]["terrain"];
+            envelope["version"] = json!(version);
+            let strokes = envelope["data"]["strokes"]
+                .as_array_mut()
+                .expect("the strokes");
+            strokes[1] = json!({ "points": points, "brush": brush, "erase": false });
+            if version == 1 {
+                for stroke in strokes.iter_mut() {
+                    stroke.as_object_mut().expect("a stroke").remove("erase");
+                }
+            }
+            let path = saved.device.root().join("malformed.dungeon");
+            write_json(&path, &malformed);
+            let refused = saved
+                .device
+                .open(&path)
+                .expect_err(&format!("{case} at version {version}"));
+            assert!(
+                refused.reason.contains("terrain") && refused.reason.contains(named),
+                "{case} at version {version}: {}",
+                refused.reason
+            );
+        }
     }
 
     assert_eq!(saved.device.elements(), elements);
