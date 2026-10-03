@@ -216,8 +216,8 @@ pub(crate) enum Interaction {
         origin: Vec2,
         /// The pointer, on screen, when the button went down.
         pointer: Vec2,
-        /// The pointer, on screen, when the handle was last moved; `None` until the drag begins.
-        moved_at: Option<Vec2>,
+        /// Where the handle was last moved to, in cells; `None` until the drag begins.
+        moved_to: Option<Vec2>,
     },
     /// The left button went down on a Portal set into a Wall or a Room; a drag slides it along
     /// its line.

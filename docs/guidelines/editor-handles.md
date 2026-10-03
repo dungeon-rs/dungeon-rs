@@ -84,7 +84,7 @@ pub(crate) fn drag_gesture(pointer: Vec2, moved_at: Option<Vec2>, cursor: Vec2) 
         handle,
         origin,
         pointer: cursor,
-        moved_at: None,
+        moved_to: None,
     };
     true
 }

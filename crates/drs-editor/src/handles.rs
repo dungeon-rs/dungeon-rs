@@ -228,7 +228,7 @@ pub(crate) fn press_selected(
         handle,
         origin,
         pointer: cursor,
-        moved_at: None,
+        moved_to: None,
     };
     true
 }

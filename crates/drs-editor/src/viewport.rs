@@ -291,7 +291,7 @@ fn pointer_gone(
     if state.interaction == Interaction::Painting && released {
         paint::release(state, apply, viewport, level.current_layer(), None);
     }
-    finish_gesture(state, apply, viewport, input, shown);
+    finish_gesture(state, apply, viewport, input);
     finish_slide(state, apply, viewport, level);
     if released {
         rooms::release(state, apply, level.current_layer(), viewport, shown);
@@ -383,7 +383,7 @@ pub(crate) fn pointer(
             if input.buttons.pressed(MouseButton::Left) {
                 drag_handle(&mut state, &mut apply, &viewport, cursor, shown);
             } else {
-                finish_gesture(&mut state, &mut apply, &viewport, &input, shown);
+                finish_gesture(&mut state, &mut apply, &viewport, &input);
             }
         }
         Interaction::Sliding { .. } => {
@@ -410,7 +410,7 @@ pub(crate) fn pointer(
             if input.buttons.pressed(MouseButton::Left) {
                 drag_whole(&mut state, &mut apply, &viewport, cursor, shown);
             } else {
-                finish_gesture(&mut state, &mut apply, &viewport, &input, shown);
+                finish_gesture(&mut state, &mut apply, &viewport, &input);
             }
         }
         Interaction::Pressed {
@@ -420,7 +420,7 @@ pub(crate) fn pointer(
             moved_at,
         } => {
             if !input.buttons.pressed(MouseButton::Left) {
-                finish_gesture(&mut state, &mut apply, &viewport, &input, shown);
+                finish_gesture(&mut state, &mut apply, &viewport, &input);
                 return;
             }
             if let Some(gesture) = handles::drag_gesture(pointer, moved_at, cursor) {
@@ -540,8 +540,9 @@ fn finish_slide(
 }
 
 /// Moves the handle being dragged with the pointer, once it has travelled far enough to be a
-/// drag: the first move begins the gesture and every later one continues it. A point goes where
-/// snapping puts the pointer while it snaps.
+/// drag: the first move begins the gesture and every later one that puts it elsewhere continues
+/// it. A point goes where snapping puts the pointer while it snaps, so it moves as soon as the
+/// snapped point does, even with the pointer still.
 fn drag_handle(
     state: &mut EditorState,
     apply: &mut MessageWriter<Apply>,
@@ -554,20 +555,25 @@ fn drag_handle(
         handle,
         origin,
         pointer,
-        moved_at,
+        moved_to,
     } = state.interaction
     else {
         return;
     };
-    let Some(gesture) = handles::drag_gesture(pointer, moved_at, cursor) else {
-        return;
-    };
+    let dragging = moved_to.is_some() || (cursor - pointer).length() > handles::DRAG_THRESHOLD;
     let position =
         shown.point_or(origin + (viewport.cells_at(cursor) - viewport.cells_at(pointer)));
+    if !dragging || moved_to == Some(position) {
+        return;
+    }
     apply.write(Apply::EditElement(EditElement {
         element,
         change: handles::handle_change(handle, position),
-        gesture,
+        gesture: if moved_to.is_some() {
+            Gesture::Continue
+        } else {
+            Gesture::Begin
+        },
     }));
     // A straight segment's middle, once dragged, is the segment's control point.
     let handle = match handle {
@@ -580,14 +586,14 @@ fn drag_handle(
         handle,
         origin,
         pointer,
-        moved_at: Some(cursor),
+        moved_to: Some(position),
     };
 }
 
 /// Moves the Wall or the Room being dragged with the pointer, once it has travelled far enough to
 /// be a drag, by the amount the pointer travelled since the step before, in whole cells while it
 /// snaps: the first move begins the gesture, even by nothing, and every later move that goes
-/// anywhere continues it.
+/// anywhere continues it, as soon as the snapped travel changes, even with the pointer still.
 fn drag_whole(
     state: &mut EditorState,
     apply: &mut MessageWriter<Apply>,
@@ -606,7 +612,7 @@ fn drag_whole(
         return;
     };
     let dragging = moved_at.is_some() || (cursor - pointer).length() > handles::DRAG_THRESHOLD;
-    if !dragging || moved_at == Some(cursor) {
+    if !dragging {
         return;
     }
     let travel = shown.travel_or(viewport.cells_at(cursor) - from);
@@ -725,14 +731,13 @@ fn press(
 
 /// Ends a drag that is under way once its button is up: the position the pointer last moved the
 /// Element or the handle to is sent again as the end of the gesture, or for a whole Wall or Room
-/// the rest of the amount it travelled, so the whole drag is one history step. A press that never
-/// became a drag just ends.
+/// a move by nothing, so the whole drag is one history step and ends where it was last shown. A
+/// press that never became a drag just ends.
 fn finish_gesture(
     state: &mut EditorState,
     apply: &mut MessageWriter<Apply>,
     viewport: &Viewport,
     input: &Input,
-    shown: Shown,
 ) {
     match state.interaction {
         // A slide ends through `finish_slide`, which knows the Portal's Wall, and a rectangle
@@ -751,16 +756,13 @@ fn finish_gesture(
         Interaction::Handle {
             element,
             handle,
-            origin,
-            pointer,
-            moved_at,
+            moved_to,
+            ..
         } => {
             if input.buttons.pressed(MouseButton::Left) {
                 return;
             }
-            if let Some(last) = moved_at {
-                let position =
-                    shown.point_or(origin + (viewport.cells_at(last) - viewport.cells_at(pointer)));
+            if let Some(position) = moved_to {
                 apply.write(Apply::EditElement(EditElement {
                     element,
                     change: handles::handle_change(handle, position),
@@ -770,20 +772,15 @@ fn finish_gesture(
             state.interaction = Interaction::Idle;
         }
         Interaction::Moving {
-            element,
-            from,
-            moved_at,
-            moved,
-            ..
+            element, moved_at, ..
         } => {
             if input.buttons.pressed(MouseButton::Left) {
                 return;
             }
-            if let Some(last) = moved_at {
-                let travel = shown.travel_or(viewport.cells_at(last) - from);
+            if moved_at.is_some() {
                 apply.write(Apply::EditElement(EditElement {
                     element,
-                    change: ElementChange::MoveBy(travel - moved),
+                    change: ElementChange::MoveBy(Vec2::ZERO),
                     gesture: Gesture::End,
                 }));
             }
