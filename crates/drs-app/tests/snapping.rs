@@ -406,6 +406,11 @@ fn snapping_to_the_grid() {
     ] {
         let (position, on) = fixture.point(cells);
         assert_eq!(position, corner, "the pointer at {cells}");
+        assert_eq!(
+            bits(&[position]),
+            bits(&[corner]),
+            "the pointer at {cells}: a zero is never negative"
+        );
         assert!(whole(position));
         assert_eq!(on, None, "no point of the Room is within reach of {cells}");
     }
