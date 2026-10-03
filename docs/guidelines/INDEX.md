@@ -7,6 +7,7 @@
 - [Derived model component](./derived-model-component.md): use when a Client or an Engine needs a value computed from the model by an Engine it may not depend on.
 - [Development switch](./development-switch.md): use when adding a switch the editor needs only for development or autonomous verification.
 - [Edit that carries anchored Elements](./edit-carrying-anchored-elements.md): use when an authoring Command renumbers or removes what other Elements are anchored to.
+- [Editor drag gesture](./editor-drag-gesture.md): use when a press in the viewport becomes a drag that sends Edit Elements as one gesture.
 - [Editor handles](./editor-handles.md): use when the Editor lets the Author reshape a selected Element, or a selected stroke of a Terrain, by dragging parts of it shown over the Level.
 - [Editor modal dialog](./editor-modal-dialog.md): use when the Editor asks or tells the Author something that must be answered before the window is used again.
 - [Element kind](./element-kind.md): use when the editor gains a new kind of Element.
