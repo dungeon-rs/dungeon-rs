@@ -28,7 +28,7 @@ use drs_shape_engine::{Path, PointEdit, PortalSetting, anchor_portals_through, s
 /// as the shape Engine's [`Path`], and its derived shape is the Engine's stroke, with the floor a
 /// closed outline winds around.
 pub(crate) trait OutlineHost:
-    Component<Mutability = Mutable> + Reflect + TypePath + Clone
+    Component<Mutability = Mutable> + Reflect + TypePath + Clone + PartialEq
 {
     /// The kind's name, which its Element carries.
     const KIND: ElementKindName;
@@ -206,7 +206,9 @@ pub(crate) enum OutlineEdit {
 /// An Edit Element of the Wall or the Room `id`, checked against it as it is: its position, a
 /// point, a part's control point, its thickness, or a colour as a field command, or a point
 /// added or removed as a step of its own that carries the Portals set into it. Moving it, to a
-/// position or by an amount, moves every point and control point by the same amount.
+/// position or by an amount, moves every point and control point by the same amount; a move by
+/// an amount counts from `from`, the outline as the gesture it belongs to began, when there is
+/// one, so a drag's every step is the travel since its press.
 ///
 /// # Errors
 ///
@@ -221,6 +223,7 @@ pub(crate) fn outline_edit<H: OutlineHost>(
     world: &mut World,
     id: ElementId,
     change: &ElementChange,
+    from: Option<&H>,
 ) -> Result<OutlineEdit, AuthoringError> {
     let history = |error: drs_history::HistoryError| AuthoringError::History(error.to_string());
     let outline = outline_of::<H>(world, id)?;
@@ -230,7 +233,10 @@ pub(crate) fn outline_edit<H: OutlineHost>(
             let offset = *position - outline.element_box().center();
             Ok(translated(id, &outline, path, offset)?)
         }
-        ElementChange::MoveBy(amount) => Ok(translated(id, &outline, path, *amount)?),
+        ElementChange::MoveBy(amount) => {
+            let from = from.map_or(path, OutlineHost::path);
+            Ok(translated(id, &outline, from, *amount)?)
+        }
         ElementChange::Point { index, position } => {
             let points = path.points.len();
             *path.points.get_mut(*index).ok_or(AuthoringError::NoPoint {
@@ -282,9 +288,9 @@ pub(crate) fn outline_edit<H: OutlineHost>(
     field.map(OutlineEdit::Field).map_err(history)
 }
 
-/// The field command that moves a Wall or a Room by `offset`, every point and control point by
-/// exactly what single-precision addition gives, so a whole number of cells added to a point on
-/// a Grid corner lands on a Grid corner.
+/// The field command that gives a Wall or a Room the points and control points of `path` moved
+/// by `offset`, each by exactly what single-precision addition gives, so a whole number of cells
+/// added to a point on a Grid corner lands on a Grid corner.
 ///
 /// # Errors
 ///

@@ -223,7 +223,9 @@ pub enum ElementChange {
     /// and control point by the same amount.
     Position(Vec2),
     /// Move a Wall or a Room by an amount in Grid cells: every point and control point by that
-    /// amount.
+    /// amount from where it stood when the gesture the change belongs to began, or from where it
+    /// stands for a change on its own, so each step of a drag carries the whole travel since the
+    /// press.
     MoveBy(Vec2),
     /// Move one point of a Wall or a Room, leaving every other point and every control point
     /// where it is.
