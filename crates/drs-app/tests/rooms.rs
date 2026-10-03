@@ -587,7 +587,8 @@ fn moving_the_room_moves_every_point() {
 
 /// Moving an Element by dragging records a single undo step however long the drag, and undo
 /// returns the Element to where the drag began: a Room dragged whole by its floor or its Walls
-/// moves by the travel since the press, every point and control point with it.
+/// moves by the travel since the press, every point and control point with it. A drag that
+/// leaves the Room where it began records nothing.
 #[test]
 fn a_room_drag_is_one_step() {
     let mut fixture = Fixture::new();
@@ -622,6 +623,23 @@ fn a_room_drag_is_one_step() {
     assert_eq!((fixture.element(id), fixture.room_of(id)), start);
     fixture.redo();
     assert_eq!(fixture.room_of(id).points, moved);
+
+    let moved_state = fixture.room_of(id);
+    for (travel, gesture) in [
+        (Vec2::new(1.0, 0.0), Gesture::Begin),
+        (Vec2::new(2.0, 3.0), Gesture::Continue),
+        (Vec2::ZERO, Gesture::Continue),
+        (Vec2::ZERO, Gesture::End),
+    ] {
+        fixture.apply(edit(id, ElementChange::MoveBy(travel), gesture));
+    }
+    assert_eq!(fixture.room_of(id), moved_state);
+    assert_eq!(
+        fixture.history().undo_depth(),
+        depth + 1,
+        "a drag back to where it began records nothing"
+    );
+    assert!(!fixture.history().can_redo());
 }
 
 /// Moving a point of a Room changes that point and nothing else: every other point and every
@@ -668,7 +686,8 @@ fn a_rooms_point_moves_alone() {
 }
 
 /// Dragging a point or a control point of a Room records a single undo step however long the
-/// drag, and undo returns it to where the drag began.
+/// drag, and undo returns it to where the drag began; a drag that ends where it began records
+/// nothing.
 #[test]
 fn a_rooms_handle_drag_is_one_step() {
     let mut fixture = Fixture::new();
@@ -701,6 +720,29 @@ fn a_rooms_handle_drag_is_one_step() {
         assert_eq!(fixture.room_of(id), before, "back to where the drag began");
         fixture.redo();
     }
+
+    let before = fixture.room_of(id);
+    let depth = fixture.history().undo_depth();
+    for (at, gesture) in [
+        (Vec2::new(5.0, 7.0), Gesture::Begin),
+        (RECTANGLE[1], Gesture::Continue),
+        (RECTANGLE[1], Gesture::End),
+    ] {
+        fixture.apply(edit(
+            id,
+            ElementChange::Point {
+                index: 1,
+                position: at,
+            },
+            gesture,
+        ));
+    }
+    assert_eq!(fixture.room_of(id), before);
+    assert_eq!(
+        fixture.history().undo_depth(),
+        depth,
+        "a drag of a point back to where it began records nothing"
+    );
 }
 
 /// Setting an edge's control point changes that control point only, and unsetting it makes the
