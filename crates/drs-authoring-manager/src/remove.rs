@@ -6,7 +6,7 @@ use bevy_ecs::error::BevyError;
 use bevy_ecs::hierarchy::{ChildOf, Children};
 use bevy_ecs::world::World;
 use drs_history::{HistoryError, ReversibleCommand, Snapshot, Target};
-use drs_model::{ElementId, PortalsRemoved, RemoveElement};
+use drs_model::{ElementId, PortalsRemoved, RemoveElement, Room, Wall};
 
 /// The recorded step: the Element's reflected components, its Layer, and its index among the
 /// Layer's children, so that undo puts it back exactly where it was.
@@ -65,7 +65,9 @@ impl ReversibleCommand for Remove {
 }
 
 /// Remove Element: takes the Element off its Layer as one history step; a Wall or a Room takes
-/// the Portals set into it with it, in the same step, and the answer naming them is returned.
+/// the Portals set into it with it, in the same step, and a Room every Portal set into another
+/// Room of its Layer that its removal leaves with no Wall at its centre, and the answers naming
+/// them are returned.
 ///
 /// # Errors
 ///
@@ -74,15 +76,18 @@ impl ReversibleCommand for Remove {
 pub(crate) fn remove_element(
     world: &mut World,
     command: &RemoveElement,
-) -> Result<Option<PortalsRemoved>, AuthoringError> {
+) -> Result<Vec<PortalsRemoved>, AuthoringError> {
     let entity = command
         .element
         .entity(world)
         .map_err(|_| AuthoringError::UnknownElement(command.element))?;
-    if crate::portal::host_path(world, entity).is_some() {
-        return crate::outline::remove_with_portals(world, command.element);
+    if world.get::<Wall>(entity).is_some() {
+        return crate::outline::remove_with_portals::<Wall>(world, command.element);
     }
-    crate::record_step(world, Remove::of(command.element)).map(|()| None)
+    if world.get::<Room>(entity).is_some() {
+        return crate::outline::remove_with_portals::<Room>(world, command.element);
+    }
+    crate::record_step(world, Remove::of(command.element)).map(|()| Vec::new())
 }
 
 impl Remove {

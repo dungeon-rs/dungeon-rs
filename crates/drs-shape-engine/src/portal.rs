@@ -7,19 +7,22 @@
 //! the exact curve; lengths along the line are measured over the flattened line, summing its
 //! chords with square roots and arithmetic alone, so they come out the same on every machine.
 
+use crate::combine::{Chain, Combination};
 use crate::path::{Curve, Path, flatten};
 use crate::wall::{Measured, length, vector};
 use bevy_math::{Vec2, ops};
-use drs_model::{LinePlace, LinePoint, Stretch};
+use drs_model::{LinePlace, Stretch};
 use kurbo::{ParamCurve, ParamCurveDeriv};
 
 /// Shorter than this, in Grid cells per unit of parameter, a segment has no direction.
 const NO_DIRECTION: f64 = 1e-9;
 
-/// A Portal set into a Wall or a Room's Walls as `AnchorPortals` sees it: where along the
-/// outline it is set, and how wide it is.
+/// A Portal set into a Wall or a Room's Walls as `AnchorPortals` sees it: which outline of the
+/// combination it is set into, where along it, and how wide it is.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct PortalSetting {
+    /// The outline it is set into, by its number among those combined.
+    pub outline: usize,
     /// The segment of a Wall or the edge of a Room, counted from zero.
     pub segment: usize,
     /// The parameter along it, from zero to one.
@@ -29,16 +32,17 @@ pub struct PortalSetting {
 }
 
 /// Where a Portal set into a Wall or a Room's Walls stands.
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Standing {
     /// Its centre: the point of its segment or edge at its parameter.
     pub centre: Vec2,
     /// The angle of the outline's direction there, in radians counter-clockwise from the x
     /// axis, or `None` where its part has no direction.
     pub direction: Option<f32>,
-    /// The stretch of the line it covers: half its width either way from its centre along the
-    /// line, stopping at a Wall's ends and running round a Room past its first point.
-    pub stretch: Stretch,
+    /// The stretches of the Walls it covers, each with the number of the outline whose Wall it
+    /// leaves out, measured half its width either way from its centre along the Wall it stands
+    /// in; `None` when no Wall runs at its centre.
+    pub stretches: Option<Vec<(usize, Stretch)>>,
 }
 
 /// An edit that renumbers a Wall's segments or a Room's edges.
@@ -58,26 +62,26 @@ pub enum PointEdit {
     },
 }
 
-/// `AnchorPortals`: where each Portal set into the outline `path` stands, its segment being the
-/// Wall's segment or the Room's edge, or `None` for one set on a part the outline does not have
-/// or at a parameter outside zero to one.
+/// `AnchorPortals`: where each Portal set into an outline of `combination` stands, or `None` for
+/// one set on a part its outline does not have, at a parameter outside zero to one, or into an
+/// outline the combination does not have.
 ///
-/// The centre lies on the exact curve and the direction is the curve's there. The stretch
-/// reaches half the Portal's width either way along the line, across the outline's points: on an
-/// open line it stops at the ends, and on a closed one it runs round past the first point, a
-/// Portal at least as wide as the whole line covering all of it.
+/// The centre lies on the exact curve of its own outline and the direction is the curve's there,
+/// whatever the other outlines are. A Portal whose centre lies on a place of its outline where a
+/// Wall runs covers the stretch that reaches half its width either way along that Wall: round
+/// the edge of the combined floor, across every point, those where one outline's Wall meets
+/// another's included, and onto the other outline's Wall, a Portal at least as wide as the whole
+/// way round covering all of it; or along a Wall between two Rooms or a drawn Wall, stopping at
+/// its ends. Every Wall the stretch covers is left out, whichever outline's look it is drawn in.
 #[must_use]
-pub fn anchor_portals(path: &Path, portals: &[PortalSetting]) -> Vec<Option<Standing>> {
-    let line = flatten(path);
-    standings(path, &line, portals)
-}
-
-/// Where each Portal set into `path`, flattened into `line`, stands.
-fn standings(path: &Path, line: &[LinePoint], portals: &[PortalSetting]) -> Vec<Option<Standing>> {
-    let measured = Measured::of(line);
+pub fn anchor_portals(
+    combination: &Combination,
+    portals: &[PortalSetting],
+) -> Vec<Option<Standing>> {
     portals
         .iter()
         .map(|portal| {
+            let path = combination.paths.get(portal.outline)?;
             let curve = path.curve(portal.segment)?;
             if !(0.0..=1.0).contains(&portal.t) {
                 return None;
@@ -93,18 +97,204 @@ fn standings(path: &Path, line: &[LinePoint], portals: &[PortalSetting]) -> Vec<
             )]
             let direction = (length(direction) > NO_DIRECTION)
                 .then(|| ops::atan2(direction.y as f32, direction.x as f32));
-            let stretch = if path.closed {
-                stretch_round(&measured, portal)
-            } else {
-                stretch_of(&measured, portal)
-            };
             Some(Standing {
                 centre: vector(centre),
                 direction,
-                stretch,
+                stretches: stretches(combination, portal),
             })
         })
         .collect()
+}
+
+/// The stretches a Portal covers, by outline, or `None` when no Wall runs at its centre.
+fn stretches(combination: &Combination, portal: &PortalSetting) -> Option<Vec<(usize, Stretch)>> {
+    let t = f64::from(portal.t);
+    let (chain, at) = combination.chains.iter().find_map(|chain| {
+        chain.chords.iter().enumerate().find_map(|(index, chord)| {
+            chord.sources.iter().find_map(|source| {
+                let on = source.outline == portal.outline
+                    && source.part == portal.segment
+                    && source.from.min(source.to) <= t
+                    && t <= source.from.max(source.to);
+                on.then(|| {
+                    let span = source.to - source.from;
+                    let share = if span == 0.0 {
+                        0.0
+                    } else {
+                        (t - source.from) / span
+                    };
+                    (chain, (index, share))
+                })
+            })
+        })
+    })?;
+    let lengths: Vec<f64> = chain
+        .chords
+        .iter()
+        .map(|chord| length(chord.b - chord.a))
+        .collect();
+    let mut starts = Vec::with_capacity(lengths.len());
+    let mut total = 0.0;
+    for chord in &lengths {
+        starts.push(total);
+        total += chord;
+    }
+    let centre = starts[at.0] + at.1 * lengths[at.0];
+    let half = f64::from(portal.width) / 2.0;
+    let covered = if chain.closed {
+        if 2.0 * half >= total {
+            return Some(round_whole(combination, chain));
+        }
+        covered_along(&starts, &lengths, total, centre - half, 2.0 * half, true)
+    } else {
+        let (from, to) = ((centre - half).max(0.0), (centre + half).min(total));
+        covered_along(&starts, &lengths, total, from, to - from, false)
+    };
+    Some(owned_stretches(chain, &covered))
+}
+
+/// The pieces of chords, in order along the chain, that the stretch from `from` and `length`
+/// long covers: each chord's number and the shares of it at the start and the end of the piece.
+/// On a closed chain the stretch runs on past its first point; on an open one it is within the
+/// chain already and stops at its last chord.
+fn covered_along(
+    starts: &[f64],
+    lengths: &[f64],
+    total: f64,
+    from: f64,
+    length: f64,
+    closed: bool,
+) -> Vec<(usize, f64, f64)> {
+    let count = lengths.len();
+    let mut covered = Vec::new();
+    if count == 0 || total <= 0.0 {
+        return covered;
+    }
+    let mut at = if closed {
+        from.rem_euclid(total)
+    } else {
+        from.clamp(0.0, total)
+    };
+    let mut left = length;
+    let mut index = starts.iter().rposition(|start| *start <= at).unwrap_or(0);
+    // Every chord is visited at most once more than the stretch goes round.
+    for _ in 0..=count {
+        let chord = lengths[index];
+        let start = starts[index];
+        let into = (at - start).clamp(0.0, chord);
+        let take = (chord - into).min(left);
+        if chord > 0.0 {
+            covered.push((index, into / chord, (into + take) / chord));
+        }
+        left -= take;
+        if left <= 0.0 || (!closed && index + 1 == count) {
+            break;
+        }
+        index = (index + 1) % count;
+        at = starts[index];
+    }
+    covered
+}
+
+/// The stretches of a chain the whole of which a Portal covers: each outline it runs along
+/// whole, one stretch from its first part's start to its last part's end where it runs along
+/// every part, and every part it runs along otherwise.
+fn round_whole(combination: &Combination, chain: &Chain) -> Vec<(usize, Stretch)> {
+    let mut parts: Vec<(usize, usize)> = chain
+        .chords
+        .iter()
+        .map(|chord| (chord.owner.outline, chord.owner.part))
+        .collect();
+    parts.sort_unstable();
+    parts.dedup();
+    let place = |segment: usize, t: f32| LinePlace { segment, t };
+    let mut stretches = Vec::new();
+    let mut index = 0;
+    while index < parts.len() {
+        let outline = parts[index].0;
+        let own: Vec<usize> = parts[index..]
+            .iter()
+            .take_while(|(owner, _)| *owner == outline)
+            .map(|(_, part)| *part)
+            .collect();
+        index += own.len();
+        let all = combination
+            .paths
+            .get(outline)
+            .is_some_and(|path| own.len() == path.parts());
+        if all && let (Some(first), Some(last)) = (own.first(), own.last()) {
+            stretches.push((
+                outline,
+                Stretch {
+                    start: place(*first, 0.0),
+                    end: place(*last, 1.0),
+                },
+            ));
+        } else {
+            stretches.extend(own.into_iter().map(|part| {
+                (
+                    outline,
+                    Stretch {
+                        start: place(part, 0.0),
+                        end: place(part, 1.0),
+                    },
+                )
+            }));
+        }
+    }
+    stretches
+}
+
+/// The stretches the covered pieces of chords leave out, one for each run of pieces drawn for
+/// one outline, from the place nearer that outline's start to the place nearer its end.
+#[expect(
+    clippy::cast_possible_truncation,
+    reason = "the model keeps parameters in single precision"
+)]
+fn owned_stretches(chain: &Chain, covered: &[(usize, f64, f64)]) -> Vec<(usize, Stretch)> {
+    let mut stretches = Vec::new();
+    let mut run: Vec<(usize, f64, f64)> = Vec::new();
+    let mut owner: Option<usize> = None;
+    let mut finish = |owner: usize, run: &[(usize, f64, f64)]| {
+        let (Some(first), Some(last)) = (run.first(), run.last()) else {
+            return;
+        };
+        let forward = run
+            .iter()
+            .find(|(_, from, to)| (to - from).abs() > 0.0)
+            .is_none_or(|(_, from, to)| from < to);
+        let place = |part: usize, t: f64| LinePlace {
+            segment: part,
+            t: t as f32,
+        };
+        let stretch = if forward {
+            Stretch {
+                start: place(first.0, first.1),
+                end: place(last.0, last.2),
+            }
+        } else {
+            Stretch {
+                start: place(last.0, last.2),
+                end: place(first.0, first.1),
+            }
+        };
+        stretches.push((owner, stretch));
+    };
+    for &(index, from, to) in covered {
+        let source = chain.chords[index].owner;
+        if owner.is_some_and(|owner| owner != source.outline) {
+            if let Some(owner) = owner {
+                finish(owner, &run);
+            }
+            run.clear();
+        }
+        owner = Some(source.outline);
+        run.push((source.part, source.at(from), source.at(to)));
+    }
+    if let Some(owner) = owner {
+        finish(owner, &run);
+    }
+    stretches
 }
 
 /// `AnchorPortals` through a point edit: where each Portal set into `path`, as the outline is
@@ -379,7 +569,7 @@ mod tests {
     )]
 
     use super::*;
-    use crate::split_wall;
+    use crate::{Outline, combine_outlines, split_wall};
 
     /// A Wall's open line through `points`, curved where a control is given.
     fn wall(points: &[Vec2], controls: &[Option<Vec2>]) -> Path {
@@ -405,10 +595,37 @@ mod tests {
         }
     }
 
+    /// Where Portals set into the outline `path`, on its own, stand.
+    fn anchored(path: &Path, portals: &[PortalSetting]) -> Vec<Option<Standing>> {
+        let combination = combine_outlines(&[Outline {
+            path: path.clone(),
+            cuts: false,
+        }]);
+        anchor_portals(&combination, portals)
+    }
+
+    /// A Portal set into the only outline at `segment` and `t`, `width` wide.
+    fn setting(segment: usize, t: f32, width: f32) -> PortalSetting {
+        PortalSetting {
+            outline: 0,
+            segment,
+            t,
+            width,
+        }
+    }
+
     /// One Portal's standing, which it must have.
     fn standing(wall: &Path, segment: usize, t: f32, width: f32) -> Standing {
-        anchor_portals(wall, &[PortalSetting { segment, t, width }])[0]
+        anchored(wall, &[setting(segment, t, width)])[0]
+            .clone()
             .expect("the Portal is set into the Wall")
+    }
+
+    /// The one stretch a Portal covers, which it must have.
+    fn stretch(standing: &Standing) -> Stretch {
+        let stretches = standing.stretches.as_ref().expect("a Wall runs there");
+        assert_eq!(stretches.len(), 1, "{stretches:?}");
+        stretches[0].1
     }
 
     /// The centre lies on the quadratic curve at the Portal's parameter, turned to the curve's
@@ -434,17 +651,7 @@ mod tests {
 
         let pinched = wall(&[start, end], &[Some(end)]);
         assert_eq!(standing(&pinched, 0, 1.0, 1.0).direction, None);
-        assert_eq!(
-            anchor_portals(
-                &bent,
-                &[PortalSetting {
-                    segment: 1,
-                    t: 0.5,
-                    width: 1.0
-                }]
-            ),
-            vec![None]
-        );
+        assert_eq!(anchored(&bent, &[setting(1, 0.5, 1.0)]), vec![None]);
     }
 
     /// A stretch reaches half the width either way along the line, across a point of the Wall,
@@ -456,17 +663,17 @@ mod tests {
             &[None, None],
         );
 
-        let across = standing(&corner, 0, 0.875, 2.0).stretch;
+        let across = stretch(&standing(&corner, 0, 0.875, 2.0));
         assert_eq!(across.start.segment, 0);
         assert!((across.start.t - 0.625).abs() < 1e-6);
         assert_eq!(across.end.segment, 1);
         assert!((across.end.t - 0.125).abs() < 1e-6);
 
-        let at_the_start = standing(&corner, 0, 0.125, 2.0).stretch;
+        let at_the_start = stretch(&standing(&corner, 0, 0.125, 2.0));
         assert_eq!(at_the_start.start, LinePlace { segment: 0, t: 0.0 });
         assert!((at_the_start.end.t - 0.375).abs() < 1e-6);
 
-        let at_the_end = standing(&corner, 1, 0.875, 2.0).stretch;
+        let at_the_end = stretch(&standing(&corner, 1, 0.875, 2.0));
         assert_eq!(at_the_end.end, LinePlace { segment: 1, t: 1.0 });
         assert!((at_the_end.start.t - 0.625).abs() < 1e-6);
     }
@@ -481,22 +688,25 @@ mod tests {
         );
         let portals = [
             PortalSetting {
+                outline: 0,
                 segment: 0,
                 t: 0.3,
                 width: 1.0,
             },
             PortalSetting {
+                outline: 0,
                 segment: 1,
                 t: 0.2,
                 width: 1.0,
             },
             PortalSetting {
+                outline: 0,
                 segment: 1,
                 t: 0.7,
                 width: 1.0,
             },
         ];
-        let centres: Vec<Vec2> = anchor_portals(&before, &portals)
+        let centres: Vec<Vec2> = anchored(&before, &portals)
             .into_iter()
             .map(|standing| standing.expect("set").centre)
             .collect();
@@ -539,35 +749,22 @@ mod tests {
     #[test]
     fn a_stretch_wraps_past_the_first_point() {
         let room = square();
-        let across = anchor_portals(
-            &room,
-            &[PortalSetting {
-                segment: 0,
-                t: 0.125,
-                width: 2.0,
-            }],
-        )[0]
-        .expect("the Portal is set into the Room");
-        assert_eq!(across.stretch.start.segment, 3);
-        assert!((across.stretch.start.t - 0.875).abs() < 1e-6);
-        assert_eq!(across.stretch.end.segment, 0);
-        assert!((across.stretch.end.t - 0.375).abs() < 1e-6);
-        assert!(across.stretch.covers(LinePlace { segment: 0, t: 0.0 }));
-        assert!(across.stretch.covers(LinePlace { segment: 3, t: 1.0 }));
-        assert!(!across.stretch.covers(LinePlace { segment: 1, t: 0.5 }));
+        let across = stretch(&standing(&room, 0, 0.125, 2.0));
+        assert_eq!(across.start.segment, 3);
+        assert!((across.start.t - 0.875).abs() < 1e-6);
+        assert_eq!(across.end.segment, 0);
+        assert!((across.end.t - 0.375).abs() < 1e-6);
+        assert!(across.covers(LinePlace { segment: 0, t: 0.0 }));
+        assert!(across.covers(LinePlace { segment: 3, t: 1.0 }));
+        assert!(!across.covers(LinePlace { segment: 1, t: 0.5 }));
 
-        let wide = anchor_portals(
-            &room,
-            &[PortalSetting {
-                segment: 2,
-                t: 0.5,
-                width: 20.0,
-            }],
-        )[0]
-        .expect("the Portal is set into the Room");
+        let wide = standing(&room, 2, 0.5, 20.0)
+            .stretches
+            .expect("a Wall runs there");
         for segment in 0..4 {
             assert!(
-                wide.stretch.covers(LinePlace { segment, t: 0.5 }),
+                wide.iter()
+                    .any(|(_, stretch)| stretch.covers(LinePlace { segment, t: 0.5 })),
                 "{segment}"
             );
         }
@@ -582,21 +779,25 @@ mod tests {
         let square = square();
         let portals = [
             PortalSetting {
+                outline: 0,
                 segment: 3,
                 t: 0.5,
                 width: 1.0,
             },
             PortalSetting {
+                outline: 0,
                 segment: 0,
                 t: 0.5,
                 width: 1.0,
             },
             PortalSetting {
+                outline: 0,
                 segment: 1,
                 t: 0.25,
                 width: 1.0,
             },
             PortalSetting {
+                outline: 0,
                 segment: 0,
                 t: 0.0625,
                 width: 1.0,
@@ -623,6 +824,102 @@ mod tests {
         assert_eq!(
             anchor_portals_through(&three, PointEdit::Removed { index: 1 }, &portals[..1]),
             vec![None]
+        );
+    }
+
+    /// A Portal near where one Room's Wall runs into another's covers a stretch that runs round
+    /// the corner of the combined floor onto the other Room's Wall, each Room's Wall left out
+    /// along its own edges, while the centre stays on its own Room's edge.
+    #[test]
+    fn a_stretch_crosses_onto_another_room() {
+        let first = room(&[
+            Vec2::ZERO,
+            Vec2::new(4.0, 0.0),
+            Vec2::new(4.0, 4.0),
+            Vec2::new(0.0, 4.0),
+        ]);
+        let second = room(&[
+            Vec2::new(3.0, 1.0),
+            Vec2::new(7.0, 1.0),
+            Vec2::new(7.0, 3.0),
+            Vec2::new(3.0, 3.0),
+        ]);
+        let combination = combine_outlines(&[
+            Outline {
+                path: first,
+                cuts: false,
+            },
+            Outline {
+                path: second,
+                cuts: false,
+            },
+        ]);
+        // On the first Room's right edge, (4,0) to (4,4), half a cell below its top corner,
+        // where the second Room's top edge meets it half a cell lower.
+        let standing = anchor_portals(
+            &combination,
+            &[PortalSetting {
+                outline: 0,
+                segment: 1,
+                t: 0.875,
+                width: 2.0,
+            }],
+        )[0]
+        .clone()
+        .expect("the Portal is set");
+        assert!(standing.centre.distance(Vec2::new(4.0, 3.5)) < 1e-6);
+        let stretches = standing.stretches.expect("a Wall runs at its centre");
+        let near = |a: Stretch, b: Stretch| {
+            a.start.segment == b.start.segment
+                && a.end.segment == b.end.segment
+                && (a.start.t - b.start.t).abs() < 1e-5
+                && (a.end.t - b.end.t).abs() < 1e-5
+        };
+        let place = |segment, t| LinePlace { segment, t };
+        let own = stretches
+            .iter()
+            .find(|(outline, _)| *outline == 0)
+            .expect("the first Room's Wall gives way");
+        assert!(
+            near(
+                own.1,
+                Stretch {
+                    start: place(1, 0.75),
+                    end: place(2, 0.125),
+                }
+            ),
+            "{own:?}"
+        );
+        let other = stretches
+            .iter()
+            .find(|(outline, _)| *outline == 1)
+            .expect("and the second Room's");
+        assert!(
+            near(
+                other.1,
+                Stretch {
+                    start: place(2, 0.625),
+                    end: place(2, 0.75),
+                }
+            ),
+            "{other:?}"
+        );
+        assert_eq!(stretches.len(), 2);
+
+        let hidden = anchor_portals(
+            &combination,
+            &[PortalSetting {
+                outline: 0,
+                segment: 1,
+                t: 0.5,
+                width: 1.0,
+            }],
+        )[0]
+        .clone()
+        .expect("the part exists");
+        assert_eq!(
+            hidden.stretches, None,
+            "no Wall runs inside the second Room's floor"
         );
     }
 }

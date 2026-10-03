@@ -1,11 +1,12 @@
 //! Rooms as outline hosts: a Room's closed outline of edges read and written as the shape
-//! Engine's outline, drawn as its floor under the stroke of its Walls.
+//! Engine's outline, combined with the Rooms of its Layer, drawn as its floor and the stroke of
+//! the Walls in its look.
 
 use crate::OutlineKind;
 use crate::outline::OutlineHost;
 use bevy_math::Rect;
-use drs_model::{Edge, ElementKindName, FillMesh, ROOM, Room, RoomShape, WallShape};
-use drs_shape_engine::Path;
+use drs_model::{Edge, ElementId, ElementKindName, ROOM, Room, RoomShape, Stretch, StrokeMesh};
+use drs_shape_engine::{CombinedOutline, Path};
 
 impl OutlineHost for Room {
     const KIND: ElementKindName = ROOM;
@@ -14,6 +15,7 @@ impl OutlineHost for Room {
     const COLOUR: &'static str = "wall_colour";
     const FLOOR_COLOUR: Option<&'static str> = Some("floor_colour");
     const CUTS: Option<&'static str> = Some("cuts");
+    const COMBINES: bool = true;
 
     type Shape = RoomShape;
 
@@ -56,7 +58,28 @@ impl OutlineHost for Room {
         Self::malformation(self)
     }
 
-    fn shape(walls: WallShape, floor: FillMesh) -> RoomShape {
-        RoomShape { walls, floor }
+    fn cuts(&self) -> bool {
+        self.cuts
+    }
+
+    fn shape(
+        combined: &CombinedOutline,
+        mesh: StrokeMesh,
+        stretches: Vec<Stretch>,
+        drawn_at: ElementId,
+    ) -> RoomShape {
+        RoomShape {
+            outline: combined.line.clone(),
+            walls: combined
+                .walls
+                .iter()
+                .map(|wall| wall.line.clone())
+                .collect(),
+            walled: combined.walled.clone(),
+            stretches,
+            mesh,
+            drawn_at,
+            floor: combined.floor.clone(),
+        }
     }
 }

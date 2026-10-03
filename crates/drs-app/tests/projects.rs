@@ -3048,7 +3048,7 @@ fn unknown_rooms_round_trip() {
         .find(|(id, ..)| *id == saved.rooms[1])
         .and_then(|(.., shape)| shape)
         .expect("the Room has its shape");
-    assert_eq!(shape.walls.stretches.len(), 1, "the Room gives way again");
+    assert_eq!(shape.stretches.len(), 1, "the Room gives way again");
 }
 
 /// A Room saved by an editor that did not yet know Rooms that cut opens as a Room that does not

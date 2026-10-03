@@ -126,6 +126,36 @@ fn chords_of(quad: &QuadBez) -> usize {
     chords + chords % 2
 }
 
+/// Each part of the outline flattened as [`flatten`] flattens it, with the parameters in double
+/// precision: its first point at zero and its second at one, both exactly the outline's points,
+/// and between them the points of the exact curve at the same evenly spaced parameters. A part
+/// the outline does not have is empty.
+#[expect(
+    clippy::cast_precision_loss,
+    reason = "chord counts are far below where f64 loses whole numbers"
+)]
+pub(crate) fn parts_flattened(path: &Path) -> Vec<Vec<(f64, Point)>> {
+    (0..path.parts())
+        .map(|part| {
+            let (Some((start, end)), Some(curve)) = (path.ends(part), path.curve(part)) else {
+                return Vec::new();
+            };
+            let chords = match &curve {
+                Curve::Straight(_) => 1,
+                Curve::Bent(quad) => chords_of(quad),
+            };
+            let mut points = Vec::with_capacity(chords + 1);
+            points.push((0.0, point(start)));
+            for cut in 1..chords {
+                let t = cut as f64 / chords as f64;
+                points.push((t, curve.eval(t)));
+            }
+            points.push((1.0, point(end)));
+            points
+        })
+        .collect()
+}
+
 /// The outline flattened into points tagged with their part and parameter, from the first point
 /// to the last, or round to the first again, exactly, when it is closed.
 ///

@@ -1,6 +1,7 @@
 //! Meshes with flat-colour Materials for the Elements drawn from a derived outline, kept in step
 //! with the model through change detection: one per Element drawn as a stroked path, a Wall, and
-//! two per Element drawn as a filled outline, a Room, its floor and its Walls.
+//! up to two per Element drawn as a filled outline, a Room, its floor at its own place in the
+//! stacking order and its Walls at the place of the last Room of its combination.
 
 use crate::drawn_as;
 use crate::stacking::Stacking;
@@ -20,8 +21,8 @@ use bevy_mesh::{Indices, Mesh, Mesh2d, PrimitiveTopology};
 use bevy_sprite_render::{AlphaMode2d, ColorMaterial, MeshMaterial2d};
 use bevy_transform::components::Transform;
 use drs_model::{
-    Colour, DrawnAs, Element, ElementKindRegistry, FillMesh, Layer, Level, Project, Room,
-    RoomShape, StrokeMesh, Wall, WallShape,
+    Colour, DrawnAs, Element, ElementId, ElementKindRegistry, FillMesh, Layer, Level, Project,
+    Room, RoomShape, StrokeMesh, Wall, WallShape,
 };
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -35,8 +36,14 @@ enum Part {
 }
 
 /// How far below its Room's depth a floor is drawn: half the unit of depth between one Element
-/// and the next, so the floor lies under the Room's own Walls and over the Element before it.
+/// and the next, so the floor lies under the Walls drawn at the Room's place and over the
+/// Element before it.
 const FLOOR_BELOW: f32 = 0.5;
+
+/// How far round the depth of the Room they are drawn at the Walls of a combination are spread,
+/// each Room's by its own place in the stacking order: a quarter of a unit either way, between
+/// that Room's floor and the Element after it.
+const WALLS_SPREAD: f32 = 0.25;
 
 /// Marks a mesh entity as drawing one part of one Element.
 #[derive(Component)]
@@ -123,6 +130,8 @@ pub(crate) struct Outlined<'w, 's> {
     walls: Query<'w, 's, (&'static Wall, Ref<'static, WallShape>)>,
     /// The Rooms with their derived shapes.
     rooms: Query<'w, 's, (&'static Room, Ref<'static, RoomShape>)>,
+    /// Every Element's identity, by which a Room's shape names the Room its Walls are drawn at.
+    ids: Query<'w, 's, &'static ElementId>,
 }
 
 /// A colour as the shared Materials are kept by.
@@ -199,11 +208,14 @@ struct Sync {
 }
 
 /// Brings the meshes of Walls and Rooms in step with the model: one mesh per Element whose kind
-/// is drawn as a stroked path, and a floor mesh under a stroke mesh per Element whose kind is
-/// drawn as a filled outline, once it has its derived shape, each in its colour, at the
-/// Element's depth in the stacking order shared with the sprites, the floor half a unit below,
-/// replaced when the shape changes; the meshes of Elements that are gone are removed. An Element
-/// whose shape is not derived yet is not drawn that frame.
+/// is drawn as a stroked path, at the Element's depth in the stacking order shared with the
+/// sprites, and per Element whose kind is drawn as a filled outline a floor mesh half a unit
+/// below its own depth, unless it has no floor, and a mesh of the Walls drawn in its look round
+/// the depth of the Room its shape names, unless it draws none: over every floor of its
+/// combination and under the Element after the combination's last Room, a later Room's Walls
+/// over an earlier one's. Each is in its colour, replaced when the shape changes; the meshes of
+/// Elements that are gone are removed. An Element whose shape is not derived yet is not drawn
+/// that frame.
 ///
 /// Everything drawn in one colour shares its Material.
 pub(crate) fn sync_walls(
@@ -226,7 +238,12 @@ pub(crate) fn sync_walls(
             .collect(),
         in_use: BTreeSet::new(),
     };
-    for stacked in stacking.in_order() {
+    let order = stacking.in_order();
+    let depths: BTreeMap<ElementId, f32> = order
+        .iter()
+        .filter_map(|stacked| Some((*model.ids.get(stacked.element).ok()?, stacked.depth)))
+        .collect();
+    for stacked in order {
         let Ok(element) = model.elements.get(stacked.element) else {
             continue;
         };
@@ -250,24 +267,32 @@ pub(crate) fn sync_walls(
                     continue;
                 };
                 let changed = shape.is_changed();
-                let floor = Piece {
-                    element: stacked.element,
-                    part: Part::Floor,
-                    colour: room.floor_colour,
-                    depth: stacked.depth - FLOOR_BELOW,
-                    changed,
-                    mesh: Box::new(|| floor_mesh(&shape.floor)),
-                };
-                draw(&mut sync, floor, &mut commands, &mut drawings, &mut assets);
-                let walls = Piece {
-                    element: stacked.element,
-                    part: Part::Stroke,
-                    colour: room.wall_colour,
-                    depth: stacked.depth,
-                    changed,
-                    mesh: Box::new(|| stroke_mesh(&shape.walls.mesh)),
-                };
-                draw(&mut sync, walls, &mut commands, &mut drawings, &mut assets);
+                if !shape.floor.indices.is_empty() {
+                    let floor = Piece {
+                        element: stacked.element,
+                        part: Part::Floor,
+                        colour: room.floor_colour,
+                        depth: stacked.depth - FLOOR_BELOW,
+                        changed,
+                        mesh: Box::new(|| floor_mesh(&shape.floor)),
+                    };
+                    draw(&mut sync, floor, &mut commands, &mut drawings, &mut assets);
+                }
+                if !shape.mesh.indices.is_empty() {
+                    let at = depths
+                        .get(&shape.drawn_at)
+                        .copied()
+                        .unwrap_or(stacked.depth);
+                    let walls = Piece {
+                        element: stacked.element,
+                        part: Part::Stroke,
+                        colour: room.wall_colour,
+                        depth: walls_depth(at, stacked.depth),
+                        changed,
+                        mesh: Box::new(|| stroke_mesh(&shape.mesh)),
+                    };
+                    draw(&mut sync, walls, &mut commands, &mut drawings, &mut assets);
+                }
             }
             Some(DrawnAs::Image | DrawnAs::PaintedSurface) | None => {}
         }
@@ -278,6 +303,14 @@ pub(crate) fn sync_walls(
     // A colour nothing is drawn in any more lets its Material go.
     let in_use = sync.in_use;
     assets.shared.0.retain(|colour, _| in_use.contains(colour));
+}
+
+/// The depth a Room's Walls are drawn at: round the depth `at` of the Room its combination's
+/// Walls are drawn at, the last of them, by the Room's own depth `own`, so the Walls of one
+/// combination lie over all of its floors and under the Element after it, a later Room's over an
+/// earlier one's.
+fn walls_depth(at: f32, own: f32) -> f32 {
+    at - WALLS_SPREAD + 2.0 * WALLS_SPREAD * own / (at + 1.0)
 }
 
 /// Draws one piece: updates the mesh entity that drew it last frame, or spawns one.

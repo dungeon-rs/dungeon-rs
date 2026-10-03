@@ -1,9 +1,9 @@
-//! Rooms: floors with Walls around a closed outline of straight and curved edges, and the shape
-//! derived from them for drawing and picking.
+//! Rooms: floors with Walls around a closed outline of straight and curved edges, combined with
+//! the Rooms of their Layer, and the shape derived from them for drawing and picking.
 
 use crate::{
-    Colour, ElementKindName, Serialisable, SerialisationError, Tier, WallShape, parse_version,
-    read_current_version,
+    Colour, ElementId, ElementKindName, LinePoint, Serialisable, SerialisationError, Stretch,
+    StrokeMesh, Tier, parse_version, read_current_version,
 };
 use bevy_ecs::component::Component;
 use bevy_ecs::reflect::ReflectComponent;
@@ -188,18 +188,35 @@ pub struct FillMesh {
     pub indices: Vec<u32>,
 }
 
-/// The shape derived from a [`Room`]: the Walls around its outline, drawn and picked as a Wall's
-/// are, and its floor. It is never saved; the authoring Manager derives it whenever the Room or a
-/// Portal set into it changes, and whoever draws or picks a Room reads it.
+/// The shape derived from a [`Room`] among the Rooms of its Layer: its whole outline, the Walls
+/// drawn in its look where the Layer's combined floor ends or where it shares an edge with
+/// another Room, and its floor. It is never saved; the authoring Manager derives it whenever a
+/// Room of its Layer or a Portal set into one changes, and whoever draws or picks a Room reads
+/// it.
 #[derive(Component, Debug, Clone, Default, PartialEq)]
 pub struct RoomShape {
-    /// The Walls: the outline flattened into a closed line, from the first point round to the
-    /// first point again, each point tagged with the edge it lies on as its segment; the
-    /// stretches the Portals set into the Room cover, a stretch whose start lies after its end
-    /// running on past the first point; and the stroke centred on the line with a round join at
-    /// every point and no caps, left out along the stretches.
-    pub walls: WallShape,
-    /// The floor: everything the closed line winds around, filled up to the line under the
-    /// non-zero rule, so its edge and the Walls' centre line are the same chords.
+    /// The whole outline flattened into a closed line, from the first point round to the first
+    /// point again, each point tagged with the edge it lies on as its segment, whether or not a
+    /// Wall runs along it: what the Room is outlined and handled by when selected.
+    pub outline: Vec<LinePoint>,
+    /// The Walls drawn in its look, each a line along pieces of its edges, each point tagged with
+    /// the edge it lies on and the parameter along it, a point where the line passes from one
+    /// edge to the next given twice, once for each; a line that runs round ends at its first
+    /// point again.
+    pub walls: Vec<Vec<LinePoint>>,
+    /// The places on its edges where a Wall runs, whichever Room's look it is drawn in, each
+    /// within one edge.
+    pub walled: Vec<Stretch>,
+    /// The stretches of its edges the Portals cover where its Walls give way, whichever Room they
+    /// are set into, which the stroke leaves out and picking its Walls ignores.
+    pub stretches: Vec<Stretch>,
+    /// The stroke of its Walls, centred on their lines, with a round join at every point, round
+    /// ends where they meet another Room's, and square ends at the stretches.
+    pub mesh: StrokeMesh,
+    /// The Room at whose place in the stacking order its Walls are drawn: the last Room of the
+    /// combination it belongs to, the Rooms of its Layer whose outlines overlap or touch.
+    pub drawn_at: ElementId,
+    /// The floor: everything its outline winds around, under the non-zero rule, less what the
+    /// Rooms after it on its Layer that cut take away; nothing for a Room that cuts.
     pub floor: FillMesh,
 }

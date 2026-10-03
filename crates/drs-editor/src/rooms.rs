@@ -10,8 +10,8 @@ use crate::handles::{HANDLE_PIXELS, HANDLES};
 use crate::snapping::Shown;
 use crate::state::{EditorState, Interaction, Tool};
 use crate::walls::{
-    DEFAULT_COLOUR, DEFAULT_THICKNESS, NEAR_THE_LAST, OptionGesture, colour_option, end_option,
-    on_wall, send_option, thickness_option,
+    DEFAULT_COLOUR, DEFAULT_THICKNESS, Lines, NEAR_THE_LAST, OptionGesture, colour_option,
+    end_option, on_wall, send_option, thickness_option,
 };
 use bevy::color::Color;
 use bevy::ecs::entity::Entity;
@@ -255,10 +255,30 @@ fn winds_around(line: &[LinePoint], cells: Vec2) -> bool {
     winding != 0
 }
 
-/// Whether a point in cells is on a Room: inside its floor, by the non-zero winding of its
-/// closed line around the point, or on its Walls outside the stretches its Portals cover.
-pub(crate) fn on_room(room: &Room, shape: &RoomShape, cells: Vec2, zoom: f32) -> bool {
-    winds_around(&shape.walls.line, cells) || on_wall(room.thickness, &shape.walls, cells, zoom)
+/// Whether a point in cells is on a Room's floor as it is drawn: inside the triangles of its
+/// floor, or, for a Room that cuts and so has none, anywhere its whole outline winds around.
+pub(crate) fn on_floor(room: &Room, shape: &RoomShape, cells: Vec2) -> bool {
+    if room.cuts {
+        return winds_around(&shape.outline, cells);
+    }
+    shape.floor.indices.chunks(3).any(|corners| {
+        let [a, b, c] = [0, 1, 2].map(|index| {
+            corners
+                .get(index)
+                .and_then(|corner| shape.floor.vertices.get(*corner as usize))
+                .copied()
+                .unwrap_or(Vec2::NAN)
+        });
+        let side = |u: Vec2, v: Vec2| (v - u).perp_dot(cells - u);
+        let (ab, bc, ca) = (side(a, b), side(b, c), side(c, a));
+        (ab >= 0.0 && bc >= 0.0 && ca >= 0.0) || (ab <= 0.0 && bc <= 0.0 && ca <= 0.0)
+    })
+}
+
+/// Whether a point in cells is on the Walls drawn in a Room's look, outside the stretches the
+/// Portals leave out of them.
+pub(crate) fn on_walls(room: &Room, shape: &RoomShape, cells: Vec2, zoom: f32) -> bool {
+    on_wall(room.thickness, &Lines::of_room(shape), cells, zoom)
 }
 
 /// The wall thickness, wall colour, and floor colour options, of the selected Room or of the
@@ -384,17 +404,30 @@ pub(crate) fn describe(
     rooms: &bevy::ecs::system::Query<(&ElementId, &drs_model::Element, &Room, Option<&RoomShape>)>,
 ) {
     bevy::log::info!(
-        "describe: room tool {}, drawing {:?}, next thickness {} walls {:?} floor {:?}",
+        "describe: room tool {}, drawing {:?}, next thickness {} walls {:?} floor {:?} cuts {}",
         state.tool == Tool::Room,
         state.rooms.drawing,
         state.rooms.thickness,
         crate::walls::rgb(state.rooms.wall_colour),
-        crate::walls::rgb(state.rooms.floor_colour)
+        crate::walls::rgb(state.rooms.floor_colour),
+        state.rooms.cuts
     );
     for (id, element, room, shape) in rooms {
+        let walls = shape.map(|shape| {
+            shape
+                .walls
+                .iter()
+                .map(|line| {
+                    line.iter()
+                        .map(|point| (point.position, point.segment))
+                        .collect::<Vec<_>>()
+                })
+                .collect::<Vec<_>>()
+        });
         bevy::log::info!(
             "describe: room {} at {} size {}, points {:?}, controls {:?}, thickness {}, walls \
-             {:?}, floor {:?}, gives way along {:?}",
+             {:?}, floor {:?}, cuts {}, floor triangles {:?}, walls drawn at {:?}, walls along \
+             {walls:?}, gives way along {:?}",
             id.as_raw(),
             element.position,
             element.size,
@@ -406,9 +439,11 @@ pub(crate) fn describe(
             room.thickness,
             crate::walls::rgb(room.wall_colour),
             crate::walls::rgb(room.floor_colour),
+            room.cuts,
+            shape.map(|shape| shape.floor.indices.len() / 3),
+            shape.map(|shape| shape.drawn_at.as_raw()),
             shape.map(|shape| {
                 shape
-                    .walls
                     .stretches
                     .iter()
                     .map(|stretch| {

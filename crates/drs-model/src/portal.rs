@@ -159,7 +159,8 @@ pub enum Anchoring {
     /// Portal stands on that part at its parameter, turned to the line, and faces its side.
     Set,
     /// Its anchor names no Wall or Room of its Level, or a part its host lacks, as an editor that
-    /// does not know Portals or Rooms may leave it: the Portal keeps its anchor but stands, turns,
-    /// and mirrors as a freestanding one.
+    /// does not know Portals or Rooms may leave it, or a place on a Room's edge where no Wall runs,
+    /// as an editor that does not combine Rooms may leave it and a drag may for a while: the
+    /// Portal keeps its anchor but stands, turns, and mirrors as a freestanding one.
     Lost,
 }

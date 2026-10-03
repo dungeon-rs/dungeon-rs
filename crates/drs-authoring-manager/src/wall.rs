@@ -4,8 +4,8 @@
 use crate::OutlineKind;
 use crate::outline::OutlineHost;
 use bevy_math::Rect;
-use drs_model::{ElementKindName, FillMesh, Segment, WALL, Wall, WallShape};
-use drs_shape_engine::Path;
+use drs_model::{ElementId, ElementKindName, Segment, Stretch, StrokeMesh, WALL, Wall, WallShape};
+use drs_shape_engine::{CombinedOutline, Path};
 
 impl OutlineHost for Wall {
     const KIND: ElementKindName = WALL;
@@ -14,6 +14,7 @@ impl OutlineHost for Wall {
     const COLOUR: &'static str = "colour";
     const FLOOR_COLOUR: Option<&'static str> = None;
     const CUTS: Option<&'static str> = None;
+    const COMBINES: bool = false;
 
     type Shape = WallShape;
 
@@ -56,8 +57,22 @@ impl OutlineHost for Wall {
         Self::malformation(self)
     }
 
-    /// A Wall's line encloses nothing, so its shape is its stroke.
-    fn shape(walls: WallShape, _floor: FillMesh) -> WallShape {
-        walls
+    fn cuts(&self) -> bool {
+        false
+    }
+
+    /// A Wall's line encloses nothing and combines with nothing, so its shape is its line and
+    /// its stroke.
+    fn shape(
+        combined: &CombinedOutline,
+        mesh: StrokeMesh,
+        stretches: Vec<Stretch>,
+        _drawn_at: ElementId,
+    ) -> WallShape {
+        WallShape {
+            line: combined.line.clone(),
+            stretches,
+            mesh,
+        }
     }
 }

@@ -12,6 +12,7 @@ authors.workspace = true
 [dependencies]
 bevy_math = { workspace = true }
 drs-model = { path = "../drs-model" }
+i_overlay = { workspace = true }
 kurbo = { workspace = true }
 lyon_tessellation = { workspace = true }
 thiserror = { workspace = true }

@@ -21,8 +21,8 @@ use bevy::math::{Isometry2d, Vec2};
 use bevy::window::{PrimaryWindow, Window};
 use bevy_egui::EguiContexts;
 use drs_model::{
-    Apply, Colour, EditElement, ElementChange, ElementId, Gesture, LinePlace, PlaceElement,
-    Placement, Pointer, SnappedPoint, Viewport, Wall, WallShape,
+    Apply, Colour, EditElement, ElementChange, ElementId, Gesture, LinePlace, LinePoint,
+    PlaceElement, Placement, Pointer, RoomShape, SnappedPoint, Stretch, Viewport, Wall, WallShape,
 };
 
 /// The thickness the first Wall is drawn with: an eighth of a cell.
@@ -199,42 +199,120 @@ pub(crate) fn parameter_on_segment(from: Vec2, to: Vec2, cells: Vec2) -> f32 {
     }
 }
 
-/// The point of a Wall's flattened line nearest `cells`.
-pub(crate) fn nearest_on_line(shape: &WallShape, cells: Vec2) -> Option<NearestPoint> {
-    shape
-        .line
-        .windows(2)
-        .map(|pair| {
+/// The lines a Wall, the Walls drawn in a Room's look, or a Room's whole outline run along, as
+/// picking and the Portal tool see them: the flattened lines, the stretches the Portals leave out,
+/// and, for a slide along a Room's Walls, the places of its edges where a Wall runs.
+#[derive(Debug, Clone)]
+pub(crate) struct Lines<'a> {
+    /// The lines, each point tagged with its segment or edge and the parameter along it.
+    pub runs: Vec<&'a [LinePoint]>,
+    /// The stretches the Portals leave out.
+    pub stretches: &'a [Stretch],
+    /// The only places of the lines a nearest point may lie at, when not all.
+    pub only: Option<&'a [Stretch]>,
+}
+
+impl<'a> Lines<'a> {
+    /// A Wall's line, with the stretches its Portals cover.
+    pub(crate) fn of_wall(shape: &'a WallShape) -> Self {
+        Self {
+            runs: vec![&shape.line],
+            stretches: &shape.stretches,
+            only: None,
+        }
+    }
+
+    /// The Walls drawn in a Room's look, with the stretches the Portals leave out of them.
+    pub(crate) fn of_room(shape: &'a RoomShape) -> Self {
+        Self {
+            runs: shape.walls.iter().map(Vec::as_slice).collect(),
+            stretches: &shape.stretches,
+            only: None,
+        }
+    }
+
+    /// A Room's whole outline, every edge whether a Wall runs along it or not.
+    pub(crate) fn round_room(shape: &'a RoomShape) -> Self {
+        Self {
+            runs: vec![&shape.outline],
+            stretches: &[],
+            only: None,
+        }
+    }
+
+    /// The places of a Room's edges where a Wall runs, whichever Room's look it is drawn in.
+    pub(crate) fn walled_room(shape: &'a RoomShape) -> Self {
+        Self {
+            runs: vec![&shape.outline],
+            stretches: &[],
+            only: Some(&shape.walled),
+        }
+    }
+}
+
+/// The point of the lines nearest `cells`, among the places they allow.
+pub(crate) fn nearest_on_line(lines: &Lines, cells: Vec2) -> Option<NearestPoint> {
+    lines
+        .runs
+        .iter()
+        .flat_map(|line| line.windows(2))
+        .flat_map(|pair| {
             let (from, to) = (pair[0], pair[1]);
-            let along = to.position - from.position;
-            let s = parameter_on_segment(from.position, to.position, cells);
             let end = if to.segment == from.segment {
                 to.t
             } else {
                 1.0
             };
-            let at = from.position + along * s;
-            NearestPoint {
-                distance: cells.distance(at),
-                place: LinePlace {
-                    segment: from.segment,
-                    t: from.t + (end - from.t) * s,
-                },
-                at,
-                along: along.normalize_or_zero(),
-            }
+            allowed(lines.only, from.segment, from.t, end)
+                .into_iter()
+                .map(move |(low, high)| {
+                    let along = to.position - from.position;
+                    let (a, b) = (from.position + along * low, from.position + along * high);
+                    let s = low + (high - low) * parameter_on_segment(a, b, cells);
+                    let at = from.position + along * s;
+                    NearestPoint {
+                        distance: cells.distance(at),
+                        place: LinePlace {
+                            segment: from.segment,
+                            t: from.t + (end - from.t) * s,
+                        },
+                        at,
+                        along: along.normalize_or_zero(),
+                    }
+                })
         })
         .min_by(|a, b| a.distance.total_cmp(&b.distance))
 }
 
+/// The shares of the chord on `segment` from parameter `from` to `to` that `only` allows: the
+/// whole chord when it allows everything.
+fn allowed(only: Option<&[Stretch]>, segment: usize, from: f32, to: f32) -> Vec<(f32, f32)> {
+    let Some(only) = only else {
+        return vec![(0.0, 1.0)];
+    };
+    let span = to - from;
+    if span.abs() <= f32::EPSILON {
+        return Vec::new();
+    }
+    only.iter()
+        .filter(|stretch| stretch.start.segment == segment && stretch.end.segment == segment)
+        .filter_map(|stretch| {
+            let share = |t: f32| ((t - from) / span).clamp(0.0, 1.0);
+            let (a, b) = (share(stretch.start.t), share(stretch.end.t));
+            let (low, high) = (a.min(b), a.max(b));
+            (high > low).then_some((low, high))
+        })
+        .collect()
+}
+
 /// Whether a point in cells is on a Wall, or on a Room's Walls, `thickness` thick: no farther
-/// from its line than half the thickness or four screen pixels, whichever is more, where the
-/// nearest point of the line lies in no stretch a Portal covers.
-pub(crate) fn on_wall(thickness: f32, shape: &WallShape, cells: Vec2, zoom: f32) -> bool {
+/// from its lines than half the thickness or four screen pixels, whichever is more, where the
+/// nearest point of the lines lies in no stretch a Portal covers.
+pub(crate) fn on_wall(thickness: f32, lines: &Lines, cells: Vec2, zoom: f32) -> bool {
     let reach = (thickness / 2.0).max(LINE_PIXELS / zoom);
-    nearest_on_line(shape, cells).is_some_and(|nearest| {
+    nearest_on_line(lines, cells).is_some_and(|nearest| {
         nearest.distance <= reach
-            && !shape
+            && !lines
                 .stretches
                 .iter()
                 .any(|stretch| stretch.covers(nearest.place))

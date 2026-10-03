@@ -6,6 +6,7 @@
 //! component reads as the shape Engine's [`Path`] and back, so a kind gains them all through one
 //! implementation.
 
+use crate::combined::{Walled, layer_of, take_walls_away, walled};
 use crate::place::{spawn_on_top, take_off};
 use crate::portal::{Anchored, anchored_to};
 use crate::remove::Remove;
@@ -18,10 +19,12 @@ use bevy_math::{Rect, Vec2};
 use bevy_reflect::{Reflect, TypePath};
 use drs_history::{ReversibleCommand, SetField, Target};
 use drs_model::{
-    Element, ElementChange, ElementId, ElementKindName, FillMesh, LinePlace, Portal, PortalAnchor,
-    PortalsRemoved, WallShape,
+    Element, ElementChange, ElementId, ElementKindName, LinePlace, Portal, PortalAnchor,
+    PortalsRemoved, Stretch, StrokeMesh,
 };
-use drs_shape_engine::{Path, PointEdit, PortalSetting, anchor_portals_through, split_wall};
+use drs_shape_engine::{
+    CombinedOutline, Path, PointEdit, PortalSetting, anchor_portals_through, split_wall,
+};
 
 /// A kind of Element drawn from an editable outline that Portals are set into: a Wall along its
 /// open line, a Room round its closed outline. Its points and control points are read and written
@@ -42,9 +45,12 @@ pub(crate) trait OutlineHost:
     const FLOOR_COLOUR: Option<&'static str>;
     /// The reflect path of whether it cuts, when it can.
     const CUTS: Option<&'static str>;
+    /// Whether it combines with the others of its kind on its Layer, so an edit of one can take a
+    /// Wall away from a Portal set into another.
+    const COMBINES: bool;
 
     /// The shape derived from it, which it is drawn and picked by.
-    type Shape: Component<Mutability = Mutable>;
+    type Shape: Component<Mutability = Mutable> + PartialEq;
 
     /// The reflect path of the control point of part `part`, its segment or edge.
     fn control_path(part: usize) -> String;
@@ -69,8 +75,17 @@ pub(crate) trait OutlineHost:
     /// Why it is not one, if it is not.
     fn malformation(&self) -> Option<String>;
 
-    /// Its derived shape from its stroked Walls and what its outline winds around.
-    fn shape(walls: WallShape, floor: FillMesh) -> Self::Shape;
+    /// Whether it takes floor away from those before it rather than adding its own.
+    fn cuts(&self) -> bool;
+
+    /// Its derived shape from what `CombineOutlines` gave it, the stroke of its Walls, the
+    /// stretches its Walls give way along, and the one at whose place its Walls are drawn.
+    fn shape(
+        combined: &CombinedOutline,
+        mesh: StrokeMesh,
+        stretches: Vec<Stretch>,
+        drawn_at: ElementId,
+    ) -> Self::Shape;
 }
 
 /// The recorded step of placing a Wall or a Room: the Element spawned on top of its Layer,
@@ -107,7 +122,9 @@ impl<H: OutlineHost> ReversibleCommand for PlaceOutline<H> {
     }
 }
 
-/// Places a Wall or a Room on top of the Layer as one history step.
+/// Places a Wall or a Room on top of the Layer as one history step, with the removal of every
+/// Portal set into another of its kind on the Layer that it leaves with no Wall at its centre.
+/// Returns the answers naming the Portals that went.
 ///
 /// # Errors
 ///
@@ -117,16 +134,23 @@ pub(crate) fn place_outline<H: OutlineHost>(
     world: &mut World,
     layer: Entity,
     outline: H,
-) -> Result<(), AuthoringError> {
+) -> Result<Vec<PortalsRemoved>, AuthoringError> {
     well_formed(&outline)?;
-    crate::record_step(
-        world,
-        PlaceOutline {
-            layer,
-            outline,
-            element: ElementId::new(),
-        },
-    )
+    let place = PlaceOutline {
+        layer,
+        outline,
+        element: ElementId::new(),
+    };
+    if !H::COMBINES {
+        return crate::record_step(world, place).map(|()| Vec::new());
+    }
+    let before = walled::<H>(world, layer);
+    crate::history(world)?.begin_group();
+    let mut removed = Vec::new();
+    let outcome = crate::record(world, place)
+        .and_then(|()| take_walls_away::<H>(world, layer, &before).map(|taken| removed = taken));
+    crate::close_group(world, outcome)?;
+    Ok(removed)
 }
 
 /// The recorded step of adding or removing a point: the Wall or the Room as it becomes and as it
@@ -202,7 +226,7 @@ pub(crate) enum OutlineEdit {
     /// The field command to record.
     Field(SetField<ElementId>),
     /// The step was recorded on its own.
-    Recorded(Option<PortalsRemoved>),
+    Recorded(Vec<PortalsRemoved>),
 }
 
 /// An Edit Element of the Wall or the Room `id`, checked against it as it is: its position, a
@@ -277,7 +301,7 @@ pub(crate) fn outline_edit<H: OutlineHost>(
         }
         ElementChange::AddPoint { segment, t } => {
             return add_point(world, id, &outline, *segment, *t)
-                .map(|()| OutlineEdit::Recorded(None));
+                .map(|()| OutlineEdit::Recorded(Vec::new()));
         }
         ElementChange::RemovePoint { index } => {
             return remove_point(world, id, &outline, *index).map(OutlineEdit::Recorded);
@@ -358,7 +382,7 @@ fn add_point<H: OutlineHost>(
             moves.push(field);
         }
     }
-    record_together(
+    record_together::<H>(
         world,
         Vec::new(),
         Reshape {
@@ -367,7 +391,9 @@ fn add_point<H: OutlineHost>(
             previous: None,
         },
         moves,
+        None,
     )
+    .map(|_| ())
 }
 
 /// The outline with the point `index` removed: on an open line the two segments at an inner
@@ -396,8 +422,10 @@ fn without_point(path: &Path, index: usize) -> Path {
 /// Removes a point of a Wall or a Room as one history step, joining its outline straight there.
 /// One of the fewest points it may have is removed whole, with its Portals, in a group of its
 /// own. The Portals set into the part of it that goes are removed in the same step, before the
-/// point, and the other Portals set into it move to the part and parameter that keep them on
-/// their part of it. Returns the answer naming the Portals that went, when any did.
+/// point, the other Portals set into it move to the part and parameter that keep them on their
+/// part of it, and the Portals set into others of its kind on its Layer that the step leaves with
+/// no Wall at their centre are removed after it. Returns the answers naming the Portals that
+/// went.
 ///
 /// # Errors
 ///
@@ -408,7 +436,7 @@ fn remove_point<H: OutlineHost>(
     element: ElementId,
     before: &H,
     index: usize,
-) -> Result<Option<PortalsRemoved>, AuthoringError> {
+) -> Result<Vec<PortalsRemoved>, AuthoringError> {
     let path = before.path();
     let points = path.points.len();
     if index >= points {
@@ -419,9 +447,10 @@ fn remove_point<H: OutlineHost>(
         });
     }
     if points <= H::FEWEST_POINTS {
-        return remove_with_portals(world, element);
+        return remove_with_portals::<H>(world, element);
     }
     let outline = before.with_path(without_point(&path, index));
+    let walls = walls_before::<H>(world, element);
     let (portals, _) = anchored_to(world, element);
     let places = anchor_portals_through(&path, PointEdit::Removed { index }, &settings(&portals));
     let mut gone = Vec::new();
@@ -432,7 +461,7 @@ fn remove_point<H: OutlineHost>(
             None => gone.push(*portal),
         }
     }
-    record_together(
+    let taken = record_together::<H>(
         world,
         gone.clone(),
         Reshape {
@@ -441,34 +470,57 @@ fn remove_point<H: OutlineHost>(
             previous: None,
         },
         moves,
+        walls,
     )?;
-    Ok(removed(element, gone))
+    Ok(removed(element, gone).into_iter().chain(taken).collect())
 }
 
 /// Removes a Wall or a Room and every Portal set into it as one history step, the Portals first,
-/// so undo restores the host and then its Portals. Returns the answer naming the Portals that
-/// went, when any did.
+/// so undo restores the host and then its Portals, and after them every Portal set into another
+/// of its kind on its Layer that the removal leaves with no Wall at its centre. Returns the
+/// answers naming the Portals that went.
 ///
 /// # Errors
 ///
 /// [`AuthoringError::History`] when the step could not be recorded.
-pub(crate) fn remove_with_portals(
+pub(crate) fn remove_with_portals<H: OutlineHost>(
     world: &mut World,
     element: ElementId,
-) -> Result<Option<PortalsRemoved>, AuthoringError> {
+) -> Result<Vec<PortalsRemoved>, AuthoringError> {
     let gone: Vec<ElementId> = anchored_to(world, element)
         .0
         .into_iter()
         .map(|(portal, ..)| portal)
         .collect();
+    let walls = walls_before::<H>(world, element);
     crate::history(world)?.begin_group();
     let mut outcome = Ok(());
     for portal in &gone {
         outcome = outcome.and_then(|()| crate::record(world, Remove::of(*portal)));
     }
     outcome = outcome.and_then(|()| crate::record(world, Remove::of(element)));
+    let mut taken = Vec::new();
+    if let Some((layer, before)) = &walls {
+        outcome = outcome.and_then(|()| {
+            take_walls_away::<H>(world, *layer, before).map(|removed| taken = removed)
+        });
+    }
     crate::close_group(world, outcome)?;
-    Ok(removed(element, gone))
+    Ok(removed(element, gone).into_iter().chain(taken).collect())
+}
+
+/// The Layer of the Wall or the Room `element` and the Portals set into the others of its kind
+/// there that have a Wall at their centre, when the kind combines.
+pub(crate) fn walls_before<H: OutlineHost>(
+    world: &mut World,
+    element: ElementId,
+) -> Option<(Entity, Walled)> {
+    if !H::COMBINES {
+        return None;
+    }
+    let entity = element.entity(world).ok()?;
+    let layer = layer_of(world, entity)?;
+    Some((layer, walled::<H>(world, layer)))
 }
 
 /// What `AnchorPortals` is told about the Portals set into a Wall or a Room.
@@ -476,6 +528,7 @@ pub(crate) fn settings(portals: &[Anchored]) -> Vec<PortalSetting> {
     portals
         .iter()
         .map(|(_, anchor, width)| PortalSetting {
+            outline: 0,
             segment: anchor.index,
             t: anchor.t,
             width: *width,
@@ -511,22 +564,26 @@ fn moved(
     .map_err(|error| AuthoringError::History(error.to_string()))
 }
 
-/// Records the removal of the Portals `gone`, a reshape of their Wall or Room, and the moves of
-/// the Portals that stay as one history step, in that order, so undo restores the host's points
-/// before its Portals. With no Portal involved the reshape is a step of its own.
+/// Records the removal of the Portals `gone`, a reshape of their Wall or Room, the moves of the
+/// Portals that stay, and the removal of the Portals of `walls`, those set into others of its
+/// kind on its Layer, that the reshape leaves with no Wall at their centre, as one history step,
+/// in that order, so undo restores the host's points before its Portals. With no Portal involved
+/// the reshape is a step of its own. Returns the answers naming the Portals of `walls` that went.
 ///
 /// # Errors
 ///
 /// [`AuthoringError::History`] when a command could not be applied; what was applied before it
 /// is taken back, so nothing of the step is left.
-fn record_together(
+fn record_together<H: OutlineHost>(
     world: &mut World,
     gone: Vec<ElementId>,
     reshape: impl ReversibleCommand,
     moves: Vec<SetField<ElementId>>,
-) -> Result<(), AuthoringError> {
-    if gone.is_empty() && moves.is_empty() {
-        return crate::record_step(world, reshape);
+    walls: Option<(Entity, Walled)>,
+) -> Result<Vec<PortalsRemoved>, AuthoringError> {
+    let walls = walls.filter(|(_, before)| !before.is_empty());
+    if gone.is_empty() && moves.is_empty() && walls.is_none() {
+        return crate::record_step(world, reshape).map(|()| Vec::new());
     }
     crate::history(world)?.begin_group();
     let mut outcome = Ok(());
@@ -537,7 +594,14 @@ fn record_together(
     for field in moves {
         outcome = outcome.and_then(|()| crate::record(world, field));
     }
-    crate::close_group(world, outcome)
+    let mut taken = Vec::new();
+    if let Some((layer, before)) = &walls {
+        outcome = outcome.and_then(|()| {
+            take_walls_away::<H>(world, *layer, before).map(|removed| taken = removed)
+        });
+    }
+    crate::close_group(world, outcome)?;
+    Ok(taken)
 }
 
 /// The answer naming the Portals set into `host` that a Command removed, when it removed any.

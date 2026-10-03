@@ -10,3 +10,8 @@ timed = { max-threads = 1 }
 filter = '(package(drs-catalog-engine) and test(=answered_within_a_keystroke)) or (package(drs-paint-engine) and binary(budget))'
 test-group = 'timed'
 threads-required = 'num-test-threads'
+
+[[profile.default.overrides]]
+filter = 'package(drs-shape-engine) and test(=recombined_within_a_frame)'
+test-group = 'timed'
+threads-required = 'num-test-threads'

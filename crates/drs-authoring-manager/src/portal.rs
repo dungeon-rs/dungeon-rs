@@ -1,6 +1,7 @@
 //! Portals: placing one set into a Wall or a Room or freestanding, Set Portal into Wall and Free
 //! Portal, the edits only a Portal has, and finding the Portals set into a Wall or a Room.
 
+use crate::combined::standing_at;
 use crate::outline::path_of;
 use crate::place::{Place, Spawned, resolve};
 use crate::{AuthoringError, OutlineKind};
@@ -14,7 +15,7 @@ use drs_model::{
     Anchoring, AssetAddress, AssetReferenceRow, Element, ElementChange, ElementId, FreePortal,
     Level, Portal, PortalAnchor, Room, SetPortalIntoWall, Wall,
 };
-use drs_shape_engine::{Path, PortalSetting, Standing, anchor_portals};
+use drs_shape_engine::{Path, Standing};
 
 /// The outline of the Wall or the Room an entity carries, and what errors call it, if it carries
 /// either: what a Portal is set into, its parts being the Wall's segments or the Room's edges. The
@@ -117,23 +118,30 @@ pub(crate) fn stood(
     )
 }
 
-/// Where a Portal of `width` set at `anchor` into the outline `host` stands, as [`stood`] says.
+/// Where a Portal of `width` set at `anchor` stands as the Walls of its host run now, as
+/// [`stood`] says: `None` when the host lacks the part or the parameter.
+///
+/// # Errors
+///
+/// [`AuthoringError::NoWallThere`] when no Wall runs at that place of the host's edge.
 fn standing_in(
-    host: &Path,
+    world: &mut World,
     anchor: &PortalAnchor,
     width: f32,
     rotation: f32,
-) -> Option<(Vec2, f32, bool)> {
-    let setting = PortalSetting {
-        segment: anchor.index,
-        t: anchor.t,
-        width,
+) -> Result<Option<(Vec2, f32, bool)>, AuthoringError> {
+    let Ok(entity) = anchor.host.entity(world) else {
+        return Ok(None);
     };
-    let standing = anchor_portals(host, &[setting])
-        .into_iter()
-        .next()
-        .flatten()?;
-    Some(stood(&standing, anchor, rotation))
+    let standing = standing_at::<Wall>(world, entity, anchor, width)
+        .or_else(|| standing_at::<Room>(world, entity, anchor, width));
+    match standing {
+        Some(standing) if standing.stretches.is_none() => {
+            Err(AuthoringError::NoWallThere { edge: anchor.index })
+        }
+        Some(standing) => Ok(Some(stood(&standing, anchor, rotation))),
+        None => Ok(None),
+    }
 }
 
 /// Places a Portal of the chosen Asset at its image's natural size on top of the Layer, set into
@@ -176,9 +184,9 @@ pub(crate) fn place_portal(
     };
     well_formed(&portal)?;
     let mut position = position;
-    if let (Some(host), Some(anchor)) = (&host, &anchor)
+    if let (Some(_), Some(anchor)) = (&host, &anchor)
         && let Some((centre, rotation, mirrored)) =
-            standing_in(host, anchor, portal.width, portal.rotation)
+            standing_in(world, anchor, portal.width, portal.rotation)?
     {
         position = centre;
         portal.rotation = rotation;
@@ -302,8 +310,9 @@ pub(crate) fn set_portal_into_wall(
     host_of(world, &command.anchor, level)?;
     well_formed(&Portal {
         anchor: Some(command.anchor),
-        ..portal
+        ..portal.clone()
     })?;
+    standing_in(world, &command.anchor, portal.width, portal.rotation)?;
     crate::record_step(
         world,
         SetIntoWall {
@@ -393,6 +402,7 @@ pub(crate) fn portal_change(
             let level = level_of(world, entity);
             host_of(world, &anchor, level)?;
             well_formed(&portal)?;
+            standing_in(world, &anchor, portal.width, portal.rotation)?;
             SetField::<ElementId>::new::<Portal>(id, "anchor", Some(anchor))
         }
         ElementChange::Position(_)
