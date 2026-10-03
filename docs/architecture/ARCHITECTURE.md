@@ -76,7 +76,7 @@ Volatility: extension mechanism.
 Contract: InstallPlugin, LoadContributions, RunScript.
 
 ### Editor (Client)
-Volatility: presentation. The only crate that faces the Author: panels read the World and emit Commands; they never own domain state. It owns the presentation state in `model` (the Viewport and the Pointer): panning and zooming write the Viewport, the pointer's place and the snap switch write the Pointer, and nothing else writes either. Hit-testing is its own: the Element under the pointer and the nearest point of a Wall's line to it, for picking and for the Portal tool, while snapping a placed point to the Grid or into alignment is ShapeEngine's Snap.
+Volatility: presentation. The only crate that faces the Author: panels read the World and emit Commands; they never own domain state. It owns the presentation state in `model` (the Viewport and the Pointer): panning and zooming write the Viewport, the pointer's place and the snap switch write the Pointer, and nothing else writes either. Hit-testing is its own: the Element under the pointer and the nearest point of a Wall's line to it, for picking and for the Portal tool, while snapping a placed point to the Grid or into alignment is ShapeEngine's Snap. Dragging the Bounds rounds to whole cells in the Editor itself, because the Bounds are whole cells by their type, not a point that snaps.
 
 ### history (Utility)
 A domain-agnostic stack of reversible commands over a World: Record, Group, Undo, Redo. Every Manager records into it.
