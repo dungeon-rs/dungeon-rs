@@ -8,6 +8,7 @@
 
 use crate::bindings;
 use crate::state::{EditorState, Interaction, Tool};
+use crate::viewport::LevelView;
 use crate::walls::{self, OptionGesture};
 use bevy::ecs::entity::Entity;
 use bevy::ecs::hierarchy::Children;
@@ -725,43 +726,40 @@ fn band(canvas: &egui::Painter, path: &[egui::Pos2], radius: f32, colour: egui::
     }
 }
 
-/// Draws what the Paint tool shows over the Level, and keeps its selection true to the Level.
-///
-/// Painting or erasing, the stroke being drawn is a translucent band as wide as the Brush along
-/// its path to the pointer, with round ends, and a circle as large as the Brush follows the
-/// pointer, both in a warm red while erasing. Editing strokes, the selected stroke is a band as
-/// wide as its Brush, in the erase colour when it erases, with its path as a thin line and a
-/// handle at each point. The selected stroke is let go on every undo and redo and when the
-/// current Layer's Terrain no longer has it, and an option of it held while it changes ends its
-/// gesture once the stroke is no longer shown. Nothing is drawn while an Export runs.
-#[expect(
-    clippy::too_many_arguments,
-    reason = "a Bevy system names every resource and query it reads"
-)]
-pub(crate) fn overlay(
-    mut contexts: EguiContexts,
+/// Keeps the Paint tool's selection true to the Level: the selected stroke is let go on every
+/// undo and redo, when the tool no longer edits strokes, and when the current Layer's Terrain no
+/// longer has it, and an option of it held while it changes ends its gesture once the stroke is
+/// let go.
+pub(crate) fn keep_selection(
     mut state: ResMut<EditorState>,
-    viewport: Res<Viewport>,
-    window: Single<&Window, With<PrimaryWindow>>,
-    terrains: Terrains,
-    layers: Query<Entity, With<Layer>>,
+    level: LevelView,
     mut undo: MessageReader<Undo>,
     mut redo: MessageReader<Redo>,
     mut apply: MessageWriter<Apply>,
 ) {
     let history = undo.read().count() + redo.read().count() > 0;
-    let terrain = terrains.on(layers.iter().next());
-    let shown = if state.tool == Tool::Paint && state.paint.mode == Mode::EditingStrokes {
-        selected_in(&state, terrain)
-    } else {
-        None
-    };
-    if state.paint.selected.is_some() && (history || shown.is_none()) {
+    let editing = state.tool == Tool::Paint && state.paint.mode == Mode::EditingStrokes;
+    let shown = editing && selected_in(&state, level.current_terrain()).is_some();
+    if history || !shown {
         state.paint.selected = None;
-    }
-    if state.paint.option.is_some() && (history || shown.is_none()) {
         walls::end_option(&mut state.paint.option, &mut apply);
     }
+}
+
+/// Draws what the Paint tool shows over the Level.
+///
+/// Painting or erasing, the stroke being drawn is a translucent band as wide as the Brush along
+/// its path to the pointer, with round ends, and a circle as large as the Brush follows the
+/// pointer, both in a warm red while erasing. Editing strokes, the selected stroke is a band as
+/// wide as its Brush, in the erase colour when it erases, with its path as a thin line and a
+/// handle at each point. Nothing is drawn while an Export runs.
+pub(crate) fn overlay(
+    mut contexts: EguiContexts,
+    state: Res<EditorState>,
+    viewport: Res<Viewport>,
+    window: Single<&Window, With<PrimaryWindow>>,
+    level: LevelView,
+) {
     if state.exporting || state.tool != Tool::Paint {
         return;
     }
@@ -782,7 +780,12 @@ pub(crate) fn overlay(
         let point = viewport.screen_at(cells);
         egui::pos2(point.x, point.y)
     };
-    if let (Some((selected, stroke)), false) = (shown, history) {
+    let shown = if state.paint.mode == Mode::EditingStrokes {
+        selected_in(&state, level.current_terrain())
+    } else {
+        None
+    };
+    if let Some((selected, stroke)) = shown {
         let (line, colour) = if stroke.erase {
             (ERASE_CIRCLE, ERASE_BAND)
         } else {

@@ -70,7 +70,13 @@ impl Plugin for EditorPlugin {
             .init_resource::<panels::Layout>()
             .add_systems(
                 EguiPrimaryContextPass,
-                (panels::draw, walls::tool_strip, paint::overlay).chain(),
+                (
+                    panels::draw,
+                    walls::tool_strip,
+                    paint::keep_selection,
+                    paint::overlay,
+                )
+                    .chain(),
             )
             .add_systems(Startup, diagnostics::report_bundled_files)
             .add_systems(
