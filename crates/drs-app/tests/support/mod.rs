@@ -13,6 +13,8 @@
     reason = "a fixture stops at the first thing that is not as expected"
 )]
 
+pub mod terrain;
+
 use bevy::app::App;
 use bevy::ecs::entity::Entity;
 use bevy::ecs::hierarchy::Children;
