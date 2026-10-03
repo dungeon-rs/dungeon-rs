@@ -147,6 +147,18 @@ pub fn read_only_version<C: Serialisable + DeserializeOwned>(
             version,
         });
     }
+    parse_version::<C, C>(data)
+}
+
+/// Parses the data of a component `C` as one of its versions, `T`: the current one, or the
+/// private struct of an older one that is then migrated.
+///
+/// # Errors
+///
+/// [`SerialisationError::Malformed`] naming `C`, with the reason, for data `T` does not hold.
+pub fn parse_version<C: Serialisable, T: DeserializeOwned>(
+    data: &RawValue,
+) -> Result<T, SerialisationError> {
     serde_json::from_str(data.get()).map_err(|error| SerialisationError::Malformed {
         component: C::NAME.to_owned(),
         reason: error.to_string(),

@@ -2,7 +2,8 @@
 //! derived from them for drawing.
 
 use crate::{
-    AssetReferenceRow, ElementKindName, Serialisable, SerialisationError, Tier, read_only_version,
+    AssetReferenceRow, ElementKindName, Serialisable, SerialisationError, Tier, parse_version,
+    read_only_version,
 };
 use bevy_ecs::component::Component;
 use bevy_ecs::reflect::ReflectComponent;
@@ -209,15 +210,9 @@ impl Serialisable for Terrain {
     /// Reads version two, and version one, from before strokes could erase, with every stroke
     /// painting; either is refused for the reason the Terrain's own check gives.
     fn read(version: u32, data: &RawValue) -> Result<Self, SerialisationError> {
-        let terrain: Self = if version == 1 {
-            serde_json::from_str::<TerrainVersionOne>(data.get())
-                .map(Self::from)
-                .map_err(|error| SerialisationError::Malformed {
-                    component: Self::NAME.to_owned(),
-                    reason: error.to_string(),
-                })?
-        } else {
-            read_only_version(version, data)?
+        let terrain: Self = match version {
+            1 => parse_version::<Self, TerrainVersionOne>(data)?.into(),
+            _ => read_only_version(version, data)?,
         };
         match terrain.malformation() {
             Some(reason) => Err(SerialisationError::Malformed {
