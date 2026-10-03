@@ -15,14 +15,15 @@ use bevy::asset::io::AssetSourceId;
 use bevy::ecs::entity::Entity;
 use bevy::ecs::hierarchy::{ChildOf, Children};
 use bevy::ecs::message::Messages;
-use bevy::math::{UVec2, Vec2};
+use bevy::math::{IVec2, UVec2, Vec2};
 use drs_history::History;
 use drs_library_access::{LIBRARY_SOURCE, asset_path};
 use drs_model::{
-    Apply, AssetAddress, AssetFolder, AssetFolderReference, AssetKind, AssetReferences,
+    Apply, AssetAddress, AssetFolder, AssetFolderReference, AssetKind, AssetReferences, Bounds,
     BrushSettings, CanonicalName, Colour, CommandFailed, EditElement, Element, ElementChange,
     ElementId, Fingerprint, FolderKey, Gesture, PROP, Paint, PlaceElement, Placement, Portal,
-    PortalAnchor, Prop, RemoveElement, Resolution, ResolutionTable, Side, Stroke, Viewport,
+    PortalAnchor, Prop, RemoveElement, ResizeBounds, Resolution, ResolutionTable, Side, Stroke,
+    Viewport,
 };
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -507,6 +508,13 @@ fn a_failed_command_is_reported() {
                 place: "nowhere.png".to_owned(),
             }),
         }),
+        Apply::ResizeBounds(ResizeBounds {
+            bounds: Bounds {
+                origin: IVec2::ZERO,
+                size: UVec2::new(0, 30),
+            },
+            gesture: Gesture::Single,
+        }),
     ];
     for command in commands {
         fixture.app.world_mut().write_message(command.clone());
@@ -526,6 +534,7 @@ fn a_failed_command_is_reported() {
             | Apply::RemoveElement(_)
             | Apply::SetPortalIntoWall(_)
             | Apply::FreePortal(_) => format!("{unknown:?}"),
+            Apply::ResizeBounds(_) => "1,000".to_owned(),
         };
         assert!(
             failed[0].reason.contains(&named),

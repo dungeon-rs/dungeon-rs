@@ -36,8 +36,8 @@ pub use messages::{
     ElementChange, ExportLevel, ExportRefused, FolderAdded, FolderRefusal, FolderRefused,
     FolderUnavailable, FreePortal, Gesture, HistoryFailed, LevelExported, ManagerSystems,
     MissingAsset, OpenProject, OpenReport, Paint, PlaceElement, Placement, PortalsRemoved,
-    ProjectOpened, ProjectRefused, ProjectRequest, ProjectSaved, Redo, RemoveElement, SaveProject,
-    SetPortalIntoWall, StrokeChange, ThumbnailsUnavailable, Undo, UnknownKind,
+    ProjectOpened, ProjectRefused, ProjectRequest, ProjectSaved, Redo, RemoveElement, ResizeBounds,
+    SaveProject, SetPortalIntoWall, StrokeChange, ThumbnailsUnavailable, Undo, UnknownKind,
 };
 pub use panics::CaughtPanics;
 pub use pointer::{PointOf, Pointer, SnapSystems, Snapped, SnappedPoint, Snapping};

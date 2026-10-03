@@ -1,8 +1,8 @@
 //! The messages the Editor sends to the Managers, and the reports that come back.
 
 use crate::{
-    BrushSettings, CanonicalName, Colour, ElementId, ElementKindName, FolderKey, MissingReason,
-    PortalAnchor, ScanSkips, Side, Stroke,
+    Bounds, BrushSettings, CanonicalName, Colour, ElementId, ElementKindName, FolderKey,
+    MissingReason, PortalAnchor, ScanSkips, Side, Stroke,
 };
 use bevy_ecs::entity::Entity;
 use bevy_ecs::message::Message;
@@ -152,6 +152,21 @@ pub enum Apply {
     FreePortal(FreePortal),
     /// Paint: lay a stroke on a Layer's Terrain.
     Paint(Paint),
+    /// Resize Bounds: set the Project's Bounds.
+    ResizeBounds(ResizeBounds),
+}
+
+/// Set the Bounds of the one Project, shared by every Level, to a lower-left corner and a size
+/// in whole cells.
+///
+/// The Bounds are sent whole rather than as a side and an amount, so every step of a gesture is
+/// exact and a drag and a typed value send the same message.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ResizeBounds {
+    /// The Bounds to set.
+    pub bounds: Bounds,
+    /// Where in a gesture this resize sits.
+    pub gesture: Gesture,
 }
 
 /// An Asset as this device finds it: the key of its Asset Folder and its place in that folder.
@@ -319,7 +334,8 @@ pub enum StrokeChange {
     Remove,
 }
 
-/// How an [`EditElement`] relates to the gesture it belongs to, so a drag is one history step.
+/// How an [`EditElement`] or a [`ResizeBounds`] relates to the gesture it belongs to, so a drag is
+/// one history step.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Gesture {
     /// A change on its own.
