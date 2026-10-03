@@ -19,8 +19,10 @@
 //! - `screenshot <path>`: save a screenshot of the window there.
 //! - `describe`: log the title, the status line, the dialog open, every clickable widget with its
 //!   rectangle, every cell of the Assets panel's grid with what it shows, the Wall and Room tools,
-//!   every Wall, Portal, and Room, the Paint tool with its Brush, and every Terrain, so a script
-//!   can be checked and aimed without seeing the screen.
+//!   every Wall, Portal, and Room, the Paint tool with its Brush, its mode, the selected stroke,
+//!   and the handle being dragged, and every Terrain with each stroke's number, whether it
+//!   erases, its Brush settings, and its points, so a script can be checked and aimed without
+//!   seeing the screen.
 //! - `close`: ask to close the window, as its close button does.
 //! - `quit`: exit the editor.
 //!
