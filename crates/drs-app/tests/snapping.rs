@@ -790,7 +790,8 @@ fn whole_cells_stay_whole() {
 }
 
 /// An Edit Element that moves a Wall by an amount moves every point and control point by the
-/// same amount, and its box with them.
+/// same amount, and its box with them; a drag of several such moves is one history step, which
+/// undo returns to where the drag began.
 #[test]
 fn a_wall_moves_by_an_amount() {
     let mut fixture = Fixture::new();
@@ -812,7 +813,13 @@ fn a_wall_moves_by_an_amount() {
     let depth = support::history(&fixture.app).undo_depth();
     let amount = Vec2::new(-2.5, 1.25);
 
-    fixture.edit(wall, ElementChange::MoveBy(amount), Gesture::Single);
+    for (step, gesture) in [
+        (Vec2::new(-1.0, 0.0), Gesture::Begin),
+        (Vec2::new(-1.5, 1.25), Gesture::Continue),
+        (Vec2::ZERO, Gesture::End),
+    ] {
+        fixture.edit(wall, ElementChange::MoveBy(step), gesture);
+    }
 
     let moved = fixture.wall_of(wall);
     let expected: Vec<Vec2> = before
@@ -830,4 +837,10 @@ fn a_wall_moves_by_an_amount() {
         "the box moves with it",
     );
     assert_eq!(support::history(&fixture.app).undo_depth(), depth + 1);
+    support::undo(&mut fixture.app);
+    assert_eq!(
+        fixture.wall_of(wall),
+        before.0,
+        "undo returns it to where the drag began"
+    );
 }
