@@ -222,6 +222,9 @@ pub enum ElementChange {
     /// Move the Element's centre to a position in Grid cells; a Wall or a Room moves every point
     /// and control point by the same amount.
     Position(Vec2),
+    /// Move a Wall or a Room by an amount in Grid cells: every point and control point by that
+    /// amount.
+    MoveBy(Vec2),
     /// Move one point of a Wall or a Room, leaving every other point and every control point
     /// where it is.
     Point {

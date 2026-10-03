@@ -86,7 +86,8 @@ fn element_change(
             SetField::<ElementId>::new::<Element>(id, "position", *position)
                 .map_err(|error| AuthoringError::History(error.to_string()))
         }
-        ElementChange::Point { .. }
+        ElementChange::MoveBy(_)
+        | ElementChange::Point { .. }
         | ElementChange::Control { .. }
         | ElementChange::AddPoint { .. }
         | ElementChange::RemovePoint { .. }

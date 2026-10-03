@@ -597,6 +597,7 @@ fn terrain_changes_only_its_material_and_strokes() {
 
     for change in [
         ElementChange::Position(Vec2::new(10.0, 10.0)),
+        ElementChange::MoveBy(Vec2::new(1.0, 0.0)),
         ElementChange::Point {
             index: 0,
             position: Vec2::new(2.0, 2.0),

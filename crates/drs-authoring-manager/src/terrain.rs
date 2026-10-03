@@ -442,6 +442,7 @@ pub(crate) fn only_material_and_strokes(
     let allowed = match change {
         ElementChange::Material(_) | ElementChange::Stroke { .. } => true,
         ElementChange::Position(_)
+        | ElementChange::MoveBy(_)
         | ElementChange::Point { .. }
         | ElementChange::Control { .. }
         | ElementChange::AddPoint { .. }

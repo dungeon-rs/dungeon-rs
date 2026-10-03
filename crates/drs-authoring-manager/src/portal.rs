@@ -396,6 +396,7 @@ pub(crate) fn portal_change(
             SetField::<ElementId>::new::<Portal>(id, "anchor", Some(anchor))
         }
         ElementChange::Position(_)
+        | ElementChange::MoveBy(_)
         | ElementChange::Point { .. }
         | ElementChange::Control { .. }
         | ElementChange::AddPoint { .. }

@@ -6,7 +6,8 @@ that it can be undone and redone.
 
 A Place Element puts a Prop or a Portal of a chosen Asset, or a Wall or a Room through given
 points, on top of its Layer; a Portal comes at its image's natural size, set into a Wall or a
-Room when the placement anchors it and freestanding otherwise. An Edit Element moves an Element, and on a Wall also moves
+Room when the placement anchors it and freestanding otherwise. An Edit Element moves an Element,
+or a Wall or a Room by an amount, every point and control point with it, and on a Wall also moves
 a point, bends or straightens a segment, adds or removes a point, or sets the thickness or the
 colour; a drag sent as a gesture is one step. Moving a point, bending, and the properties go
 through the history's generic field command; adding and removing a point, the only edits that

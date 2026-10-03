@@ -14,7 +14,7 @@ use bevy_ecs::component::{Component, Mutable};
 use bevy_ecs::entity::Entity;
 use bevy_ecs::error::BevyError;
 use bevy_ecs::world::World;
-use bevy_math::Rect;
+use bevy_math::{Rect, Vec2};
 use bevy_reflect::{Reflect, TypePath};
 use drs_history::{ReversibleCommand, SetField, Target};
 use drs_model::{
@@ -205,8 +205,8 @@ pub(crate) enum OutlineEdit {
 
 /// An Edit Element of the Wall or the Room `id`, checked against it as it is: its position, a
 /// point, a part's control point, its thickness, or a colour as a field command, or a point
-/// added or removed as a step of its own that carries the Portals set into it. Moving it moves
-/// every point and control point by the same amount.
+/// added or removed as a step of its own that carries the Portals set into it. Moving it, to a
+/// position or by an amount, moves every point and control point by the same amount.
 ///
 /// # Errors
 ///
@@ -228,17 +228,9 @@ pub(crate) fn outline_edit<H: OutlineHost>(
     let field = match change {
         ElementChange::Position(position) => {
             let offset = *position - outline.element_box().center();
-            for point in path
-                .points
-                .iter_mut()
-                .chain(path.controls.iter_mut().flatten())
-            {
-                *point += offset;
-            }
-            let moved = outline.with_path(path);
-            well_formed(&moved)?;
-            SetField::<ElementId>::new::<H>(id, "", moved)
+            Ok(translated(id, &outline, path, offset)?)
         }
+        ElementChange::MoveBy(amount) => Ok(translated(id, &outline, path, *amount)?),
         ElementChange::Point { index, position } => {
             let points = path.points.len();
             *path.points.get_mut(*index).ok_or(AuthoringError::NoPoint {
@@ -288,6 +280,34 @@ pub(crate) fn outline_edit<H: OutlineHost>(
         }
     };
     field.map(OutlineEdit::Field).map_err(history)
+}
+
+/// The field command that moves a Wall or a Room by `offset`, every point and control point by
+/// exactly what single-precision addition gives, so a whole number of cells added to a point on
+/// a Grid corner lands on a Grid corner.
+///
+/// # Errors
+///
+/// [`AuthoringError::MalformedWall`] or [`AuthoringError::MalformedRoom`] for a point the move
+/// takes past what is finite, or [`AuthoringError::History`] when the Wall or the Room cannot be
+/// addressed.
+fn translated<H: OutlineHost>(
+    id: ElementId,
+    outline: &H,
+    mut path: Path,
+    offset: Vec2,
+) -> Result<SetField<ElementId>, AuthoringError> {
+    for point in path
+        .points
+        .iter_mut()
+        .chain(path.controls.iter_mut().flatten())
+    {
+        *point += offset;
+    }
+    let moved = outline.with_path(path);
+    well_formed(&moved)?;
+    SetField::<ElementId>::new::<H>(id, "", moved)
+        .map_err(|error| AuthoringError::History(error.to_string()))
 }
 
 /// Adds a point on a part of a Wall or a Room, splitting it into two parts of the shape it had,
