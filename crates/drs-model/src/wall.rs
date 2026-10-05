@@ -218,6 +218,31 @@ pub struct StrokeMesh {
     pub indices: Vec<u32>,
 }
 
+impl StrokeMesh {
+    /// Whether a point in Grid cells lies in a triangle of the mesh, edges included.
+    #[must_use]
+    pub fn covers(&self, point: Vec2) -> bool {
+        triangles_cover(&self.vertices, &self.indices, point)
+    }
+}
+
+/// Whether `point` lies in a triangle of `vertices` and `indices`, edges included; a triangle
+/// that names a vertex the mesh lacks covers nothing.
+pub(crate) fn triangles_cover(vertices: &[Vec2], indices: &[u32], point: Vec2) -> bool {
+    indices.chunks(3).any(|corners| {
+        let [a, b, c] = [0, 1, 2].map(|index| {
+            corners
+                .get(index)
+                .and_then(|corner| vertices.get(*corner as usize))
+                .copied()
+                .unwrap_or(Vec2::NAN)
+        });
+        let side = |from: Vec2, to: Vec2| (to - from).perp_dot(point - from);
+        let (ab, bc, ca) = (side(a, b), side(b, c), side(c, a));
+        (ab >= 0.0 && bc >= 0.0 && ca >= 0.0) || (ab <= 0.0 && bc <= 0.0 && ca <= 0.0)
+    })
+}
+
 /// The shape derived from a [`Wall`]: its line flattened into chords, the stretches of it the
 /// Portals set into it cover, and the stroke it is drawn with. It is never saved; the authoring
 /// Manager derives it whenever the Wall or a Portal set into it changes, and whoever draws or
