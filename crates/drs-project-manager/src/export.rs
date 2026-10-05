@@ -21,7 +21,7 @@ use bevy_ecs::system::SystemState;
 use bevy_ecs::world::World;
 use bevy_math::{Rect, UVec2, Vec2};
 use drs_model::{
-    Bounds, Element, ExportLevel, ExportRefused, Level, LevelExported, Terrain,
+    Bounds, Element, ExportLevel, ExportRefused, ImageRefusal, Level, LevelExported, Terrain,
     with_extension_if_missing,
 };
 use drs_output_access::{ImageWriter, OutputError, Tile, begin_image, finish_image, write_tile};
@@ -58,31 +58,9 @@ pub enum ExportError {
     /// Another Project was opened while the Export ran, so the Level it was of is gone.
     #[error("the Project was replaced")]
     ProjectReplaced,
-    /// The Bounds at the resolution make an image wider or higher than the Export can write,
-    /// though a lower resolution would fit.
-    #[error(
-        "an image of {width} by {height} pixels is more than the 100,000 pixels a side an Export \
-         can write; these Bounds allow at most {largest} pixels per cell"
-    )]
-    ImageTooLarge {
-        /// The image's width in pixels.
-        width: u64,
-        /// The image's height in pixels.
-        height: u64,
-        /// The highest resolution the Bounds allow.
-        largest: u32,
-    },
-    /// The Bounds are too large to export at any resolution.
-    #[error(
-        "the Bounds of {width} by {height} cells are too large to export: even at 1 pixel per \
-         cell the image would be more than the 100,000 pixels a side an Export can write"
-    )]
-    BoundsTooLarge {
-        /// The Bounds' width in cells.
-        width: u32,
-        /// The Bounds' height in cells.
-        height: u32,
-    },
+    /// The Bounds at the resolution make an image wider or higher than the Export can write.
+    #[error(transparent)]
+    Image(#[from] ImageRefusal),
     /// The image could not be written.
     #[error(transparent)]
     Output(#[from] OutputError),
@@ -245,27 +223,11 @@ fn begin(world: &mut World, request: &ExportLevel) -> Result<Export, ProjectMana
 ///
 /// # Errors
 ///
-/// [`ExportError::ImageTooLarge`] when it would be more than
-/// [`ExportLevel::MOST_IMAGE_PIXELS`] wide or high, naming the highest resolution that fits, or
-/// [`ExportError::BoundsTooLarge`] when no resolution fits.
+/// [`ExportError::Image`] when it would be more than [`ExportLevel::MOST_IMAGE_PIXELS`] wide or
+/// high.
 fn image_size(bounds: Bounds, pixels_per_cell: u32) -> Result<(u32, u32), ExportError> {
-    let most = ExportLevel::MOST_IMAGE_PIXELS;
-    let width = u64::from(bounds.size.x) * u64::from(pixels_per_cell);
-    let height = u64::from(bounds.size.y) * u64::from(pixels_per_cell);
-    match (u32::try_from(width), u32::try_from(height)) {
-        (Ok(width), Ok(height)) if width <= most && height <= most => Ok((width, height)),
-        _ => match ExportLevel::largest_pixels_per_cell(bounds) {
-            0 => Err(ExportError::BoundsTooLarge {
-                width: bounds.size.x,
-                height: bounds.size.y,
-            }),
-            largest => Err(ExportError::ImageTooLarge {
-                width,
-                height,
-                largest,
-            }),
-        },
-    }
+    let size = ExportLevel::image_size(bounds, pixels_per_cell)?;
+    Ok((size.x, size.y))
 }
 
 /// Advances the Export at the front of the queue by a frame and answers it with

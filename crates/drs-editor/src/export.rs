@@ -118,22 +118,14 @@ fn image_size(ui: &mut egui::Ui, bounds: Bounds, pixels_per_cell: u32) -> bool {
     let width = u64::from(bounds.size.x) * u64::from(pixels_per_cell);
     let height = u64::from(bounds.size.y) * u64::from(pixels_per_cell);
     ui.label(format!("Image size: {width} × {height} px"));
-    let most = u64::from(ExportLevel::MOST_IMAGE_PIXELS);
-    let fits = width <= most && height <= most;
-    if !fits {
-        let refusal = match ExportLevel::largest_pixels_per_cell(bounds) {
-            0 => format!(
-                "The Bounds of {} by {} cells are too large to export: even at 1 pixel per \
-                 cell the image would be more than the 100,000 pixels a side an Export can \
-                 write.",
-                bounds.size.x, bounds.size.y
-            ),
-            largest => format!(
-                "The image is more than the 100,000 pixels a side an Export can write; these \
-                 Bounds allow at most {largest} pixels per cell."
-            ),
-        };
-        ui.colored_label(egui::Color32::LIGHT_RED, refusal);
+    let Err(refusal) = ExportLevel::image_size(bounds, pixels_per_cell) else {
+        return true;
+    };
+    let mut sentence = refusal.to_string();
+    if let Some(first) = sentence.get_mut(0..1) {
+        first.make_ascii_uppercase();
     }
-    fits
+    sentence.push('.');
+    ui.colored_label(egui::Color32::LIGHT_RED, sentence);
+    false
 }

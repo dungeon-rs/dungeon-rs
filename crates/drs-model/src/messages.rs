@@ -7,8 +7,9 @@ use crate::{
 use bevy_ecs::entity::Entity;
 use bevy_ecs::message::Message;
 use bevy_ecs::schedule::SystemSet;
-use bevy_math::Vec2;
+use bevy_math::{UVec2, Vec2};
 use std::path::PathBuf;
+use thiserror::Error;
 
 /// The order the Managers handle their messages in within a frame: every Command before Undo,
 /// and Undo before Redo, so a Command and the Undo sent in the same frame apply in the order the
@@ -578,6 +579,67 @@ impl ExportLevel {
     pub fn largest_pixels_per_cell(bounds: Bounds) -> u32 {
         (Self::MOST_IMAGE_PIXELS / bounds.size.max_element().max(1)).min(Self::MOST_PIXELS_PER_CELL)
     }
+
+    /// The size in pixels of the image of `bounds` at `pixels_per_cell`.
+    ///
+    /// # Errors
+    ///
+    /// [`ImageRefusal::TooLarge`] when it would be more than [`ExportLevel::MOST_IMAGE_PIXELS`]
+    /// wide or high, naming the highest resolution that fits, or
+    /// [`ImageRefusal::BoundsTooLarge`] when no resolution fits.
+    pub fn image_size(bounds: Bounds, pixels_per_cell: u32) -> Result<UVec2, ImageRefusal> {
+        let most = Self::MOST_IMAGE_PIXELS;
+        let width = u64::from(bounds.size.x) * u64::from(pixels_per_cell);
+        let height = u64::from(bounds.size.y) * u64::from(pixels_per_cell);
+        match (u32::try_from(width), u32::try_from(height)) {
+            (Ok(width), Ok(height)) if width <= most && height <= most => {
+                Ok(UVec2::new(width, height))
+            }
+            _ => match Self::largest_pixels_per_cell(bounds) {
+                0 => Err(ImageRefusal::BoundsTooLarge {
+                    width: bounds.size.x,
+                    height: bounds.size.y,
+                }),
+                largest => Err(ImageRefusal::TooLarge {
+                    width,
+                    height,
+                    largest,
+                }),
+            },
+        }
+    }
+}
+
+/// Why the image of the Bounds cannot be written at a resolution.
+#[derive(Error, Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ImageRefusal {
+    /// The image would be wider or higher than an Export can write, though a lower resolution
+    /// would fit.
+    #[error(
+        "an image of {width} by {height} pixels is more than the {most} pixels a side an Export \
+         can write; these Bounds allow at most {largest} pixels per cell",
+        most = crate::grouped(u64::from(ExportLevel::MOST_IMAGE_PIXELS))
+    )]
+    TooLarge {
+        /// The image's width in pixels.
+        width: u64,
+        /// The image's height in pixels.
+        height: u64,
+        /// The highest resolution the Bounds allow.
+        largest: u32,
+    },
+    /// The Bounds are too large to export at any resolution.
+    #[error(
+        "the Bounds of {width} by {height} cells are too large to export: even at 1 pixel per \
+         cell the image would be more than the {most} pixels a side an Export can write",
+        most = crate::grouped(u64::from(ExportLevel::MOST_IMAGE_PIXELS))
+    )]
+    BoundsTooLarge {
+        /// The Bounds' width in cells.
+        width: u32,
+        /// The Bounds' height in cells.
+        height: u32,
+    },
 }
 
 /// An Export was written.

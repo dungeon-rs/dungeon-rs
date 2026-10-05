@@ -22,8 +22,8 @@ use bevy_ecs::world::{Mut, World};
 use drs_history::History;
 use drs_library_access::LibraryError;
 use drs_model::{
-    Apply, CanonicalName, CommandFailed, ElementId, FolderKey, HistoryFailed, ManagerSystems,
-    PortalsRemoved, Redo, SnapSystems, Undo,
+    Apply, Bounds, CanonicalName, CommandFailed, ElementId, FolderKey, HistoryFailed,
+    ManagerSystems, PortalsRemoved, Redo, SnapSystems, Undo, grouped,
 };
 use drs_shape_engine::ShapeError;
 
@@ -165,7 +165,10 @@ pub enum AuthoringError {
     TerrainChangesOnlyItsMaterialAndStrokes(ElementId),
     /// A Resize Bounds would make a side of the Bounds below one or above a thousand cells.
     #[error(
-        "the Bounds must be at least 1 and at most 1,000 cells on a side, not {width} by {height}"
+        "the Bounds must be at least {least} and at most {most} cells on a side, not {width} by \
+         {height}",
+        least = Bounds::LEAST_SIDE,
+        most = grouped(u64::from(Bounds::MOST_SIDE))
     )]
     BoundsSides {
         /// The width asked for, in cells.
@@ -175,7 +178,10 @@ pub enum AuthoringError {
     },
     /// A Resize Bounds would put an edge of the Bounds more than ten thousand cells from the
     /// Level's origin.
-    #[error("every edge of the Bounds must lie within 10,000 cells of the Level's origin")]
+    #[error(
+        "every edge of the Bounds must lie within {} cells of the Level's origin",
+        grouped(Bounds::FARTHEST.unsigned_abs())
+    )]
     BoundsReach,
     /// A Resize Bounds was sent while the World holds no Project.
     #[error("there is no Project whose Bounds to resize")]
