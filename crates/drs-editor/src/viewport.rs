@@ -107,7 +107,11 @@ impl LevelView<'_, '_> {
 
     /// The Level the Author is working on: the current Layer's.
     pub(crate) fn current_level(&self) -> Option<Entity> {
-        let layer = self.current_layer()?;
+        self.level_of(self.current_layer()?)
+    }
+
+    /// The Level a Layer lies on.
+    pub(crate) fn level_of(&self, layer: Entity) -> Option<Entity> {
         self.layer_levels.get(layer).ok().map(ChildOf::parent)
     }
 

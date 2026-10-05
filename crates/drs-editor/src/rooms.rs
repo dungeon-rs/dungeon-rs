@@ -9,12 +9,14 @@
 use crate::handles::{HANDLE_PIXELS, HANDLES};
 use crate::snapping::Shown;
 use crate::state::{EditorState, Interaction, Tool};
+use crate::viewport::LevelView;
 use crate::walls::{
     DEFAULT_COLOUR, DEFAULT_THICKNESS, Lines, NEAR_THE_LAST, OptionGesture, colour_option,
     end_option, on_wall, send_option, thickness_option,
 };
 use bevy::color::Color;
 use bevy::ecs::entity::Entity;
+use bevy::ecs::hierarchy::ChildOf;
 use bevy::ecs::message::MessageWriter;
 use bevy::ecs::query::With;
 use bevy::ecs::system::{Query, Res, Single};
@@ -368,19 +370,21 @@ pub(crate) fn end_options(state: &mut EditorState, apply: &mut MessageWriter<App
     end_option(&mut state.rooms.option, apply);
 }
 
-/// Draws every Room that cuts as a thin guide line along its whole outline, whether or not it
-/// takes floor away, so a cut is found where nothing else shows it. Nothing is drawn while an
-/// Export runs, so no Export holds it.
+/// Draws every Room of the Level being worked on that cuts as a thin guide line along its whole
+/// outline, whether or not it takes floor away, so a cut is found where nothing else shows it.
+/// Nothing is drawn while an Export runs, so no Export holds it.
 pub(crate) fn draw_cuts(
     mut gizmos: Gizmos,
     state: Res<EditorState>,
-    rooms: Query<(&Room, &RoomShape)>,
+    level: LevelView,
+    rooms: Query<(&ChildOf, &Room, &RoomShape)>,
 ) {
     if state.exporting {
         return;
     }
-    for (room, shape) in &rooms {
-        if room.cuts {
+    let current = level.current_level();
+    for (layer, room, shape) in &rooms {
+        if room.cuts && level.level_of(layer.parent()) == current {
             gizmos.linestrip_2d(shape.outline.iter().map(|point| point.position), CUT_GUIDE);
         }
     }
