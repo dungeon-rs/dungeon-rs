@@ -281,6 +281,65 @@ fn a_resize_gesture_is_one_step() {
     assert_eq!(fixture.bounds(), bounds(-2, 0, 34, 31));
 }
 
+/// A gesture that ends with the Bounds as they were when it began records nothing and leaves what
+/// could be redone redoable, however far it went in between.
+#[test]
+fn a_drag_back_to_its_start_records_nothing() {
+    let mut fixture = Fixture::new();
+    fixture.resize(bounds(2, 3, 20, 10));
+    fixture.resize(bounds(2, 3, 25, 10));
+    fixture.undo();
+    let start = fixture.bounds();
+    let steps = fixture.steps();
+
+    for (at, gesture) in [
+        (bounds(2, 3, 22, 10), Gesture::Begin),
+        (bounds(1, 3, 24, 12), Gesture::Continue),
+        (start, Gesture::Continue),
+        (start, Gesture::End),
+    ] {
+        fixture.apply(resize(at, gesture));
+    }
+    assert_eq!(fixture.bounds(), start);
+    assert_eq!(
+        fixture.steps(),
+        steps,
+        "a drag back to where it began is no step"
+    );
+    assert!(fixture.can_redo(), "what could be redone still can be");
+    fixture.redo();
+    assert_eq!(fixture.bounds(), bounds(2, 3, 25, 10));
+}
+
+/// The end of a gesture closes its group even when that last Resize Bounds is refused, so the
+/// resizes before it remain one step; a single Resize Bounds sent in the middle of a gesture
+/// closes it and is a step of its own.
+#[test]
+fn a_gesture_closes_however_it_ends() {
+    let mut fixture = Fixture::new();
+    let start = fixture.bounds();
+
+    fixture.apply(resize(bounds(0, 0, 31, 30), Gesture::Begin));
+    fixture.apply(resize(bounds(0, 0, 32, 30), Gesture::Continue));
+    let refused = fixture.try_apply(resize(bounds(0, 0, 0, 30), Gesture::End));
+    assert_eq!(refused.len(), 1, "the last Resize Bounds is refused");
+    assert_eq!(fixture.bounds(), bounds(0, 0, 32, 30));
+    assert_eq!(fixture.steps(), 1, "the resizes before it are one step");
+    fixture.undo();
+    assert_eq!(fixture.bounds(), start);
+
+    fixture.apply(resize(bounds(0, 0, 31, 30), Gesture::Begin));
+    fixture.apply(resize(bounds(0, 0, 32, 30), Gesture::Continue));
+    fixture.apply(resize(bounds(0, 0, 40, 30), Gesture::Single));
+    fixture.apply(resize(bounds(0, 0, 40, 30), Gesture::End));
+    assert_eq!(fixture.bounds(), bounds(0, 0, 40, 30));
+    assert_eq!(fixture.steps(), 2, "the gesture, then the single resize");
+    fixture.undo();
+    assert_eq!(fixture.bounds(), bounds(0, 0, 32, 30));
+    fixture.undo();
+    assert_eq!(fixture.bounds(), start);
+}
+
 /// A Resize Bounds to the Bounds as they are changes nothing and records no history step, and a
 /// gesture none of whose Resize Bounds changes the Bounds records none.
 #[test]
