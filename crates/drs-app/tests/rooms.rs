@@ -348,24 +348,14 @@ impl Fixture {
     }
 }
 
-/// Whether `p` lies in a triangle of `vertices` and `indices`, edges included.
-fn in_triangles(p: Vec2, vertices: &[Vec2], indices: &[u32]) -> bool {
-    indices.chunks(3).any(|corners| {
-        let [a, b, c] = [0, 1, 2].map(|i| vertices[corners[i] as usize]);
-        let side = |u: Vec2, v: Vec2| (v - u).perp_dot(p - u);
-        let (ab, bc, ca) = (side(a, b), side(b, c), side(c, a));
-        (ab >= 0.0 && bc >= 0.0 && ca >= 0.0) || (ab <= 0.0 && bc <= 0.0 && ca <= 0.0)
-    })
-}
-
 /// Whether the floor of a shape covers `p`.
 fn on_floor(shape: &RoomShape, p: Vec2) -> bool {
-    in_triangles(p, &shape.floor.vertices, &shape.floor.indices)
+    shape.floor.covers(p)
 }
 
 /// Whether the Walls of a shape cover `p`.
 fn on_walls(shape: &RoomShape, p: Vec2) -> bool {
-    in_triangles(p, &shape.mesh.vertices, &shape.mesh.indices)
+    shape.mesh.covers(p)
 }
 
 /// The edge numbers the derived closed line runs through, in order, each once.

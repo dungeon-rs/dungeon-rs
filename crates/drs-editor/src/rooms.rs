@@ -266,18 +266,7 @@ pub(crate) fn on_floor(room: &Room, shape: &RoomShape, cells: Vec2) -> bool {
     if room.cuts {
         return winds_around(&shape.outline, cells);
     }
-    shape.floor.indices.chunks(3).any(|corners| {
-        let [a, b, c] = [0, 1, 2].map(|index| {
-            corners
-                .get(index)
-                .and_then(|corner| shape.floor.vertices.get(*corner as usize))
-                .copied()
-                .unwrap_or(Vec2::NAN)
-        });
-        let side = |u: Vec2, v: Vec2| (v - u).perp_dot(cells - u);
-        let (ab, bc, ca) = (side(a, b), side(b, c), side(c, a));
-        (ab >= 0.0 && bc >= 0.0 && ca >= 0.0) || (ab <= 0.0 && bc <= 0.0 && ca <= 0.0)
-    })
+    shape.floor.covers(cells)
 }
 
 /// Whether a point in cells is on the Walls drawn in a Room's look, outside the stretches the

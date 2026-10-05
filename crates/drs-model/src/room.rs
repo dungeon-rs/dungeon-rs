@@ -1,6 +1,7 @@
 //! Rooms: floors with Walls around a closed outline of straight and curved edges, combined with
 //! the Rooms of their Layer, and the shape derived from them for drawing and picking.
 
+use crate::wall::triangles_cover;
 use crate::{
     Colour, ElementId, ElementKindName, LinePoint, Serialisable, SerialisationError, Stretch,
     StrokeMesh, Tier, parse_version, read_current_version,
@@ -186,6 +187,14 @@ pub struct FillMesh {
     pub vertices: Vec<Vec2>,
     /// Three vertex indices per triangle.
     pub indices: Vec<u32>,
+}
+
+impl FillMesh {
+    /// Whether a point in Grid cells lies in a triangle of the floor, edges included.
+    #[must_use]
+    pub fn covers(&self, point: Vec2) -> bool {
+        triangles_cover(&self.vertices, &self.indices, point)
+    }
 }
 
 /// The shape derived from a [`Room`] among the Rooms of its Layer: its whole outline, the Walls
