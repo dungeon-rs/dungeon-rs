@@ -70,6 +70,7 @@ Relink and Embed Asset are owned here and not implemented; Save and Open are lif
 53. As an Author, I can save a Project with resized Bounds and open it again, here or on another device, and find the same Bounds, so that my collaborator exports exactly what I export.
 54. As an Author, I can open a Project whose Bounds are larger than this editor lets me make them and save it again with the Bounds as they were, so that an Author with a later editor never loses their map size to me.
 55. As an Author, I am refused a file whose Bounds have no width or no height, with the reason, so that a damaged file never leaves me with nothing to export.
+56. As an Author, I can rely on resizing the Bounds counting as a change since the last save, and on undoing back to the saved Bounds taking it away, so that closing the editor after a resize asks about what I have not saved.
 
 ## Rules
 

@@ -69,7 +69,7 @@ Resize Bounds is the one Command implemented here; Add Level, Remove Level, Reor
 
 **A resize gesture is one step**: Resize Bounds sent as a gesture, from its beginning through every continuation to its end, is one history step, and undo returns the Bounds to where the gesture began. Follows from: Every Command can be undone.
 
-**The same Bounds record nothing**: a Resize Bounds to the Bounds as they are changes nothing and records no history step, and a gesture none of whose Resize Bounds changes the Bounds records none.
+**The same Bounds record nothing**: a Resize Bounds to the Bounds as they are changes nothing and records no history step, and a gesture records none when it never changes the Bounds or ends with them as they were when it began, however far it went in between, leaving what could be redone redoable.
 
 **Elements stay**: a Resize Bounds, its undo, and its redo change no Element on any Layer, inside the Bounds, across their edge, or outside them: each keeps its ElementId, its place in the stacking order, every property, and its derived shape and coverage. Follows from: Bounds only decide what is exported.
 
@@ -85,7 +85,7 @@ _Why_: far from the origin a position in cells loses the precision the Export dr
 
 **The Bounds are shown**: the viewport always draws the Bounds' four edges as an outline of the same thickness on screen at every zoom, over every Element and over the Grid's lines, whatever tool is chosen, and leaves everything outside the Bounds drawn as it is inside them; it draws no outline while an Export runs.
 
-**The Bounds tool**: the tool strip offers the Bounds tool, also chosen with `O`; choosing it drops the chosen Asset and the selection and leaves the Wall, the Room, the Portal, or the Paint tool, discarding a Wall, an outline, or a stroke being drawn; while it is chosen a click or a press on the Level selects, places, paints, and removes nothing, the status line says that dragging an edge or a corner resizes the Bounds, and Escape, choosing another tool, or choosing an Asset leaves it, the Asset then being chosen for placing.
+**The Bounds tool**: the tool strip offers the Bounds tool, also chosen with `O`; while it is chosen a click or a press on the Level selects, places, paints, and removes nothing, and the status line says that dragging an edge or a corner resizes the Bounds. Choosing it, and leaving it by Escape, by choosing another tool, or by choosing an Asset, follow One thing under the pointer and Escape stops placing.
 
 **Handles of the Bounds**: with the Bounds tool chosen, the Bounds show a handle at each corner and at the middle of each edge, and the pointer shows a resizing pointer wherever a press would drag the Bounds.
 
@@ -95,9 +95,9 @@ _Why_: far from the origin a position in cells loses the precision the Export dr
 
 **A drag stops at the limits**: during a drag each dragged edge stops one cell from the edge opposite it, a thousand cells from that edge, and 10,000 cells from the Level's origin, so a drag never sends a Resize Bounds that would be refused; Bounds opened beyond the limits are brought within them by the first step of a drag.
 
-**The Bounds fields**: with the Bounds tool chosen, the options strip shows the Bounds' left edge, bottom edge, width, and height as whole numbers of cells, as they are after every Resize Bounds, undo, and redo; a value typed into one is sent, as the field lets go of the keyboard, as one Resize Bounds keeping the other three, so a width or a height keeps the left or the bottom edge where it is and a left or a bottom edge moves the Bounds whole; dragging a field changes it by whole cells, stopped at the limits, and sends Resize Bounds as one gesture that ends when the field is let go; a refused value leaves the Bounds as they were, the field showing them, and the reason in the status line.
+**The Bounds fields**: with the Bounds tool chosen, the options strip shows the Bounds' left edge, bottom edge, width, and height as whole numbers of cells, as they are after every Resize Bounds, undo, and redo; a value typed into one is sent, as the field lets go of the keyboard, as one Resize Bounds keeping the other three, so a width or a height keeps the left or the bottom edge where it is and a left or a bottom edge moves the Bounds whole; dragging a field changes it by whole cells, stopped at the limits and starting from the Bounds brought within them when they were opened beyond them, as a drag of their edges does, and sends Resize Bounds as one gesture that ends when the field is let go; a refused value leaves the Bounds as they were, the field showing them, and the reason in the status line.
 
-**Undo waits for the Bounds**: undo and redo, from the keys or the menu, wait from a press that drags the Bounds to its release, and while a field of the Bounds is held, whether or not anything has changed yet.
+**Undo waits for the Bounds**: undo and redo wait from a press that drags the Bounds to its release, and while a field of the Bounds is held, whether or not anything has changed yet, as Undo waits for the step being made says of every step.
 
 **The Bounds wait for the Export**: while an Export runs the Bounds tool cannot be chosen and its handles, drags, and fields do nothing.
 
@@ -120,8 +120,8 @@ The technology the architecture fixes (the history's generic field-setting comma
 The automated seam is a headless App of the real plugins of `model`, `history`, LibraryAccess, LibraryManager, ProjectManager, and AuthoringManager, with no window and no RenderEngine, over a fixture Asset Folder holding images of known pixel size, a door image among them, and a texture, driven by Apply, Undo, and Redo messages, and asserted on the Project's Bounds, every Element's components, derived shape, and coverage, the answers, and the history.
 
 - **Resized to the Bounds given**: `crates/drs-app/tests/bounds.rs::resized_to_the_bounds_given` (grown on the left, shrunk at the top, moved whole, and one cell by one; undo and redo of each)
-- **A resize gesture is one step**: `crates/drs-app/tests/bounds.rs::a_resize_gesture_is_one_step` (a begin, several continuations, and an end: one step, undo back to the Bounds at the beginning)
-- **The same Bounds record nothing**: `crates/drs-app/tests/bounds.rs::the_same_bounds_record_nothing` (a single resize to the Bounds as they are, and a gesture whose every step repeats them)
+- **A resize gesture is one step**: `crates/drs-app/tests/bounds.rs::a_resize_gesture_is_one_step` (a begin, several continuations, and an end: one step, undo back to the Bounds at the beginning), `crates/drs-app/tests/bounds.rs::a_gesture_closes_however_it_ends` (a refused last Resize Bounds leaves the ones before it one step, and a single Resize Bounds sent in the middle closes the gesture and is a step of its own)
+- **The same Bounds record nothing**: `crates/drs-app/tests/bounds.rs::the_same_bounds_record_nothing` (a single resize to the Bounds as they are, and a gesture whose every step repeats them), `crates/drs-app/tests/bounds.rs::a_drag_back_to_its_start_records_nothing` (after an undo, a drag away and back to where it began: no step, and the undone step still redoable)
 - **Elements stay**: `crates/drs-app/tests/bounds.rs::elements_stay` (a Prop inside, a Wall across the edge with a Portal set into it, a Room and a Terrain of several strokes outside the shrunk Bounds: every component, the order, the derived shapes, and the coverage tile for tile unchanged after the resize, its undo, and its redo)
 - **At least a cell, at most a thousand**: `crates/drs-app/tests/bounds.rs::at_least_a_cell_at_most_a_thousand` (no width, no height, and 1,001 refused with the limits named and nothing recorded; 1 and 1,000 accepted)
 - **Within reach of the origin**: `crates/drs-app/tests/bounds.rs::within_reach_of_the_origin` (an edge at 10,000 and at -10,000 accepted, one cell farther on each side refused, and a corner near the largest whole number refused rather than overflowing)
