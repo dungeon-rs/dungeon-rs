@@ -1,12 +1,13 @@
-//! The Export dialog: the resolution in pixels per Grid cell, typed as it is and refused in
-//! words while it is outside the limits, the size of the image it makes, a warning about
+//! The Export dialog: the Bounds as they stand, the resolution in pixels per Grid cell, typed as it
+//! is and refused in words while it is outside the limits or makes an image larger than an Export
+//! can write, the size of the image it makes, a warning about
 //! placeholders, then the platform's save dialog and the Export request.
 
 use crate::files::{ProjectView, choose_export_file};
 use crate::outcomes::counted;
 use crate::panels::Outgoing;
 use crate::state::{EditorState, ExportDialog};
-use drs_model::ExportLevel;
+use drs_model::{Bounds, ExportLevel};
 
 /// The resolutions offered as one click.
 const PRESETS: [u32; 4] = [50, 100, 200, 300];
@@ -37,8 +38,9 @@ pub(crate) fn dialog(
         ui.set_width(420.0);
         ui.heading("Export Level");
         ui.label(format!(
-            "The Level {} is exported as a PNG covering exactly the Bounds, {} by {} cells.",
-            level_name.name, bounds.size.x, bounds.size.y
+            "The Level {} is exported as a PNG covering exactly the Bounds, {} by {} cells from \
+             the cell at {}, {}.",
+            level_name.name, bounds.size.x, bounds.size.y, bounds.origin.x, bounds.origin.y
         ));
         ui.add_space(8.0);
         ui.horizontal(|ui| {
@@ -68,9 +70,7 @@ pub(crate) fn dialog(
                 ),
             );
         }
-        let width = u64::from(bounds.size.x) * u64::from(dialog.pixels_per_cell);
-        let height = u64::from(bounds.size.y) * u64::from(dialog.pixels_per_cell);
-        ui.label(format!("Image size: {width} × {height} px"));
+        let fits = image_size(ui, bounds, dialog.pixels_per_cell);
         if placeholders > 0 {
             ui.colored_label(
                 egui::Color32::YELLOW,
@@ -83,7 +83,7 @@ pub(crate) fn dialog(
         ui.add_space(8.0);
         ui.horizontal(|ui| {
             let export = ui
-                .add_enabled(within, egui::Button::new("Export…"))
+                .add_enabled(within && fits, egui::Button::new("Export…"))
                 .clicked();
             let cancel = ui.button("Cancel").clicked();
             (export, cancel)
@@ -109,4 +109,23 @@ pub(crate) fn dialog(
             tile_size: ExportLevel::DEFAULT_TILE_SIZE,
         });
     }
+}
+
+/// Shows the size of the image `bounds` make at `pixels_per_cell` and, when it is larger than an
+/// Export can write, why it is refused, naming the largest resolution the Bounds allow; returns
+/// whether it fits.
+fn image_size(ui: &mut egui::Ui, bounds: Bounds, pixels_per_cell: u32) -> bool {
+    let width = u64::from(bounds.size.x) * u64::from(pixels_per_cell);
+    let height = u64::from(bounds.size.y) * u64::from(pixels_per_cell);
+    ui.label(format!("Image size: {width} × {height} px"));
+    let Err(refusal) = ExportLevel::image_size(bounds, pixels_per_cell) else {
+        return true;
+    };
+    let mut sentence = refusal.to_string();
+    if let Some(first) = sentence.get_mut(0..1) {
+        first.make_ascii_uppercase();
+    }
+    sentence.push('.');
+    ui.colored_label(egui::Color32::LIGHT_RED, sentence);
+    false
 }

@@ -21,15 +21,17 @@ use bevy::app::App;
 use bevy::ecs::entity::Entity;
 use bevy::ecs::hierarchy::Children;
 use bevy::ecs::message::Messages;
+use bevy::ecs::query::With;
 use bevy::math::{Rect, UVec2, Vec2};
 use drs_authoring_manager::AuthoringManagerPlugin;
 use drs_history::{History, HistoryPlugin};
 use drs_library_access::LibraryAccessPlugin;
 use drs_library_manager::LibraryManagerPlugin;
 use drs_model::{
-    AddFolder, Apply, AssetAddress, CanonicalName, CommandFailed, EditElement, EditorDirectories,
-    ElementChange, ElementId, FolderAdded, FolderRefused, Gesture, ModelPlugin, PlaceElement,
-    Placement, PortalAnchor, PortalsRemoved, Project, Redo, Room, RoomShape, Undo, Viewport,
+    AddFolder, Apply, AssetAddress, Bounds, CanonicalName, CommandFailed, EditElement,
+    EditorDirectories, ElementChange, ElementId, FolderAdded, FolderRefused, Gesture, ModelPlugin,
+    PlaceElement, Placement, PortalAnchor, PortalsRemoved, Project, Redo, ResizeBounds, Room,
+    RoomShape, Undo, Viewport,
 };
 use drs_paint_engine::PaintEnginePlugin;
 use drs_project_manager::ProjectManagerPlugin;
@@ -259,4 +261,23 @@ pub fn portal_placement(
             anchor,
         },
     })
+}
+
+/// The Resize Bounds that sets `bounds` at `gesture`.
+pub fn resize_bounds(bounds: Bounds, gesture: Gesture) -> Apply {
+    Apply::ResizeBounds(ResizeBounds { bounds, gesture })
+}
+
+/// The Resize Bounds that sets `bounds` on its own.
+pub fn resize_to(bounds: Bounds) -> Apply {
+    resize_bounds(bounds, Gesture::Single)
+}
+
+/// The Project's Bounds.
+pub fn bounds_of(app: &mut App) -> Bounds {
+    let world = app.world_mut();
+    *world
+        .query_filtered::<&Bounds, With<Project>>()
+        .single(world)
+        .expect("one Project")
 }

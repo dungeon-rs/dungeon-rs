@@ -94,6 +94,17 @@ impl<'a> Outline<'a> {
         }
     }
 
+    /// The Bounds' outline through their corners, lower-left first and counter-clockwise: closed,
+    /// with no control points, so its handles are its corners and the middles of its edges.
+    pub(crate) fn of_bounds(corners: &'a [Vec2; 4]) -> Self {
+        Self {
+            points: corners,
+            controls: vec![None; corners.len()],
+            closed: true,
+            thickness: 0.0,
+        }
+    }
+
     /// The two points the segment or edge `part` runs between, if it has one.
     pub(crate) fn ends(&self, part: usize) -> Option<(Vec2, Vec2)> {
         let start = *self.points.get(part)?;

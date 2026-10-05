@@ -21,7 +21,7 @@ use bevy_ecs::system::SystemState;
 use bevy_ecs::world::World;
 use bevy_math::{Rect, UVec2, Vec2};
 use drs_model::{
-    Bounds, Element, ExportLevel, ExportRefused, Level, LevelExported, Terrain,
+    Bounds, Element, ExportLevel, ExportRefused, ImageRefusal, Level, LevelExported, Terrain,
     with_extension_if_missing,
 };
 use drs_output_access::{ImageWriter, OutputError, Tile, begin_image, finish_image, write_tile};
@@ -58,18 +58,9 @@ pub enum ExportError {
     /// Another Project was opened while the Export ran, so the Level it was of is gone.
     #[error("the Project was replaced")]
     ProjectReplaced,
-    /// The Bounds at the resolution make an image whose pixel size cannot be counted.
-    #[error(
-        "the Bounds of {width} by {height} cells at {pixels_per_cell} pixels per cell are too large to export"
-    )]
-    TooLarge {
-        /// The Bounds' width in cells.
-        width: u32,
-        /// The Bounds' height in cells.
-        height: u32,
-        /// The resolution asked for.
-        pixels_per_cell: u32,
-    },
+    /// The Bounds at the resolution make an image wider or higher than the Export can write.
+    #[error(transparent)]
+    Image(#[from] ImageRefusal),
     /// The image could not be written.
     #[error(transparent)]
     Output(#[from] OutputError),
@@ -168,8 +159,9 @@ pub(crate) fn handle_export_level(
 }
 
 /// Checks a request and opens its image: the resolution within its limits, the tile size one
-/// the Engine renders, the Level with its Project's Bounds, and the image as many pixels as the
-/// Bounds are cells times the resolution.
+/// the Engine renders, the Level with its Project's Bounds as they stand now, kept for the whole
+/// Export, and the image as many pixels as the Bounds are cells times the resolution, no more
+/// than [`ExportLevel::MOST_IMAGE_PIXELS`] a side.
 ///
 /// # Errors
 ///
@@ -200,25 +192,12 @@ fn begin(world: &mut World, request: &ExportLevel) -> Result<Export, ProjectMana
         .and_then(|project| world.get::<Bounds>(project))
         .copied()
         .ok_or(ExportError::LevelWithoutProject)?;
-    let too_large = || ExportError::TooLarge {
-        width: bounds.size.x,
-        height: bounds.size.y,
-        pixels_per_cell,
-    };
-    let width = bounds
-        .size
-        .x
-        .checked_mul(pixels_per_cell)
-        .ok_or_else(too_large)?;
-    let height = bounds
-        .size
-        .y
-        .checked_mul(pixels_per_cell)
-        .ok_or_else(too_large)?;
+    let (width, height) = image_size(bounds, pixels_per_cell)?;
     let tiles_across = width.div_ceil(tile_size);
+    // Only a tile far smaller than any the Editor asks for makes more tiles than can be counted.
     let tiles = tiles_across
         .checked_mul(height.div_ceil(tile_size))
-        .ok_or_else(too_large)?;
+        .ok_or_else(|| ExportError::from(RenderError::BadTileSize(tile_size)))?;
     let path = with_extension_if_missing(request.path.clone(), "png");
     let writer = begin_image(&path, width, height).map_err(ExportError::from)?;
     Ok(Export {
@@ -238,6 +217,17 @@ fn begin(world: &mut World, request: &ExportLevel) -> Result<Export, ProjectMana
         next: None,
         writer,
     })
+}
+
+/// The size in pixels of the image of `bounds` at `pixels_per_cell`.
+///
+/// # Errors
+///
+/// [`ExportError::Image`] when it would be more than [`ExportLevel::MOST_IMAGE_PIXELS`] wide or
+/// high.
+fn image_size(bounds: Bounds, pixels_per_cell: u32) -> Result<(u32, u32), ExportError> {
+    let size = ExportLevel::image_size(bounds, pixels_per_cell)?;
+    Ok((size.x, size.y))
 }
 
 /// Advances the Export at the front of the queue by a frame and answers it with

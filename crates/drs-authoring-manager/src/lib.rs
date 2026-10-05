@@ -1,5 +1,6 @@
 #![doc = include_str!("../README.md")]
 
+mod bounds;
 mod combined;
 mod derive;
 mod edit;
@@ -21,8 +22,8 @@ use bevy_ecs::world::{Mut, World};
 use drs_history::History;
 use drs_library_access::LibraryError;
 use drs_model::{
-    Apply, CanonicalName, CommandFailed, ElementId, FolderKey, HistoryFailed, ManagerSystems,
-    PortalsRemoved, Redo, SnapSystems, Undo,
+    Apply, Bounds, CanonicalName, CommandFailed, ElementId, FolderKey, HistoryFailed,
+    ManagerSystems, PortalsRemoved, Redo, SnapSystems, Undo, grouped,
 };
 use drs_shape_engine::ShapeError;
 
@@ -162,6 +163,29 @@ pub enum AuthoringError {
          only a Wall, a Room, or a Portal has"
     )]
     TerrainChangesOnlyItsMaterialAndStrokes(ElementId),
+    /// A Resize Bounds would make a side of the Bounds below one or above a thousand cells.
+    #[error(
+        "the Bounds must be at least {least} and at most {most} cells on a side, not {width} by \
+         {height}",
+        least = Bounds::LEAST_SIDE,
+        most = grouped(u64::from(Bounds::MOST_SIDE))
+    )]
+    BoundsSides {
+        /// The width asked for, in cells.
+        width: u32,
+        /// The height asked for, in cells.
+        height: u32,
+    },
+    /// A Resize Bounds would put an edge of the Bounds more than ten thousand cells from the
+    /// Level's origin.
+    #[error(
+        "every edge of the Bounds must lie within {} cells of the Level's origin",
+        grouped(Bounds::FARTHEST.unsigned_abs())
+    )]
+    BoundsReach,
+    /// A Resize Bounds was sent while the World holds no Project.
+    #[error("there is no Project whose Bounds to resize")]
+    NoProjectToResize,
     /// The shape Engine could not reshape the Wall or the Room.
     #[error(transparent)]
     Shape(#[from] ShapeError),
@@ -258,6 +282,7 @@ pub(crate) fn apply(
         }
         Apply::FreePortal(free) => portal::free_portal(world, free).map(|()| Vec::new()),
         Apply::Paint(paint) => terrain::paint(world, paint).map(|()| Vec::new()),
+        Apply::ResizeBounds(resize) => bounds::resize_bounds(world, resize).map(|()| Vec::new()),
     }
 }
 

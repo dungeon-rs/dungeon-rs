@@ -107,6 +107,9 @@ pub(crate) const PORTAL_TOOL: &[Binding] = &[Binding::new(Modifiers::NONE, Key::
 /// Choose the Room tool.
 pub(crate) const ROOM_TOOL: &[Binding] = &[Binding::new(Modifiers::NONE, Key::R, KeyCode::KeyR)];
 
+/// Choose the Bounds tool.
+pub(crate) const BOUNDS_TOOL: &[Binding] = &[Binding::new(Modifiers::NONE, Key::O, KeyCode::KeyO)];
+
 /// Free the selected Portal, or set it into the nearest Wall or Room.
 pub(crate) const FREE_OR_SET: &[Binding] = &[Binding::new(Modifiers::NONE, Key::F, KeyCode::KeyF)];
 

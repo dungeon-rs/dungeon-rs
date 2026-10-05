@@ -22,9 +22,10 @@
 //!   every Wall, Portal, and Room, the Paint tool with its Brush, its mode, the selected stroke,
 //!   and the handle being dragged, every Terrain with the band its coverage is shown at, how many
 //!   tiles it holds at the base and at that band, and each stroke's number, whether it erases, its
-//!   Brush settings, and its points, and the Snap switch, the Pointer, and the snapped point, so a
-//!   script can be checked and aimed without
-//!   seeing the screen.
+//!   Brush settings, and its points, the Snap switch, the Pointer, and the snapped point, and the
+//!   Bounds, whether the Bounds tool is chosen, the drag of them under way with the edges it
+//!   moves, and where each of their handles and fields lies, so a script can be checked and aimed
+//!   without seeing the screen.
 //! - `close`: ask to close the window, as its close button does.
 //! - `quit`: exit the editor.
 //!
@@ -51,7 +52,8 @@ use bevy::render::view::screenshot::{Screenshot, save_to_disk};
 use bevy::window::{CursorMoved, PrimaryWindow, Window, WindowCloseRequested, WindowEvent};
 use bevy_egui::EguiContexts;
 use drs_model::{
-    Element, ElementId, Portal, Room, RoomShape, Terrain, TerrainCoverage, Wall, WallShape,
+    Bounds, Element, ElementId, Portal, Project, Room, RoomShape, Terrain, TerrainCoverage, Wall,
+    WallShape,
 };
 use std::collections::VecDeque;
 use std::path::PathBuf;
@@ -192,6 +194,10 @@ pub(crate) struct Described<'w, 's> {
     pointer: Res<'w, drs_model::Pointer>,
     /// The snapped point.
     snapped: Res<'w, drs_model::SnappedPoint>,
+    /// The Project's Bounds.
+    bounds: Query<'w, 's, &'static Bounds, With<Project>>,
+    /// The Viewport, for where the Bounds' handles lie on screen.
+    viewport: Res<'w, drs_model::Viewport>,
     /// Every Room, with its derived shape once it has one.
     rooms: Query<
         'w,
@@ -247,6 +253,11 @@ pub(crate) fn drive(
                     );
                     crate::paint::describe(&described.state, &described.terrains);
                     crate::rooms::describe(&described.state, &described.rooms);
+                    crate::bounds::describe(
+                        &described.state,
+                        described.bounds.iter().next().copied(),
+                        &described.viewport,
+                    );
                     crate::snapping::describe(
                         *described.switch,
                         &described.pointer,

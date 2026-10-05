@@ -166,6 +166,29 @@ go on undo and redo, on leaving the tool or switching to painting or erasing,
 and when its Terrain no longer has it. Escape and choosing the Wall or the Room
 tool discard a stroke being drawn.
 
+The viewport always outlines the Bounds, whatever tool is chosen, with a white
+line two pixels wide over a black one four pixels wide, the same on screen at
+every zoom, over the Elements and the Grid's lines; nothing outside them is
+dimmed, and the outline, like every overlay of the Editor's own, is not drawn
+while an Export runs. The tool strip offers Bounds after Paint, chosen there or
+with `O`, which drops the chosen Asset and the selection and leaves the other
+tools, discarding what is being drawn; Escape, another tool, or choosing an
+Asset leaves it. It shows a handle at each corner of the Bounds and at the
+middle of each edge, and a resizing pointer wherever a press would drag them: a
+press on a corner drags its two edges, a press on an edge's middle or its line
+drags that edge, a corner winning, and every press elsewhere does nothing. The
+drag moves each dragged edge by the pointer's travel rounded to whole cells,
+halfway away from zero, whether or not snapping is on or Alt is held, stopping
+one cell from the opposite edge, a thousand cells from it, and ten thousand
+cells from the origin, and sends Resize Bounds as one gesture that ends where it
+was last shown wherever the button is released. The strip then shows the
+Bounds' left and bottom edges, width, and height in cells: a typed value is sent
+as one Resize Bounds keeping the other three, refused in the status line when
+out of limits, and a drag of a field is one gesture. Undo and Redo wait from a
+press on the Bounds to its release and while a field is held. The Export dialog
+names the Bounds and refuses, in words naming the largest resolution the Bounds
+allow, a resolution that makes an image more than 100,000 pixels a side.
+
 ## Features
 
 - `default`: nothing is enabled by default.
@@ -176,7 +199,8 @@ tool discard a stroke being drawn.
   `screenshot`, `describe`, which also logs the Wall and Room tools, every Wall
   and Room and the stretches it gives way along, every Portal, every Terrain with
   its strokes, the band its coverage is shown at, and how many tiles it holds at
-  the base and at that band, the Snap switch, the Pointer, and the snapped point,
+  the base and at that band, the Snap switch, the Pointer, the snapped point, and
+  the Bounds with the Bounds tool, its drag, and where its handles and fields lie,
   `close`,
   `quit`), fed in as the messages the window would send so egui and the viewport see
   them alike; `describe` logs every clickable widget and every cell of the grid with

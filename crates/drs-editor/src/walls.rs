@@ -397,13 +397,14 @@ pub(crate) fn colour_option(ui: &mut egui::Ui, label: &str, colour: Colour) -> (
     )
 }
 
-/// The tool strip over the top-left corner of the viewport: Select, Wall, Portal, Room, and Paint,
-/// the Snap switch, shown selected while on and switched by a click that is no history step, then
-/// the options. With the Paint tool they are the Brush's; with a Portal selected they are
-/// the Portal's own; with a Room selected, or the Room tool chosen and none selected, they are the
-/// wall thickness, the wall colour, and the floor colour, of the Room or of the next one;
-/// otherwise they are the thickness and the colour, of the selected Wall, a change sent to it as
-/// one Edit Element, or with none of the next Wall.
+/// The tool strip over the top-left corner of the viewport: Select, Wall, Portal, Room, Paint, and
+/// Bounds, the Snap switch, shown selected while on and switched by a click that is no history
+/// step, then the options. With the Bounds tool they are the Bounds' fields; with the Paint tool
+/// they are the Brush's; with a Portal selected they are the Portal's own; with a Room selected,
+/// or the Room tool chosen and none selected, they are the wall thickness, the wall colour, and
+/// the floor colour, of the Room or of the next one; otherwise they are the thickness and the
+/// colour, of the selected Wall, a change sent to it as one Edit Element, or with none of the next
+/// Wall.
 ///
 /// Choosing the Wall or the Room tool drops the chosen Asset and the selection and leaves the
 /// other tools, discarding a Wall, an outline, or a stroke being drawn; choosing the Portal tool
@@ -440,13 +441,15 @@ pub(crate) fn tool_strip(
                 ui.horizontal_wrapped(|ui| {
                     tools(ui, &mut state, &mut switch);
                     ui.separator();
-                    if state.tool == Tool::Paint {
-                        portals::end_options(&mut state, &mut apply);
-                        rooms::end_options(&mut state, &mut apply);
+                    if state.tool == Tool::Bounds {
+                        end_options_but(&mut state, &mut apply, StripOptions::Bounds);
+                        crate::bounds::options(ui, &mut state, level.bounds(), &mut apply);
+                    } else if state.tool == Tool::Paint {
+                        end_options_but(&mut state, &mut apply, StripOptions::Paint);
                         let terrain = level.current_terrain();
                         crate::paint::options(ui, &mut state, terrain, &level.terrains, &mut apply);
                     } else if let Some((id, element, portal)) = &portal {
-                        rooms::end_options(&mut state, &mut apply);
+                        end_options_but(&mut state, &mut apply, StripOptions::Portal);
                         portals::options(
                             ui,
                             &mut state,
@@ -455,17 +458,47 @@ pub(crate) fn tool_strip(
                             &mut apply,
                         );
                     } else if room.is_some() || state.tool == Tool::Room {
-                        portals::end_options(&mut state, &mut apply);
-                        end_option(&mut state.walls.option, &mut apply);
+                        end_options_but(&mut state, &mut apply, StripOptions::Room);
                         rooms::options(ui, &mut state, room.as_ref(), &mut apply);
                     } else {
-                        portals::end_options(&mut state, &mut apply);
-                        rooms::end_options(&mut state, &mut apply);
+                        end_options_but(&mut state, &mut apply, StripOptions::Wall);
                         options(ui, &mut state, selected.as_ref(), &mut apply);
                     }
                 });
             });
         });
+}
+
+/// Whose options the tool strip shows.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum StripOptions {
+    /// The Bounds' fields.
+    Bounds,
+    /// The Brush's, or the selected stroke's.
+    Paint,
+    /// The selected Portal's.
+    Portal,
+    /// A Room's, selected or the next one's.
+    Room,
+    /// A Wall's, selected or the next one's.
+    Wall,
+}
+
+/// Ends the gesture a held option left open for every kind of options but the one the strip
+/// shows now, so none is left open when the strip stops showing its field.
+fn end_options_but(state: &mut EditorState, apply: &mut MessageWriter<Apply>, shown: StripOptions) {
+    if shown != StripOptions::Bounds {
+        crate::bounds::end_fields(state, apply);
+    }
+    if shown != StripOptions::Portal {
+        portals::end_options(state, apply);
+    }
+    if shown != StripOptions::Room {
+        rooms::end_options(state, apply);
+    }
+    if shown != StripOptions::Wall {
+        end_option(&mut state.walls.option, apply);
+    }
 }
 
 /// The width the tool strip's rows may take before they wrap: the viewport's, less the margin
@@ -475,8 +508,8 @@ fn strip_width(viewport: &Viewport, style: &egui::Style) -> f32 {
     (viewport.area.width() - 2.0 * MARGIN - frame).max(0.0)
 }
 
-/// The tools of the strip, Select, Wall, Portal, Room, and Paint, and the Snap switch after
-/// them, none of which can be used while an Export runs.
+/// The tools of the strip, Select, Wall, Portal, Room, Paint, and Bounds, and the Snap switch
+/// after them, none of which can be used while an Export runs.
 fn tools(ui: &mut egui::Ui, state: &mut EditorState, switch: &mut SnapSwitch) {
     let tool = state.tool;
     let enabled = !state.exporting;
@@ -529,6 +562,19 @@ fn tools(ui: &mut egui::Ui, state: &mut EditorState, switch: &mut SnapSwitch) {
         .clicked()
     {
         crate::paint::choose_paint_tool(state);
+    }
+    if ui
+        .add_enabled(
+            enabled,
+            egui::Button::selectable(tool == Tool::Bounds, "Bounds"),
+        )
+        .on_hover_text(crate::bindings::shortcut_text(
+            ui.ctx(),
+            crate::bindings::BOUNDS_TOOL,
+        ))
+        .clicked()
+    {
+        crate::bounds::choose_bounds_tool(state);
     }
     if ui
         .add_enabled(enabled, egui::Button::selectable(switch.on, "Snap"))

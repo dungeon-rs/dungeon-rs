@@ -3,6 +3,7 @@
 //! tool with the Wall, the Room, or the stroke being drawn and the options being changed. None of
 //! it is domain state.
 
+use crate::bounds::{BoundsTool, Edges};
 use crate::gesture::Drag;
 use crate::handles::OutlineHandle;
 use crate::paint::PaintTool;
@@ -11,7 +12,7 @@ use crate::rooms::RoomTool;
 use crate::walls::WallTool;
 use bevy::ecs::resource::Resource;
 use bevy::math::Vec2;
-use drs_model::{AssetAddress, ElementId, ExportLevel, OpenReport};
+use drs_model::{AssetAddress, Bounds, ElementId, ExportLevel, OpenReport};
 use std::path::PathBuf;
 
 /// The Editor's own state.
@@ -50,6 +51,8 @@ pub(crate) struct EditorState {
     pub paint: PaintTool,
     /// The Room tool's own state.
     pub rooms: RoomTool,
+    /// The Bounds tool's own state.
+    pub bounds: BoundsTool,
 }
 
 impl EditorState {
@@ -67,10 +70,10 @@ impl EditorState {
             .and_then(|(owner, handle)| (owner == element).then_some(handle))
     }
 
-    /// Whether the left button is down on an Element, a handle of a Wall or a Room, or a Portal
-    /// set into its host, or with the Room tool, whether or not the pointer has moved since: a
-    /// press names what it drags by identity and number, so nothing may renumber them before the
-    /// release.
+    /// Whether the left button is down on an Element, a handle of a Wall or a Room, a Portal set
+    /// into its host, or the Bounds' edges, or with the Room tool, whether or not the pointer has
+    /// moved since: a press names what it drags by identity and number, so nothing may renumber
+    /// them before the release, and a drag of the Bounds is one step from its press.
     pub fn pressing(&self) -> bool {
         matches!(
             self.interaction,
@@ -79,12 +82,14 @@ impl EditorState {
                 | Interaction::Sliding { .. }
                 | Interaction::Outlining { .. }
                 | Interaction::Moving { .. }
+                | Interaction::Resizing { .. }
         )
     }
 
     /// Whether a step is still being made, or may be about to be, by a press or a drag, by a
     /// Wall, a Room, or a stroke being drawn, by a press on a stroke or a handle of one or its
-    /// drag, or by an option held while it changes, so undo and redo wait.
+    /// drag, or by an option or a field of the Bounds held while it changes, so undo and redo
+    /// wait.
     pub fn step_under_way(&self) -> bool {
         self.pressing()
             || self.walls.drawing_in_progress()
@@ -94,6 +99,7 @@ impl EditorState {
             || self.rooms.option_in_progress()
             || self.portals.option_in_progress()
             || self.paint.option_in_progress()
+            || self.bounds.option_in_progress()
     }
 }
 
@@ -111,6 +117,8 @@ pub(crate) enum Tool {
     Paint,
     /// Clicks add the points of a Room, and a drag draws a rectangular one.
     Room,
+    /// Drags of the Bounds' edges and corners resize them.
+    Bounds,
 }
 
 /// The Asset chosen for placing, with its name for the status line.
@@ -246,6 +254,17 @@ pub(crate) enum Interaction {
         /// Where the pointer was, in cells, when the button went down.
         from: Vec2,
         /// The press, and how far the drag has moved it since, in cells.
+        drag: Drag,
+    },
+    /// The left button went down on an edge or a corner of the Bounds with the Bounds tool; a drag
+    /// moves the edges there by whole cells.
+    Resizing {
+        /// The edges the drag moves.
+        edges: Edges,
+        /// The Bounds when the button went down, brought within the limits.
+        from: Bounds,
+        /// The press, and where the drag last put the dragged edges, in cells: the vertical
+        /// one's place across and the horizontal one's up.
         drag: Drag,
     },
     /// The left button went down on an Element that is neither a Wall nor a Room; a drag moves

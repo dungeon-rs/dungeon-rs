@@ -11,6 +11,7 @@
 - A thickness and a colour are shown through `walls::thickness_option` and `walls::colour_option`, which every kind with them shares (a Wall's thickness and colour, a Room's thickness and its wall and floor colours): each returns the value the Author leaves it at and whether the widget is held, and the kind's options only choose which change to send.
 - A `DragValue` is built with `.update_while_editing(false)` and, when it has a range, `.clamp_existing_to_range(false)`, so showing a value never sends a change nobody made. A floor for dragging is applied in code after `dragged()` (`THINNEST_DRAGGED`, `NARROWEST_DRAGGED`); a typed value is sent as typed, and the Manager refuses one the kind's check rejects with its reason.
 - Values are shown and sent in the model's units, converted only at the widget (a rotation shown in degrees is sent in radians).
+- An option of the Project rather than of an Element, such as the Bounds' fields, follows every rule above with its own message in place of the Edit Element: its tool's state keeps the last value sent and an `option_in_progress()` that `EditorState::step_under_way` includes, one function sends a change as `Single`, `Begin`, or `Continue` by whether the widget is held, and one ends the gesture by sending the last value again as `End` (`send_fields` and `end_fields` in `crates/drs-editor/src/bounds.rs`). The strip ends the held option of every kind but the one it shows (`end_options_but`).
 
 ## Example
 

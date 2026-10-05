@@ -59,6 +59,43 @@ impl Default for Bounds {
     }
 }
 
+impl Bounds {
+    /// The fewest cells a side a Resize Bounds may make the Bounds.
+    pub const LEAST_SIDE: u32 = 1;
+    /// The most cells a side a Resize Bounds may make the Bounds.
+    pub const MOST_SIDE: u32 = 1_000;
+    /// The farthest, in cells, any edge a Resize Bounds makes may lie from the Level's origin, to
+    /// the left, the right, below, or above.
+    pub const FARTHEST: i64 = 10_000;
+
+    /// The edges in cells, counted in a wider integer so no sum overflows: left, bottom, right,
+    /// and top.
+    #[must_use]
+    pub fn edges(self) -> [i64; 4] {
+        let left = i64::from(self.origin.x);
+        let bottom = i64::from(self.origin.y);
+        [
+            left,
+            bottom,
+            left + i64::from(self.size.x),
+            bottom + i64::from(self.size.y),
+        ]
+    }
+
+    /// Whether every side lies within [`Bounds::LEAST_SIDE`] and [`Bounds::MOST_SIDE`] cells.
+    #[must_use]
+    pub fn sides_within_limits(self) -> bool {
+        let sides = Self::LEAST_SIDE..=Self::MOST_SIDE;
+        sides.contains(&self.size.x) && sides.contains(&self.size.y)
+    }
+
+    /// Whether every edge lies within [`Bounds::FARTHEST`] cells of the Level's origin.
+    #[must_use]
+    pub fn within_reach(self) -> bool {
+        self.edges().iter().all(|edge| edge.abs() <= Self::FARTHEST)
+    }
+}
+
 /// A complete, independent map within a Project: an entity whose children are its Layers.
 #[derive(Component, Reflect, Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[reflect(Component)]

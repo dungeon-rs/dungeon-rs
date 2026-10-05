@@ -15,6 +15,7 @@ mod room;
 mod serialisation;
 mod snapshot;
 mod terrain;
+mod text;
 mod thumbnails;
 mod viewport;
 mod wall;
@@ -34,10 +35,11 @@ pub use matches::{AssetMatch, SearchMatches};
 pub use messages::{
     AddFolder, Apply, AssetAddress, AssetFolderChanged, Browse, CommandFailed, EditElement,
     ElementChange, ExportLevel, ExportRefused, FolderAdded, FolderRefusal, FolderRefused,
-    FolderUnavailable, FreePortal, Gesture, HistoryFailed, LevelExported, ManagerSystems,
-    MissingAsset, OpenProject, OpenReport, Paint, PlaceElement, Placement, PortalsRemoved,
-    ProjectOpened, ProjectRefused, ProjectRequest, ProjectSaved, Redo, RemoveElement, SaveProject,
-    SetPortalIntoWall, StrokeChange, ThumbnailsUnavailable, Undo, UnknownKind,
+    FolderUnavailable, FreePortal, Gesture, HistoryFailed, ImageRefusal, LevelExported,
+    ManagerSystems, MissingAsset, OpenProject, OpenReport, Paint, PlaceElement, Placement,
+    PortalsRemoved, ProjectOpened, ProjectRefused, ProjectRequest, ProjectSaved, Redo,
+    RemoveElement, ResizeBounds, SaveProject, SetPortalIntoWall, StrokeChange,
+    ThumbnailsUnavailable, Undo, UnknownKind,
 };
 pub use panics::CaughtPanics;
 pub use pointer::{PointOf, Pointer, SnapSystems, Snapped, SnappedPoint, Snapping};
@@ -54,6 +56,7 @@ pub use terrain::{
     BrushSettings, COVERAGE_BANDS, COVERAGE_PIXELS_PER_CELL, COVERAGE_TILE_PIXELS, CoverageTile,
     GpuTile, Stroke, TERRAIN, Terrain, TerrainCoverage, TileContent, TileKey, tile_cells,
 };
+pub use text::grouped;
 pub use thumbnails::{THUMBNAIL_SOURCE, ThumbnailState, Thumbnails};
 pub use viewport::Viewport;
 pub use wall::{Colour, LinePlace, LinePoint, Segment, Stretch, StrokeMesh, WALL, Wall, WallShape};

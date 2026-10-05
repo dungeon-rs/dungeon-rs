@@ -72,8 +72,8 @@ impl Shown {
 
 /// What the pointer snaps while the Editor is in `state`: the point of a selected Wall or Room
 /// being dragged, leaving that point out; the whole Wall or Room being dragged; the next point of
-/// the Wall or the Room tool; and nothing else, a control point, a middle, a Prop, a Portal, and
-/// a stroke included.
+/// the Wall or the Room tool; and nothing else, a control point, a middle, a Prop, a Portal, a
+/// stroke, and the Bounds included.
 fn what_snaps(state: &EditorState) -> Snapping {
     match state.interaction {
         Interaction::Handle {
@@ -95,7 +95,8 @@ fn what_snaps(state: &EditorState) -> Snapping {
         | Interaction::Painting
         | Interaction::Panning { .. }
         | Interaction::Sliding { .. }
-        | Interaction::Pressed { .. } => Snapping::Nothing,
+        | Interaction::Pressed { .. }
+        | Interaction::Resizing { .. } => Snapping::Nothing,
     }
 }
 

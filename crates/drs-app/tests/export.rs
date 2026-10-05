@@ -19,7 +19,7 @@ use bevy::app::App;
 use bevy::ecs::entity::Entity;
 use bevy::ecs::hierarchy::Children;
 use bevy::ecs::message::Messages;
-use bevy::math::{UVec2, Vec2};
+use bevy::math::{IVec2, UVec2, Vec2};
 use drs_history::History;
 use drs_model::{
     Apply, AssetAddress, Colour, CommandFailed, EditElement, Element, ElementChange, ElementId,
@@ -525,16 +525,20 @@ impl Fixture {
         }));
     }
 
-    /// Makes the Bounds `size` cells with their lower-left corner at `origin`, so an Export at a
-    /// high resolution stays small. No Command resizes the Bounds yet, so the fixture sets them
-    /// in the World directly, as a Command would once there is one.
-    fn bounds(&mut self, origin: bevy::math::IVec2, size: UVec2) {
+    /// Resizes the Bounds to `size` cells with their lower-left corner at `origin`, so an Export
+    /// at a high resolution stays small, failing the test if the Resize Bounds was refused.
+    fn bounds(&mut self, origin: IVec2, size: UVec2) {
+        self.run(support::resize_to(Bounds { origin, size }));
+    }
+
+    /// Sets the Bounds in the World as an opened file may hold them, beyond what a Resize
+    /// Bounds may make.
+    fn bounds_as_opened(&mut self, bounds: Bounds) {
         let world = self.app.world_mut();
-        let mut bounds = world
+        *world
             .query::<&mut Bounds>()
             .single_mut(world)
-            .expect("the Project's Bounds");
-        *bounds = Bounds { origin, size };
+            .expect("the Project's Bounds") = bounds;
     }
 
     /// Writes the Viewport as the Editor does, showing 1024 by 768 screen pixels around `centre`
@@ -632,6 +636,154 @@ fn exactly_the_bounds() {
         assert_eq!(picture.pixel(0, side - 1), RED_PIXEL);
         assert_eq!(picture.pixel(pixels_per_cell, side - 1), BLACK_PIXEL);
     }
+}
+
+/// The Export shows exactly the Bounds as they stand when it is asked for, however they were
+/// resized before it: what a shrink left outside leaves no trace, and comes back where it lies
+/// once the Bounds grow over it again.
+#[test]
+fn an_export_follows_resized_bounds() {
+    let mut fixture = Fixture::new();
+    fixture.place(RED, Vec2::new(12.5, 7.5));
+    fixture.place(GREEN, Vec2::new(2.5, 2.5));
+
+    fixture.bounds(IVec2::new(10, 5), UVec2::new(6, 4));
+    let shrunk = fixture
+        .export(PIXELS_PER_CELL, "shrunk.png", TILE)
+        .expect("the Export is written");
+    assert_eq!((shrunk.width, shrunk.height), (48, 32));
+    let picture = Picture::decode(&shrunk.path);
+    assert_eq!((picture.width, picture.height), (48, 32));
+    assert_eq!(picture.at_cell(2, 2), RED_PIXEL, "the Prop inside");
+    assert_eq!(
+        picture.count(RED_PIXEL),
+        (PIXELS_PER_CELL * PIXELS_PER_CELL) as usize
+    );
+    assert_eq!(picture.count(GREEN_PIXEL), 0, "the Prop left outside");
+
+    fixture.bounds(IVec2::new(0, 0), UVec2::new(16, 9));
+    let grown = fixture
+        .export(PIXELS_PER_CELL, "grown.png", TILE)
+        .expect("the Export is written");
+    assert_eq!((grown.width, grown.height), (128, 72));
+    let picture = Picture::decode(&grown.path);
+    assert_eq!(picture.at_cell(2, 2), GREEN_PIXEL, "back where it lies");
+    assert_eq!(picture.at_cell(12, 7), RED_PIXEL);
+}
+
+/// A Resize Bounds handled while the Export runs changes nothing of it: the image is of the
+/// Bounds as they stood when the Export Level was handled.
+#[test]
+fn an_export_keeps_the_bounds_it_was_asked_for() {
+    let mut fixture = Fixture::new();
+    fixture.place(RED, Vec2::new(0.5, 0.5));
+    fixture.place(GREEN, Vec2::new(20.5, 20.5));
+    fs::create_dir_all(fixture.root.path().join("exports")).expect("the exports folder");
+    let request = ExportLevel {
+        level: fixture.level(),
+        pixels_per_cell: PIXELS_PER_CELL,
+        path: fixture.output("asked.png"),
+        tile_size: TILE,
+    };
+    fixture.app.world_mut().write_message(request.clone());
+    fixture.app.update();
+
+    fixture
+        .app
+        .world_mut()
+        .write_message(support::resize_to(Bounds {
+            origin: IVec2::new(0, 0),
+            size: UVec2::new(5, 5),
+        }));
+    let exported = fixture
+        .await_export(&request)
+        .expect("the Export is written");
+
+    assert_eq!((exported.width, exported.height), (240, 240));
+    let picture = Picture::decode(&exported.path);
+    assert_eq!((picture.width, picture.height), (240, 240));
+    assert_eq!(picture.at_cell(0, 0), RED_PIXEL);
+    assert_eq!(
+        picture.at_cell(20, 20),
+        GREEN_PIXEL,
+        "outside the resized Bounds"
+    );
+}
+
+/// An Export whose image would be more than 100,000 pixels wide or high is refused before
+/// anything is written, with the limit and the largest resolution the Bounds allow named, or,
+/// when no resolution fits, with the Bounds named as too large to export.
+#[test]
+fn image_within_limits() {
+    let mut fixture = Fixture::new();
+    fixture.place(RED, Vec2::new(2.5, 3.5));
+
+    fixture.bounds(IVec2::new(-500, -500), UVec2::new(1_000, 1_000));
+    let refused = fixture
+        .export(101, "wide.png", TILE)
+        .expect_err("an image of 101,000 pixels a side is refused");
+    assert!(
+        refused.reason.contains("100,000 pixels"),
+        "the limit is named: {}",
+        refused.reason
+    );
+    assert!(
+        refused.reason.contains("at most 100 pixels per cell"),
+        "the largest resolution is named: {}",
+        refused.reason
+    );
+    assert!(!fixture.output("wide.png").exists());
+
+    fixture.bounds(IVec2::ZERO, UVec2::new(400, 1_000));
+    let refused = fixture
+        .export(101, "tall.png", TILE)
+        .expect_err("an image 101,000 pixels high is refused though it is only 40,400 wide");
+    assert!(
+        refused.reason.contains("at most 100 pixels per cell"),
+        "the largest resolution is named: {}",
+        refused.reason
+    );
+    assert!(!fixture.output("tall.png").exists());
+
+    fixture.bounds_as_opened(Bounds {
+        origin: IVec2::ZERO,
+        size: UVec2::new(200_000, 30),
+    });
+    let refused = fixture
+        .export(1, "huge.png", TILE)
+        .expect_err("Bounds of 200,000 cells are refused");
+    assert!(
+        refused.reason.contains("too large to export"),
+        "the Bounds are named as too large: {}",
+        refused.reason
+    );
+    assert!(
+        refused.reason.contains("200000 by 30 cells"),
+        "the Bounds are named: {}",
+        refused.reason
+    );
+    assert!(!fixture.output("huge.png").exists());
+
+    fixture.bounds_as_opened(Bounds {
+        origin: IVec2::ZERO,
+        size: UVec2::new(30, 200_000),
+    });
+    let refused = fixture
+        .export(1, "narrow.png", TILE)
+        .expect_err("Bounds of 200,000 cells high are refused");
+    assert!(
+        refused.reason.contains("30 by 200000 cells"),
+        "the Bounds are named: {}",
+        refused.reason
+    );
+    assert!(!fixture.output("narrow.png").exists());
+    assert_eq!(
+        fs::read_dir(fixture.root.path().join("exports"))
+            .expect("the exports folder")
+            .count(),
+        0,
+        "nothing was written"
+    );
 }
 
 /// An Element wholly outside the Bounds appears nowhere in the Export; an Element straddling
@@ -1614,7 +1766,7 @@ fn terrain_lies_under_props_and_walls() {
 fn terrain_at_the_exports_resolution() {
     const FINE: u32 = 200;
     let mut fixture = Fixture::new();
-    fixture.bounds(bevy::math::IVec2::new(8, 8), UVec2::new(4, 4));
+    fixture.bounds(IVec2::new(8, 8), UVec2::new(4, 4));
     // The centre of the pixel 2000 from the origin, a pixel whose centre lies on the dab's.
     let centre = Vec2::splat(2000.5 / 200.0);
     fixture.paint(RED, &[centre], brush(2.0, 1.0, 1.0));

@@ -1,8 +1,8 @@
 # drs-authoring-manager
 
 The Manager that applies the Author's Commands to the Level: Place Element, Edit Element,
-Remove Element, Set Portal into Wall, Free Portal, and Paint, each recorded in the history so
-that it can be undone and redone.
+Remove Element, Set Portal into Wall, Free Portal, Paint, and Resize Bounds, each recorded in the
+history so that it can be undone and redone.
 
 A Place Element puts a Prop or a Portal of a chosen Asset, or a Wall or a Room through given
 points, on top of its Layer; a Portal comes at its image's natural size, set into a Wall or a
@@ -69,6 +69,12 @@ Viewport changed, through the paint Engine, which rasterizes on the GPU when the
 on the CPU otherwise; it keeps the Engine's cache, which only the Engine looks inside, in a
 component of its own, publishes the coverage again when something it holds changed, and sets the
 Element's box around the strokes.
+
+A Resize Bounds sets the one Project's Bounds whole, through the generic field command on the
+Project entity, as a step of its own or, sent as a gesture, as one step from its beginning to its
+end; Bounds equal to the current ones record nothing. Bounds below one or above a thousand cells
+on a side, or with an edge more than ten thousand cells from the Level's origin, are refused with
+the limits named, and no Element changes.
 
 The Editor sends it `Apply`, `Undo`, and `Redo` messages; a Command that cannot be carried out is
 answered with a `CommandFailed` message that says why, and an undo or redo that cannot be with a
