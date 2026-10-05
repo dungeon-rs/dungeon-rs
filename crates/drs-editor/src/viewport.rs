@@ -365,8 +365,9 @@ fn pointer_gone(
 /// one on screen, whenever it answers that Pointer, and the pointer itself otherwise.
 ///
 /// A gesture starts only with the pointer over the viewport and egui not using it, a frame late
-/// while a field has the keyboard; one under way ends wherever the button is released, so no
-/// Begin is left without its End. While an
+/// while a field has the keyboard or when the pointer was not over the viewport the frame before,
+/// so that what snapping shows has been derived for where the press lands; one under way ends
+/// wherever the button is released, so no Begin is left without its End. While an
 /// Export runs the pointer is ignored, so the image is of the Level as it was asked for.
 #[expect(
     clippy::too_many_arguments,
@@ -380,6 +381,7 @@ pub(crate) fn pointer(
     mut apply: MessageWriter<Apply>,
     time: Res<Time<Real>>,
     mut waiting: Local<Option<(Vec2, bool)>>,
+    mut was_over: Local<bool>,
     written: Res<Pointer>,
     snapped: Res<SnappedPoint>,
 ) {
@@ -391,10 +393,12 @@ pub(crate) fn pointer(
     }
     let shown = Shown::of(&snapped, &written);
     let Some(cursor) = input.window.cursor_position() else {
+        *was_over = false;
         pointer_gone(&mut state, &mut apply, &viewport, &level, &input, shown);
         return;
     };
     let over = viewport.contains(cursor) && !input.egui.wants_any_pointer_input();
+    let fresh = std::mem::replace(&mut *was_over, over);
     if over {
         // Written only when it moves, so the Managers derive nothing from a view left as it was.
         let mut moved = *viewport;
@@ -410,7 +414,7 @@ pub(crate) fn pointer(
             } else if over {
                 let now = time.elapsed_secs_f64();
                 *waiting = start(
-                    &input, &mut state, &mut apply, &viewport, &level, cursor, now, shown,
+                    &input, &mut state, &mut apply, &viewport, &level, cursor, now, shown, fresh,
                 );
             }
         }
@@ -480,7 +484,9 @@ pub(crate) fn pointer(
 /// with the middle button or Space, or a left press, carried out at once, or returned to be carried
 /// out a frame late while a field has the keyboard. Such a field sends what was typed into it as
 /// egui lets go of it, in this frame's pass, to what the strip shows then, so the press waits until
-/// the selection it may change has had what was typed for it.
+/// the selection it may change has had what was typed for it. A press in the first frame the
+/// pointer is over the viewport, `fresh` being false, waits too: the Pointer written the frame
+/// before was held back while egui had the pointer, so what snapping shows is for an older place.
 #[expect(
     clippy::too_many_arguments,
     reason = "a press reads the input, the view, the Level, and what snapping shows"
@@ -494,6 +500,7 @@ fn start(
     cursor: Vec2,
     now: f64,
     shown: Shown,
+    fresh: bool,
 ) -> Option<(Vec2, bool)> {
     let left = input.buttons.just_pressed(MouseButton::Left);
     if input.buttons.just_pressed(MouseButton::Middle)
@@ -506,7 +513,7 @@ fn start(
         return None;
     }
     let double = state.walls.double_click(now, cursor);
-    if input.egui.wants_any_keyboard_input() {
+    if input.egui.wants_any_keyboard_input() || !fresh {
         return Some((cursor, double));
     }
     press(state, apply, viewport, level, cursor, double, shown);
