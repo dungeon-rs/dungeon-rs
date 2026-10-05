@@ -1,7 +1,7 @@
 //! Edit Element: a property change, grouped so that a gesture is one step.
 
 use crate::AuthoringError;
-use crate::combined::{Walled, take_walls_away};
+use crate::combined::{PortalsWithWall, take_walls_away};
 use crate::outline::{OutlineEdit, OutlineHost, outline_edit, walls_before};
 use crate::portal::{follows_host, portal_change};
 use bevy_ecs::entity::Entity;
@@ -177,7 +177,7 @@ pub(crate) struct Started {
     /// Its outline as the gesture began.
     outline: Box<dyn Any + Send + Sync>,
     /// Its Layer and the Portals with a Wall at their centre then.
-    walls: Option<(Entity, Walled)>,
+    walls: Option<(Entity, PortalsWithWall)>,
 }
 
 /// The outline `id` had when the gesture under way began, if the gesture changes it.

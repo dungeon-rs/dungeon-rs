@@ -8,7 +8,7 @@
 
 use crate::AuthoringError;
 use crate::outline::OutlineHost;
-use crate::portal::{level_of, sets_into};
+use crate::portal::{level_of, sets_into, setting_at};
 use crate::remove::Remove;
 use bevy_ecs::entity::Entity;
 use bevy_ecs::hierarchy::{ChildOf, Children};
@@ -21,10 +21,10 @@ use drs_shape_engine::{
 use std::collections::BTreeMap;
 
 /// The Portals with a Wall at their centre, each with the host it is set into.
-pub(crate) type Walled = BTreeMap<ElementId, ElementId>;
+pub(crate) type PortalsWithWall = BTreeMap<ElementId, ElementId>;
 
 /// Hosts of one kind worked out together, in stacking order, each with its entity and identity.
-type Batch<H> = Vec<(Entity, ElementId, H)>;
+pub(crate) type Batch<H> = Vec<(Entity, ElementId, H)>;
 
 /// The Layer an Element lies on: its parent, when that is a Layer.
 pub(crate) fn layer_of(world: &World, entity: Entity) -> Option<Entity> {
@@ -68,7 +68,7 @@ fn batch_of<H: OutlineHost>(world: &World, entity: Entity) -> Option<(Batch<H>, 
 }
 
 /// `CombineOutlines` over `members`, in the order given.
-fn combined<H: OutlineHost>(members: &[(Entity, ElementId, H)]) -> Combination {
+pub(crate) fn combination_of<H: OutlineHost>(members: &[(Entity, ElementId, H)]) -> Combination {
     let outlines: Vec<Outline> = members
         .iter()
         .map(|(_, _, host)| Outline {
@@ -89,13 +89,8 @@ pub(crate) fn standing_at<H: OutlineHost>(
     width: f32,
 ) -> Option<Standing> {
     let (members, index) = batch_of::<H>(world, entity)?;
-    let combination = combined(&members);
-    let setting = PortalSetting {
-        outline: index,
-        segment: anchor.index,
-        t: anchor.t,
-        width,
-    };
+    let combination = combination_of(&members);
+    let setting = setting_at(index, anchor, width);
     anchor_portals(&combination, &[setting])
         .into_iter()
         .next()
@@ -104,10 +99,10 @@ pub(crate) fn standing_at<H: OutlineHost>(
 
 /// The Portals set into the hosts of kind `H` on `layer` that have a Wall at their centre, as
 /// the Walls run now.
-pub(crate) fn walled<H: OutlineHost>(world: &mut World, layer: Entity) -> Walled {
+pub(crate) fn walled<H: OutlineHost>(world: &mut World, layer: Entity) -> PortalsWithWall {
     let members = on_layer::<H>(world, layer);
     if members.is_empty() {
-        return Walled::new();
+        return PortalsWithWall::new();
     }
     let level = level_of(world, layer);
     let hosts: BTreeMap<ElementId, (usize, usize)> = members
@@ -130,18 +125,13 @@ pub(crate) fn walled<H: OutlineHost>(world: &mut World, layer: Entity) -> Walled
         })
         .collect();
     if set.is_empty() {
-        return Walled::new();
+        return PortalsWithWall::new();
     }
     set.sort_by_key(|(id, ..)| *id);
-    let combination = combined(&members);
+    let combination = combination_of(&members);
     let settings: Vec<PortalSetting> = set
         .iter()
-        .map(|(_, anchor, width, index)| PortalSetting {
-            outline: *index,
-            segment: anchor.index,
-            t: anchor.t,
-            width: *width,
-        })
+        .map(|(_, anchor, width, index)| setting_at(*index, anchor, *width))
         .collect();
     set.iter()
         .zip(anchor_portals(&combination, &settings))
@@ -164,7 +154,7 @@ pub(crate) fn walled<H: OutlineHost>(world: &mut World, layer: Entity) -> Walled
 pub(crate) fn take_walls_away<H: OutlineHost>(
     world: &mut World,
     layer: Entity,
-    before: &Walled,
+    before: &PortalsWithWall,
 ) -> Result<Vec<PortalsRemoved>, AuthoringError> {
     if before.is_empty() {
         return Ok(Vec::new());

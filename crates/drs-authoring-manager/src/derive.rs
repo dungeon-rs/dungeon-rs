@@ -4,9 +4,10 @@
 //! host, and how large it is.
 
 use crate::ancestor;
+use crate::combined::{Batch, combination_of};
 use crate::outline::OutlineHost;
-use crate::portal::{Anchored, sets_into, stood};
-use bevy_ecs::change_detection::{DetectChanges, Mut};
+use crate::portal::{Anchored, sets_into, setting_at, stood};
+use bevy_ecs::change_detection::{DetectChanges, DetectChangesMut, Mut};
 use bevy_ecs::component::Component;
 use bevy_ecs::entity::Entity;
 use bevy_ecs::hierarchy::{ChildOf, Children};
@@ -19,7 +20,7 @@ use drs_model::{
     Stretch, Wall,
 };
 use drs_shape_engine::{
-    Outline, Path, PortalSetting, Standing, anchor_portals, combine_outlines, generate_walls,
+    Combination, Path, PortalSetting, Standing, anchor_portals, generate_walls,
 };
 use std::collections::BTreeMap;
 use std::marker::PhantomData;
@@ -45,15 +46,7 @@ impl<H: OutlineHost> DerivedFrom<H> {
         let mut portals = Vec::new();
         for (index, (_, id, _)) in members.iter().enumerate() {
             for (portal, anchor, width) in set.get(id).map_or(&[][..], Vec::as_slice) {
-                portals.push((
-                    *portal,
-                    PortalSetting {
-                        outline: index,
-                        segment: anchor.index,
-                        t: anchor.t,
-                        width: *width,
-                    },
-                ));
+                portals.push((*portal, setting_at(index, anchor, *width)));
             }
         }
         Self {
@@ -212,8 +205,9 @@ pub(crate) fn derive_shapes(
             (None, None) => Anchoring::Freestanding,
         };
         match anchoring {
-            Some(mut anchoring) if *anchoring != derived => *anchoring = derived,
-            Some(_) => {}
+            Some(mut anchoring) => {
+                anchoring.set_if_neq(derived);
+            }
             None => {
                 commands.entity(entity).insert(derived);
             }
@@ -246,8 +240,8 @@ fn parts_of<H: OutlineHost>(outlines: &Outlines<H>) -> BTreeMap<ElementId, (Enti
 fn batches<H: OutlineHost>(
     outlines: &Outlines<H>,
     layers: &Query<&Children, With<Layer>>,
-) -> BTreeMap<Entity, Vec<(Entity, ElementId, H)>> {
-    let mut batches: BTreeMap<Entity, Vec<(Entity, ElementId, H)>> = BTreeMap::new();
+) -> BTreeMap<Entity, Batch<H>> {
+    let mut batches: BTreeMap<Entity, Batch<H>> = BTreeMap::new();
     for (entity, id, outline, _, parent) in outlines {
         let key = parent
             .map(ChildOf::parent)
@@ -292,70 +286,91 @@ fn reshape<H: OutlineHost>(
         if shaped && derived.get(key).is_ok_and(|last| *last == geometry) {
             continue;
         }
-        let combination = combine_outlines(
-            &members
-                .iter()
-                .map(|(_, _, outline)| Outline {
-                    path: outline.path(),
-                    cuts: outline.cuts(),
-                })
-                .collect::<Vec<_>>(),
+        let combination = combination_of(&members);
+        let stretches = stand_portals(&combination, &geometry, members.len(), &mut standings);
+        write_shapes(
+            commands,
+            outlines,
+            boxes,
+            &members,
+            &combination,
+            &stretches,
         );
-        let settings: Vec<PortalSetting> = geometry
-            .portals
-            .iter()
-            .map(|(_, setting)| *setting)
-            .collect();
-        let mut stretches: Vec<Vec<Stretch>> = vec![Vec::new(); members.len()];
-        for ((portal, _), standing) in geometry
-            .portals
-            .iter()
-            .zip(anchor_portals(&combination, &settings))
-        {
-            if let Some(covered) = standing
-                .as_ref()
-                .and_then(|standing| standing.stretches.as_ref())
-            {
-                for (outline, stretch) in covered {
-                    if let Some(own) = stretches.get_mut(*outline) {
-                        own.push(*stretch);
-                    }
-                }
-            }
-            standings.insert(*portal, standing);
-        }
-        for (index, (entity, _, outline)) in members.iter().enumerate() {
-            let combined = &combination.outlines[index];
-            let mesh = generate_walls(combined, outline.thickness(), &stretches[index]);
-            let drawn_at = members
-                .get(combined.last)
-                .map_or(members[index].1, |last| last.1);
-            let shape = H::shape(combined, mesh, stretches[index].clone(), drawn_at);
-            if let Ok((_, _, _, current, _)) = outlines.get_mut(*entity) {
-                match current {
-                    Some(mut current) => {
-                        if *current != shape {
-                            *current = shape;
-                        }
-                    }
-                    None => {
-                        commands.entity(*entity).insert(shape);
-                    }
-                }
-            }
-            let footprint = outline.element_box();
-            if let Ok(mut element) = boxes.get_mut(*entity) {
-                if element.position != footprint.center() {
-                    element.position = footprint.center();
-                }
-                if element.size != footprint.size() {
-                    element.size = footprint.size();
-                }
-            }
-        }
         commands.entity(key).insert(geometry);
     }
     standings
+}
+
+/// Where the Portals of `geometry` stand in `combination`, recorded in `standings`, and the
+/// stretches of each of the `outlines` outlines' Walls they cover.
+fn stand_portals<H: OutlineHost>(
+    combination: &Combination,
+    geometry: &DerivedFrom<H>,
+    outlines: usize,
+    standings: &mut BTreeMap<ElementId, Option<Standing>>,
+) -> Vec<Vec<Stretch>> {
+    let settings: Vec<PortalSetting> = geometry
+        .portals
+        .iter()
+        .map(|(_, setting)| *setting)
+        .collect();
+    let mut stretches: Vec<Vec<Stretch>> = vec![Vec::new(); outlines];
+    for ((portal, _), standing) in geometry
+        .portals
+        .iter()
+        .zip(anchor_portals(combination, &settings))
+    {
+        if let Some(covered) = standing
+            .as_ref()
+            .and_then(|standing| standing.stretches.as_ref())
+        {
+            for (outline, stretch) in covered {
+                if let Some(own) = stretches.get_mut(*outline) {
+                    own.push(*stretch);
+                }
+            }
+        }
+        standings.insert(*portal, standing);
+    }
+    stretches
+}
+
+/// Strokes each member's Walls from its combined outline, leaving out its `stretches`, writes
+/// the shape where it differs, and sets the member's box around its points.
+fn write_shapes<H: OutlineHost>(
+    commands: &mut Commands,
+    outlines: &mut Outlines<H>,
+    boxes: &mut Boxes,
+    members: &Batch<H>,
+    combination: &Combination,
+    stretches: &[Vec<Stretch>],
+) {
+    for (((entity, id, outline), combined), own) in
+        members.iter().zip(&combination.outlines).zip(stretches)
+    {
+        let mesh = generate_walls(combined, outline.thickness(), own);
+        let drawn_at = members.get(combined.last).map_or(*id, |last| last.1);
+        let shape = H::shape(combined, mesh, own.clone(), drawn_at);
+        if let Ok((_, _, _, current, _)) = outlines.get_mut(*entity) {
+            match current {
+                Some(mut current) => {
+                    current.set_if_neq(shape);
+                }
+                None => {
+                    commands.entity(*entity).insert(shape);
+                }
+            }
+        }
+        let footprint = outline.element_box();
+        if let Ok(mut element) = boxes.get_mut(*entity) {
+            if element.position != footprint.center() {
+                element.position = footprint.center();
+            }
+            if element.size != footprint.size() {
+                element.size = footprint.size();
+            }
+        }
+    }
 }
 
 /// Keeps a Portal set into a Wall or a Room where its anchor puts it: at `standing`, turned to

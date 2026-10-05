@@ -8,7 +8,7 @@
 - The component lives in `drs-model` beside what it is derived from (`WallShape` in `wall.rs`, `ResolutionTable` in `resolution.rs`), documented as never saved and naming the Manager that writes it. It implements no `Serialisable`, so a Save leaves it out; `WallShape` derives no `Reflect` either, so a Remove Element snapshot leaves it out and the restored Wall is derived again.
 - Exactly one Manager writes it, calling the Engine directly, in a system added `.after(ManagerSystems::Redo)` in its plugin, so every Command, Undo, Redo, and Open of the frame is in before it runs and readers in `PostUpdate` see the result that frame.
 - The system is driven by change detection on the source (`Changed<Wall>`, a Portal changed or removed, `Changed<AssetReferences>`): it inserts through `Commands` the first time and assigns in place after.
-- It writes only when the result can differ: it remembers what it last derived from in a component private to the Manager (`DerivedFrom`, kept for a batch that is derived together, such as the Rooms of a Layer, on the Layer) and compares before assigning (`write_table`, each shape of a batch), so a reader's `Ref::is_changed` means a real change and a recolour does not rebuild a mesh.
+- It writes only when the result can differ: it remembers what it last derived from in a component private to the Manager (`DerivedFrom`, kept for a batch that is derived together, such as the Rooms of a Layer, on the Layer) and compares before assigning (`write_table`; `set_if_neq` for each shape of a batch), so a reader's `Ref::is_changed` means a real change and a recolour does not rebuild a mesh.
 - Readers only read it and treat its absence as not yet: RenderEngine skips the Element that frame and the Editor's hit test misses it.
 
 ## Example
@@ -61,24 +61,44 @@ fn reshape<H: OutlineHost>(
         if shaped && derived.get(key).is_ok_and(|last| *last == geometry) {
             continue;
         }
-        for (index, (entity, _, outline)) in members.iter().enumerate() {
-            let shape = H::shape(combined, mesh, stretches[index].clone(), drawn_at);
-            if let Ok((_, _, _, current, _)) = outlines.get_mut(*entity) {
-                match current {
-                    Some(mut current) => {
-                        if *current != shape {
-                            *current = shape;
-                        }
-                    }
-                    None => {
-                        commands.entity(*entity).insert(shape);
-                    }
-                }
-            }
-        }
+        let combination = combination_of(&members);
+        let stretches = stand_portals(&combination, &geometry, members.len(), &mut standings);
+        write_shapes(
+            commands,
+            outlines,
+            boxes,
+            &members,
+            &combination,
+            &stretches,
+        );
         commands.entity(key).insert(geometry);
     }
     standings
+}
+
+fn write_shapes<H: OutlineHost>(
+    commands: &mut Commands,
+    outlines: &mut Outlines<H>,
+    boxes: &mut Boxes,
+    members: &Batch<H>,
+    combination: &Combination,
+    stretches: &[Vec<Stretch>],
+) {
+    for (((entity, id, outline), combined), own) in
+        members.iter().zip(&combination.outlines).zip(stretches)
+    {
+        let shape = H::shape(combined, mesh, own.clone(), drawn_at);
+        if let Ok((_, _, _, current, _)) = outlines.get_mut(*entity) {
+            match current {
+                Some(mut current) => {
+                    current.set_if_neq(shape);
+                }
+                None => {
+                    commands.entity(*entity).insert(shape);
+                }
+            }
+        }
+    }
 }
 ```
 

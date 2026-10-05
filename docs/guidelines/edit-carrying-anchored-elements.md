@@ -64,7 +64,7 @@ fn record_together<H: OutlineHost>(
     gone: Vec<ElementId>,
     reshape: impl ReversibleCommand,
     moves: Vec<SetField<ElementId>>,
-    walls: Option<(Entity, Walled)>,
+    walls: Option<(Entity, PortalsWithWall)>,
 ) -> Result<Vec<PortalsRemoved>, AuthoringError> {
     let walls = walls.filter(|(_, before)| !before.is_empty());
     if gone.is_empty() && moves.is_empty() && walls.is_none() {
