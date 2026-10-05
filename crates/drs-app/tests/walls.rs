@@ -1027,6 +1027,8 @@ fn a_wall_drag_goes_by_its_travel() {
     assert_eq!(fixture.history().undo_depth(), depth + 1);
 
     let there = fixture.wall_of(id);
+    fixture.undo();
+    assert_eq!(fixture.wall_of(id), start);
     for (travel, gesture) in [
         (Vec2::new(1.0, 0.0), Gesture::Begin),
         (Vec2::new(2.0, 3.0), Gesture::Continue),
@@ -1035,15 +1037,18 @@ fn a_wall_drag_goes_by_its_travel() {
     ] {
         fixture.gesture(id, ElementChange::MoveBy(travel), gesture);
     }
-    assert_eq!(fixture.wall_of(id), there);
+    assert_eq!(fixture.wall_of(id), start);
     assert_eq!(
         fixture.history().undo_depth(),
-        depth + 1,
+        depth,
         "a drag back to where it began records nothing"
     );
-    assert!(!fixture.history().can_redo());
+    assert!(
+        fixture.history().can_redo(),
+        "what could be redone still can be"
+    );
 
-    let end = there.points[1];
+    let end = start.points[1];
     for (position, gesture) in [
         (end + Vec2::new(1.0, 1.0), Gesture::Begin),
         (end, Gesture::Continue),
@@ -1051,15 +1056,18 @@ fn a_wall_drag_goes_by_its_travel() {
     ] {
         fixture.gesture(id, ElementChange::Point { index: 1, position }, gesture);
     }
-    assert_eq!(fixture.wall_of(id), there);
+    assert_eq!(fixture.wall_of(id), start);
     assert_eq!(
         fixture.history().undo_depth(),
-        depth + 1,
+        depth,
         "a point dragged back to where it began records nothing"
     );
-    assert!(!fixture.history().can_redo());
-    fixture.undo();
-    assert_eq!(fixture.wall_of(id), start);
+    assert!(
+        fixture.history().can_redo(),
+        "what could be redone still can be"
+    );
+    fixture.redo();
+    assert_eq!(fixture.wall_of(id), there);
 }
 
 /// Moving an Element by dragging records a single undo step however long the drag, and undo

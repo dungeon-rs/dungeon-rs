@@ -625,6 +625,8 @@ fn a_room_drag_is_one_step() {
     assert_eq!(fixture.room_of(id).points, moved);
 
     let moved_state = fixture.room_of(id);
+    fixture.undo();
+    let undone = fixture.room_of(id);
     for (travel, gesture) in [
         (Vec2::new(1.0, 0.0), Gesture::Begin),
         (Vec2::new(2.0, 3.0), Gesture::Continue),
@@ -633,13 +635,18 @@ fn a_room_drag_is_one_step() {
     ] {
         fixture.apply(edit(id, ElementChange::MoveBy(travel), gesture));
     }
-    assert_eq!(fixture.room_of(id), moved_state);
+    assert_eq!(fixture.room_of(id), undone);
     assert_eq!(
         fixture.history().undo_depth(),
-        depth + 1,
+        depth,
         "a drag back to where it began records nothing"
     );
-    assert!(!fixture.history().can_redo());
+    assert!(
+        fixture.history().can_redo(),
+        "what could be redone still can be"
+    );
+    fixture.redo();
+    assert_eq!(fixture.room_of(id), moved_state);
 }
 
 /// Moving a point of a Room changes that point and nothing else: every other point and every
@@ -722,6 +729,8 @@ fn a_rooms_handle_drag_is_one_step() {
     }
 
     let before = fixture.room_of(id);
+    fixture.undo();
+    let undone = fixture.room_of(id);
     let depth = fixture.history().undo_depth();
     for (at, gesture) in [
         (Vec2::new(5.0, 7.0), Gesture::Begin),
@@ -737,12 +746,18 @@ fn a_rooms_handle_drag_is_one_step() {
             gesture,
         ));
     }
-    assert_eq!(fixture.room_of(id), before);
+    assert_eq!(fixture.room_of(id), undone);
     assert_eq!(
         fixture.history().undo_depth(),
         depth,
         "a drag of a point back to where it began records nothing"
     );
+    assert!(
+        fixture.history().can_redo(),
+        "what could be redone still can be"
+    );
+    fixture.redo();
+    assert_eq!(fixture.room_of(id), before);
 }
 
 /// Setting an edge's control point changes that control point only, and unsetting it makes the
