@@ -22,13 +22,13 @@ Brief a fresh sub-agent with the change spec, the pinned spec(s) if landed, `doc
 - **Tests**: any test listed for a Rule that doesn't actually exercise it; any Rule without a test at an agreed seam.
 - **After landing**: anything the pinned spec states that the code doesn't do, and anything the code does that no Rule states.
 
-It also runs this coverage checklist over the whole repository, because no tool does. Read the Commands in `docs/domain/`, `docs/specs/`, `docs/changes/`, and `docs/ROADMAP.md`:
+It also runs this coverage checklist over the whole repository, because no tool does. Read the Commands in `docs/domain/`, `docs/specs/`, `docs/changes/`, and the open Feature issues (`gh issue list --state open --json number,title,body,milestone`):
 
-- every domain Command is owned by exactly one capability (named in a spec header), or is on the roadmap; report unowned, unlisted Commands as unplanned, and Commands claimed by two capabilities as errors (a Command listed under "Changes to existing behaviour" of a change spec that moves it is not a double claim)
-- every spec header and every roadmap `Commands:` list names only Commands the domain defines
+- every domain Command is owned by exactly one capability (named in a spec header), or is on an open issue's `Commands` line; report unowned, unlisted Commands as unplanned, and Commands claimed by two capabilities as errors (a Command listed under "Changes to existing behaviour" of a change spec that moves it is not a double claim)
+- every spec header and every issue's `Commands` line names only Commands the domain defines
 - every Rule in every pinned spec lists at least one test, and every listed test exists
 - no source file, comment, attribute, or commit message refers to a spec (search source and commit messages for `docs/specs`, `docs/changes`, `SPEC.md`, change slugs, and quoted Rule names)
-- every roadmap link resolves to an existing change spec, every change spec has a roadmap line, and no pinned spec holds anything planned, pending, or "to do"
+- every change-spec link in an issue resolves to an existing change spec, every change spec is linked from an open issue, and no pinned spec holds anything planned, pending, or "to do"
 
 ## Standards review
 

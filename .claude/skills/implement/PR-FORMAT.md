@@ -18,5 +18,5 @@ Why this change is needed and what outcome it gives the user.
 
 ## Related work
 
-- Only real references: a related pull request or an issue. Never a transient file.
+- `Closes #<n>` for the change's issue; otherwise only real references, such as a related pull request or issue. Never a transient file.
 ```

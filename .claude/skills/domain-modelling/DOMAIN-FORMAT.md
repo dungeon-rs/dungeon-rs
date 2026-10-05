@@ -7,8 +7,6 @@ docs/
 │   ├── DOMAIN.md             ← purpose, context map, relationships, cross-cutting invariants
 │   ├── <context>.md          ← one file per bounded context
 │   └── OPEN-QUESTIONS.md     ← working file; exists only while questions are open
-└── specs/
-    └── OPEN-QUESTIONS.md     ← spec-level decisions parked during domain work
 ```
 
 A small domain starts as a single `DOMAIN.md` with a Language section. Split into context files when it holds roughly 25 terms or no longer fits a screen or two.

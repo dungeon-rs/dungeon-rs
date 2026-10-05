@@ -26,11 +26,11 @@ Two modes, chosen by the arguments: **write** (`/spec <capability or change>`) a
 
 ## Write
 
-1. **Preconditions.** `docs/architecture/` must exist; if it doesn't, stop and tell the user to run `/architect` first. Read `docs/PRODUCT.md`, `docs/domain/`, `docs/architecture/` (including `NEEDS.md`), `docs/specs/OPEN-QUESTIONS.md`, `docs/ROADMAP.md`, and the pinned specs of the capabilities involved.
+1. **Preconditions.** `docs/architecture/` must exist; if it doesn't, stop and tell the user to run `/architect` first. Read `docs/PRODUCT.md`, `docs/domain/`, `docs/architecture/` (including `NEEDS.md`), the change's issue and the open issues of the capabilities involved (`gh issue list --label area:<capability>`), and the pinned specs of the capabilities involved.
 2. **Scope.** Name the capability or capabilities the change touches and the domain Commands each owns. A Command already owned by another capability's spec stays there unless the user decides to move it.
 3. **Interview or synthesize.** If the conversation already covered this behaviour, synthesize. Otherwise call the Skill tool for "grilling" and seed its frontier with:
    - the Commands the capability owns, and what each must do
-   - items in `docs/specs/OPEN-QUESTIONS.md` that belong to this capability
+   - the open `needs-decision` issues of this capability
    - how the functional baseline (named in `docs/PRODUCT.md`, if any) handles it, and the pain points recorded as sources in `docs/architecture/NEEDS.md`
    - existing Rules of the pinned spec that this change would modify
 4. **Draft** the change spec from [CHANGE-TEMPLATE.md](./CHANGE-TEMPLATE.md):
@@ -40,8 +40,8 @@ Two modes, chosen by the arguments: **write** (`/spec <capability or change>`) a
    - Out of Scope: what this change deliberately leaves for later.
 5. **Architecture check.** Walk each story against `docs/architecture/`. Anything it can't meet goes to the user as an architecture question before the spec is written.
 6. **Agree the test seams** with the user: the highest seam that exercises the behaviour, and as few seams as possible.
-7. **Write** `docs/changes/<slug>.md` and link its line in `docs/ROADMAP.md` to it (`- **[<title>](changes/<slug>.md)**: …`). If the change isn't on the roadmap, stop and ask whether to run `/roadmap` first. Remove the items the spec settled from `docs/specs/OPEN-QUESTIONS.md`.
-8. **Check coverage** yourself, for the Commands this change touches: each is defined by the domain, each is owned by exactly one capability (a Command the change moves is listed under "Changes to existing behaviour"), and each is on the roadmap. Fix or raise anything that isn't.
+7. **Write** `docs/changes/<slug>.md`, then edit the change's issue to link it (a `Change spec:` line with the file's URL) and remove its `spec:new` label. If the change has no issue, stop and ask whether to run `/roadmap` first. Close each issue the spec settled, with a comment saying what settled it.
+8. **Check coverage** yourself, for the Commands this change touches: each is defined by the domain, each is owned by exactly one capability (a Command the change moves is listed under "Changes to existing behaviour"), and each is on an open issue's `Commands` line. Fix or raise anything that isn't.
 
 ## Land
 
@@ -54,6 +54,6 @@ Carried out by `implement` (it reads this file) after the automated, review, and
    - Implementation Decisions describing the system as built, not the plan
    - Test seams: for each Rule, the tests that cover it, in the project's test-reference form
    - Not supported: only lasting non-goals of the capability; "not in this change" items are dropped
-3. Delete the change spec and its line in `docs/ROADMAP.md`, and any milestone left empty.
+3. Delete the change spec. Its issue is closed by the pull request; if that was the milestone's last open issue, say so, so the author can close the milestone.
 4. Commit the landing (a message that fully describes the change, never pointing at the change spec) with the Skill tool for "commit".
 5. Call the Skill tool for "review", spec axis only, against the merged pinned spec(s). Fix or raise every finding before handing back.

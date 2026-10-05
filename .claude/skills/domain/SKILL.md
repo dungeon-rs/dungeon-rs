@@ -23,8 +23,8 @@ Then ask one question: **is there an existing product that serves as a functiona
 |---|---|---|
 | Domain | "an order is just a list of line items" | the draft model |
 | Product vision or principle | "the tool gets out of your way" | `docs/PRODUCT.md` (see [DOMAIN-FORMAT.md](../domain-modelling/DOMAIN-FORMAT.md#productmd)) |
-| Quality requirement | "must stay fast with 400,000 orders" | `docs/PRODUCT.md` as a principle if it's a lasting value; `docs/specs/OPEN-QUESTIONS.md` if it's a concrete target |
-| Spec concern | "the export dialog should remember the last format" | `docs/specs/OPEN-QUESTIONS.md` |
+| Quality requirement | "must stay fast with 400,000 orders" | `docs/PRODUCT.md` as a principle if it's a lasting value; a `needs-decision` issue if it's a concrete target |
+| Spec concern | "the export dialog should remember the last format" | a `needs-decision` issue |
 
 Then turn the domain statements into a **draft model** and a set of **findings**. Don't write domain files yet.
 
@@ -44,7 +44,7 @@ Call the Skill tool for "domain-modelling", then for "grilling". Hand grilling t
 As each answer lands, write the resolved piece into `docs/domain/` right away, following domain-modelling.
 
 - **Research, not interrogation.** When the user can't answer from what they know ("research this", "this is the hardest question"), don't push. Dispatch a background sub-agent to research it against a **scenario suite**: 8–12 concrete situations any answer must survive, including at least one with two parties on different setups where the product is shared or concurrent. Hold the next round until it reports, and do the non-interactive work meanwhile.
-- **Sort research results.** A research reply mixes domain decisions with spec-level ones. Bring only the domain decisions into the next round; park the rest in `docs/specs/OPEN-QUESTIONS.md`.
+- **Sort research results.** A research reply mixes domain decisions with spec-level ones. Bring only the domain decisions into the next round; park the rest as a GitHub issue (a Task, or a Feature for a new capability) labelled `needs-decision`, with its `area:` label when the capability is known.
 - **Split into contexts** when `DOMAIN.md` holds roughly 25 terms or no longer fits a screen or two. Propose the split as a round question.
 
 The structure pass ends when the user confirms the things are settled.
@@ -64,7 +64,7 @@ Write only what the user confirms.
 
 When the frontier is empty:
 
-1. Move anything still open that isn't a domain question to `docs/specs/OPEN-QUESTIONS.md`, then delete `docs/domain/OPEN-QUESTIONS.md`.
+1. Park anything still open that isn't a domain question as a GitHub issue (a Task, or a Feature for a new capability) labelled `needs-decision`, with its `area:` label when the capability is known, then delete `docs/domain/OPEN-QUESTIONS.md`.
 2. Re-read all of `docs/domain/` and check:
    - no implementation details, no history, no plans
    - no invariant that is only sometimes true

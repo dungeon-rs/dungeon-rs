@@ -37,7 +37,7 @@ When the user states how something works and specs or code exist, check whether 
 
 When a term or invariant is resolved, write it into `docs/domain/` right there. Don't batch. Create files lazily: only when there is something to write.
 
-Spec-level decisions that surface along the way (UI behaviour, thresholds, formats, performance targets) go to `docs/specs/OPEN-QUESTIONS.md`, not the domain.
+Spec-level decisions that surface along the way (UI behaviour, thresholds, formats, performance targets) are parked as a GitHub issue (a Task, or a Feature for a new capability) labelled `needs-decision`, with its `area:` label when the capability is known, not in the domain.
 
 ## The domain is meant to be stable
 

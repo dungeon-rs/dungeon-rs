@@ -69,13 +69,13 @@ Write `docs/architecture/ARCHITECTURE.md` from the confirmed decomposition and t
 ### 4. Validation
 
 - **Call chains**: one Mermaid diagram per core use case, through the components. Look for symmetry; a chain that breaks the communication rules means the decomposition is wrong, not the rule.
-- **Future-change test**: pick 3–5 plausible future features (from `PRODUCT.md`, parked spec questions, the baseline, and the volatilities). Trace each: it must fit by adding behaviour to existing components, such as a new operation on a contract or a new Engine rule, with no restructuring. If one needs a restructure, a volatility was missed: go back to decomposition now. Record each future feature and how it fits.
+- **Future-change test**: pick 3–5 plausible future features (from `PRODUCT.md`, open `needs-decision` issues, the baseline, and the volatilities). Trace each: it must fit by adding behaviour to existing components, such as a new operation on a contract or a new Engine rule, with no restructuring. If one needs a restructure, a volatility was missed: go back to decomposition now. Record each future feature and how it fits.
 
 ### 5. Close
 
 1. Self-check: every Must is met by a component or a technology decision, or explicitly accepted by the user as a gap; every domain Command has exactly one owning Manager; every volatility is encapsulated by exactly one component; no component exists without a volatility (Utilities, the Host, and the Model excepted); every future feature has a recorded fit.
 2. Run `just check` if the project has a `justfile` and code.
-3. Move any spec-level question still open to `docs/specs/OPEN-QUESTIONS.md`, then delete `docs/architecture/OPEN-QUESTIONS.md`.
+3. Park any spec-level question still open as a GitHub issue (a Task, or a Feature for a new capability) labelled `needs-decision`, with its `area:` label when the capability is known, then delete `docs/architecture/OPEN-QUESTIONS.md`.
 4. Summarize for the user: components by type, the technology decisions, the rules left to review, the future features and how they fit, and any accepted gaps.
 
 ## Change

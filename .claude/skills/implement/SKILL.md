@@ -1,8 +1,8 @@
 ---
 name: implement
-description: Build the next change from the roadmap, from change spec to a draft pull request, with automated, review, and manual gates.
+description: Build the next change from the plan on GitHub, from change spec to a draft pull request, with automated, review, and manual gates.
 disable-model-invocation: true
-argument-hint: "[change title, default: top of the roadmap]"
+argument-hint: "[change title or issue, default: the next open change]"
 ---
 
 Build one change end to end in this session. The main session writes the code; sub-agents only review and look things up. You are in the loop at the spec, at the manual check before the PR, at the push authorization, and whenever a stop condition fires.
@@ -19,9 +19,9 @@ If a needed recipe is missing, stop and ask; don't guess a command. The foundati
 
 ## 1. Pick and classify
 
-Take the change named in the arguments, or the top line of `docs/ROADMAP.md`. Say out loud which path it is:
+Take the change named in the arguments, or the next open Feature issue: the earliest open milestone's first issue, by dependencies and then issue number, that no open issue blocks (`gh issue list --milestone <milestone> --state open`). Say out loud which issue and which path it is:
 
-- **Spike**: answers a question. No spec. Work in a scratch directory. It must end in a conclusion. Then delete the spike code, fold the conclusion into the domain, the architecture (with a `_Why_:` line), or the roadmap, and delete the answered question line from `docs/ROADMAP.md`. Nothing about the spike is kept. Leave the edits uncommitted for the user and stop.
+- **Spike**: answers a question. No spec. Work in a scratch directory. It must end in a conclusion. Then delete the spike code, fold the conclusion into the domain, the architecture (with a `_Why_:` line), or the plan's issues. Nothing about the spike is kept. Leave the edits uncommitted for the user, propose closing the answered question issue with the conclusion as its closing comment, and stop.
 - **Bounded**: the normal path below.
 - **Architectural**: needs a component, contract, or rule changed. Stop and ask the user to run `/architect change` first.
 
@@ -55,14 +55,14 @@ Start the product with `just run` (a UI, a service, or a command line; run it in
 
 ## 8. Land
 
-Read `.claude/skills/spec/SKILL.md` and follow its Land mode: the pinned spec is updated, the change spec deleted, the roadmap line removed, and the landing committed and reviewed. Rerun `just check` afterwards.
+Read `.claude/skills/spec/SKILL.md` and follow its Land mode: the pinned spec is updated, the change spec deleted, and the landing committed and reviewed; the issue stays open for the pull request to close. Rerun `just check` afterwards.
 
 ## 9. Pull request
 
 Ask the user to authorize the push; stop until they do. Then push and open a **draft** pull request with `gh pr create --draft`:
 
 - Title: a Conventional Commit title, e.g. `feat: place items from a library`.
-- Body: [PR-FORMAT.md](./PR-FORMAT.md), filled from the actual diff and history.
+- Body: [PR-FORMAT.md](./PR-FORMAT.md), filled from the actual diff and history, closing the change's issue (`Closes #<n>`).
 
 The user merges; never merge yourself.
 
