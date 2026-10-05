@@ -21,8 +21,8 @@ struct BoundsAtBegin(Option<Bounds>);
 /// step on its own and closes any gesture left open. Bounds equal to the current ones record
 /// nothing, so a gesture none of whose resizes changes them leaves no step, and a gesture that
 /// ends with the Bounds as they were when it began is taken back whole, so it records nothing and
-/// leaves what could be redone redoable. The Project entity is addressed by its entity: Open replaces the Project and empties the history, so no step
-/// outlives the entity it names.
+/// leaves what could be redone redoable. The Project entity is addressed by its entity: Open
+/// replaces the Project and empties the history, so no step outlives the entity it names.
 ///
 /// # Errors
 ///
