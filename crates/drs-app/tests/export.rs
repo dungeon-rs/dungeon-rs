@@ -740,6 +740,17 @@ fn image_within_limits() {
     );
     assert!(!fixture.output("wide.png").exists());
 
+    fixture.bounds(IVec2::ZERO, UVec2::new(400, 1_000));
+    let refused = fixture
+        .export(101, "tall.png", TILE)
+        .expect_err("an image 101,000 pixels high is refused though it is only 40,400 wide");
+    assert!(
+        refused.reason.contains("at most 100 pixels per cell"),
+        "the largest resolution is named: {}",
+        refused.reason
+    );
+    assert!(!fixture.output("tall.png").exists());
+
     fixture.bounds_as_opened(Bounds {
         origin: IVec2::ZERO,
         size: UVec2::new(200_000, 30),
@@ -758,6 +769,20 @@ fn image_within_limits() {
         refused.reason
     );
     assert!(!fixture.output("huge.png").exists());
+
+    fixture.bounds_as_opened(Bounds {
+        origin: IVec2::ZERO,
+        size: UVec2::new(30, 200_000),
+    });
+    let refused = fixture
+        .export(1, "narrow.png", TILE)
+        .expect_err("Bounds of 200,000 cells high are refused");
+    assert!(
+        refused.reason.contains("30 by 200000 cells"),
+        "the Bounds are named: {}",
+        refused.reason
+    );
+    assert!(!fixture.output("narrow.png").exists());
     assert_eq!(
         fs::read_dir(fixture.root.path().join("exports"))
             .expect("the exports folder")
