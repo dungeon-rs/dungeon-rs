@@ -116,7 +116,8 @@ fn derive(
 
 /// In the test build, deriving the floors, the Walls, and the Portals' places of a Layer of
 /// twenty Rooms, each with two curved edges, with sixteen shared edges and ten Portals, takes
-/// under 4 milliseconds.
+/// under 4 milliseconds: a drag derives its Layer again at every frame, and this leaves three
+/// quarters of a 60 Hz frame for the rest.
 #[test]
 fn recombined_within_a_frame() {
     let outlines = layer();
