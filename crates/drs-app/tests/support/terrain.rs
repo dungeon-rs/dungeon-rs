@@ -177,6 +177,7 @@ impl Fixture {
                 thickness: 0.25,
                 wall_colour: Colour::rgb(60, 60, 60),
                 floor_colour: Colour::rgb(200, 200, 200),
+                cuts: false,
             },
         }));
         *self.order().last().expect("the Room is on top")
