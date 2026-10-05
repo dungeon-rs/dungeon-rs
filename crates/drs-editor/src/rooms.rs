@@ -283,7 +283,7 @@ pub(crate) fn on_floor(room: &Room, shape: &RoomShape, cells: Vec2) -> bool {
 /// Whether a point in cells is on the Walls drawn in a Room's look, outside the stretches the
 /// Portals leave out of them.
 pub(crate) fn on_walls(room: &Room, shape: &RoomShape, cells: Vec2, zoom: f32) -> bool {
-    on_wall(room.thickness, &Lines::of_room(shape), cells, zoom)
+    on_wall(room.thickness, &Lines::room_walls(shape), cells, zoom)
 }
 
 /// The wall thickness, wall colour, floor colour, and Cut options, of the selected Room or of the

@@ -232,7 +232,7 @@ impl LevelView<'_, '_> {
             (None, Some(room)) => Some((
                 *id,
                 Outline::of_room(room),
-                room_shape.map(Lines::round_room),
+                room_shape.map(Lines::room_outline),
             )),
             (None, None) => None,
         }
@@ -271,7 +271,7 @@ impl LevelView<'_, '_> {
             |(_, _, _, shape, _, _, _, room_shape)| {
                 shape
                     .map(Lines::of_wall)
-                    .or_else(|| room_shape.map(Lines::walled_room))
+                    .or_else(|| room_shape.map(Lines::room_walled_places))
             },
         )
     }
@@ -293,7 +293,7 @@ impl LevelView<'_, '_> {
                         Some((*id, wall.thickness, Lines::of_wall(shape)))
                     }
                     (_, _, Some(room), Some(room_shape)) => {
-                        Some((*id, room.thickness, Lines::of_room(room_shape)))
+                        Some((*id, room.thickness, Lines::room_walls(room_shape)))
                     }
                     _ => None,
                 }

@@ -223,7 +223,7 @@ impl<'a> Lines<'a> {
     }
 
     /// The Walls drawn in a Room's look, with the stretches the Portals leave out of them.
-    pub(crate) fn of_room(shape: &'a RoomShape) -> Self {
+    pub(crate) fn room_walls(shape: &'a RoomShape) -> Self {
         Self {
             runs: shape.walls.iter().map(Vec::as_slice).collect(),
             stretches: &shape.stretches,
@@ -232,7 +232,7 @@ impl<'a> Lines<'a> {
     }
 
     /// A Room's whole outline, every edge whether a Wall runs along it or not.
-    pub(crate) fn round_room(shape: &'a RoomShape) -> Self {
+    pub(crate) fn room_outline(shape: &'a RoomShape) -> Self {
         Self {
             runs: vec![&shape.outline],
             stretches: &[],
@@ -241,7 +241,7 @@ impl<'a> Lines<'a> {
     }
 
     /// The places of a Room's edges where a Wall runs, whichever Room's look it is drawn in.
-    pub(crate) fn walled_room(shape: &'a RoomShape) -> Self {
+    pub(crate) fn room_walled_places(shape: &'a RoomShape) -> Self {
         Self {
             runs: vec![&shape.outline],
             stretches: &[],
