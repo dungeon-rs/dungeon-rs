@@ -14,14 +14,16 @@ mod support;
 use bevy::app::App;
 use bevy::ecs::entity::Entity;
 use bevy::ecs::hierarchy::Children;
-use bevy::ecs::query::With;
 use bevy::math::{IVec2, UVec2, Vec2};
 use drs_model::{
     Anchoring, Apply, AssetAddress, Bounds, BrushSettings, Colour, Element, ElementId, FolderKey,
-    Gesture, Paint, PlaceElement, Placement, Portal, PortalAnchor, Project, Prop, ResizeBounds,
-    Room, RoomShape, Side, Stroke, Terrain, TerrainCoverage, Wall, WallShape,
+    Gesture, Paint, PlaceElement, Placement, Portal, PortalAnchor, Prop, Room, RoomShape, Side,
+    Stroke, Terrain, TerrainCoverage, Wall, WallShape,
 };
-use support::{add_folder, editor, first_layer, history, png, redo, try_apply, undo};
+use support::{
+    add_folder, bounds_of, editor, first_layer, history, png, redo, resize_bounds, resize_to,
+    try_apply, undo,
+};
 use tempfile::TempDir;
 
 /// A table one cell a side at the Grid's 256 pixels per cell, for Props.
@@ -75,11 +77,6 @@ fn bounds(left: i32, bottom: i32, width: u32, height: u32) -> Bounds {
     }
 }
 
-/// The Resize Bounds to `bounds` at `gesture`.
-fn resize(bounds: Bounds, gesture: Gesture) -> Apply {
-    Apply::ResizeBounds(ResizeBounds { bounds, gesture })
-}
-
 impl Fixture {
     /// Creates the fixture folder, starts the editor, and adds the folder.
     fn new() -> Self {
@@ -125,12 +122,12 @@ impl Fixture {
 
     /// Resizes the Bounds to `bounds` on their own, failing the test on a refusal.
     fn resize(&mut self, bounds: Bounds) {
-        self.apply(resize(bounds, Gesture::Single));
+        self.apply(resize_to(bounds));
     }
 
     /// Resizes the Bounds to `bounds` on their own and returns the refusals.
     fn try_resize(&mut self, bounds: Bounds) -> Vec<String> {
-        self.try_apply(resize(bounds, Gesture::Single))
+        self.try_apply(resize_to(bounds))
     }
 
     /// Places `placement` on the Layer, returning the identity of the Element placed.
@@ -151,11 +148,7 @@ impl Fixture {
 
     /// The Project's Bounds.
     fn bounds(&mut self) -> Bounds {
-        let world = self.app.world_mut();
-        *world
-            .query_filtered::<&Bounds, With<Project>>()
-            .single(world)
-            .expect("one Project")
+        bounds_of(&mut self.app)
     }
 
     /// Sends Undo and runs one update.
@@ -266,11 +259,11 @@ fn a_resize_gesture_is_one_step() {
     let mut fixture = Fixture::new();
     let start = fixture.bounds();
 
-    fixture.apply(resize(bounds(0, 0, 31, 30), Gesture::Begin));
-    fixture.apply(resize(bounds(0, 0, 32, 30), Gesture::Continue));
-    fixture.apply(resize(bounds(-1, 0, 33, 31), Gesture::Continue));
-    fixture.apply(resize(bounds(-2, 0, 34, 31), Gesture::Continue));
-    fixture.apply(resize(bounds(-2, 0, 34, 31), Gesture::End));
+    fixture.apply(resize_bounds(bounds(0, 0, 31, 30), Gesture::Begin));
+    fixture.apply(resize_bounds(bounds(0, 0, 32, 30), Gesture::Continue));
+    fixture.apply(resize_bounds(bounds(-1, 0, 33, 31), Gesture::Continue));
+    fixture.apply(resize_bounds(bounds(-2, 0, 34, 31), Gesture::Continue));
+    fixture.apply(resize_bounds(bounds(-2, 0, 34, 31), Gesture::End));
 
     assert_eq!(fixture.bounds(), bounds(-2, 0, 34, 31));
     assert_eq!(fixture.steps(), 1, "the whole gesture is one step");
@@ -298,7 +291,7 @@ fn a_drag_back_to_its_start_records_nothing() {
         (start, Gesture::Continue),
         (start, Gesture::End),
     ] {
-        fixture.apply(resize(at, gesture));
+        fixture.apply(resize_bounds(at, gesture));
     }
     assert_eq!(fixture.bounds(), start);
     assert_eq!(
@@ -319,19 +312,19 @@ fn a_gesture_closes_however_it_ends() {
     let mut fixture = Fixture::new();
     let start = fixture.bounds();
 
-    fixture.apply(resize(bounds(0, 0, 31, 30), Gesture::Begin));
-    fixture.apply(resize(bounds(0, 0, 32, 30), Gesture::Continue));
-    let refused = fixture.try_apply(resize(bounds(0, 0, 0, 30), Gesture::End));
+    fixture.apply(resize_bounds(bounds(0, 0, 31, 30), Gesture::Begin));
+    fixture.apply(resize_bounds(bounds(0, 0, 32, 30), Gesture::Continue));
+    let refused = fixture.try_apply(resize_bounds(bounds(0, 0, 0, 30), Gesture::End));
     assert_eq!(refused.len(), 1, "the last Resize Bounds is refused");
     assert_eq!(fixture.bounds(), bounds(0, 0, 32, 30));
     assert_eq!(fixture.steps(), 1, "the resizes before it are one step");
     fixture.undo();
     assert_eq!(fixture.bounds(), start);
 
-    fixture.apply(resize(bounds(0, 0, 31, 30), Gesture::Begin));
-    fixture.apply(resize(bounds(0, 0, 32, 30), Gesture::Continue));
-    fixture.apply(resize(bounds(0, 0, 40, 30), Gesture::Single));
-    fixture.apply(resize(bounds(0, 0, 40, 30), Gesture::End));
+    fixture.apply(resize_bounds(bounds(0, 0, 31, 30), Gesture::Begin));
+    fixture.apply(resize_bounds(bounds(0, 0, 32, 30), Gesture::Continue));
+    fixture.apply(resize_bounds(bounds(0, 0, 40, 30), Gesture::Single));
+    fixture.apply(resize_bounds(bounds(0, 0, 40, 30), Gesture::End));
     assert_eq!(fixture.bounds(), bounds(0, 0, 40, 30));
     assert_eq!(fixture.steps(), 2, "the gesture, then the single resize");
     fixture.undo();
@@ -365,7 +358,7 @@ fn the_same_bounds_record_nothing() {
         Gesture::Continue,
         Gesture::End,
     ] {
-        fixture.apply(resize(bounds(2, 3, 20, 10), gesture));
+        fixture.apply(resize_bounds(bounds(2, 3, 20, 10), gesture));
     }
     assert_eq!(fixture.bounds(), bounds(2, 3, 20, 10));
     assert_eq!(

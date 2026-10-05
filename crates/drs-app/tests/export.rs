@@ -28,7 +28,7 @@ use drs_model::{
     SaveProject, SavedMark, Side, Viewport,
 };
 use drs_model::{
-    Bounds, BrushSettings, Paint, ResizeBounds, Resolution, ResolutionTable, Stroke, StrokeChange,
+    Bounds, BrushSettings, Paint, Resolution, ResolutionTable, Stroke, StrokeChange,
     TerrainCoverage,
 };
 use std::fs;
@@ -528,10 +528,7 @@ impl Fixture {
     /// Resizes the Bounds to `size` cells with their lower-left corner at `origin`, so an Export
     /// at a high resolution stays small, failing the test if the Resize Bounds was refused.
     fn bounds(&mut self, origin: IVec2, size: UVec2) {
-        self.run(Apply::ResizeBounds(ResizeBounds {
-            bounds: Bounds { origin, size },
-            gesture: Gesture::Single,
-        }));
+        self.run(support::resize_to(Bounds { origin, size }));
     }
 
     /// Sets the Bounds in the World as an opened file may hold them, beyond what a Resize
@@ -694,12 +691,9 @@ fn an_export_keeps_the_bounds_it_was_asked_for() {
     fixture
         .app
         .world_mut()
-        .write_message(Apply::ResizeBounds(ResizeBounds {
-            bounds: Bounds {
-                origin: IVec2::new(0, 0),
-                size: UVec2::new(5, 5),
-            },
-            gesture: Gesture::Single,
+        .write_message(support::resize_to(Bounds {
+            origin: IVec2::new(0, 0),
+            size: UVec2::new(5, 5),
         }));
     let exported = fixture
         .await_export(&request)

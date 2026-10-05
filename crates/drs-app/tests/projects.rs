@@ -25,9 +25,8 @@ use drs_model::{
     ElementKindRegistry, FolderKey, FreePortal, Gesture, Grid, Layer, Level, MissingAsset,
     MissingReason, OpenProject, PORTAL, PlaceElement, Placement, Portal, PortalAnchor, Project,
     ProjectOpened, ProjectRefused, ProjectRequest, ProjectSaved, Prop, ROOM, RemoveElement,
-    ResizeBounds, Resolution, ResolutionTable, Room, RoomShape, SaveProject, SavedMark,
-    Serialisable, SerialisationRegistry, Side, UnknownComponents, UnknownKind, Viewport, WALL,
-    Wall, WallShape,
+    Resolution, ResolutionTable, Room, RoomShape, SaveProject, SavedMark, Serialisable,
+    SerialisationRegistry, Side, UnknownComponents, UnknownKind, Viewport, WALL, Wall, WallShape,
 };
 use drs_model::{BrushSettings, Paint, Stroke, TERRAIN, Terrain, TerrainCoverage, TileKey};
 use serde_json::{Value, json};
@@ -3298,14 +3297,6 @@ fn a_portal_without_its_wall_stands() {
     assert_eq!(shape_of(&mut other, hall).stretches.len(), 1);
 }
 
-/// The Resize Bounds that sets `bounds` on its own.
-fn resize(bounds: Bounds) -> Apply {
-    Apply::ResizeBounds(ResizeBounds {
-        bounds,
-        gesture: Gesture::Single,
-    })
-}
-
 /// The file holds the Bounds as they were resized, opening it yields those Bounds, and saving
 /// what was opened writes the same file byte for byte.
 #[test]
@@ -3315,7 +3306,7 @@ fn resized_bounds_are_saved() {
         origin: IVec2::new(-3, -2),
         size: UVec2::new(12, 8),
     };
-    saved.device.apply(resize(resized));
+    saved.device.apply(support::resize_to(resized));
     let file = saved
         .device
         .save_as(&saved.device.root().join("resized.dungeon"));
@@ -3343,7 +3334,7 @@ fn a_resize_is_an_unsaved_change() {
     let mut saved = Saved::new();
     assert!(!saved.device.has_unsaved_changes());
 
-    saved.device.apply(resize(Bounds {
+    saved.device.apply(support::resize_to(Bounds {
         origin: IVec2::new(5, 5),
         size: UVec2::new(10, 10),
     }));
