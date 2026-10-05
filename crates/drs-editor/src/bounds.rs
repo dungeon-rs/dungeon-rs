@@ -100,6 +100,12 @@ pub(crate) struct Edges {
 }
 
 impl Edges {
+    /// No edge: what a drag of a field moves, since it moves none of them by a handle.
+    const NONE: Self = Self {
+        vertical: None,
+        horizontal: None,
+    };
+
     /// The edges a handle of the Bounds' outline moves: a corner its two edges, a middle its edge.
     fn of(handle: OutlineHandle) -> Self {
         let (vertical, horizontal) = match handle {
@@ -513,8 +519,9 @@ pub(crate) fn end_fields(state: &mut EditorState, apply: &mut MessageWriter<Appl
 /// height, in whole cells, as the Bounds are. A value typed is sent as the field lets go of the
 /// keyboard, as one Resize Bounds keeping the other three, so a width or a height keeps the left
 /// or the bottom edge and an edge moves the Bounds whole; a drag of a field changes it by whole
-/// cells, stopped at the limits, as one gesture. A value out of the limits is sent as typed, and
-/// refused with the reason. Nothing can be changed while an Export runs.
+/// cells, stopped at the limits and starting from Bounds brought within them when they were opened
+/// beyond them, as one gesture. A value out of the limits is sent as typed, and refused with the
+/// reason. Nothing can be changed while an Export runs.
 pub(crate) fn options(
     ui: &mut egui::Ui,
     state: &mut EditorState,
@@ -546,11 +553,18 @@ pub(crate) fn options(
         #[cfg(feature = "dev")]
         state.bounds.laid_out.push((label, field.rect));
         holding |= field.is_pointer_button_down_on() || field.dragged();
+        // Bounds opened beyond the limits are brought within them for a drag of a field, as a
+        // drag of their edges does, so that what the drag sends is accepted.
+        let from = if field.dragged() {
+            within_limits(bounds, Edges::NONE)
+        } else {
+            bounds
+        };
         if field.dragged() {
-            value = dragged_field(bounds, index, value);
+            value = dragged_field(from, index, value);
         }
         if field.changed() && value != values[index] {
-            change = Some((typed(bounds, index, value), field.dragged()));
+            change = Some((typed(from, index, value), field.dragged()));
         }
     }
     state.bounds.holding = holding;
