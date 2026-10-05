@@ -6,9 +6,9 @@
 //! component reads as the shape Engine's [`Path`] and back, so a kind gains them all through one
 //! implementation.
 
-use crate::combined::{Walled, layer_of, take_walls_away, walled};
+use crate::combined::{PortalsWithWall, layer_of, take_walls_away, walled};
 use crate::place::{spawn_on_top, take_off};
-use crate::portal::{Anchored, anchored_to};
+use crate::portal::{Anchored, anchored_to, setting_at};
 use crate::remove::Remove;
 use crate::{AuthoringError, OutlineKind};
 use bevy_ecs::component::{Component, Mutable};
@@ -514,7 +514,7 @@ pub(crate) fn remove_with_portals<H: OutlineHost>(
 pub(crate) fn walls_before<H: OutlineHost>(
     world: &mut World,
     element: ElementId,
-) -> Option<(Entity, Walled)> {
+) -> Option<(Entity, PortalsWithWall)> {
     if !H::COMBINES {
         return None;
     }
@@ -527,12 +527,7 @@ pub(crate) fn walls_before<H: OutlineHost>(
 pub(crate) fn settings(portals: &[Anchored]) -> Vec<PortalSetting> {
     portals
         .iter()
-        .map(|(_, anchor, width)| PortalSetting {
-            outline: 0,
-            segment: anchor.index,
-            t: anchor.t,
-            width: *width,
-        })
+        .map(|(_, anchor, width)| setting_at(0, anchor, *width))
         .collect()
 }
 
@@ -579,7 +574,7 @@ fn record_together<H: OutlineHost>(
     gone: Vec<ElementId>,
     reshape: impl ReversibleCommand,
     moves: Vec<SetField<ElementId>>,
-    walls: Option<(Entity, Walled)>,
+    walls: Option<(Entity, PortalsWithWall)>,
 ) -> Result<Vec<PortalsRemoved>, AuthoringError> {
     let walls = walls.filter(|(_, before)| !before.is_empty());
     if gone.is_empty() && moves.is_empty() && walls.is_none() {

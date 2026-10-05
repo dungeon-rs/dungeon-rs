@@ -15,7 +15,7 @@ use drs_model::{
     Anchoring, AssetAddress, AssetReferenceRow, Element, ElementChange, ElementId, FreePortal,
     Level, Portal, PortalAnchor, Room, SetPortalIntoWall, Wall,
 };
-use drs_shape_engine::{Path, Standing};
+use drs_shape_engine::{Path, PortalSetting, Standing};
 
 /// The outline of the Wall or the Room an entity carries, and what errors call it, if it carries
 /// either: what a Portal is set into, its parts being the Wall's segments or the Room's edges. The
@@ -419,6 +419,17 @@ pub(crate) fn portal_change(
         | ElementChange::Stroke { .. } => return Ok(None),
     };
     field.map(Some).map_err(history)
+}
+
+/// What `AnchorPortals` is told about a Portal `width` wide set at `anchor` into the outline
+/// numbered `outline` of the batch it is worked out in.
+pub(crate) fn setting_at(outline: usize, anchor: &PortalAnchor, width: f32) -> PortalSetting {
+    PortalSetting {
+        outline,
+        segment: anchor.index,
+        t: anchor.t,
+        width,
+    }
 }
 
 /// A Portal anchored to a Wall or a Room, with its anchor and its width.
