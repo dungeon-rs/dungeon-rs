@@ -438,6 +438,31 @@ impl Fixture {
         self.app.update();
     }
 
+    /// Puts the Element `element` of the first Layer alone on a second Layer above it, by saving
+    /// the Project, editing the file, and opening it again, so that every entity is new and every
+    /// identity is as it was.
+    fn onto_a_second_layer(&mut self, element: ElementId) {
+        let file = self.save("one-layer.dungeon");
+        let mut written: Value =
+            serde_json::from_slice(&fs::read(&file).expect("the file")).expect("JSON");
+        let layer = written["levels"][0]["layers"][0].clone();
+        let raw = json!(element.as_raw().to_string());
+        let elements = written["levels"][0]["layers"][0]["elements"]
+            .as_array_mut()
+            .expect("the Layer's Elements");
+        elements.retain(|kept| *kept != raw);
+        let mut upper = layer;
+        upper["elements"] = json!([raw]);
+        written["levels"][0]["layers"]
+            .as_array_mut()
+            .expect("the Layers")
+            .push(upper);
+        let two = self.root.path().join("two-layers.dungeon");
+        fs::write(&two, serde_json::to_vec(&written).expect("JSON")).expect("written");
+        self.open(&two);
+        assert_eq!(self.layers().len(), 2);
+    }
+
     /// Every Layer of the first Level, in order.
     fn layers(&mut self) -> Vec<Entity> {
         let first = self.layer();
@@ -809,10 +834,21 @@ fn walls_over_the_combination() {
         fixture.room(&rect([4.5, 4.5], [8.0, 8.0])),
     ];
     let apart = fixture.room(&rect([20.0, 20.0], [22.0, 22.0]));
+    let touching = [
+        fixture.room(&rect([30.0, 30.0], [34.0, 34.0])),
+        fixture.room(&rect([34.0, 30.0], [38.0, 34.0])),
+    ];
     for id in chain {
         assert_eq!(fixture.shape(id).drawn_at, chain[2], "through the cut");
     }
     assert_eq!(fixture.shape(apart).drawn_at, apart);
+    for id in touching {
+        assert_eq!(
+            fixture.shape(id).drawn_at,
+            touching[1],
+            "Rooms meeting edge to edge are one combination"
+        );
+    }
 }
 
 /// A Room combines only with the Rooms of its own Layer, and a cut takes floor away only from
@@ -824,25 +860,7 @@ fn layers_keep_their_rooms_apart() {
     let second = fixture.room(&rect([4.0, 0.0], [10.0, 6.0]));
     let cut = fixture.cut(&rect([2.0, 2.0], [3.0, 3.0]));
     let above = fixture.room(&rect([2.0, 1.0], [8.0, 5.0]));
-    let file = fixture.save("one-layer.dungeon");
-    let mut written: Value =
-        serde_json::from_slice(&fs::read(&file).expect("the file")).expect("JSON");
-    let layer = written["levels"][0]["layers"][0].clone();
-    let raw = json!(above.as_raw().to_string());
-    let elements = written["levels"][0]["layers"][0]["elements"]
-        .as_array_mut()
-        .expect("the Layer's Elements");
-    elements.retain(|element| *element != raw);
-    let mut upper = layer;
-    upper["elements"] = json!([raw]);
-    written["levels"][0]["layers"]
-        .as_array_mut()
-        .expect("the Layers")
-        .push(upper);
-    let two = fixture.root.path().join("two-layers.dungeon");
-    fs::write(&two, serde_json::to_vec(&written).expect("JSON")).expect("written");
-    fixture.open(&two);
-    assert_eq!(fixture.layers().len(), 2);
+    fixture.onto_a_second_layer(above);
 
     let whole = fixture.shape(above);
     assert_eq!(whole.walls.len(), 1, "walled whole, round its outline");
@@ -866,7 +884,8 @@ fn layers_keep_their_rooms_apart() {
 }
 
 /// After every step that changes a Room, and every undo and redo of one, every Room of the Layer
-/// has the floor and Walls the same Rooms placed afresh would have.
+/// has the floor and Walls the same Rooms placed afresh would have, and a Room alone on another
+/// Layer stays as it was.
 #[test]
 fn combined_after_every_step() {
     let mut fixture = Fixture::new();
@@ -874,6 +893,9 @@ fn combined_after_every_step() {
     let second = fixture.room(&rect([4.0, 2.0], [10.0, 8.0]));
     let cut = fixture.cut(&rect([1.0, 1.0], [3.0, 3.0]));
     fixture.as_if_placed_afresh("placed");
+    let upper = fixture.room(&rect([2.0, 1.0], [8.0, 5.0]));
+    fixture.onto_a_second_layer(upper);
+    let apart = fixture.shape(upper);
 
     let layer = fixture.layer();
     let steps: Vec<(&str, Apply)> = vec![
@@ -943,15 +965,25 @@ fn combined_after_every_step() {
     for (what, step) in steps {
         fixture.apply(step);
         fixture.as_if_placed_afresh(what);
+        assert!(fixture.shape(upper) == apart, "{what}: the second Layer");
         fixture.undo();
         fixture.as_if_placed_afresh(&format!("{what}, undone"));
+        assert!(
+            fixture.shape(upper) == apart,
+            "{what}, undone: the second Layer"
+        );
         fixture.redo();
         fixture.as_if_placed_afresh(&format!("{what}, redone"));
+        assert!(
+            fixture.shape(upper) == apart,
+            "{what}, redone: the second Layer"
+        );
     }
 }
 
-/// While a point is dragged, every Room of its Layer has the floor and Walls of that moment after
-/// each change of the drag, and the drag stays one history step.
+/// While a point, a control point, or a whole Room is dragged, every Room of its Layer has the
+/// floor and Walls of that moment after each change of the drag, and each drag stays one history
+/// step.
 #[test]
 fn followed_through_a_drag() {
     let mut fixture = Fixture::new();
@@ -975,6 +1007,35 @@ fn followed_through_a_drag() {
         fixture.as_if_placed_afresh(&format!("dragged to {at}"));
     }
     assert_eq!(fixture.history().undo_depth(), depth + 1);
+
+    for (at, gesture) in [
+        (Vec2::new(13.0, 2.0), Gesture::Begin),
+        (Vec2::new(14.0, 2.0), Gesture::Continue),
+        (Vec2::new(15.0, 2.0), Gesture::Continue),
+        (Vec2::new(15.0, 2.0), Gesture::End),
+    ] {
+        fixture.apply(edit(
+            dragged,
+            ElementChange::Control {
+                segment: 1,
+                position: Some(at),
+            },
+            gesture,
+        ));
+        fixture.as_if_placed_afresh(&format!("control point dragged to {at}"));
+    }
+    assert_eq!(fixture.history().undo_depth(), depth + 2);
+
+    for (travel, gesture) in [
+        (Vec2::new(1.0, 0.0), Gesture::Begin),
+        (Vec2::new(2.0, 1.0), Gesture::Continue),
+        (Vec2::new(3.0, 1.0), Gesture::Continue),
+        (Vec2::new(3.0, 1.0), Gesture::End),
+    ] {
+        fixture.apply(edit(dragged, ElementChange::MoveBy(travel), gesture));
+        fixture.as_if_placed_afresh(&format!("whole Room dragged by {travel}"));
+    }
+    assert_eq!(fixture.history().undo_depth(), depth + 3);
 }
 
 /// Whether a Room cuts is given when it is placed and changed by an Edit Element of its own,
@@ -1221,6 +1282,61 @@ fn gone_when_another_room_moves() {
     assert_eq!(fixture.portal(door), set);
 }
 
+/// Removing a Room removes the doors set into it in the same step, answered with the doors and
+/// their Room, and undo restores them set where they were.
+#[test]
+fn gone_when_a_room_is_removed() {
+    let mut fixture = Fixture::new();
+    let hall = fixture.room(&rect([0.0, 0.0], [6.0, 6.0]));
+    let door = fixture.set_door(hall, 0, 0.5);
+    let set = fixture.portal(door);
+    let depth = fixture.history().undo_depth();
+    fixture.removed();
+
+    fixture.apply(Apply::RemoveElement(RemoveElement { element: hall }));
+    assert!(!fixture.exists(hall));
+    assert!(!fixture.exists(door));
+    assert_eq!(
+        fixture.removed(),
+        vec![PortalsRemoved {
+            host: hall,
+            portals: vec![door]
+        }]
+    );
+    assert_eq!(fixture.history().undo_depth(), depth + 1, "one step");
+    fixture.undo();
+    assert_eq!(fixture.portal(door), set, "restored set where it was");
+    fixture.redo();
+    assert!(!fixture.exists(door));
+}
+
+/// Removing a point of a Room answers once for the Room when a door goes with the point and
+/// another, kept, loses its Wall to the new outline: one answer naming both.
+#[test]
+fn one_answer_for_a_room_when_a_point_goes() {
+    let mut fixture = Fixture::new();
+    let hall = fixture.room(&rect([0.0, 0.0], [10.0, 10.0]));
+    let at_the_point = fixture.set_door(hall, 0, 0.95);
+    let kept = fixture.set_door(hall, 1, 0.5);
+    let _patch = fixture.room(&rect([6.0, 6.0], [9.0, 9.0]));
+    fixture.removed();
+
+    fixture.edit(hall, ElementChange::RemovePoint { index: 1 });
+    assert!(!fixture.exists(at_the_point), "it stood at the point");
+    assert!(!fixture.exists(kept), "the new Wall runs under the patch");
+    let mut answers = fixture.removed();
+    assert_eq!(answers.len(), 1, "{answers:?}");
+    let answer = answers.remove(0);
+    assert_eq!(answer.host, hall);
+    let mut portals = answer.portals;
+    portals.sort();
+    let mut expected = vec![at_the_point, kept];
+    expected.sort();
+    assert_eq!(portals, expected, "each door named once");
+    fixture.undo();
+    assert!(fixture.exists(at_the_point) && fixture.exists(kept));
+}
+
 /// While a drag is under way a door left with no Wall at its centre stands where it stood and is
 /// set again when the Wall comes back; a drag over a door and back out keeps it, and one that
 /// ends over it removes it in the drag's one step, which undo restores.
@@ -1260,9 +1376,25 @@ fn a_drag_decides_at_its_end() {
     );
     fixture.apply(edit(
         block,
+        ElementChange::MoveBy(Vec2::new(-8.5, 0.0)),
+        Gesture::Continue,
+    ));
+    let still = fixture.portal(door);
+    assert_eq!(
+        (still.0, still.1, still.2),
+        (set.0.clone(), set.1.clone(), Some(Anchoring::Lost)),
+        "it keeps standing while the Wall stays away"
+    );
+    fixture.apply(edit(
+        block,
         ElementChange::MoveBy(Vec2::new(-3.0, 0.0)),
         Gesture::Continue,
     ));
+    assert_eq!(
+        fixture.portal(door).2,
+        Some(Anchoring::Set),
+        "set again as the Wall comes back"
+    );
     fixture.apply(edit(
         block,
         ElementChange::MoveBy(Vec2::new(-3.0, 0.0)),
