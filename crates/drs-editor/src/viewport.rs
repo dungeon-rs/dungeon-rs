@@ -34,9 +34,9 @@ use bevy::window::{PrimaryWindow, Window};
 use bevy_egui::EguiContexts;
 use bevy_egui::input::EguiWantsInput;
 use drs_model::{
-    Anchoring, Apply, DrawnAs, EditElement, Element, ElementChange, ElementId, ElementKindRegistry,
-    Gesture, Layer, Level, PlaceElement, Placement, Pointer, Portal, Project, Redo, RemoveElement,
-    Room, RoomShape, SnappedPoint, Terrain, Undo, Viewport, Wall, WallShape,
+    Anchoring, Apply, Bounds, DrawnAs, EditElement, Element, ElementChange, ElementId,
+    ElementKindRegistry, Gesture, Layer, Level, PlaceElement, Placement, Pointer, Portal, Project,
+    Redo, RemoveElement, Room, RoomShape, SnappedPoint, Terrain, Undo, Viewport, Wall, WallShape,
 };
 use std::collections::BTreeMap;
 
@@ -83,7 +83,7 @@ pub(crate) struct LevelView<'w, 's> {
     /// How each known kind is drawn, which says what is never picked.
     kinds: Option<Res<'w, ElementKindRegistry>>,
     /// The Project's Bounds.
-    bounds: Query<'w, 's, &'static drs_model::Bounds, With<Project>>,
+    bounds: Query<'w, 's, &'static Bounds, With<Project>>,
 }
 
 /// What picking reads of an Element: its identity and box, its Wall and derived shape when it is
@@ -118,7 +118,7 @@ impl LevelView<'_, '_> {
     }
 
     /// The Project's Bounds, shared by every Level.
-    pub(crate) fn bounds(&self) -> Option<drs_model::Bounds> {
+    pub(crate) fn bounds(&self) -> Option<Bounds> {
         self.bounds.iter().next().copied()
     }
 
@@ -894,10 +894,11 @@ fn zoom_and_scroll(input: &mut Input, viewport: &mut Viewport, cursor: Vec2) {
 /// The keys: `W` chooses the Wall tool, `P` the Portal tool, `R` the Room tool, `O` the Bounds
 /// tool, `B` the Paint tool painting and `E` erasing, Enter finishes the Wall or closes the Room
 /// being drawn, Escape stops placing or leaves the Wall, the Portal, the Room, the Bounds, or the
-/// Paint tool, discarding what is being drawn, `X` flips and `F` frees or sets the selected Portal, Delete (and Backspace on macOS)
-/// removes the selected point, straightens the selected control point's segment or edge, removes
-/// the selected Element, or with the Paint tool editing strokes removes the selected stroke, and
-/// the platform's usual shortcuts undo and redo. Nothing happens while egui has the keyboard, so a
+/// Paint tool, discarding what is being drawn, `X` flips and `F` frees or sets the selected
+/// Portal, Delete (and Backspace on macOS) removes the selected point, straightens the selected
+/// control point's segment or edge, removes the selected Element, or with the Paint tool editing
+/// strokes removes the selected stroke, and the platform's usual shortcuts undo and redo. Nothing
+/// happens while egui has the keyboard, so a
 /// text field keeps its own editing keys, nor while an Export runs, and undo, redo, flipping, and
 /// freeing or setting wait while an Element, a handle, or a stroke is pressed or dragged, a Wall,
 /// a Room, or a stroke is being drawn, or an option is held while it changes, since each is one

@@ -52,7 +52,8 @@ use bevy::render::view::screenshot::{Screenshot, save_to_disk};
 use bevy::window::{CursorMoved, PrimaryWindow, Window, WindowCloseRequested, WindowEvent};
 use bevy_egui::EguiContexts;
 use drs_model::{
-    Element, ElementId, Portal, Room, RoomShape, Terrain, TerrainCoverage, Wall, WallShape,
+    Bounds, Element, ElementId, Portal, Project, Room, RoomShape, Terrain, TerrainCoverage, Wall,
+    WallShape,
 };
 use std::collections::VecDeque;
 use std::path::PathBuf;
@@ -194,7 +195,7 @@ pub(crate) struct Described<'w, 's> {
     /// The snapped point.
     snapped: Res<'w, drs_model::SnappedPoint>,
     /// The Project's Bounds.
-    bounds: Query<'w, 's, &'static drs_model::Bounds, bevy::ecs::query::With<drs_model::Project>>,
+    bounds: Query<'w, 's, &'static Bounds, With<Project>>,
     /// The Viewport, for where the Bounds' handles lie on screen.
     viewport: Res<'w, drs_model::Viewport>,
     /// Every Room, with its derived shape once it has one.

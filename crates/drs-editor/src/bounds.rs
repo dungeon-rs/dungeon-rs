@@ -17,7 +17,7 @@ use bevy::ecs::query::With;
 use bevy::ecs::system::{Res, Single};
 use bevy::gizmos::config::{GizmoConfig, GizmoConfigGroup, GizmoLineConfig};
 use bevy::gizmos::gizmos::Gizmos;
-use bevy::math::{Isometry2d, Vec2};
+use bevy::math::{IVec2, Isometry2d, UVec2, Vec2};
 use bevy::reflect::Reflect;
 use bevy::window::{PrimaryWindow, Window};
 use bevy_egui::EguiContexts;
@@ -113,12 +113,12 @@ impl Edges {
             OutlineHandle::Point(1) => (Some(Vertical::Right), Some(Horizontal::Bottom)),
             OutlineHandle::Point(2) => (Some(Vertical::Right), Some(Horizontal::Top)),
             OutlineHandle::Point(_) => (Some(Vertical::Left), Some(Horizontal::Top)),
-            OutlineHandle::Middle(0) | OutlineHandle::Control(0) => {
-                (None, Some(Horizontal::Bottom))
-            }
-            OutlineHandle::Middle(1) | OutlineHandle::Control(1) => (Some(Vertical::Right), None),
-            OutlineHandle::Middle(2) | OutlineHandle::Control(2) => (None, Some(Horizontal::Top)),
-            OutlineHandle::Middle(_) | OutlineHandle::Control(_) => (Some(Vertical::Left), None),
+            OutlineHandle::Middle(0) => (None, Some(Horizontal::Bottom)),
+            OutlineHandle::Middle(1) => (Some(Vertical::Right), None),
+            OutlineHandle::Middle(2) => (None, Some(Horizontal::Top)),
+            OutlineHandle::Middle(_) => (Some(Vertical::Left), None),
+            // The Bounds' outline has no control points, so none is ever pressed.
+            OutlineHandle::Control(_) => (None, None),
         };
         Self {
             vertical,
@@ -129,14 +129,7 @@ impl Edges {
     /// Whether a handle shows one of these edges or the corner between them.
     fn moved_by(self, handle: OutlineHandle) -> bool {
         let of = Self::of(handle);
-        match (of.vertical, of.horizontal) {
-            (Some(_), Some(_)) => of == self,
-            (Some(vertical), None) => self.vertical == Some(vertical) && self.horizontal.is_none(),
-            (None, Some(horizontal)) => {
-                self.horizontal == Some(horizontal) && self.vertical.is_none()
-            }
-            (None, None) => false,
-        }
+        of == self && (of.vertical.is_some() || of.horizontal.is_some())
     }
 
     /// The pointer that says a press here resizes the Bounds.
@@ -253,8 +246,8 @@ fn axis(low: i64, high: i64, low_dragged: bool) -> (i64, i64) {
 /// The Bounds with edges left, bottom, right, and top, when they fit the Bounds' type.
 fn from_edges([left, bottom, right, top]: [i64; 4]) -> Option<Bounds> {
     Some(Bounds {
-        origin: bevy::math::IVec2::new(i32::try_from(left).ok()?, i32::try_from(bottom).ok()?),
-        size: bevy::math::UVec2::new(
+        origin: IVec2::new(i32::try_from(left).ok()?, i32::try_from(bottom).ok()?),
+        size: UVec2::new(
             u32::try_from(right - left).ok()?,
             u32::try_from(top - bottom).ok()?,
         ),
