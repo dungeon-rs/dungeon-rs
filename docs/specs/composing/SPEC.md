@@ -747,7 +747,6 @@ _Why_: passing over a door on the way to somewhere else should not cost the door
 
 **Recombined within a frame**: in the test build, deriving the floors, the Walls, and the Portals' places of a Layer of twenty Rooms, each with two curved edges, with sixteen shared edges and ten Portals, takes under 4 milliseconds.
 _Why_: a drag derives its Layer again at every frame, and this leaves three quarters of a 60 Hz frame for the rest.
-_Why_: a drag derives its Layer again at every frame, and this leaves three quarters of a 60 Hz frame for the rest.
 
 ### The Room tool
 
