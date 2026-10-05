@@ -27,8 +27,9 @@ use drs_history::{History, HistoryPlugin};
 use drs_library_access::LibraryAccessPlugin;
 use drs_library_manager::LibraryManagerPlugin;
 use drs_model::{
-    AddFolder, Apply, CanonicalName, CommandFailed, EditElement, EditorDirectories, ElementChange,
-    ElementId, FolderAdded, FolderRefused, Gesture, ModelPlugin, Project, Redo, Undo, Viewport,
+    AddFolder, Apply, AssetAddress, CanonicalName, CommandFailed, EditElement, EditorDirectories,
+    ElementChange, ElementId, FolderAdded, FolderRefused, Gesture, ModelPlugin, PlaceElement,
+    Placement, PortalAnchor, PortalsRemoved, Project, Redo, Room, RoomShape, Undo, Viewport,
 };
 use drs_paint_engine::PaintEnginePlugin;
 use drs_project_manager::ProjectManagerPlugin;
@@ -217,4 +218,45 @@ pub fn assert_close(found: f32, expected: f32, what: &str) {
         (found - expected).abs() < CLOSE,
         "{what}: {found} against {expected}"
     );
+}
+
+/// The answers naming removed Portals since the last call.
+pub fn removed_portals(app: &mut App) -> Vec<PortalsRemoved> {
+    app.world_mut()
+        .resource_mut::<Messages<PortalsRemoved>>()
+        .drain()
+        .collect()
+}
+
+/// The Room with an identity, which must exist.
+pub fn room_of(app: &mut App, id: ElementId) -> Room {
+    let entity = entity(app, id).expect("the Element exists");
+    app.world().get::<Room>(entity).expect("a Room").clone()
+}
+
+/// The derived shape of the Room with an identity, which must exist and have it.
+pub fn room_shape(app: &mut App, id: ElementId) -> RoomShape {
+    let entity = entity(app, id).expect("the Element exists");
+    app.world()
+        .get::<RoomShape>(entity)
+        .expect("the Room has its shape")
+        .clone()
+}
+
+/// The Place Element Command for a Portal of `asset` on `layer`, freestanding at `position` or
+/// set at `anchor`.
+pub fn portal_placement(
+    layer: Entity,
+    asset: AssetAddress,
+    position: Vec2,
+    anchor: Option<PortalAnchor>,
+) -> Apply {
+    Apply::PlaceElement(PlaceElement {
+        layer,
+        placement: Placement::Portal {
+            position,
+            asset,
+            anchor,
+        },
+    })
 }

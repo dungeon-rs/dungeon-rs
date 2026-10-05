@@ -194,19 +194,13 @@ impl Fixture {
 
     /// The Place Element Command for a door set into `host` at `edge` and `t`.
     fn door_placement(&mut self, host: ElementId, edge: usize, t: f32) -> Apply {
-        Apply::PlaceElement(PlaceElement {
-            layer: self.layer(),
-            placement: Placement::Portal {
-                position: Vec2::ZERO,
-                asset: self.door(),
-                anchor: Some(PortalAnchor {
-                    host,
-                    index: edge,
-                    t,
-                    side: Side::Left,
-                }),
-            },
-        })
+        let anchor = PortalAnchor {
+            host,
+            index: edge,
+            t,
+            side: Side::Left,
+        };
+        support::portal_placement(self.layer(), self.door(), Vec2::ZERO, Some(anchor))
     }
 
     /// Places a door, two cells wide, set into `host` at `edge` and `t`.
@@ -220,15 +214,8 @@ impl Fixture {
     /// Places a freestanding door centred on `position`.
     fn free_door(&mut self, position: Vec2) -> ElementId {
         let layer = self.layer();
-        let asset = self.door();
-        self.apply(Apply::PlaceElement(PlaceElement {
-            layer,
-            placement: Placement::Portal {
-                position,
-                asset,
-                anchor: None,
-            },
-        }));
+        let command = support::portal_placement(layer, self.door(), position, None);
+        self.apply(command);
         support::last_on(&mut self.app, layer)
     }
 
@@ -254,11 +241,7 @@ impl Fixture {
 
     /// The answers naming removed Portals since the last call.
     fn removed(&mut self) -> Vec<PortalsRemoved> {
-        self.app
-            .world_mut()
-            .resource_mut::<Messages<PortalsRemoved>>()
-            .drain()
-            .collect()
+        support::removed_portals(&mut self.app)
     }
 
     /// The entity of an Element, which must exist.
@@ -273,22 +256,12 @@ impl Fixture {
 
     /// The Room with an identity.
     fn room_of(&mut self, id: ElementId) -> Room {
-        let entity = self.entity(id);
-        self.app
-            .world()
-            .get::<Room>(entity)
-            .expect("a Room")
-            .clone()
+        support::room_of(&mut self.app, id)
     }
 
     /// The derived shape of the Room with an identity.
     fn shape(&mut self, id: ElementId) -> RoomShape {
-        let entity = self.entity(id);
-        self.app
-            .world()
-            .get::<RoomShape>(entity)
-            .expect("the Room has its shape")
-            .clone()
+        support::room_shape(&mut self.app, id)
     }
 
     /// The Portal with an identity, with its box and whether it follows its host.
