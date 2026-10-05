@@ -9,7 +9,7 @@
 - The shape Engine says where each anchor goes, from the host as it was (`anchor_portals_through` with the `PointEdit`): `Some` place to move it to, or `None` when its part of the host goes. The Manager never renumbers by hand; a lost anchor goes through the same call when the edit could make it name a real part again, so it keeps naming none.
 - Each anchor that moves becomes a `SetField` at the path `"anchor"` through `moved`, which gives `None` for a place the anchor already holds, so the step records no change that is none.
 - Record one history group in this order: a `Remove::of` for each Element that goes, then the host's own step, then the anchor moves, then, for a kind that combines, the removal of every Portal set into another of its kind on the Layer that had a Wall at its centre before the step (`walls_before`) and has none after (`take_walls_away`) (`record_together`), so undo restores the host before what is anchored to it. Chain the outcomes with `and_then` and hand the last to `crate::close_group`, which ends the group on success and on failure takes back what was already applied, so a Command is never left half done nor its group open; with nothing anchored, the host's step is a step of its own.
-- The work returns the answers naming the Elements that went, one for each host (`removed` gives `None` when none of the host's own did), and `handle_apply` writes them; the work never writes a message.
+- The work returns the answers naming the Elements that went, one for each host (`removed` gives `None` when none of the host's own did, and `together` merges the answers naming one host, as when a Portal the step kept loses its Wall beside one that went with it), and `handle_apply` writes them; the work never writes a message.
 - Where the anchored Elements now stand is not written here: deriving follows their anchors once every Manager has handled the frame, so undo, redo, and Open put them back the same way.
 
 ## Example
@@ -56,7 +56,7 @@ fn remove_point<H: OutlineHost>(
         moves,
         walls,
     )?;
-    Ok(removed(element, gone).into_iter().chain(taken).collect())
+    Ok(together(removed(element, gone), taken))
 }
 
 fn record_together<H: OutlineHost>(
