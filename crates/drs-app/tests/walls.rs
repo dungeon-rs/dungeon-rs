@@ -1003,6 +1003,65 @@ fn walls_lie_anywhere_on_the_level() {
     );
 }
 
+/// A Wall dragged whole by a gesture of moves goes by the whole travel since the press, the last
+/// step repeating it, as one undo step; a drag of the Wall or of one of its points that ends
+/// where it began records nothing.
+#[test]
+fn a_wall_drag_goes_by_its_travel() {
+    let mut fixture = Fixture::new();
+    let id = fixture.wall(&[Vec2::ZERO, Vec2::new(4.0, 2.0)]);
+    let start = fixture.wall_of(id);
+    let depth = fixture.history().undo_depth();
+
+    for (travel, gesture) in [
+        (Vec2::new(1.0, 0.0), Gesture::Begin),
+        (Vec2::new(2.0, 1.0), Gesture::Continue),
+        (Vec2::new(3.0, 1.0), Gesture::Continue),
+        (Vec2::new(3.0, 1.0), Gesture::End),
+    ] {
+        fixture.gesture(id, ElementChange::MoveBy(travel), gesture);
+    }
+    let offset = Vec2::new(3.0, 1.0);
+    let moved: Vec<Vec2> = start.points.iter().map(|point| *point + offset).collect();
+    assert_eq!(fixture.wall_of(id).points, moved);
+    assert_eq!(fixture.history().undo_depth(), depth + 1);
+
+    let there = fixture.wall_of(id);
+    for (travel, gesture) in [
+        (Vec2::new(1.0, 0.0), Gesture::Begin),
+        (Vec2::new(2.0, 3.0), Gesture::Continue),
+        (Vec2::ZERO, Gesture::Continue),
+        (Vec2::ZERO, Gesture::End),
+    ] {
+        fixture.gesture(id, ElementChange::MoveBy(travel), gesture);
+    }
+    assert_eq!(fixture.wall_of(id), there);
+    assert_eq!(
+        fixture.history().undo_depth(),
+        depth + 1,
+        "a drag back to where it began records nothing"
+    );
+    assert!(!fixture.history().can_redo());
+
+    let end = there.points[1];
+    for (position, gesture) in [
+        (end + Vec2::new(1.0, 1.0), Gesture::Begin),
+        (end, Gesture::Continue),
+        (end, Gesture::End),
+    ] {
+        fixture.gesture(id, ElementChange::Point { index: 1, position }, gesture);
+    }
+    assert_eq!(fixture.wall_of(id), there);
+    assert_eq!(
+        fixture.history().undo_depth(),
+        depth + 1,
+        "a point dragged back to where it began records nothing"
+    );
+    assert!(!fixture.history().can_redo());
+    fixture.undo();
+    assert_eq!(fixture.wall_of(id), start);
+}
+
 /// Moving an Element by dragging records a single undo step however long the drag, and undo
 /// returns the Element to where the drag began, a Wall moved whole by its line as a Prop.
 #[test]
