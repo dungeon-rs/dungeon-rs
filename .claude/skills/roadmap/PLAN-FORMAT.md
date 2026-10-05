@@ -45,4 +45,5 @@ A **Task** issue titled "Answer: {the question}", in the milestone, placed befor
 
 - Build order is milestone order, then dependencies (blocked-by), then issue number. To put an issue ahead of another, make the other blocked by it.
 - Issues outside any milestone are the backlog: adjustments, parked decisions, and ideas. An issue joins a milestone when it is planned.
+- An issue being worked is assigned to the author's account and has a draft pull request that closes it.
 - Landed changes are closed by their pull request, and a milestone is closed when its last issue is. Nothing is edited out or marked done in the body.

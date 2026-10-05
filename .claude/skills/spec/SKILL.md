@@ -45,7 +45,7 @@ Two modes, chosen by the arguments: **write** (`/spec <capability or change>`) a
 
 ## Land
 
-Carried out by `implement` (it reads this file) after the automated, review, and manual gates have passed; the result is committed on the change's branch before the pull request.
+Carried out by `implement` (it reads this file) after the automated gate has passed; the result is committed on the change's branch before its pull request is marked ready.
 
 1. Read the change spec and every pinned spec it names. A capability without a pinned spec gets one now: that is the moment it becomes pinned.
 2. For each capability, rewrite the pinned spec from [PINNED-TEMPLATE.md](./PINNED-TEMPLATE.md) so it states what is true now:
@@ -56,4 +56,3 @@ Carried out by `implement` (it reads this file) after the automated, review, and
    - Not supported: only lasting non-goals of the capability; "not in this change" items are dropped
 3. Delete the change spec. Its issue is closed by the pull request; if that was the milestone's last open issue, say so, so the author can close the milestone.
 4. Commit the landing (a message that fully describes the change, never pointing at the change spec) with the Skill tool for "commit".
-5. Call the Skill tool for "review", spec axis only, against the merged pinned spec(s). Fix or raise every finding before handing back.

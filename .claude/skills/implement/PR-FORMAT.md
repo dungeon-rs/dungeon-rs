@@ -1,6 +1,6 @@
 # Pull request format
 
-Remove every section that would be empty or say nothing beyond the diff. Never claim a check or validation that wasn't performed.
+Remove every section that would be empty or say nothing beyond the diff. Never claim a check or validation that wasn't performed. The body is filled when the draft opens and kept true as the work goes; progress and decisions are comments, not edits to the body.
 
 ```md
 ## Summary
@@ -14,7 +14,7 @@ Why this change is needed and what outcome it gives the user.
 ## Validation
 
 - Automated: the gates that ran and passed.
-- Manual: the manual check the user performed, and what they confirmed.
+- Manual: the checklist for the author's manual check, and what they confirmed, or that they declined.
 
 ## Related work
 

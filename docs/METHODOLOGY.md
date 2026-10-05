@@ -9,7 +9,7 @@ Decisions for the spec-driven skill set. Present tense: this describes the metho
 3. **Tech research**: candidate technologies scored against the Needs.
 4. **Architecture**: volatility decomposition from the domain's workflows, then mapped onto the chosen technology.
 5. **Roadmap, then change specs**: the roadmap (milestones and issues on GitHub) is complete because the architecture exists; a change spec is written when building of its change starts.
-6. **Implementation**: each change lands into its pinned spec on the same branch, before its pull request.
+6. **Implementation**: each change lands into its pinned spec on the same branch, before its pull request is marked ready.
 
 ## Artefacts (in the project repo)
 
@@ -34,7 +34,7 @@ The plan and the backlog are not files. They live on GitHub (see **Issues are th
 ## Rules
 
 - **Current state only.** Domain, specs, and guidelines state what is true now. History lives in version control: no deltas, changelogs, or superseded copies.
-- **Same-commit updates.** A change to behaviour or to a pattern updates its spec or guideline on the same branch, before the pull request.
+- **Same-commit updates.** A change to behaviour or to a pattern updates its spec or guideline on the same branch, before its pull request is marked ready.
 - **Specs by capability.** A capability is a coherent set of things a user can do; every domain Command belongs to exactly one, named in the spec's header. The spec-axis review reports unclaimed and doubly claimed Commands.
 - **Issues are the plan.** The roadmap and the backlog are GitHub milestones and issues, the single source of truth; the repository holds no list of planned work. A milestone is an outcome a user could state. A change is a Feature issue in its milestone; a question to answer or a piece of work that is not a change is a Task. Labels: `area:<capability>`, `spec:none|change|new` (how the work relates to the pinned specs), `needs-decision` (waiting on the author), `blocked`, and `polish`, `test-gap`, `tech-debt`. Build order is milestone order, then dependencies (blocked-by), then issue number. Landed work is closed, not edited out; history lives in GitHub and git. Format: the roadmap skill's `PLAN-FORMAT.md`.
 - **The roadmap is vertical slices.** A walking skeleton first; then changes ordered by dependencies, risk, then value, grouped into milestones a user could state. Each change fits one PR a human can review (the initial setup excepted). Risky unknowns are question issues answered by research or spikes, each ending in a conclusion folded into the docs and the issue closed. Current and next milestone in detail, later ones sketched.
@@ -57,8 +57,9 @@ The plan and the backlog are not files. They live on GitHub (see **Issues are th
 - **The framework boundary is always an explicit decision**, per component.
 - **An architecture is judged by the future-change test**: 3–5 plausible features must fit without restructuring. A new capability is a spec, not a design session.
 - **The architecture is as stable as the domain.** Changing or removing a component, contract, or rule is a confirmed architecture change; frequent ones mean a missed volatility.
-- **The main session writes the code**; sub-agents review and look things up. A change passes an automated gate (fresh output of every configured check), a two-axis review, and a manual check by the author before its draft pull request. The author merges.
-- **No pointers in git.** Branches are `<type>/<what-it-does>`; commits and pull-request titles are Conventional Commits that fully state what they are about, never referring to IDs or transient files. Issue numbers appear only on GitHub, in a pull-request body that closes its issue. Nothing is pushed without the author's explicit authorization.
+- **The main session writes the code**; sub-agents review and look things up. A change passes an automated gate (fresh output of every configured check) and an independent two-axis review, whose findings land on its pull request as an independent human reviewer's would, then the author's review or manual check, which the author may decline; the author's decline lets the agent merge.
+- **No pointers in git.** Commits and pull-request titles are Conventional Commits that fully state what they are about, never referring to IDs or transient files. Issue numbers appear only on GitHub: a branch is `<type>/<issue-number>`, a pull-request body closes its issue.
+- **Work on an issue is visible on GitHub.** Picking up an issue assigns it to the author's account (one account holds every comment, so reviews say which agent wrote them). The draft pull request opens once the change spec is committed and is the persistent scratchpad: progress, decisions, and the manual-check checklist go in as comments. Marking it ready asks for review; the independent reviewer posts to it, the main session fixes and re-requests, and a pass with no open finding ends in the offer of the author's review. Merging is a rebase merge, so the branch's atomic commits stay on the default branch. Pushing work branches and opening their pull requests is authorized; nothing else is pushed without the author's word.
 - **The domain is meant to be stable.** Additions are normal; changing or removing a definition or invariant is an explicit, confirmed domain change.
 
 ## Skills

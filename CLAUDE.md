@@ -21,10 +21,10 @@ A fast map editor for tabletop role-playing games, built in Rust on Bevy. Built 
 ## Conventions
 
 - **Current state only.** Docs, specs, and guidelines describe what is true now. History lives in git: no changelogs, "previously", or superseded copies.
-- **No IDs and no pointers.** Specs, stories, and rules have names, never numbers. Branches are `<type>/<what-it-does>`; commits and pull-request titles are Conventional Commits that fully state what they are about, never referring to IDs or transient files. Issue numbers appear only on GitHub: a pull-request body closes its issue, and nothing in the repository names one.
-- **Nothing is pushed without explicit authorization.** Pull requests open as drafts; the author merges.
+- **No IDs and no pointers.** Specs, stories, and rules have names, never numbers. Commits and pull-request titles are Conventional Commits that fully state what they are about, never referring to IDs or transient files. Issue numbers appear only on GitHub (a branch name `<type>/<issue-number>`, a pull-request body that closes its issue, comments), never in a commit, a document, or code.
+- **Work goes through an issue and a pull request.** Picking up an issue assigns it to the author's account; the work is a branch (or worktree) named `<type>/<issue-number>` with a draft pull request that closes the issue, opened as soon as the change spec is committed and used as the scratchpad. It is marked ready when it passes the automated gate; an independent agent reviews it and the review lands on the pull request; the author is then offered the review, and when they decline, the agent merges. Pushing work branches and opening their pull requests is authorized; nothing else is pushed (`master` only at the author's word).
 - **Links go from spec to test only.** Code never refers to specs.
 - **Facts are found, decisions are asked.** Look things up (or send a sub-agent) instead of asking. Put decisions to the author in one consolidated round, and only after all background work has finished; never add questions to an open round.
-- **Nothing lands without passing the gates**: every configured check with fresh output, the two-axis review, and the author's manual check.
+- **Nothing lands without passing the gates**: every configured check with fresh output, the independent two-axis review on the pull request, and the author's review or manual check, which the author may decline.
 - Oxford English. The default branch is `master`.
 - Research and spikes leave no files: findings are folded into tracked documents at once. The gates run through `just` (`just check`, `just test`, `just run`); the `justfile` holds the project's commands.

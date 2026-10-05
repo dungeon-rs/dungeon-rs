@@ -1,16 +1,21 @@
 ---
 name: review
-description: Review the current change on two independent axes, spec conformance and standards, with fresh sub-agents. Use before landing a change, or on request.
+description: Review a change on two independent axes, spec conformance and standards, with fresh sub-agents that post their reviews to the pull request. Use on a ready pull request, or on request.
 ---
 
-Two fresh sub-agents review the change in parallel. Each gets only what its axis needs; neither sees the other's report. Hand both reports back as they are: don't merge, rerank, or drop findings.
+Two fresh sub-agents review the change in parallel. Each gets only what its axis needs; neither sees the other's report. Don't merge, rerank, or drop findings.
 
-The caller may ask for one axis only (e.g. `spec` after landing).
+The caller may ask for one axis only.
+
+## Where the review goes
+
+A change under review is a pull request, and the reviewers behave as independent human reviewers would: each sub-agent posts its report to the pull request itself (`gh pr review <n> --comment --body-file <file>`), headed with its axis, the commit it reviewed, and that an independent sub-agent wrote it. One account holds every comment, and GitHub does not let it approve or request changes on its own pull request, so a review is always a comment review and its verdict is its first line: `no open findings` or `n open findings`. The main context gets only that verdict and the link, and reads the findings from the pull request (`gh pr view <n> --comments`) like any other feedback. Without a pull request (a spike, a docs-only change the author commits to the default branch), the reports come back to the caller as they are.
 
 ## Inputs
 
-- The diff against the base branch (`git diff <default-branch>...HEAD`, where the default branch is the repository's own, or the base the user names), and the branch's commit messages (`git log <default-branch>..HEAD`).
-- The change spec in `docs/changes/` before landing; after landing, the pinned spec(s) it merged into (the change spec is then gone, and its deletion is in the diff).
+- The pull request's diff and commit messages (`gh pr diff <n>`, `gh pr view <n> --json commits`), or without one the diff against the base branch (`git diff <default-branch>...HEAD`) and `git log <default-branch>..HEAD`.
+- The change's issue, for its outcome and its `Commands` line.
+- The change spec in `docs/changes/`; once the landing has deleted it, read it as it stood in the commit before (`git show <commit>^:docs/changes/<slug>.md`), together with the pinned spec(s) it merged into.
 
 ## Spec review
 
@@ -57,4 +62,8 @@ It also runs this consistency checklist:
 
 ## Each finding
 
-File and line, the rule or spec text it breaks, and a one-line suggested fix. Uncertain findings are marked as such, never dropped. The caller fixes each finding or raises it with the user; none is dismissed silently.
+File and line, the rule or spec text it breaks, and a one-line suggested fix. Uncertain findings are marked as such, never dropped. The main context answers each on the pull request (fixed in a named commit, or disputed with the reason) and raises what it cannot settle with the author; none is dismissed silently.
+
+## Re-review
+
+After fixes the main context re-requests the review. A fresh sub-agent per axis reads the earlier review comments and the commits since, reports each earlier finding as resolved or still open with its reason, and adds only new findings in the changed code. A pass with no open finding ends the loop.
