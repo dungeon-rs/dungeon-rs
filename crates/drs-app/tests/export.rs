@@ -2318,6 +2318,113 @@ fn a_shared_edge_keeps_its_wall_and_door() {
     assert_eq!(at(15.4, 10.5), RED_PIXEL, "the second floor on its side");
 }
 
+/// A Wall that runs along an edge two Rooms share, or along outline edges that coincide on the
+/// outside, is drawn once, in the thickness and colour of the later Room.
+#[test]
+fn a_walled_once_stretch_has_the_last_rooms_look() {
+    let mut fixture = Fixture::new();
+    for (low, high, thickness, look) in [
+        (
+            Vec2::new(5.0, 5.0),
+            Vec2::new(15.0, 15.0),
+            1.0,
+            (YELLOW, WHITE),
+        ),
+        (
+            Vec2::new(15.0, 7.0),
+            Vec2::new(25.0, 13.0),
+            0.5,
+            (GREEN_COLOUR, RED_COLOUR),
+        ),
+        (
+            Vec2::new(5.0, 17.0),
+            Vec2::new(15.0, 24.0),
+            1.0,
+            (YELLOW, WHITE),
+        ),
+        (
+            Vec2::new(10.0, 20.0),
+            Vec2::new(20.0, 24.0),
+            0.5,
+            (GREEN_COLOUR, RED_COLOUR),
+        ),
+    ] {
+        coloured_room(&mut fixture, low, high, thickness, look, false);
+    }
+
+    let picture = exported(&mut fixture, "walled-once.png");
+    let at = |x: f32, y: f32| picture.at_point(Vec2::new(x, y), WALL_PIXELS_PER_CELL);
+    assert_eq!(
+        at(15.0, 10.0),
+        GREEN_PIXEL,
+        "the shared edge in the later colour"
+    );
+    assert_eq!(
+        at(15.2, 10.0),
+        GREEN_PIXEL,
+        "within half the later thickness"
+    );
+    assert_eq!(
+        at(14.6, 10.0),
+        WHITE_PIXEL,
+        "not as thick as the earlier Room's Wall"
+    );
+    assert_eq!(at(15.4, 10.0), RED_PIXEL, "the later floor beside it");
+
+    assert_eq!(
+        at(12.0, 24.0),
+        GREEN_PIXEL,
+        "the coincident edge in the later colour"
+    );
+    assert_eq!(
+        at(12.0, 23.6),
+        RED_PIXEL,
+        "the later floor, not the earlier Wall's thickness"
+    );
+    assert_eq!(
+        at(12.0, 24.4),
+        BLACK_PIXEL,
+        "nothing beyond the later thickness"
+    );
+}
+
+/// Where the Wall of one Room ends and that of another goes on, the ends are round: the earlier
+/// Room's Wall reaches round the end of the shared edge past the later Room's thinner Wall, as
+/// far as a half-thickness and no farther.
+#[test]
+fn walls_of_two_rooms_join_round() {
+    let mut fixture = Fixture::new();
+    coloured_room(
+        &mut fixture,
+        Vec2::new(5.0, 5.0),
+        Vec2::new(15.0, 15.0),
+        1.0,
+        (YELLOW, WHITE),
+        false,
+    );
+    coloured_room(
+        &mut fixture,
+        Vec2::new(15.0, 7.0),
+        Vec2::new(25.0, 13.0),
+        0.5,
+        (GREEN_COLOUR, RED_COLOUR),
+        false,
+    );
+
+    let picture = exported(&mut fixture, "joins.png");
+    let at = |x: f32, y: f32| picture.at_point(Vec2::new(x, y), WALL_PIXELS_PER_CELL);
+    assert_eq!(
+        at(15.35, 12.7),
+        YELLOW_PIXEL,
+        "the earlier Wall's round end reaches past the shared edge"
+    );
+    assert_eq!(
+        at(15.45, 12.55),
+        RED_PIXEL,
+        "but not as far as a square end would"
+    );
+}
+
 /// A Room that cuts leaves a hole showing the background, walled in the cut's own colour, with
 /// the Room's floor round it.
 #[test]
