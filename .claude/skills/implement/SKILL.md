@@ -46,7 +46,7 @@ The pull request is the persistent scratchpad. A session that resumes the change
 
 - **Tests first, only at the agreed seams**: for each Rule, a failing test, then the code that makes it pass (`just test` for the loop). No tests of internals; no tests that restate the implementation. Refactor after green.
 - Read `docs/guidelines/INDEX.md` first, if it exists, and follow every guideline that applies. Follow `docs/architecture/ARCHITECTURE.md`.
-- Commit in small atomic steps with the "commit" skill, and push them.
+- Commit in small atomic steps with the "commit" skill, and push them. Run `just commits` before every push: it is cheap, and it is the one check the gate runs on history that cannot be fixed once pushed.
 - Comment on the pull request at each point a reader would want to know about: the seams agreed, a decision taken and why, the gate green, a finding that changes the plan. Long work is resumable from those comments.
 
 ## 5. Automated gate
