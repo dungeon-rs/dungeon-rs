@@ -7,7 +7,6 @@
 #![expect(
     clippy::missing_panics_doc,
     clippy::expect_used,
-    clippy::disallowed_methods,
     clippy::float_cmp,
     reason = "a test and its fixtures stop at the first thing that is not as expected, and the \
               geometry asserted on is exact where it is compared exactly"
@@ -18,7 +17,6 @@ mod support;
 use bevy::app::App;
 use bevy::ecs::entity::Entity;
 use bevy::ecs::hierarchy::ChildOf;
-use bevy::ecs::message::Messages;
 use bevy::math::{UVec2, Vec2, ops};
 use drs_history::History;
 use drs_model::{
@@ -192,14 +190,7 @@ impl Fixture {
 
     /// The Place Element Command for a door, set at `anchor` or freestanding at `position`.
     fn door_placement(&mut self, position: Vec2, anchor: Option<PortalAnchor>) -> Apply {
-        Apply::PlaceElement(PlaceElement {
-            layer: self.layer(),
-            placement: Placement::Portal {
-                position,
-                asset: self.door(),
-                anchor,
-            },
-        })
+        support::portal_placement(self.layer(), self.door(), position, anchor)
     }
 
     /// Places a door set into `host` at `edge` and `t`, facing `side`.
@@ -264,11 +255,7 @@ impl Fixture {
 
     /// The answers naming removed Portals since the last call.
     fn removed(&mut self) -> Vec<PortalsRemoved> {
-        self.app
-            .world_mut()
-            .resource_mut::<Messages<PortalsRemoved>>()
-            .drain()
-            .collect()
+        support::removed_portals(&mut self.app)
     }
 
     /// The identities on the first Layer, in stacking order.
@@ -299,22 +286,12 @@ impl Fixture {
 
     /// The Room with an identity.
     fn room_of(&mut self, id: ElementId) -> Room {
-        let entity = self.entity(id);
-        self.app
-            .world()
-            .get::<Room>(entity)
-            .expect("a Room")
-            .clone()
+        support::room_of(&mut self.app, id)
     }
 
     /// The derived shape of the Room with an identity.
     fn shape(&mut self, id: ElementId) -> RoomShape {
-        let entity = self.entity(id);
-        self.app
-            .world()
-            .get::<RoomShape>(entity)
-            .expect("the Room has its shape")
-            .clone()
+        support::room_shape(&mut self.app, id)
     }
 
     /// The Portal with an identity.
