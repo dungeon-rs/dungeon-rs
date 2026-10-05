@@ -472,7 +472,7 @@ fn remove_point<H: OutlineHost>(
         moves,
         walls,
     )?;
-    Ok(removed(element, gone).into_iter().chain(taken).collect())
+    Ok(together(removed(element, gone), taken))
 }
 
 /// Removes a Wall or a Room and every Portal set into it as one history step, the Portals first,
@@ -506,7 +506,7 @@ pub(crate) fn remove_with_portals<H: OutlineHost>(
         });
     }
     crate::close_group(world, outcome)?;
-    Ok(removed(element, gone).into_iter().chain(taken).collect())
+    Ok(together(removed(element, gone), taken))
 }
 
 /// The Layer of the Wall or the Room `element` and the Portals set into the others of its kind
@@ -602,6 +602,21 @@ fn record_together<H: OutlineHost>(
     }
     crate::close_group(world, outcome)?;
     Ok(taken)
+}
+
+/// The answers naming the Portals a Command removed, `first` and then `taken`, with the answers
+/// naming one host merged into one, so that the Editor counts each Portal once under its host: a
+/// Portal that stayed through a reshape of its host and then lost its Wall is named by `taken`
+/// under the host `first` names.
+fn together(first: Option<PortalsRemoved>, taken: Vec<PortalsRemoved>) -> Vec<PortalsRemoved> {
+    let mut answers: Vec<PortalsRemoved> = first.into_iter().collect();
+    for answer in taken {
+        match answers.iter_mut().find(|known| known.host == answer.host) {
+            Some(known) => known.portals.extend(answer.portals),
+            None => answers.push(answer),
+        }
+    }
+    answers
 }
 
 /// The answer naming the Portals set into `host` that a Command removed, when it removed any.
