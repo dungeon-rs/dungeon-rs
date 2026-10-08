@@ -26,7 +26,7 @@ jobs:
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
         with:
           # `committed` lints every commit since the base branch, and the synthetic merge commit of a
           # pull request is not one of them.
