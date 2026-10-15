@@ -71,7 +71,7 @@ bevy_app = { version = "=0.20.0-rc.2", default-features = false, features = [
   "std",
   "bevy_reflect",
 ] }
-bevy_reflect = { version = "=0.20.0-rc.2", default-features = false, features = ["std", "glam"] }
+bevy_reflect = { version = "=0.20.0", default-features = false, features = ["std", "glam"] }
 # `libm` makes `bevy_math::ops` (and glam) compute the same bits on every machine.
 bevy_math = { version = "=0.20.0-rc.2", default-features = false, features = [
   "std",
