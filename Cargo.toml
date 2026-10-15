@@ -80,7 +80,7 @@ bevy_math = { version = "=0.20.0-rc.2", default-features = false, features = [
   "libm",
 ] }
 bevy_asset = { version = "=0.20.0-rc.2", default-features = false, features = ["multi_threaded"] }
-bevy_tasks = { version = "=0.20.0-rc.2", default-features = false }
+bevy_tasks = { version = "=0.20.0", default-features = false }
 bevy_image = { version = "=0.20.0-rc.2", default-features = false, features = [
   "bevy_reflect",
   "png",

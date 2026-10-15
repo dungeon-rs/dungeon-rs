@@ -1262,9 +1262,9 @@ dependencies = [
 
 [[package]]
 name = "bevy_platform"
-version = "0.20.0-rc.2"
+version = "0.20.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b7ca327d3f991caf81875867d2e975e24b8785d813062a4da78af98615a78e68"
+checksum = "000bc467d1b344b6609fcf217a9b08d349d49c8e85dc4179fb7656f2b6e3db47"
 dependencies = [
  "bytemuck",
  "critical-section",
@@ -1554,9 +1554,9 @@ dependencies = [
 
 [[package]]
 name = "bevy_tasks"
-version = "0.20.0-rc.2"
+version = "0.20.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bd59bcf4985254e6d9aceb5b2ce5efbdad82408e529c30904a8f06e4c34888ae"
+checksum = "fbd8116f12dc50bde3758a72fba85e1f4c00e6c66d0ad58bdc46c0c0690829a8"
 dependencies = [
  "async-channel",
  "async-executor",
